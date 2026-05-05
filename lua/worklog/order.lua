@@ -1,7 +1,5 @@
 local M = {}
 
-local MISSING_LABEL_MESSAGE = "missing label; add a trailing #label or declare a default label in the first worklog header"
-
 -- Worklog ordering operates on normalized timestamped items rather than raw
 -- lines. A timestamped line owns all following non-timestamped lines until the
 -- next timestamped line, while preamble lines before the first timestamp stay
@@ -77,19 +75,6 @@ function M.parse_items(lines, start_row, parse_time_line)
     table.insert(items, current)
   end
 
-  for i = 1, #items - 1 do
-    if items[i].label == nil then
-      return {
-        preamble_lines = preamble_lines,
-        items = items,
-        error = {
-          row = items[i].row,
-          message = MISSING_LABEL_MESSAGE,
-        },
-      }
-    end
-  end
-
   return {
     preamble_lines = preamble_lines,
     items = items,
@@ -100,6 +85,16 @@ function M.find_unordered_rows(items)
   for i = 2, #items do
     if items[i].minutes < items[i - 1].minutes then
       return items[i - 1].row, items[i].row
+    end
+  end
+
+  return nil
+end
+
+function M.find_missing_label_row(items)
+  for i = 1, #items - 1 do
+    if items[i].label == nil then
+      return items[i].row
     end
   end
 
@@ -145,7 +140,7 @@ function M.normalized_lines(parsed, default_label, format_time_line)
   return rebuild_lines(parsed.preamble_lines, parsed.items, default_label, format_time_line)
 end
 
-function M.sorted_lines(parsed, default_label, format_time_line)
+function M.sorted_items(parsed)
   local items = vim.deepcopy(parsed.items)
 
   -- Preserve original order for equal timestamps so WorklogOrder stays stable.
@@ -157,7 +152,11 @@ function M.sorted_lines(parsed, default_label, format_time_line)
     return a.minutes < b.minutes
   end)
 
-  return rebuild_lines(parsed.preamble_lines, items, default_label, format_time_line)
+  return items
+end
+
+function M.sorted_lines(parsed, default_label, format_time_line)
+  return rebuild_lines(parsed.preamble_lines, M.sorted_items(parsed), default_label, format_time_line)
 end
 
 return M

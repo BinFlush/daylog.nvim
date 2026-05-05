@@ -57,8 +57,11 @@ Most commands operate on the active worklog.
 - `WorklogCopy`, `WorklogSummarize`, and `WorklogQuantSum` use the active worklog
 - `WorklogRepeat` instead uses the worklog body containing the cursor
 
-All commands except `WorklogOrder` stop if any worklog block in the buffer has
-decreasing timestamps.
+`WorklogInsert`, `WorklogRepeat`, `WorklogCopy`, `WorklogSummarize`, and
+`WorklogQuantSum` validate only the worklog block they operate on.
+
+All commands except `WorklogOrder` stop if their target worklog block has
+decreasing timestamps or invalid worklog entries.
 
 ## Commands
 
@@ -79,6 +82,7 @@ Repeat the activity under the cursor at the current time.
 - the cursor must be inside a worklog block
 - the new entry is inserted in time order
 - equal timestamps stay grouped together
+- unlabeled closing lines cannot be repeated in worklogs without a default label
 - redundant default labels are normalized away when the new line is rendered
 - any following summary or totals blocks are left in place
 
@@ -153,7 +157,7 @@ One important consequence:
 
 - timestamps within a worklog must not decrease
 - equal timestamps are allowed
-- if a command finds decreasing timestamps anywhere in the buffer, it stops and warns with the absolute line numbers of the first offending pair
+- if a command finds decreasing timestamps in the target worklog block, it stops and warns with the absolute line numbers of the first offending pair
 - the warning suggests either fixing the lines manually or running `:WorklogOrder`
 
 ## Examples

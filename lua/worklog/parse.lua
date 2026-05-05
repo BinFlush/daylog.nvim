@@ -105,6 +105,7 @@ end
 -- }
 function M.parse_lines(lines, default_label)
   local entries = {}
+  local entry_rows = {}
 
   for i, line in ipairs(lines) do
     local entry, err = M.parse_time_line(line, default_label)
@@ -118,13 +119,14 @@ function M.parse_lines(lines, default_label)
 
     if entry then
       table.insert(entries, entry)
+      table.insert(entry_rows, i)
     end
   end
 
   for i = 1, #entries - 1 do
     if entries[i].label == nil then
       return nil, {
-        row = i,
+        row = entry_rows[i],
         message = MISSING_LABEL_MESSAGE,
       }
     end

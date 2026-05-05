@@ -142,4 +142,16 @@ return function(t)
     t.eq(err.row, 1)
     t.eq(err.message, parse.missing_label_message())
   end)
+
+  t.test("parse lines report missing-label source rows, not entry indexes", function()
+    local entries, err = parse.parse_lines({
+      "note",
+      "08:00 first",
+      "09:00 done",
+    })
+
+    t.eq(entries, nil)
+    t.eq(err.row, 2)
+    t.eq(err.message, parse.missing_label_message())
+  end)
 end

@@ -162,6 +162,29 @@ return function(t)
     })
   end)
 
+  t.test("repeat blocks unlabeled closing lines without a default label", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 first #sales",
+      "09:00 done",
+    })
+    t.set_cursor(3, 0)
+
+    local old_date = os.date
+    os.date = function()
+      return "09:30"
+    end
+
+    vim.cmd("WorklogRepeat")
+    os.date = old_date
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 first #sales",
+      "09:00 done",
+    })
+  end)
+
   t.test("insert orders into explicit worklog block after equal timestamps", function()
     t.reset({
       "--- worklog default=#ProjectOrion ---",
@@ -215,6 +238,40 @@ return function(t)
       "--- worklog ---",
       "08:00 plan #sales",
       "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h plan #sales",
+      "",
+      "--- labels exact ---",
+      "1.00h #sales",
+      "",
+      "--- totals exact ---",
+      "1.00h activity",
+      "1.00h workday",
+    })
+  end)
+
+  t.test("active summaries ignore unrelated invalid older worklog blocks", function()
+    t.reset({
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 broken #sales #meeting",
+      "09:00 done",
+      "",
+      "--- worklog ---",
+      "10:00 plan #sales",
+      "11:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+
+    t.eq(t.get_lines(), {
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 broken #sales #meeting",
+      "09:00 done",
+      "",
+      "--- worklog ---",
+      "10:00 plan #sales",
+      "11:00 done",
       "",
       "--- summary exact ---",
       "1.00h plan #sales",
@@ -351,6 +408,22 @@ return function(t)
     t.eq(t.get_lines(), {
       "--- worklog default=#ProjectOrion ---",
       "08:00 plan #sales #meeting",
+      "09:00 done",
+    })
+  end)
+
+  t.test("worklog order can repair a misplaced unlabeled closing line", function()
+    t.reset({
+      "--- worklog ---",
+      "09:00 done",
+      "08:00 plan #sales",
+    })
+
+    vim.cmd("WorklogOrder")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 plan #sales",
       "09:00 done",
     })
   end)
