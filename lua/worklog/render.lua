@@ -32,6 +32,10 @@ local function summary_line(prefix, item, default_label)
   return string.format("%s %s", prefix, text)
 end
 
+local function label_text(item)
+  return "#" .. item.label
+end
+
 function M.worklog_lines(lines)
   local rendered = {
     "",
@@ -59,6 +63,17 @@ function M.summary_lines(summary, kind)
   end
 
   table.insert(lines, "")
+
+  if kind == "exact" then
+    table.insert(lines, "--- labels exact ---")
+
+    for _, item in ipairs(summary.label_items or {}) do
+      table.insert(lines, string.format("%s %s", hours_string(item.duration), label_text(item)))
+    end
+
+    table.insert(lines, "")
+  end
+
   table.insert(lines, "--- totals" .. header_suffix .. " ---")
   table.insert(lines, string.format("%s activity", hours_string(summary.activity_total)))
   table.insert(lines, string.format("%s workday", hours_string(summary.workday_total)))

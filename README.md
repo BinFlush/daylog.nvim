@@ -92,6 +92,7 @@ Append an exact grouped summary for the active worklog.
 
 - intervals are computed from the original timestamps
 - repeated items are grouped by text and effective label
+- exact summaries also include a separate label totals block
 - output is rendered in decimal hours
 - non-default labels are shown on summary rows
 - `activity` includes all grouped items
@@ -164,6 +165,11 @@ Exact summary:
 0.32h coffee with ghost (ooo)
 0.42h polish trombone
 
+--- labels exact ---
+1.42h #ProjectOrion
+0.20h #sales
+0.32h #ooo
+
 --- totals exact ---
 1.93h activity
 1.62h workday
@@ -173,6 +179,7 @@ Here:
 
 - unlabeled rows belong to `#ProjectOrion`
 - `#sales` stays distinct from the default label
+- `--- labels exact ---` shows totals per effective label, including `#ooo`
 - `activity` includes `coffee with ghost (ooo)`
 - `workday` excludes it
 - the row totals are exact, not rounded to 15-minute blocks

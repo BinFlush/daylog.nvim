@@ -4,6 +4,34 @@ local function round_to_nearest_15(minutes)
   return math.floor((minutes + 7.5) / 15) * 15
 end
 
+local function summarize_labels(items)
+  local buckets = {}
+  local order = {}
+
+  for _, item in ipairs(items) do
+    local key = tostring(item.label)
+
+    if not buckets[key] then
+      buckets[key] = {
+        label = item.label,
+        duration = 0,
+        excluded = item.excluded,
+      }
+      table.insert(order, key)
+    end
+
+    buckets[key].duration = buckets[key].duration + item.duration
+  end
+
+  local label_items = {}
+
+  for _, key in ipairs(order) do
+    table.insert(label_items, buckets[key])
+  end
+
+  return label_items
+end
+
 function M.summarize(intervals, default_label)
   local buckets = {}
   local order = {}
@@ -41,6 +69,7 @@ function M.summarize(intervals, default_label)
 
   return {
     items = items,
+    label_items = summarize_labels(items),
     default_label = default_label,
     activity_total = activity_total,
     workday_total = workday_total,
@@ -100,6 +129,8 @@ function M.quantized_summarize(intervals, default_label)
       summary.workday_total = summary.workday_total + item.duration
     end
   end
+
+  summary.label_items = summarize_labels(summary.items)
 
   return summary
 end

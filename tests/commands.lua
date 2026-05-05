@@ -34,7 +34,9 @@ return function(t)
     t.eq(lines[6], "--- summary exact ---")
     t.eq(lines[7], "0.00h same")
     t.eq(lines[8], "1.00h same again")
-    t.eq(lines[11], "1.00h activity")
+    t.eq(lines[10], "--- labels exact ---")
+    t.eq(lines[11], "1.00h #ProjectOrion")
+    t.eq(lines[14], "1.00h activity")
   end)
 
   t.test("worklog order rewrites all worklog blocks", function()
@@ -222,12 +224,13 @@ return function(t)
     })
   end)
 
-  t.test("summaries keep explicit labels distinct and omit the default label", function()
+  t.test("summaries keep exact label totals and omit the default label on item rows", function()
     t.reset({
       "--- worklog default=#ProjectOrion ---",
       "08:00 plan",
       "08:30 plan #sales",
-      "09:00 done",
+      "09:00 break #ooo",
+      "09:15 done",
     })
 
     vim.cmd("WorklogSummarize")
@@ -236,14 +239,21 @@ return function(t)
       "--- worklog default=#ProjectOrion ---",
       "08:00 plan",
       "08:30 plan #sales",
-      "09:00 done",
+      "09:00 break #ooo",
+      "09:15 done",
       "",
       "--- summary exact ---",
       "0.50h plan",
       "0.50h plan #sales",
+      "0.25h break (ooo)",
+      "",
+      "--- labels exact ---",
+      "0.50h #ProjectOrion",
+      "0.50h #sales",
+      "0.25h #ooo",
       "",
       "--- totals exact ---",
-      "1.00h activity",
+      "1.25h activity",
       "1.00h workday",
     })
   end)
