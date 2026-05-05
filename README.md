@@ -107,6 +107,7 @@ Append a grouped summary whose item durations are quantized to 15-minute blocks.
 - intervals are still computed from the original timestamps
 - identical items are grouped before quantization
 - output is rendered in decimal hours
+- each grouped row shows a signed minute delta of exact minus quantized time
 - `activity` is the sum of all quantized grouped items
 - `workday` is the sum of quantized grouped items not marked `#ooo`
 
@@ -122,6 +123,10 @@ Append a grouped summary whose item durations are quantized to 15-minute blocks.
 
 This keeps the quantized summary close to the exact total while making the
 displayed grouped totals add up cleanly.
+
+Each displayed grouped row also includes a signed minute delta in parentheses.
+The delta is `exact grouped minutes - displayed quantized minutes`, so a
+positive value means the exact grouped time was longer than the displayed row.
 
 One important consequence:
 
@@ -181,10 +186,10 @@ Using the same input worklog `:WorklogQuantSum` appends:
 
 ```text
 --- summary quantized ---
-1.00h bake strudel
-0.25h negotiate with goose
-0.25h coffee with ghost (ooo)
-0.50h polish trombone
+1.00h (+0m) bake strudel
+0.25h (-3m) negotiate with goose
+0.25h (+4m) coffee with ghost (ooo)
+0.50h (-5m) polish trombone
 
 --- totals quantized ---
 2.00h activity
@@ -196,6 +201,7 @@ Here:
 - the exact `activity` total of `1.93h` is rounded to `2.00h`
 - grouped items are rounded together, not one interval at a time
 - the displayed grouped rows add up exactly to the displayed totals
+- the signed minute delta shows how each displayed row differs from the exact grouped time
 
 ### Example: copying a worklog block
 
@@ -264,8 +270,8 @@ Input buffer:
 09:00 done
 
 --- summary quantized ---
-0.50h bake strudel
-0.25h mail wizard council
+0.50h (+0m) bake strudel
+0.25h (+0m) mail wizard council
 
 --- totals quantized ---
 0.75h activity

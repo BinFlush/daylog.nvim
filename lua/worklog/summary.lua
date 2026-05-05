@@ -60,6 +60,7 @@ function M.quantized_summarize(intervals)
     local base = math.floor(item.duration / 15) * 15
     local remainder = item.duration - base
 
+    item.error_minutes = remainder
     item.duration = base
     quantized_total = quantized_total + base
 
@@ -83,6 +84,7 @@ function M.quantized_summarize(intervals)
     local ranked_item = ranked[i]
     if ranked_item then
       summary.items[ranked_item.index].duration = summary.items[ranked_item.index].duration + 15
+      summary.items[ranked_item.index].error_minutes = summary.items[ranked_item.index].error_minutes - 15
     end
   end
 

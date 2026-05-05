@@ -24,7 +24,12 @@ function M.summary_lines(summary, kind)
 
   for _, item in ipairs(summary.items) do
     local item_suffix = item.excluded and " (ooo)" or ""
-    table.insert(lines, string.format("%s %s%s", hours_string(item.duration), item.text, item_suffix))
+
+    if kind == "quantized" then
+      table.insert(lines, string.format("%s (%+dm) %s%s", hours_string(item.duration), item.error_minutes or 0, item.text, item_suffix))
+    else
+      table.insert(lines, string.format("%s %s%s", hours_string(item.duration), item.text, item_suffix))
+    end
   end
 
   table.insert(lines, "")

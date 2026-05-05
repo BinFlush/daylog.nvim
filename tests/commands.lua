@@ -289,7 +289,41 @@ return function(t)
     t.eq(lines[9], "0.50h earlier")
     t.eq(lines[10], "0.50h later")
     t.eq(lines[16], "--- summary quantized ---")
-    t.eq(lines[17], "0.50h earlier")
-    t.eq(lines[18], "0.50h later")
+    t.eq(lines[17], "0.50h (+0m) earlier")
+    t.eq(lines[18], "0.50h (+0m) later")
+  end)
+
+  t.test("quantsum shows signed exact deltas", function()
+    t.reset({
+      "08:04 bake strudel",
+      "08:21 negotiate with goose",
+      "08:33 bake strudel",
+      "08:52 coffee with ghost #ooo",
+      "09:11 polish trombone",
+      "09:36 bake strudel",
+      "10:00 done",
+    })
+
+    vim.cmd("WorklogQuantSum")
+
+    t.eq(t.get_lines(), {
+      "08:04 bake strudel",
+      "08:21 negotiate with goose",
+      "08:33 bake strudel",
+      "08:52 coffee with ghost #ooo",
+      "09:11 polish trombone",
+      "09:36 bake strudel",
+      "10:00 done",
+      "",
+      "--- summary quantized ---",
+      "1.00h (+0m) bake strudel",
+      "0.25h (-3m) negotiate with goose",
+      "0.25h (+4m) coffee with ghost (ooo)",
+      "0.50h (-5m) polish trombone",
+      "",
+      "--- totals quantized ---",
+      "2.00h activity",
+      "1.75h workday",
+    })
   end)
 end
