@@ -36,6 +36,10 @@ local function label_text(item)
   return "#" .. item.label
 end
 
+local function label_line(prefix, item)
+  return string.format("%s %s", prefix, label_text(item))
+end
+
 function M.worklog_lines(lines)
   local rendered = {
     "",
@@ -68,7 +72,15 @@ function M.summary_lines(summary, kind)
     table.insert(lines, "--- labels exact ---")
 
     for _, item in ipairs(summary.label_items or {}) do
-      table.insert(lines, string.format("%s %s", hours_string(item.duration), label_text(item)))
+      table.insert(lines, label_line(hours_string(item.duration), item))
+    end
+
+    table.insert(lines, "")
+  elseif kind == "quantized" then
+    table.insert(lines, "--- labels quantized ---")
+
+    for _, item in ipairs(summary.label_items or {}) do
+      table.insert(lines, label_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
     end
 
     table.insert(lines, "")

@@ -104,6 +104,7 @@ Append a grouped summary whose item durations are quantized to 15-minute blocks.
 
 - intervals are still computed from the original timestamps
 - identical items are grouped by text and effective label before quantization
+- quantized summaries also include a separate label totals block
 - output is rendered in decimal hours
 - each grouped row shows a signed minute delta of exact minus quantized time
 - non-default labels are shown on summary rows
@@ -195,6 +196,11 @@ Using the same input worklog `:WorklogQuantSum` appends:
 0.25h (+4m) coffee with ghost (ooo)
 0.50h (-5m) polish trombone
 
+--- labels quantized ---
+1.50h (-5m) #ProjectOrion
+0.25h (-3m) #sales
+0.25h (+4m) #ooo
+
 --- totals quantized ---
 2.00h activity
 1.75h workday
@@ -206,6 +212,7 @@ Here:
 - grouped items are rounded together, not one interval at a time
 - the displayed grouped rows add up exactly to the displayed totals
 - the signed minute delta shows how each displayed row differs from the exact grouped time
+- `--- labels quantized ---` rolls those quantized rows up per effective label
 
 ### Example: copying a worklog block
 

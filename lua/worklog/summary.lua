@@ -32,6 +32,16 @@ local function summarize_labels(items)
   return label_items
 end
 
+local function label_items_by_key(items)
+  local result = {}
+
+  for _, item in ipairs(items) do
+    result[tostring(item.label)] = item
+  end
+
+  return result
+end
+
 function M.summarize(intervals, default_label)
   local buckets = {}
   local order = {}
@@ -83,6 +93,7 @@ end
 -- excluded from the final workday total.
 function M.quantized_summarize(intervals, default_label)
   local summary = M.summarize(intervals, default_label)
+  local exact_label_items = summary.label_items
   local target_total = round_to_nearest_15(summary.activity_total)
   local quantized_total = 0
   local ranked = {}
@@ -130,7 +141,22 @@ function M.quantized_summarize(intervals, default_label)
     end
   end
 
-  summary.label_items = summarize_labels(summary.items)
+  local quantized_label_items = summarize_labels(summary.items)
+  local quantized_by_label = label_items_by_key(quantized_label_items)
+  local label_items = {}
+
+  for _, item in ipairs(exact_label_items) do
+    local quantized_item = quantized_by_label[tostring(item.label)]
+
+    table.insert(label_items, {
+      label = item.label,
+      duration = quantized_item and quantized_item.duration or 0,
+      error_minutes = item.duration - (quantized_item and quantized_item.duration or 0),
+      excluded = item.excluded,
+    })
+  end
+
+  summary.label_items = label_items
 
   return summary
 end
