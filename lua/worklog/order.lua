@@ -1,5 +1,7 @@
 local M = {}
 
+local MISSING_LABEL_MESSAGE = "missing label; add a trailing #label or declare a default label in the first worklog header"
+
 -- Worklog ordering operates on normalized timestamped items rather than raw
 -- lines. A timestamped line owns all following non-timestamped lines until the
 -- next timestamped line, while preamble lines before the first timestamp stay
@@ -73,6 +75,19 @@ function M.parse_items(lines, start_row, parse_time_line)
   current = finalize_item(current)
   if current then
     table.insert(items, current)
+  end
+
+  for i = 1, #items - 1 do
+    if items[i].label == nil then
+      return {
+        preamble_lines = preamble_lines,
+        items = items,
+        error = {
+          row = items[i].row,
+          message = MISSING_LABEL_MESSAGE,
+        },
+      }
+    end
   end
 
   return {

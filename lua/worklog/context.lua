@@ -2,7 +2,7 @@ local blocks = require("worklog.blocks")
 
 local M = {}
 
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be --- worklog default=#label ---"
+local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be --- worklog --- or --- worklog default=#label ---"
 
 -- Context selection answers "which worklog block should this command use?"
 -- The returned table keeps the original buffer lines, the selected block, and

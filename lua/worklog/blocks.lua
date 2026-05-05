@@ -59,8 +59,8 @@ function M.parse(lines)
 
   local first = headers[1]
 
-  if first.start_row ~= 1 or not first.is_worklog or not first.default_label then
-    blocks.error = "worklog: first line must be --- worklog default=#label ---"
+  if first.start_row ~= 1 or not first.is_worklog then
+    blocks.error = "worklog: first line must be --- worklog --- or --- worklog default=#label ---"
   else
     blocks.default_label = first.default_label
   end

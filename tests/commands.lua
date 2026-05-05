@@ -202,6 +202,47 @@ return function(t)
     })
   end)
 
+  t.test("summaries allow unlabeled final closing line without a default label", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 plan #sales",
+      "09:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 plan #sales",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h plan #sales",
+      "",
+      "--- labels exact ---",
+      "1.00h #sales",
+      "",
+      "--- totals exact ---",
+      "1.00h activity",
+      "1.00h workday",
+    })
+  end)
+
+  t.test("missing labels without a default block commands", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+  end)
+
   t.test("repeat ignores non-worklog lines", function()
     t.reset({
       "--- worklog default=#ProjectOrion ---",

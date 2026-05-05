@@ -272,7 +272,7 @@ function M.order_worklogs()
   end
 
   if #parsed == 0 then
-    warn("worklog: no worklog block found; first line must be --- worklog default=#label ---")
+    warn("worklog: no worklog block found; first line must be --- worklog --- or --- worklog default=#label ---")
     return
   end
 

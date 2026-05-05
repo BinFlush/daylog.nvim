@@ -51,6 +51,18 @@ return function(t)
     t.eq(blocks.get_worklog_at_row(parsed, 5), nil)
   end)
 
+  t.test("first worklog header may omit the default label", function()
+    local parsed = blocks.parse({
+      "--- worklog ---",
+      "08:00 raw #sales",
+      "09:00 done",
+    })
+
+    t.eq(parsed.error, nil)
+    t.eq(parsed.default_label, nil)
+    t.eq(parsed[1].header, "--- worklog ---")
+  end)
+
   t.test("body extraction and insert index", function()
     local lines = {
       "--- worklog default=#ProjectOrion ---",
@@ -77,12 +89,12 @@ return function(t)
 
   t.test("invalid first header reports parse error", function()
     local parsed = blocks.parse({
-      "--- worklog ---",
+      "--- summary exact ---",
       "08:00 raw",
       "09:00",
     })
 
-    t.eq(parsed.error, "worklog: first line must be --- worklog default=#label ---")
+    t.eq(parsed.error, "worklog: first line must be --- worklog --- or --- worklog default=#label ---")
   end)
 
   t.test("later worklog headers may not redeclare default label", function()

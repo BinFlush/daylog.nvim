@@ -41,6 +41,14 @@ return function(t)
     t.eq(entry.excluded, false)
   end)
 
+  t.test("parse bare timestamp without default leaves label empty", function()
+    local entry = parse.parse_time_line("08:04")
+    t.eq(entry.minutes, 484)
+    t.eq(entry.text, "")
+    t.eq(entry.label, nil)
+    t.eq(entry.excluded, false)
+  end)
+
   t.test("reject malformed suffix", function()
     local entry, err = parse.parse_time_line("08:04x", "ProjectOrion")
     t.eq(entry, false)
@@ -100,5 +108,38 @@ return function(t)
     t.eq(entries, nil)
     t.eq(err.row, 2)
     t.eq(err.message, "multiple trailing labels are not allowed")
+  end)
+
+  t.test("parse lines allow unlabeled final closing line without default", function()
+    local entries = parse.parse_lines({
+      "08:00 first #sales",
+      "09:00 done",
+    })
+
+    t.eq(entries, {
+      {
+        minutes = 480,
+        text = "first",
+        label = "sales",
+        excluded = false,
+      },
+      {
+        minutes = 540,
+        text = "done",
+        label = nil,
+        excluded = false,
+      },
+    })
+  end)
+
+  t.test("parse lines reject unlabeled non-final entries without default", function()
+    local entries, err = parse.parse_lines({
+      "08:00 first",
+      "09:00 done",
+    })
+
+    t.eq(entries, nil)
+    t.eq(err.row, 1)
+    t.eq(err.message, parse.missing_label_message())
   end)
 end

@@ -45,6 +45,18 @@ return function(t)
     t.eq(parsed.error.message, "multiple trailing labels are not allowed")
   end)
 
+  t.test("parse items reject unlabeled non-final entries without default", function()
+    local parsed = order.parse_items({
+      "08:00 first",
+      "09:00 done",
+    }, 20, function(line)
+      return parse.parse_time_line(line)
+    end)
+
+    t.eq(parsed.error.row, 20)
+    t.eq(parsed.error.message, parse.missing_label_message())
+  end)
+
   t.test("find unordered rows reports first decreasing pair", function()
     local parsed = order.parse_items({
       "08:30 later",

@@ -12,8 +12,8 @@ filetype automatically.
 
 ## File Format
 
-Each worklog file starts with an explicit file-level header that declares the
-default label:
+Each worklog file starts with an explicit worklog header. The first header may
+optionally declare a file-wide default label:
 
 ```text
 --- worklog default=#ProjectOrion ---
@@ -23,13 +23,25 @@ default label:
 10:00 done
 ```
 
+Or without a default label:
+
+```text
+--- worklog ---
+08:04 bake strudel #ProjectOrion
+08:21 negotiate with goose #sales
+08:52 coffee with ghost #ooo
+10:00 done
+```
+
 Rules:
 
-- the first line must be `--- worklog default=#label ---`
+- the first line must be `--- worklog ---` or `--- worklog default=#label ---`
 - later editable worklog blocks use `--- worklog ---`
 - a worklog line starts with a valid `HH:MM` time and may be followed by text
 - exactly one trailing `#label` is allowed on a worklog line
-- if a line has no explicit trailing label, it belongs to the file default label
+- if the first header declares a default label, unlabeled lines inherit it
+- if there is no default label, every non-final timestamped entry must carry a trailing `#label`
+- the final closing timestamp line may omit its label even when no default exists
 - `#ooo` is exclusive and does not inherit the default label
 - multiple trailing labels are invalid and block commands
 - non-timestamped lines are ignored unless they are attached notes under a timestamped item
@@ -312,7 +324,7 @@ The older block and the appended summary are ignored for the next operation.
 
 One simple workflow is:
 
-1. create a `.wkl` file that starts with `--- worklog default=#your-label ---`
+1. create a `.wkl` file that starts with `--- worklog ---` or `--- worklog default=#your-label ---`
 2. jot down raw timestamped lines during the day
 3. at the end of the day, use `:WorklogCopy` to create a new editable worklog block, if need be
 4. adjust timestamps and texts in the copied block if needed
