@@ -94,6 +94,8 @@ end
 function M.quantized_summarize(intervals, default_label)
   local summary = M.summarize(intervals, default_label)
   local exact_label_items = summary.label_items
+  local exact_activity_total = summary.activity_total
+  local exact_workday_total = summary.workday_total
   local target_total = round_to_nearest_15(summary.activity_total)
   local quantized_total = 0
   local ranked = {}
@@ -157,6 +159,8 @@ function M.quantized_summarize(intervals, default_label)
   end
 
   summary.label_items = label_items
+  summary.activity_error_minutes = exact_activity_total - summary.activity_total
+  summary.workday_error_minutes = exact_workday_total - summary.workday_total
 
   return summary
 end

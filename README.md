@@ -111,6 +111,7 @@ Append a grouped summary whose item durations are quantized to 15-minute blocks.
 - output is rendered in decimal hours
 - each grouped row shows a signed minute delta of exact minus quantized time
 - non-default labels are shown on summary rows
+- quantized totals also show signed minute deltas
 - `activity` is the sum of all quantized grouped items
 - `workday` is the sum of quantized grouped items not marked `#ooo`
 
@@ -205,8 +206,8 @@ Using the same input worklog `:WorklogQuantSum` appends:
 0.25h (+4m) #ooo
 
 --- totals quantized ---
-2.00h activity
-1.75h workday
+2.00h (-4m) activity
+1.75h (-8m) workday
 ```
 
 Here:
@@ -216,6 +217,7 @@ Here:
 - the displayed grouped rows add up exactly to the displayed totals
 - the signed minute delta shows how each displayed row differs from the exact grouped time
 - `--- labels quantized ---` rolls those quantized rows up per effective label
+- the totals lines show the same exact-minus-displayed delta for `activity` and `workday`
 
 ### Example: copying a worklog block
 

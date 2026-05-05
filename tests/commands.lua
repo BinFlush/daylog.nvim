@@ -294,8 +294,8 @@ return function(t)
       "0.25h (+4m) #ooo",
       "",
       "--- totals quantized ---",
-      "2.00h activity",
-      "1.75h workday",
+      "2.00h (-4m) activity",
+      "1.75h (-8m) workday",
     })
   end)
 

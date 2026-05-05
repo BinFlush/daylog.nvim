@@ -87,8 +87,14 @@ function M.summary_lines(summary, kind)
   end
 
   table.insert(lines, "--- totals" .. header_suffix .. " ---")
-  table.insert(lines, string.format("%s activity", hours_string(summary.activity_total)))
-  table.insert(lines, string.format("%s workday", hours_string(summary.workday_total)))
+
+  if kind == "quantized" then
+    table.insert(lines, string.format("%s (%+dm) activity", hours_string(summary.activity_total), summary.activity_error_minutes or 0))
+    table.insert(lines, string.format("%s (%+dm) workday", hours_string(summary.workday_total), summary.workday_error_minutes or 0))
+  else
+    table.insert(lines, string.format("%s activity", hours_string(summary.activity_total)))
+    table.insert(lines, string.format("%s workday", hours_string(summary.workday_total)))
+  end
 
   return lines
 end
