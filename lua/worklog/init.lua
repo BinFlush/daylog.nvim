@@ -8,56 +8,95 @@ local render = require("worklog.render")
 
 local M = {}
 
+local function warn(message)
+  vim.notify(message, vim.log.levels.WARN)
+end
+
+local function warn_invalid_entry(error)
+  warn(string.format("worklog: invalid worklog entry at line %d: %s", error.row, error.message))
+end
+
 -- Commands either operate on the active worklog (copy/summarize) or on the
 -- worklog containing the cursor (insert/repeat). Keep those lookups here so
 -- the command bodies read as straightforward orchestration.
-local function get_active_worklog_lines()
+local function get_active_worklog_context()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-  local ctx = context.get_active_worklog_context(lines)
+  local ctx, err = context.get_active_worklog_context(lines)
 
   if not ctx then
-    return {}
+    warn(err)
+    return nil
   end
 
-  return ctx.body_lines
+  return ctx
 end
 
 local function get_worklog_context_at_cursor()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local row = vim.api.nvim_win_get_cursor(0)[1]
-  return context.get_worklog_context_at_row(lines, row)
+  local ctx, err = context.get_worklog_context_at_row(lines, row)
+
+  if not ctx then
+    warn(err)
+    return nil
+  end
+
+  return ctx
 end
 
-local function get_ordered_insert_index(context, minutes)
-  local lines = context.lines
-  local block = context.block
-
+local function get_ordered_insert_index(ctx, minutes)
+  local lines = ctx.lines
+  local block = ctx.block
   local body_lines = blocks.get_body_lines(lines, block)
-  local parsed_body = order.parse_items(body_lines, block.body_start_row, parse.parse_time_line)
+  local parsed_body = order.parse_items(body_lines, block.body_start_row, function(line)
+    return parse.parse_time_line(line, ctx.default_label)
+  end)
+
+  if parsed_body.error then
+    warn_invalid_entry(parsed_body.error)
+    return nil
+  end
+
   return order.get_insert_row(parsed_body.items, minutes, blocks.get_insert_index(block))
 end
 
 local function insert_into_current_worklog(line, minutes)
-  local context = get_worklog_context_at_cursor()
+  local ctx = get_worklog_context_at_cursor()
 
-  if not context then
-    vim.notify("worklog: current line is not inside a worklog block", vim.log.levels.WARN)
+  if not ctx then
     return nil
   end
 
-  local insert_at = get_ordered_insert_index(context, minutes)
+  local insert_at = get_ordered_insert_index(ctx, minutes)
+  if not insert_at then
+    return nil
+  end
+
   vim.api.nvim_buf_set_lines(0, insert_at, insert_at, false, { line })
 
   return insert_at
 end
 
-local function get_active_entries()
-  local lines = get_active_worklog_lines()
-  return parse.parse_lines(lines)
+local function get_active_entries(ctx)
+  local entries, err = parse.parse_lines(ctx.body_lines, ctx.default_label)
+
+  if not entries then
+    warn_invalid_entry({
+      row = ctx.block.body_start_row + err.row - 1,
+      message = err.message,
+    })
+    return nil
+  end
+
+  return entries
 end
 
-local function get_active_intervals()
-  local entries = get_active_entries()
+local function get_active_intervals(ctx)
+  local entries = get_active_entries(ctx)
+  if not entries then
+    return nil
+  end
+
   return intervals.build(entries)
 end
 
@@ -66,23 +105,14 @@ local function append_lines(lines)
   vim.api.nvim_buf_set_lines(0, last, last, false, lines)
 end
 
-local function format_entry_line(entry, time)
-  local parts = { time }
-
-  if entry.text ~= "" then
-    table.insert(parts, entry.text)
-  end
-
-  if entry.excluded then
-    table.insert(parts, "#ooo")
-  end
-
-  return table.concat(parts, " ")
-end
-
 local function warn_if_unordered_worklogs()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local parsed = blocks.parse(lines)
+
+  if parsed.error then
+    warn(parsed.error)
+    return true
+  end
 
   -- Interval building assumes non-decreasing timestamps in every worklog. Stop
   -- early with a concrete line-number warning before any command mutates or
@@ -90,18 +120,23 @@ local function warn_if_unordered_worklogs()
   for _, block in ipairs(parsed) do
     if blocks.is_worklog(block) then
       local body_lines = blocks.get_body_lines(lines, block)
-      local parsed_body = order.parse_items(body_lines, block.body_start_row, parse.parse_time_line)
+      local parsed_body = order.parse_items(body_lines, block.body_start_row, function(line)
+        return parse.parse_time_line(line, parsed.default_label)
+      end)
+
+      if parsed_body.error then
+        warn_invalid_entry(parsed_body.error)
+        return true
+      end
+
       local first_row, second_row = order.find_unordered_rows(parsed_body.items)
 
       if first_row then
-        vim.notify(
-          string.format(
-            "worklog: unordered timestamps near lines %d and %d; fix manually or run :WorklogOrder",
-            first_row,
-            second_row
-          ),
-          vim.log.levels.WARN
-        )
+        warn(string.format(
+          "worklog: unordered timestamps near lines %d and %d; fix manually or run :WorklogOrder",
+          first_row,
+          second_row
+        ))
         return true
       end
     end
@@ -131,53 +166,94 @@ end
 
 -- Append a summary and totals block based on the active worklog.
 function M.append_summary()
+  local ctx = get_active_worklog_context()
+  if not ctx then
+    return
+  end
+
   if warn_if_unordered_worklogs() then
     return
   end
 
-  local ivs = get_active_intervals()
-  local result = summary.summarize(ivs)
+  local ivs = get_active_intervals(ctx)
+  if not ivs then
+    return
+  end
+
+  local result = summary.summarize(ivs, ctx.default_label)
   local rendered = render.summary_lines(result, "exact")
 
   append_lines(rendered)
 end
 
 function M.append_quantized_summary()
+  local ctx = get_active_worklog_context()
+  if not ctx then
+    return
+  end
+
   if warn_if_unordered_worklogs() then
     return
   end
 
-  local ivs = get_active_intervals()
-  local result = summary.quantized_summarize(ivs)
+  local ivs = get_active_intervals(ctx)
+  if not ivs then
+    return
+  end
+
+  local result = summary.quantized_summarize(ivs, ctx.default_label)
   local rendered = render.summary_lines(result, "quantized")
 
   append_lines(rendered)
 end
 
 function M.append_copy()
+  local ctx = get_active_worklog_context()
+  if not ctx then
+    return
+  end
+
   if warn_if_unordered_worklogs() then
     return
   end
 
-  local lines = get_active_worklog_lines()
-  local parsed = order.parse_items(lines, 1, parse.parse_time_line)
-  local rendered = render.worklog_lines(order.normalized_lines(parsed))
+  local parsed = order.parse_items(ctx.body_lines, ctx.block.body_start_row, function(line)
+    return parse.parse_time_line(line, ctx.default_label)
+  end)
+
+  if parsed.error then
+    warn_invalid_entry(parsed.error)
+    return
+  end
+
+  local rendered = render.worklog_lines(order.normalized_lines(parsed, ctx.default_label, parse.format_time_line))
   append_lines(rendered)
 end
 
 function M.repeat_current()
+  local ctx = get_worklog_context_at_cursor()
+  if not ctx then
+    return
+  end
+
   if warn_if_unordered_worklogs() then
     return
   end
 
-  local entry = parse.parse_time_line(vim.api.nvim_get_current_line())
-  if not entry then
-    vim.notify("worklog: current line is not a valid worklog entry", vim.log.levels.WARN)
+  local entry = parse.parse_time_line(vim.api.nvim_get_current_line(), ctx.default_label)
+  if not entry or entry == false then
+    warn("worklog: current line is not a valid worklog entry")
     return
   end
 
-  local line = format_entry_line(entry, os.date("%H:%M"))
-  local insert_at = insert_into_current_worklog(line, parse.parse_time_line(line).minutes)
+  local minutes = parse.parse_time_line(os.date("%H:%M")).minutes
+  local line = parse.format_time_line({
+    minutes = minutes,
+    text = entry.text,
+    label = entry.label,
+    excluded = entry.excluded,
+  }, ctx.default_label)
+  local insert_at = insert_into_current_worklog(line, minutes)
   if not insert_at then
     return
   end
@@ -187,13 +263,31 @@ function M.order_worklogs()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local parsed = blocks.parse(lines)
 
+  if parsed.error then
+    warn(parsed.error)
+    return
+  end
+
+  if #parsed == 0 then
+    warn("worklog: no worklog block found; first line must be --- worklog default=#label ---")
+    return
+  end
+
   for i = #parsed, 1, -1 do
     local block = parsed[i]
 
     if blocks.is_worklog(block) then
       local body_lines = blocks.get_body_lines(lines, block)
-      local parsed_body = order.parse_items(body_lines, block.body_start_row, parse.parse_time_line)
-      local sorted_lines = order.sorted_lines(parsed_body)
+      local parsed_body = order.parse_items(body_lines, block.body_start_row, function(line)
+        return parse.parse_time_line(line, parsed.default_label)
+      end)
+
+      if parsed_body.error then
+        warn_invalid_entry(parsed_body.error)
+        return
+      end
+
+      local sorted_lines = order.sorted_lines(parsed_body, parsed.default_label, parse.format_time_line)
       vim.api.nvim_buf_set_lines(0, block.body_start_row - 1, block.end_row - 1, false, sorted_lines)
     end
   end

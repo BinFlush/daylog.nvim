@@ -2,12 +2,35 @@ local M = {}
 
 local WORKLOG_HEADER = "--- worklog ---"
 
-local function is_header(line)
-  return line:match("^%-%-%- .+ %-%-%-$") ~= nil
+local function parse_header(line)
+  local default_label = line:match("^%-%-%- worklog default=#([%w_%-]+) %-%-%-$")
+  if default_label then
+    return {
+      header = line,
+      is_worklog = true,
+      default_label = default_label,
+    }
+  end
+
+  if line == WORKLOG_HEADER then
+    return {
+      header = line,
+      is_worklog = true,
+    }
+  end
+
+  if line:match("^%-%-%- .+ %-%-%-$") then
+    return {
+      header = line,
+      is_worklog = false,
+    }
+  end
+
+  return nil
 end
 
 local function is_worklog(block)
-  return block.header == nil or block.header == WORKLOG_HEADER
+  return block.is_worklog == true
 end
 
 function M.is_worklog(block)
@@ -16,36 +39,30 @@ end
 
 function M.parse(lines)
   local headers = {}
+  local blocks = {
+    default_label = nil,
+    error = nil,
+  }
 
   for i, line in ipairs(lines) do
-    if is_header(line) then
-      table.insert(headers, {
-        header = line,
-        start_row = i,
-        body_start_row = i + 1,
-      })
+    local header = parse_header(line)
+    if header then
+      header.start_row = i
+      header.body_start_row = i + 1
+      table.insert(headers, header)
     end
   end
 
-  local blocks = {}
-
   if #headers == 0 then
-    table.insert(blocks, {
-      header = nil,
-      start_row = 1,
-      body_start_row = 1,
-      end_row = #lines + 1,
-    })
     return blocks
   end
 
-  if headers[1].start_row > 1 then
-    table.insert(blocks, {
-      header = nil,
-      start_row = 1,
-      body_start_row = 1,
-      end_row = headers[1].start_row,
-    })
+  local first = headers[1]
+
+  if first.start_row ~= 1 or not first.is_worklog or not first.default_label then
+    blocks.error = "worklog: first line must be --- worklog default=#label ---"
+  else
+    blocks.default_label = first.default_label
   end
 
   for i, block in ipairs(headers) do
@@ -53,6 +70,10 @@ function M.parse(lines)
 
     block.end_row = next_block and next_block.start_row or (#lines + 1)
     table.insert(blocks, block)
+
+    if i > 1 and block.is_worklog and block.default_label and not blocks.error then
+      blocks.error = "worklog: only the first worklog header may declare a default label"
+    end
   end
 
   return blocks

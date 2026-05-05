@@ -16,6 +16,7 @@ function M.build(entries)
       stop = next.minutes,
       duration = next.minutes - current.minutes,
       text = current.text,
+      label = current.label,
       excluded = current.excluded,
     })
   end

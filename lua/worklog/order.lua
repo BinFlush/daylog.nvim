@@ -35,7 +35,18 @@ function M.parse_items(lines, start_row, parse_time_line)
   local current = nil
 
   for i, line in ipairs(lines) do
-    local entry = parse_time_line(line)
+    local entry, err = parse_time_line(line)
+
+    if entry == false then
+      return {
+        preamble_lines = preamble_lines,
+        items = items,
+        error = {
+          row = start_row + i - 1,
+          message = err,
+        },
+      }
+    end
 
     if entry then
       current = finalize_item(current)
@@ -46,6 +57,7 @@ function M.parse_items(lines, start_row, parse_time_line)
       current = {
         minutes = entry.minutes,
         text = entry.text,
+        label = entry.label,
         excluded = entry.excluded,
         row = start_row + i - 1,
         index = #items + 1,
@@ -91,7 +103,7 @@ function M.get_insert_row(items, minutes, default_row)
   return default_row
 end
 
-local function rebuild_lines(preamble_lines, items)
+local function rebuild_lines(preamble_lines, items, default_label, format_time_line)
   local lines = {}
 
   for _, line in ipairs(preamble_lines) do
@@ -99,19 +111,26 @@ local function rebuild_lines(preamble_lines, items)
   end
 
   for _, item in ipairs(items) do
-    for _, line in ipairs(item.lines) do
-      table.insert(lines, line)
+    if format_time_line then
+      table.insert(lines, format_time_line(item, default_label))
+      for i = 2, #item.lines do
+        table.insert(lines, item.lines[i])
+      end
+    else
+      for _, line in ipairs(item.lines) do
+        table.insert(lines, line)
+      end
     end
   end
 
   return trim_trailing_empty_lines(lines)
 end
 
-function M.normalized_lines(parsed)
-  return rebuild_lines(parsed.preamble_lines, parsed.items)
+function M.normalized_lines(parsed, default_label, format_time_line)
+  return rebuild_lines(parsed.preamble_lines, parsed.items, default_label, format_time_line)
 end
 
-function M.sorted_lines(parsed)
+function M.sorted_lines(parsed, default_label, format_time_line)
   local items = vim.deepcopy(parsed.items)
 
   -- Preserve original order for equal timestamps so WorklogOrder stays stable.
@@ -123,7 +142,7 @@ function M.sorted_lines(parsed)
     return a.minutes < b.minutes
   end)
 
-  return rebuild_lines(parsed.preamble_lines, items)
+  return rebuild_lines(parsed.preamble_lines, items, default_label, format_time_line)
 end
 
 return M

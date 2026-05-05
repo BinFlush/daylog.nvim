@@ -4,7 +4,7 @@ local function round_to_nearest_15(minutes)
   return math.floor((minutes + 7.5) / 15) * 15
 end
 
-function M.summarize(intervals)
+function M.summarize(intervals, default_label)
   local buckets = {}
   local order = {}
 
@@ -12,11 +12,12 @@ function M.summarize(intervals)
   local workday_total = 0
 
   for _, iv in ipairs(intervals) do
-    local key = iv.text .. "|" .. tostring(iv.excluded)
+    local key = iv.text .. "|" .. tostring(iv.label) .. "|" .. tostring(iv.excluded)
 
     if not buckets[key] then
       buckets[key] = {
         text = iv.text,
+        label = iv.label,
         duration = 0,
         excluded = iv.excluded,
       }
@@ -40,6 +41,7 @@ function M.summarize(intervals)
 
   return {
     items = items,
+    default_label = default_label,
     activity_total = activity_total,
     workday_total = workday_total,
   }
@@ -50,8 +52,8 @@ end
 -- item is rounded down, and the remaining 15-minute blocks are assigned to the
 -- largest remainders. `#ooo` items participate in the same pass, but are
 -- excluded from the final workday total.
-function M.quantized_summarize(intervals)
-  local summary = M.summarize(intervals)
+function M.quantized_summarize(intervals, default_label)
+  local summary = M.summarize(intervals, default_label)
   local target_total = round_to_nearest_15(summary.activity_total)
   local quantized_total = 0
   local ranked = {}

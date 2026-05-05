@@ -4,6 +4,34 @@ local function hours_string(minutes)
   return string.format("%.2fh", minutes / 60)
 end
 
+local function item_text(item, default_label)
+  local parts = {}
+
+  if item.text ~= "" then
+    table.insert(parts, item.text)
+  end
+
+  if item.label and item.label ~= default_label and not item.excluded then
+    table.insert(parts, "#" .. item.label)
+  end
+
+  if item.excluded then
+    table.insert(parts, "(ooo)")
+  end
+
+  return table.concat(parts, " ")
+end
+
+local function summary_line(prefix, item, default_label)
+  local text = item_text(item, default_label)
+
+  if text == "" then
+    return prefix
+  end
+
+  return string.format("%s %s", prefix, text)
+end
+
 function M.worklog_lines(lines)
   local rendered = {
     "",
@@ -23,12 +51,10 @@ function M.summary_lines(summary, kind)
   table.insert(lines, "--- summary" .. header_suffix .. " ---")
 
   for _, item in ipairs(summary.items) do
-    local item_suffix = item.excluded and " (ooo)" or ""
-
     if kind == "quantized" then
-      table.insert(lines, string.format("%s (%+dm) %s%s", hours_string(item.duration), item.error_minutes or 0, item.text, item_suffix))
+      table.insert(lines, summary_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item, summary.default_label))
     else
-      table.insert(lines, string.format("%s %s%s", hours_string(item.duration), item.text, item_suffix))
+      table.insert(lines, summary_line(hours_string(item.duration), item, summary.default_label))
     end
   end
 
