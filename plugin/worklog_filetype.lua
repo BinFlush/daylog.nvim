@@ -1,0 +1,1 @@
+require("worklog.filetype").register()

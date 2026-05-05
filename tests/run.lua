@@ -60,6 +60,7 @@ local root = vim.fn.getcwd()
 dofile(root .. "/tests/parse.lua")(t)
 dofile(root .. "/tests/blocks.lua")(t)
 dofile(root .. "/tests/order.lua")(t)
+dofile(root .. "/tests/filetype.lua")(t)
 dofile(root .. "/tests/commands.lua")(t)
 
 if #failures > 0 then

@@ -7,6 +7,9 @@ then append derived blocks from the latest worklog.
 
 Recommended extension: `.wkl`
 
+When the plugin is loaded, `.wkl` files are detected as the `worklog`
+filetype automatically.
+
 ## File Format
 
 Each worklog file starts with an explicit file-level header that declares the

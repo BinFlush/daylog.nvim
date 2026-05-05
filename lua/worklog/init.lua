@@ -1,5 +1,6 @@
 local blocks = require("worklog.blocks")
 local context = require("worklog.context")
+local filetype = require("worklog.filetype")
 local order = require("worklog.order")
 local parse = require("worklog.parse")
 local intervals = require("worklog.intervals")
@@ -7,6 +8,8 @@ local summary = require("worklog.summary")
 local render = require("worklog.render")
 
 local M = {}
+
+filetype.register()
 
 local function warn(message)
   vim.notify(message, vim.log.levels.WARN)
