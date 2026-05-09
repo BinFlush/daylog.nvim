@@ -69,7 +69,7 @@ decreasing timestamps or invalid worklog entries.
 
 Insert the current time into the worklog block containing the cursor.
 
-- the cursor must be inside a worklog block
+- the cursor must be inside a worklog block or on its header line
 - the new entry is inserted in time order
 - equal timestamps stay grouped together
 - insert mode starts on the new line

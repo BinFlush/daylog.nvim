@@ -93,7 +93,7 @@ end
 
 function M.get_worklog_at_row(blocks, row)
   for _, block in ipairs(blocks) do
-    if is_worklog(block) and row >= block.body_start_row and row < block.end_row then
+    if is_worklog(block) and row >= block.start_row and row < block.end_row then
       return block
     end
   end

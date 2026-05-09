@@ -192,7 +192,7 @@ return function(t)
       "08:00 second",
       "09:00 done",
     })
-    t.set_cursor(2, 0)
+    t.set_cursor(1, 0)
 
     local old_date = os.date
     os.date = function()
@@ -208,6 +208,38 @@ return function(t)
       "08:00 second",
       "08:00 ",
       "09:00 done",
+    })
+  end)
+
+  t.test("insert works from a later worklog header", function()
+    t.reset({
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 raw",
+      "09:00 done",
+      "",
+      "--- worklog ---",
+      "10:00 first #sales",
+      "11:00 done",
+    })
+    t.set_cursor(5, 0)
+
+    local old_date = os.date
+    os.date = function()
+      return "10:30"
+    end
+
+    vim.cmd("WorklogInsert")
+    os.date = old_date
+
+    t.eq(t.get_lines(), {
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 raw",
+      "09:00 done",
+      "",
+      "--- worklog ---",
+      "10:00 first #sales",
+      "10:30 ",
+      "11:00 done",
     })
   end)
 
