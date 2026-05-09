@@ -1,7 +1,5 @@
 local M = {}
 
-local MISSING_LABEL_MESSAGE = "missing label; add a trailing #label or declare a default label in the first worklog header"
-
 -- Clean and normalize the text part of a worklog entry.
 -- - collapses whitespace
 -- - trims leading/trailing spaces
@@ -105,7 +103,6 @@ end
 -- }
 function M.parse_lines(lines, default_label)
   local entries = {}
-  local entry_rows = {}
 
   for i, line in ipairs(lines) do
     local entry, err = M.parse_time_line(line, default_label)
@@ -119,24 +116,10 @@ function M.parse_lines(lines, default_label)
 
     if entry then
       table.insert(entries, entry)
-      table.insert(entry_rows, i)
-    end
-  end
-
-  for i = 1, #entries - 1 do
-    if entries[i].label == nil then
-      return nil, {
-        row = entry_rows[i],
-        message = MISSING_LABEL_MESSAGE,
-      }
     end
   end
 
   return entries
-end
-
-function M.missing_label_message()
-  return MISSING_LABEL_MESSAGE
 end
 
 return M

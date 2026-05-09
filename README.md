@@ -27,7 +27,7 @@ Or without a default label:
 
 ```text
 --- worklog ---
-08:04 bake strudel #ProjectOrion
+08:04 bake strudel
 08:21 negotiate with goose #sales
 08:52 coffee with ghost #ooo
 10:00 done
@@ -40,8 +40,7 @@ Rules:
 - a worklog line starts with a valid `HH:MM` time and may be followed by text
 - exactly one trailing `#label` is allowed on a worklog line
 - if the first header declares a default label, unlabeled lines inherit it
-- if there is no default label, every non-final timestamped entry must carry a trailing `#label`
-- the final closing timestamp line may omit its label even when no default exists
+- if there is no default label, unlabeled lines stay unlabeled
 - `#ooo` is exclusive and does not inherit the default label
 - multiple trailing labels are invalid and block commands
 - non-timestamped lines are ignored unless they are attached notes under a timestamped item
@@ -82,7 +81,6 @@ Repeat the activity under the cursor at the current time.
 - the cursor must be inside a worklog block
 - the new entry is inserted in time order
 - equal timestamps stay grouped together
-- unlabeled closing lines cannot be repeated in worklogs without a default label
 - redundant default labels are normalized away when the new line is rendered
 - any following summary or totals blocks are left in place
 
@@ -114,6 +112,7 @@ Append an exact grouped summary for the active worklog.
 - exact summaries also include a separate label totals block
 - output is rendered in decimal hours
 - non-default labels are shown on summary rows
+- unlabeled time is shown as `(unlabeled)` in label totals
 - `activity` includes all grouped items
 - `workday` excludes grouped items marked `#ooo`
 
@@ -127,6 +126,7 @@ Append a grouped summary whose item durations are quantized to 15-minute blocks.
 - output is rendered in decimal hours
 - each grouped row shows a signed minute delta of exact minus quantized time
 - non-default labels are shown on summary rows
+- unlabeled time is shown as `(unlabeled)` in label totals
 - quantized totals also show signed minute deltas
 - `activity` is the sum of all quantized grouped items
 - `workday` is the sum of quantized grouped items not marked `#ooo`

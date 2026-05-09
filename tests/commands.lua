@@ -162,17 +162,17 @@ return function(t)
     })
   end)
 
-  t.test("repeat blocks unlabeled closing lines without a default label", function()
+  t.test("repeat keeps unlabeled entries unlabeled without a default label", function()
     t.reset({
       "--- worklog ---",
-      "08:00 first #sales",
+      "08:00 first",
       "09:00 done",
     })
-    t.set_cursor(3, 0)
+    t.set_cursor(2, 0)
 
     local old_date = os.date
     os.date = function()
-      return "09:30"
+      return "08:30"
     end
 
     vim.cmd("WorklogRepeat")
@@ -180,7 +180,8 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- worklog ---",
-      "08:00 first #sales",
+      "08:00 first",
+      "08:30 first",
       "09:00 done",
     })
   end)
@@ -257,10 +258,11 @@ return function(t)
     })
   end)
 
-  t.test("summaries allow unlabeled final closing line without a default label", function()
+  t.test("summaries show an unlabeled label bucket without a default label", function()
     t.reset({
       "--- worklog ---",
-      "08:00 plan #sales",
+      "08:00 plan",
+      "08:30 call #sales",
       "09:00 done",
     })
 
@@ -268,14 +270,17 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- worklog ---",
-      "08:00 plan #sales",
+      "08:00 plan",
+      "08:30 call #sales",
       "09:00 done",
       "",
       "--- summary exact ---",
-      "1.00h plan #sales",
+      "0.50h plan",
+      "0.50h call #sales",
       "",
       "--- labels exact ---",
-      "1.00h #sales",
+      "0.50h (unlabeled)",
+      "0.50h #sales",
       "",
       "--- totals exact ---",
       "1.00h activity",
@@ -317,18 +322,33 @@ return function(t)
     })
   end)
 
-  t.test("missing labels without a default block commands", function()
+  t.test("quantized summaries show an unlabeled label bucket without a default label", function()
     t.reset({
       "--- worklog ---",
       "08:00 plan",
-      "09:00 done",
+      "08:12 call #sales",
+      "08:30 done",
     })
 
-    vim.cmd("WorklogSummarize")
+    vim.cmd("WorklogQuantSum")
+
     t.eq(t.get_lines(), {
       "--- worklog ---",
       "08:00 plan",
-      "09:00 done",
+      "08:12 call #sales",
+      "08:30 done",
+      "",
+      "--- summary quantized ---",
+      "0.25h (-3m) plan",
+      "0.25h (+3m) call #sales",
+      "",
+      "--- labels quantized ---",
+      "0.25h (-3m) (unlabeled)",
+      "0.25h (+3m) #sales",
+      "",
+      "--- totals quantized ---",
+      "0.50h (+0m) activity",
+      "0.50h (+0m) workday",
     })
   end)
 

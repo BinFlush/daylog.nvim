@@ -1,7 +1,17 @@
 local M = {}
 
+local NIL_LABEL_KEY = "\31"
+
 local function round_to_nearest_15(minutes)
   return math.floor((minutes + 7.5) / 15) * 15
+end
+
+local function label_key(label)
+  if label == nil then
+    return NIL_LABEL_KEY
+  end
+
+  return label
 end
 
 local function summarize_labels(items)
@@ -9,7 +19,7 @@ local function summarize_labels(items)
   local order = {}
 
   for _, item in ipairs(items) do
-    local key = tostring(item.label)
+    local key = label_key(item.label)
 
     if not buckets[key] then
       buckets[key] = {
@@ -36,7 +46,7 @@ local function label_items_by_key(items)
   local result = {}
 
   for _, item in ipairs(items) do
-    result[tostring(item.label)] = item
+    result[label_key(item.label)] = item
   end
 
   return result
@@ -50,7 +60,7 @@ function M.summarize(intervals, default_label)
   local workday_total = 0
 
   for _, iv in ipairs(intervals) do
-    local key = iv.text .. "|" .. tostring(iv.label) .. "|" .. tostring(iv.excluded)
+    local key = iv.text .. "|" .. label_key(iv.label) .. "|" .. tostring(iv.excluded)
 
     if not buckets[key] then
       buckets[key] = {
@@ -148,7 +158,7 @@ function M.quantized_summarize(intervals, default_label)
   local label_items = {}
 
   for _, item in ipairs(exact_label_items) do
-    local quantized_item = quantized_by_label[tostring(item.label)]
+    local quantized_item = quantized_by_label[label_key(item.label)]
 
     table.insert(label_items, {
       label = item.label,

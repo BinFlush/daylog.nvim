@@ -33,6 +33,10 @@ local function summary_line(prefix, item, default_label)
 end
 
 local function label_text(item)
+  if item.label == nil then
+    return "(unlabeled)"
+  end
+
   return "#" .. item.label
 end
 

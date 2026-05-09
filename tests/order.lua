@@ -45,7 +45,7 @@ return function(t)
     t.eq(parsed.error.message, "multiple trailing labels are not allowed")
   end)
 
-  t.test("missing-label validation is separate from parse items", function()
+  t.test("parse items keep unlabeled entries without default", function()
     local parsed = order.parse_items({
       "08:00 first",
       "09:00 done",
@@ -54,7 +54,8 @@ return function(t)
     end)
 
     t.eq(parsed.error, nil)
-    t.eq(order.find_missing_label_row(parsed.items), 20)
+    t.eq(parsed.items[1].label, nil)
+    t.eq(parsed.items[2].label, nil)
   end)
 
   t.test("find unordered rows reports first decreasing pair", function()
@@ -133,7 +134,6 @@ return function(t)
     end)
 
     local sorted = order.sorted_items(parsed)
-    t.eq(order.find_missing_label_row(sorted), nil)
     t.eq(order.normalized_lines({
       preamble_lines = parsed.preamble_lines,
       items = sorted,

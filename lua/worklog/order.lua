@@ -91,16 +91,6 @@ function M.find_unordered_rows(items)
   return nil
 end
 
-function M.find_missing_label_row(items)
-  for i = 1, #items - 1 do
-    if items[i].label == nil then
-      return items[i].row
-    end
-  end
-
-  return nil
-end
-
 function M.get_insert_row(items, minutes, default_row)
   -- Equal timestamps are allowed, so new entries are placed after any existing
   -- item with the same time and before the first later item.

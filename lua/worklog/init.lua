@@ -25,28 +25,11 @@ local function parse_context_body(ctx)
   end)
 end
 
-local function parsed_body_error(parsed_body)
-  if parsed_body.error then
-    return parsed_body.error
-  end
-
-  local row = order.find_missing_label_row(parsed_body.items)
-  if row then
-    return {
-      row = row,
-      message = parse.missing_label_message(),
-    }
-  end
-
-  return nil
-end
-
 local function validate_worklog_context(ctx)
   local parsed_body = parse_context_body(ctx)
-  local err = parsed_body_error(parsed_body)
 
-  if err then
-    warn_invalid_entry(err)
+  if parsed_body.error then
+    warn_invalid_entry(parsed_body.error)
     return nil
   end
 
@@ -245,11 +228,6 @@ function M.repeat_current()
     return
   end
 
-  if entry.label == nil then
-    warn("worklog: unlabeled closing lines cannot be repeated without a default label")
-    return
-  end
-
   local minutes = parse.parse_time_line(os.date("%H:%M")).minutes
   local line = parse.format_time_line({
     minutes = minutes,
@@ -292,14 +270,6 @@ function M.order_worklogs()
       end
 
       local sorted_items = order.sorted_items(parsed_body)
-      local missing_label_row = order.find_missing_label_row(sorted_items)
-      if missing_label_row then
-        warn_invalid_entry({
-          row = missing_label_row,
-          message = parse.missing_label_message(),
-        })
-        return
-      end
 
       local sorted_lines = order.normalized_lines({
         preamble_lines = parsed_body.preamble_lines,

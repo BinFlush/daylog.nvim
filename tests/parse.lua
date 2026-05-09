@@ -110,9 +110,10 @@ return function(t)
     t.eq(err.message, "multiple trailing labels are not allowed")
   end)
 
-  t.test("parse lines allow unlabeled final closing line without default", function()
+  t.test("parse lines allow unlabeled entries without default", function()
     local entries = parse.parse_lines({
-      "08:00 first #sales",
+      "08:00 first",
+      "08:30 second #sales",
       "09:00 done",
     })
 
@@ -120,6 +121,12 @@ return function(t)
       {
         minutes = 480,
         text = "first",
+        label = nil,
+        excluded = false,
+      },
+      {
+        minutes = 510,
+        text = "second",
         label = "sales",
         excluded = false,
       },
@@ -130,28 +137,5 @@ return function(t)
         excluded = false,
       },
     })
-  end)
-
-  t.test("parse lines reject unlabeled non-final entries without default", function()
-    local entries, err = parse.parse_lines({
-      "08:00 first",
-      "09:00 done",
-    })
-
-    t.eq(entries, nil)
-    t.eq(err.row, 1)
-    t.eq(err.message, parse.missing_label_message())
-  end)
-
-  t.test("parse lines report missing-label source rows, not entry indexes", function()
-    local entries, err = parse.parse_lines({
-      "note",
-      "08:00 first",
-      "09:00 done",
-    })
-
-    t.eq(entries, nil)
-    t.eq(err.row, 2)
-    t.eq(err.message, parse.missing_label_message())
   end)
 end
