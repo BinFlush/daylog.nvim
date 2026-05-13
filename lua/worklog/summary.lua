@@ -14,6 +14,38 @@ local function label_key(label)
   return label
 end
 
+local function sort_by_duration(items)
+  local indexed = {}
+
+  for i, item in ipairs(items) do
+    table.insert(indexed, {
+      index = i,
+      item = item,
+    })
+  end
+
+  table.sort(indexed, function(a, b)
+    if a.item.duration == b.item.duration then
+      local a_exact = a.item.exact_duration or a.item.duration
+      local b_exact = b.item.exact_duration or b.item.duration
+
+      if a_exact ~= b_exact then
+        return a_exact > b_exact
+      end
+
+      return a.index < b.index
+    end
+
+    return a.item.duration > b.item.duration
+  end)
+
+  for i, indexed_item in ipairs(indexed) do
+    items[i] = indexed_item.item
+  end
+
+  return items
+end
+
 local function summarize_labels(items)
   local buckets = {}
   local order = {}
@@ -25,12 +57,14 @@ local function summarize_labels(items)
       buckets[key] = {
         label = item.label,
         duration = 0,
+        exact_duration = 0,
         excluded = item.excluded,
       }
       table.insert(order, key)
     end
 
     buckets[key].duration = buckets[key].duration + item.duration
+    buckets[key].exact_duration = buckets[key].exact_duration + (item.exact_duration or item.duration)
   end
 
   local label_items = {}
@@ -52,7 +86,7 @@ local function label_items_by_key(items)
   return result
 end
 
-function M.summarize(intervals, default_label)
+local function build_summary(intervals, default_label)
   local buckets = {}
   local order = {}
 
@@ -67,12 +101,14 @@ function M.summarize(intervals, default_label)
         text = iv.text,
         label = iv.label,
         duration = 0,
+        exact_duration = 0,
         excluded = iv.excluded,
       }
       table.insert(order, key)
     end
 
     buckets[key].duration = buckets[key].duration + iv.duration
+    buckets[key].exact_duration = buckets[key].exact_duration + iv.duration
 
     activity_total = activity_total + iv.duration
 
@@ -96,13 +132,22 @@ function M.summarize(intervals, default_label)
   }
 end
 
+function M.summarize(intervals, default_label)
+  local summary = build_summary(intervals, default_label)
+
+  sort_by_duration(summary.items)
+  sort_by_duration(summary.label_items)
+
+  return summary
+end
+
 -- Quantize grouped summary rows together.
 -- The overall activity total is rounded to the nearest 15 minutes, each grouped
 -- item is rounded down, and the remaining 15-minute blocks are assigned to the
 -- largest remainders. `#ooo` items participate in the same pass, but are
 -- excluded from the final workday total.
 function M.quantized_summarize(intervals, default_label)
-  local summary = M.summarize(intervals, default_label)
+  local summary = build_summary(intervals, default_label)
   local exact_label_items = summary.label_items
   local exact_activity_total = summary.activity_total
   local exact_workday_total = summary.workday_total
@@ -111,6 +156,7 @@ function M.quantized_summarize(intervals, default_label)
   local ranked = {}
 
   for i, item in ipairs(summary.items) do
+    item.exact_duration = item.duration
     local base = math.floor(item.duration / 15) * 15
     local remainder = item.duration - base
 
@@ -163,6 +209,7 @@ function M.quantized_summarize(intervals, default_label)
     table.insert(label_items, {
       label = item.label,
       duration = quantized_item and quantized_item.duration or 0,
+      exact_duration = item.exact_duration,
       error_minutes = item.duration - (quantized_item and quantized_item.duration or 0),
       excluded = item.excluded,
     })
@@ -171,6 +218,9 @@ function M.quantized_summarize(intervals, default_label)
   summary.label_items = label_items
   summary.activity_error_minutes = exact_activity_total - summary.activity_total
   summary.workday_error_minutes = exact_workday_total - summary.workday_total
+
+  sort_by_duration(summary.items)
+  sort_by_duration(summary.label_items)
 
   return summary
 end

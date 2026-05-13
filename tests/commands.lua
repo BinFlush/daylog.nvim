@@ -32,8 +32,8 @@ return function(t)
     local lines = t.get_lines()
 
     t.eq(lines[6], "--- summary exact ---")
-    t.eq(lines[7], "0.00h same")
-    t.eq(lines[8], "1.00h same again")
+    t.eq(lines[7], "1.00h same again")
+    t.eq(lines[8], "0.00h same")
     t.eq(lines[10], "--- labels exact ---")
     t.eq(lines[11], "1.00h #ProjectOrion")
     t.eq(lines[14], "1.00h activity")
@@ -262,7 +262,7 @@ return function(t)
     t.reset({
       "--- worklog ---",
       "08:00 plan",
-      "08:30 call #sales",
+      "08:15 call #sales",
       "09:00 done",
     })
 
@@ -271,16 +271,16 @@ return function(t)
     t.eq(t.get_lines(), {
       "--- worklog ---",
       "08:00 plan",
-      "08:30 call #sales",
+      "08:15 call #sales",
       "09:00 done",
       "",
       "--- summary exact ---",
-      "0.50h plan",
-      "0.50h call #sales",
+      "0.75h call #sales",
+      "0.25h plan",
       "",
       "--- labels exact ---",
-      "0.50h (unlabeled)",
-      "0.50h #sales",
+      "0.75h #sales",
+      "0.25h (unlabeled)",
       "",
       "--- totals exact ---",
       "1.00h activity",
@@ -339,12 +339,12 @@ return function(t)
       "08:30 done",
       "",
       "--- summary quantized ---",
-      "0.25h (-3m) plan",
       "0.25h (+3m) call #sales",
+      "0.25h (-3m) plan",
       "",
       "--- labels quantized ---",
-      "0.25h (-3m) (unlabeled)",
       "0.25h (+3m) #sales",
+      "0.25h (-3m) (unlabeled)",
       "",
       "--- totals quantized ---",
       "0.50h (+0m) activity",
@@ -434,14 +434,14 @@ return function(t)
       "",
       "--- summary quantized ---",
       "1.00h (+0m) bake strudel",
-      "0.25h (-3m) negotiate with goose #sales",
-      "0.25h (+4m) coffee with ghost (ooo)",
       "0.50h (-5m) polish trombone",
+      "0.25h (+4m) coffee with ghost (ooo)",
+      "0.25h (-3m) negotiate with goose #sales",
       "",
       "--- labels quantized ---",
       "1.50h (-5m) #ProjectOrion",
-      "0.25h (-3m) #sales",
       "0.25h (+4m) #ooo",
+      "0.25h (-3m) #sales",
       "",
       "--- totals quantized ---",
       "2.00h (-4m) activity",

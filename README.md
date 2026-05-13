@@ -111,6 +111,7 @@ Append an exact grouped summary for the active worklog.
 - repeated items are grouped by text and effective label
 - exact summaries also include a separate label totals block
 - output is rendered in decimal hours
+- summary rows are shown longest-to-shortest
 - non-default labels are shown on summary rows
 - unlabeled time is shown as `(unlabeled)` in label totals
 - `activity` includes all grouped items
@@ -124,6 +125,8 @@ Append a grouped summary whose item durations are quantized to 15-minute blocks.
 - identical items are grouped by text and effective label before quantization
 - quantized summaries also include a separate label totals block
 - output is rendered in decimal hours
+- summary rows are shown longest-to-shortest
+- equal displayed durations are ordered by exact grouped duration
 - each grouped row shows a signed minute delta of exact minus quantized time
 - non-default labels are shown on summary rows
 - unlabeled time is shown as `(unlabeled)` in label totals
@@ -152,6 +155,7 @@ One important consequence:
 
 - non-`#ooo` grouped rows will always sum exactly to `workday`
 - all grouped rows, including `#ooo`, participate in the same quantization pass
+- equal displayed durations are ordered by the underlying exact grouped duration
 
 ## Ordering Rules
 
@@ -182,14 +186,14 @@ Exact summary:
 ```text
 --- summary exact ---
 1.00h bake strudel
-0.20h negotiate with goose #sales
-0.32h coffee with ghost (ooo)
 0.42h polish trombone
+0.32h coffee with ghost (ooo)
+0.20h negotiate with goose #sales
 
 --- labels exact ---
 1.42h #ProjectOrion
-0.20h #sales
 0.32h #ooo
+0.20h #sales
 
 --- totals exact ---
 1.93h activity
@@ -203,6 +207,7 @@ Here:
 - `--- labels exact ---` shows totals per effective label, including `#ooo`
 - `activity` includes `coffee with ghost (ooo)`
 - `workday` excludes it
+- both summary sections are shown longest-to-shortest
 - the row totals are exact, not rounded to 15-minute blocks
 
 ### Example: quantized grouped summary
@@ -212,14 +217,14 @@ Using the same input worklog `:WorklogQuantSum` appends:
 ```text
 --- summary quantized ---
 1.00h (+0m) bake strudel
-0.25h (-3m) negotiate with goose #sales
-0.25h (+4m) coffee with ghost (ooo)
 0.50h (-5m) polish trombone
+0.25h (+4m) coffee with ghost (ooo)
+0.25h (-3m) negotiate with goose #sales
 
 --- labels quantized ---
 1.50h (-5m) #ProjectOrion
-0.25h (-3m) #sales
 0.25h (+4m) #ooo
+0.25h (-3m) #sales
 
 --- totals quantized ---
 2.00h (-4m) activity
@@ -233,6 +238,7 @@ Here:
 - the displayed grouped rows add up exactly to the displayed totals
 - the signed minute delta shows how each displayed row differs from the exact grouped time
 - `--- labels quantized ---` rolls those quantized rows up per effective label
+- both summary sections are shown longest-to-shortest
 - the totals lines show the same exact-minus-displayed delta for `activity` and `workday`
 
 ### Example: copying a worklog block
