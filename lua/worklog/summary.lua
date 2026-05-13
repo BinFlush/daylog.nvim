@@ -1,5 +1,11 @@
 local M = {}
 
+-- Semantic reporting for worklog blocks.
+--
+-- Summaries are built directly from semantic entries or worklog blocks. The
+-- module owns interval derivation, grouping, label totals, sorting, and
+-- quantization so reporting stays a first-class semantic concern.
+
 local NIL_LABEL_KEY = "\31"
 
 local function round_to_nearest_15(minutes)
@@ -86,7 +92,27 @@ local function label_items_by_key(items)
   return result
 end
 
-local function build_summary(intervals, default_label)
+local function build_intervals(entries)
+  local intervals = {}
+
+  for i = 1, #entries - 1 do
+    local current = entries[i]
+    local next = entries[i + 1]
+
+    table.insert(intervals, {
+      start = current.minutes,
+      stop = next.minutes,
+      duration = next.minutes - current.minutes,
+      text = current.text,
+      label = current.label,
+      excluded = current.excluded,
+    })
+  end
+
+  return intervals
+end
+
+local function build_summary_from_intervals(intervals, default_label)
   local buckets = {}
   local order = {}
 
@@ -132,8 +158,8 @@ local function build_summary(intervals, default_label)
   }
 end
 
-function M.summarize(intervals, default_label)
-  local summary = build_summary(intervals, default_label)
+function M.summarize_entries(entries, default_label)
+  local summary = build_summary_from_intervals(build_intervals(entries), default_label)
 
   sort_by_duration(summary.items)
   sort_by_duration(summary.label_items)
@@ -141,13 +167,17 @@ function M.summarize(intervals, default_label)
   return summary
 end
 
+function M.summarize_block(block)
+  return M.summarize_entries(block.entries, block.default_label)
+end
+
 -- Quantize grouped summary rows together.
 -- The overall activity total is rounded to the nearest 15 minutes, each grouped
 -- item is rounded down, and the remaining 15-minute blocks are assigned to the
 -- largest remainders. `#ooo` items participate in the same pass, but are
 -- excluded from the final workday total.
-function M.quantized_summarize(intervals, default_label)
-  local summary = build_summary(intervals, default_label)
+function M.quantized_summarize_entries(entries, default_label)
+  local summary = build_summary_from_intervals(build_intervals(entries), default_label)
   local exact_label_items = summary.label_items
   local exact_activity_total = summary.activity_total
   local exact_workday_total = summary.workday_total
@@ -223,6 +253,10 @@ function M.quantized_summarize(intervals, default_label)
   sort_by_duration(summary.label_items)
 
   return summary
+end
+
+function M.quantized_summarize_block(block)
+  return M.quantized_summarize_entries(block.entries, block.default_label)
 end
 
 return M

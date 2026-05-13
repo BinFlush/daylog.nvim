@@ -1,0 +1,86 @@
+return function(t)
+  local context = require("worklog.context")
+
+  t.test("context selects the active worklog and preserves body lines", function()
+    local ctx = context.get_active_worklog_context({
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 raw",
+      "09:00",
+      "",
+      "--- summary exact ---",
+      "1.00h raw",
+      "",
+      "--- worklog ---",
+      "10:00 tea",
+      "11:00",
+    })
+
+    t.eq(ctx.default_label, "ProjectOrion")
+    t.eq(ctx.block.start_row, 8)
+    t.eq(ctx.block.body_start_row, 9)
+    t.eq(ctx.block.end_row, 11)
+    t.eq(ctx.analysis.default_label, "ProjectOrion")
+  end)
+
+  t.test("context includes header rows when selecting worklogs by cursor", function()
+    local lines = {
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 raw",
+      "09:00",
+      "",
+      "--- summary exact ---",
+      "1.00h raw",
+      "",
+      "--- worklog ---",
+      "10:00 tea",
+      "11:00",
+    }
+
+    t.eq(context.get_worklog_context_at_row(lines, 1).block.start_row, 1)
+    t.eq(context.get_worklog_context_at_row(lines, 2).block.start_row, 1)
+    t.eq(context.get_worklog_context_at_row(lines, 8).block.start_row, 8)
+    t.eq(context.get_worklog_context_at_row(lines, 9).block.start_row, 8)
+  end)
+
+  t.test("context accepts first worklog headers without a default label", function()
+    local ctx = context.get_active_worklog_context({
+      "--- worklog ---",
+      "08:00 raw #sales",
+      "09:00 done",
+    })
+
+    t.eq(ctx.default_label, nil)
+    t.eq(ctx.block.start_row, 1)
+  end)
+
+  t.test("context surfaces structural header errors and missing worklogs", function()
+    local ctx, err = context.get_active_worklog_context({
+      "--- summary exact ---",
+      "1.00h activity",
+    })
+
+    t.eq(ctx, nil)
+    t.eq(err, "worklog: first line must be --- worklog --- or --- worklog default=#label ---")
+
+    ctx, err = context.get_active_worklog_context({
+      "08:00 raw",
+      "09:00 done",
+    })
+    t.eq(ctx, nil)
+    t.eq(err, "worklog: no worklog block found; first line must be --- worklog --- or --- worklog default=#label ---")
+  end)
+
+  t.test("context rejects cursor rows outside worklog blocks", function()
+    local ctx, err = context.get_worklog_context_at_row({
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 raw",
+      "09:00",
+      "",
+      "--- summary exact ---",
+      "1.00h raw",
+    }, 5)
+
+    t.eq(ctx, nil)
+    t.eq(err, "worklog: current line is not inside a worklog block")
+  end)
+end

@@ -44,13 +44,19 @@ local function label_line(prefix, item)
   return string.format("%s %s", prefix, label_text(item))
 end
 
+local function extend_lines(target, source)
+  for _, line in ipairs(source) do
+    table.insert(target, line)
+  end
+end
+
 function M.worklog_lines(lines)
   local rendered = {
     "",
     "--- worklog ---",
   }
 
-  vim.list_extend(rendered, lines)
+  extend_lines(rendered, lines)
 
   return rendered
 end

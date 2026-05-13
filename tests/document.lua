@@ -48,6 +48,18 @@ return function(t)
     })
   end)
 
+  t.test("document parse_line parses a single line directly", function()
+    t.eq(document.parse_line("08:21 negotiate with goose #sales"), {
+      kind = "entry",
+      row = 1,
+      raw = "08:21 negotiate with goose #sales",
+      minutes = 501,
+      text = "negotiate with goose",
+      explicit_label = "sales",
+      excluded = false,
+    })
+  end)
+
   t.test("document parse keeps explicit labels only", function()
     local doc = document.parse({
       "--- worklog ---",

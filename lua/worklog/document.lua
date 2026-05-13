@@ -1,5 +1,10 @@
 local M = {}
 
+-- Syntax-preserving document parser.
+--
+-- Every source line becomes an explicit node so higher layers can derive
+-- worklog meaning without losing original layout, raw text, or source rows.
+
 local WORKLOG_HEADER = "--- worklog ---"
 
 local function normalize_text(text)
@@ -145,6 +150,10 @@ local function parse_line(line, row)
   }
 end
 
+function M.parse_line(line, row)
+  return parse_line(line, row or 1)
+end
+
 -- Parse a worklog file into syntax-preserving line nodes.
 -- The returned document keeps every input line as an explicit node so later
 -- semantic analysis can preserve source layout while deriving worklog meaning.
@@ -152,7 +161,7 @@ function M.parse(lines)
   local nodes = {}
 
   for row, line in ipairs(lines) do
-    table.insert(nodes, parse_line(line, row))
+    table.insert(nodes, M.parse_line(line, row))
   end
 
   return {
