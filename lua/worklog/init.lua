@@ -9,8 +9,6 @@ local render = require("worklog.render")
 
 local M = {}
 
-filetype.register()
-
 local function warn(message)
   vim.notify(message, vim.log.levels.WARN)
 end
@@ -19,14 +17,14 @@ local function warn_invalid_entry(error)
   warn(string.format("worklog: invalid worklog entry at line %d: %s", error.row, error.message))
 end
 
-local function parse_context_body(ctx)
-  return order.parse_items(ctx.body_lines, ctx.block.body_start_row, function(line)
-    return parse.parse_time_line(line, ctx.default_label)
+local function parse_block_body(lines, block, default_label)
+  return order.parse_items(blocks.get_body_lines(lines, block), block.body_start_row, function(line)
+    return parse.parse_time_line(line, default_label)
   end)
 end
 
 local function validate_worklog_context(ctx)
-  local parsed_body = parse_context_body(ctx)
+  local parsed_body = parse_block_body(ctx.lines, ctx.block, ctx.default_label)
 
   if parsed_body.error then
     warn_invalid_entry(parsed_body.error)
@@ -74,6 +72,34 @@ local function get_worklog_context_at_cursor()
   return ctx
 end
 
+local function get_validated_active_worklog()
+  local ctx = get_active_worklog_context()
+  if not ctx then
+    return nil
+  end
+
+  local parsed_body = validate_worklog_context(ctx)
+  if not parsed_body then
+    return nil
+  end
+
+  return ctx, parsed_body
+end
+
+local function get_validated_cursor_worklog()
+  local ctx = get_worklog_context_at_cursor()
+  if not ctx then
+    return nil
+  end
+
+  local parsed_body = validate_worklog_context(ctx)
+  if not parsed_body then
+    return nil
+  end
+
+  return ctx, parsed_body
+end
+
 local function get_ordered_insert_index(ctx, parsed_body, minutes)
   return order.get_insert_row(parsed_body.items, minutes, blocks.get_insert_index(ctx.block))
 end
@@ -113,16 +139,21 @@ local function append_lines(lines)
   vim.api.nvim_buf_set_lines(0, last, last, false, lines)
 end
 
--- Insert the current time at the cursor and enter insert mode.
--- This is intentionally dumb and supports manual editing/refinement.
-function M.insert_now()
-  local ctx = get_worklog_context_at_cursor()
+local function append_summary_kind(kind, summarize_fn)
+  local ctx, parsed_body = get_validated_active_worklog()
   if not ctx then
     return
   end
 
-  local parsed_body = validate_worklog_context(ctx)
-  if not parsed_body then
+  local result = summarize_fn(intervals_from_parsed_body(parsed_body), ctx.default_label)
+  append_lines(render.summary_lines(result, kind))
+end
+
+-- Insert the current time at the cursor and enter insert mode.
+-- This is intentionally dumb and supports manual editing/refinement.
+function M.insert_now()
+  local ctx, parsed_body = get_validated_cursor_worklog()
+  if not ctx then
     return
   end
 
@@ -140,51 +171,16 @@ end
 
 -- Append a summary and totals block based on the active worklog.
 function M.append_summary()
-  local ctx = get_active_worklog_context()
-  if not ctx then
-    return
-  end
-
-  local parsed_body = validate_worklog_context(ctx)
-  if not parsed_body then
-    return
-  end
-
-  local ivs = intervals_from_parsed_body(parsed_body)
-
-  local result = summary.summarize(ivs, ctx.default_label)
-  local rendered = render.summary_lines(result, "exact")
-
-  append_lines(rendered)
+  append_summary_kind("exact", summary.summarize)
 end
 
 function M.append_quantized_summary()
-  local ctx = get_active_worklog_context()
-  if not ctx then
-    return
-  end
-
-  local parsed_body = validate_worklog_context(ctx)
-  if not parsed_body then
-    return
-  end
-
-  local ivs = intervals_from_parsed_body(parsed_body)
-
-  local result = summary.quantized_summarize(ivs, ctx.default_label)
-  local rendered = render.summary_lines(result, "quantized")
-
-  append_lines(rendered)
+  append_summary_kind("quantized", summary.quantized_summarize)
 end
 
 function M.append_copy()
-  local ctx = get_active_worklog_context()
+  local ctx, parsed = get_validated_active_worklog()
   if not ctx then
-    return
-  end
-
-  local parsed = validate_worklog_context(ctx)
-  if not parsed then
     return
   end
 
@@ -193,13 +189,8 @@ function M.append_copy()
 end
 
 function M.repeat_current()
-  local ctx = get_worklog_context_at_cursor()
+  local ctx, parsed_body = get_validated_cursor_worklog()
   if not ctx then
-    return
-  end
-
-  local parsed_body = validate_worklog_context(ctx)
-  if not parsed_body then
     return
   end
 
@@ -240,10 +231,7 @@ function M.order_worklogs()
     local block = parsed[i]
 
     if blocks.is_worklog(block) then
-      local body_lines = blocks.get_body_lines(lines, block)
-      local parsed_body = order.parse_items(body_lines, block.body_start_row, function(line)
-        return parse.parse_time_line(line, parsed.default_label)
-      end)
+      local parsed_body = parse_block_body(lines, block, parsed.default_label)
 
       if parsed_body.error then
         warn_invalid_entry(parsed_body.error)
@@ -262,6 +250,8 @@ function M.order_worklogs()
 end
 
 function M.setup()
+  filetype.register()
+
   vim.api.nvim_create_user_command("WorklogInsert", function()
     M.insert_now()
   end, {})
