@@ -322,6 +322,38 @@ return function(t)
     })
   end)
 
+  t.test("summaries ignore attached note lines", function()
+    t.reset({
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 plan",
+      "note about planning",
+      "08:30 call #sales",
+      "09:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+
+    t.eq(t.get_lines(), {
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 plan",
+      "note about planning",
+      "08:30 call #sales",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "0.50h plan",
+      "0.50h call #sales",
+      "",
+      "--- labels exact ---",
+      "0.50h #ProjectOrion",
+      "0.50h #sales",
+      "",
+      "--- totals exact ---",
+      "1.00h activity",
+      "1.00h workday",
+    })
+  end)
+
   t.test("quantized summaries show an unlabeled label bucket without a default label", function()
     t.reset({
       "--- worklog ---",

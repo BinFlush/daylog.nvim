@@ -74,25 +74,12 @@ local function get_worklog_context_at_cursor()
   return ctx
 end
 
-local function get_ordered_insert_index(ctx, minutes)
-  local parsed_body = parse_context_body(ctx)
-
-  if parsed_body.error then
-    warn_invalid_entry(parsed_body.error)
-    return nil
-  end
-
+local function get_ordered_insert_index(ctx, parsed_body, minutes)
   return order.get_insert_row(parsed_body.items, minutes, blocks.get_insert_index(ctx.block))
 end
 
-local function insert_into_current_worklog(line, minutes)
-  local ctx = get_worklog_context_at_cursor()
-
-  if not ctx then
-    return nil
-  end
-
-  local insert_at = get_ordered_insert_index(ctx, minutes)
+local function insert_into_worklog(ctx, parsed_body, line, minutes)
+  local insert_at = get_ordered_insert_index(ctx, parsed_body, minutes)
   if not insert_at then
     return nil
   end
@@ -102,27 +89,23 @@ local function insert_into_current_worklog(line, minutes)
   return insert_at
 end
 
-local function get_active_entries(ctx)
-  local entries, err = parse.parse_lines(ctx.body_lines, ctx.default_label)
+local function entries_from_parsed_body(parsed_body)
+  local entries = {}
 
-  if not entries then
-    warn_invalid_entry({
-      row = ctx.block.body_start_row + err.row - 1,
-      message = err.message,
+  for _, item in ipairs(parsed_body.items) do
+    table.insert(entries, {
+      minutes = item.minutes,
+      text = item.text,
+      label = item.label,
+      excluded = item.excluded,
     })
-    return nil
   end
 
   return entries
 end
 
-local function get_active_intervals(ctx)
-  local entries = get_active_entries(ctx)
-  if not entries then
-    return nil
-  end
-
-  return intervals.build(entries)
+local function intervals_from_parsed_body(parsed_body)
+  return intervals.build(entries_from_parsed_body(parsed_body))
 end
 
 local function append_lines(lines)
@@ -138,13 +121,14 @@ function M.insert_now()
     return
   end
 
-  if not validate_worklog_context(ctx) then
+  local parsed_body = validate_worklog_context(ctx)
+  if not parsed_body then
     return
   end
 
   local time = os.date("%H:%M")
   local entry = parse.parse_time_line(time)
-  local row = insert_into_current_worklog(time .. " ", entry.minutes)
+  local row = insert_into_worklog(ctx, parsed_body, time .. " ", entry.minutes)
 
   if not row then
     return
@@ -161,14 +145,12 @@ function M.append_summary()
     return
   end
 
-  if not validate_worklog_context(ctx) then
+  local parsed_body = validate_worklog_context(ctx)
+  if not parsed_body then
     return
   end
 
-  local ivs = get_active_intervals(ctx)
-  if not ivs then
-    return
-  end
+  local ivs = intervals_from_parsed_body(parsed_body)
 
   local result = summary.summarize(ivs, ctx.default_label)
   local rendered = render.summary_lines(result, "exact")
@@ -182,14 +164,12 @@ function M.append_quantized_summary()
     return
   end
 
-  if not validate_worklog_context(ctx) then
+  local parsed_body = validate_worklog_context(ctx)
+  if not parsed_body then
     return
   end
 
-  local ivs = get_active_intervals(ctx)
-  if not ivs then
-    return
-  end
+  local ivs = intervals_from_parsed_body(parsed_body)
 
   local result = summary.quantized_summarize(ivs, ctx.default_label)
   local rendered = render.summary_lines(result, "quantized")
@@ -218,7 +198,8 @@ function M.repeat_current()
     return
   end
 
-  if not validate_worklog_context(ctx) then
+  local parsed_body = validate_worklog_context(ctx)
+  if not parsed_body then
     return
   end
 
@@ -235,7 +216,7 @@ function M.repeat_current()
     label = entry.label,
     excluded = entry.excluded,
   }, ctx.default_label)
-  local insert_at = insert_into_current_worklog(line, minutes)
+  local insert_at = insert_into_worklog(ctx, parsed_body, line, minutes)
   if not insert_at then
     return
   end
