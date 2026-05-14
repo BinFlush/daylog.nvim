@@ -5,8 +5,6 @@ local M = {}
 -- Every source line becomes an explicit node so higher layers can derive
 -- worklog meaning without losing original layout, raw text, or source rows.
 
-local WORKLOG_HEADER = "--- worklog ---"
-
 local function normalize_text(text)
   text = text:gsub("%s+", " ")
   text = text:gsub("^%s+", "")
@@ -39,23 +37,43 @@ local function parse_trailing_label(text)
   return prefix, label
 end
 
-local function parse_header(line, row)
-  local default_label = line:match("^%-%-%- worklog default=#([%w_%-]+) %-%-%-$")
-  if default_label then
-    return {
-      kind = "worklog_header",
-      row = row,
-      raw = line,
-      default_label = default_label,
-    }
+local function parse_worklog_options(text)
+  local result = {
+    option_tokens = {},
+    invalid_tokens = {},
+  }
+
+  if text == "" then
+    return result
   end
 
-  if line == WORKLOG_HEADER then
+  for token in text:gmatch("%S+") do
+    local key, value = token:match("^([%w_%-]+)=(.*)$")
+    if key then
+      table.insert(result.option_tokens, {
+        key = key,
+        value = value,
+        raw = token,
+      })
+    else
+      table.insert(result.invalid_tokens, token)
+    end
+  end
+
+  return result
+end
+
+local function parse_header(line, row)
+  local options_text = line:match("^%-%-%- worklog%s*(.-)%s*%-%-%-$")
+  if options_text ~= nil then
+    local options = parse_worklog_options(options_text)
+
     return {
       kind = "worklog_header",
       row = row,
       raw = line,
-      default_label = nil,
+      option_tokens = options.option_tokens,
+      invalid_tokens = options.invalid_tokens,
     }
   end
 

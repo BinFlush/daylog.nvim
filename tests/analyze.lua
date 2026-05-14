@@ -4,7 +4,7 @@ return function(t)
 
   t.test("analyze derives worklog blocks, items, and effective labels", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog default=#ProjectOrion quantize=30 ---",
       "08:00 plan",
       "note about planning",
       "08:30 call #sales",
@@ -21,6 +21,7 @@ return function(t)
 
     t.eq(analysis.kind, "analysis")
     t.eq(analysis.default_label, "ProjectOrion")
+    t.eq(analysis.quantize_minutes, 30)
     t.eq(analysis.diagnostics, {})
     t.eq(#analysis.blocks, 3)
     t.eq(#analysis.worklog_blocks, 2)
@@ -30,7 +31,9 @@ return function(t)
     t.eq(first.body_start_row, 2)
     t.eq(first.end_row, 8)
     t.eq(first.header_default_label, "ProjectOrion")
+    t.eq(first.header_quantize_minutes, 30)
     t.eq(first.default_label, "ProjectOrion")
+    t.eq(first.quantize_minutes, 30)
     t.eq(#first.body_nodes, 6)
     t.eq(first.items, {
       {
@@ -127,7 +130,7 @@ return function(t)
     local analysis = analyze.analyze(document.parse({
       "--- summary exact ---",
       "1.00h activity",
-      "--- worklog default=#sales ---",
+      "--- worklog default=#sales quantize=60 ---",
       "09:00 later",
       "08:00 earlier",
       "08:30 broken #sales #meeting",
@@ -140,13 +143,19 @@ return function(t)
         code = "invalid_first_header",
         severity = "error",
         row = 1,
-        message = "worklog: first line must be --- worklog --- or --- worklog default=#label ---",
+        message = "worklog: first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---",
       },
       {
         code = "unexpected_default_label",
         severity = "error",
         row = 3,
         message = "worklog: only the first worklog header may declare a default label",
+      },
+      {
+        code = "unexpected_quantize",
+        severity = "error",
+        row = 3,
+        message = "worklog: only the first worklog header may declare quantize=<minutes>",
       },
       {
         code = "invalid_entry",
@@ -160,6 +169,117 @@ return function(t)
         row = 4,
         row2 = 5,
         message = "timestamps are not in non-decreasing order",
+      },
+    })
+  end)
+
+  t.test("analyze reports invalid worklog header options", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog quantize=0 default=sales nope unknown=bar ---",
+      "08:00 plan",
+      "09:00 done",
+    }))
+
+    t.eq(analysis.quantize_minutes, 15)
+    t.eq(analysis.diagnostics, {
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
+        message = "worklog header option quantize must be a positive integer",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
+        message = "worklog header option default must be in the form default=#label",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
+        message = "unknown worklog header option: unknown",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
+        message = "worklog header options must use key=value: nope",
+      },
+    })
+  end)
+
+  t.test("analyze reports duplicate worklog header options", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog default=#ProjectOrion default=#sales quantize=30 quantize=60 ---",
+      "08:00 plan",
+      "09:00 done",
+    }))
+
+    t.eq(analysis.default_label, "ProjectOrion")
+    t.eq(analysis.quantize_minutes, 30)
+    t.eq(analysis.diagnostics, {
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
+        message = "duplicate worklog header option: default",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
+        message = "duplicate worklog header option: quantize",
+      },
+    })
+  end)
+
+  t.test("analyze reports invalid options on later worklog headers", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog default=#ProjectOrion ---",
+      "08:00 plan",
+      "09:00 done",
+      "--- worklog default=sales quantize=0 nope unknown=bar ---",
+      "10:00 tea",
+      "11:00 done",
+    }))
+
+    t.eq(analysis.diagnostics, {
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 4,
+        message = "worklog header option default must be in the form default=#label",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 4,
+        message = "worklog header option quantize must be a positive integer",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 4,
+        message = "unknown worklog header option: unknown",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 4,
+        message = "worklog header options must use key=value: nope",
+      },
+      {
+        code = "unexpected_default_label",
+        severity = "error",
+        row = 4,
+        message = "worklog: only the first worklog header may declare a default label",
+      },
+      {
+        code = "unexpected_quantize",
+        severity = "error",
+        row = 4,
+        message = "worklog: only the first worklog header may declare quantize=<minutes>",
       },
     })
   end)
@@ -212,7 +332,7 @@ return function(t)
       "10:00 done",
     }))
 
-    t.eq(analyze.structural_error(analysis), "worklog: first line must be --- worklog --- or --- worklog default=#label ---")
+    t.eq(analyze.structural_error(analysis), "worklog: first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---")
     t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), {
       code = "invalid_entry",
       severity = "error",

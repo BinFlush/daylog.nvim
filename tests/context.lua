@@ -60,14 +60,14 @@ return function(t)
     })
 
     t.eq(ctx, nil)
-    t.eq(err, "worklog: first line must be --- worklog --- or --- worklog default=#label ---")
+    t.eq(err, "worklog: first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---")
 
     ctx, err = context.get_active_worklog_context({
       "08:00 raw",
       "09:00 done",
     })
     t.eq(ctx, nil)
-    t.eq(err, "worklog: no worklog block found; first line must be --- worklog --- or --- worklog default=#label ---")
+    t.eq(err, "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---")
   end)
 
   t.test("context rejects cursor rows outside worklog blocks", function()

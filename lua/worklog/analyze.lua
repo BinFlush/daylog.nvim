@@ -6,8 +6,10 @@ local M = {}
 -- items with attached note lines, and structured diagnostics. It is the main
 -- source of truth for command-time behavior.
 
-local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be --- worklog --- or --- worklog default=#label ---"
+local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---"
 local UNEXPECTED_DEFAULT_LABEL_MESSAGE = "worklog: only the first worklog header may declare a default label"
+local UNEXPECTED_QUANTIZE_MESSAGE = "worklog: only the first worklog header may declare quantize=<minutes>"
+local DEFAULT_QUANTIZE_MINUTES = 15
 
 local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
@@ -113,11 +115,91 @@ local function is_header(node)
 end
 
 local function is_structural_diagnostic(diagnostic)
-  return diagnostic.code == "invalid_first_header" or diagnostic.code == "unexpected_default_label"
+  return diagnostic.code == "invalid_first_header"
+    or diagnostic.code == "unexpected_default_label"
+    or diagnostic.code == "unexpected_quantize"
+    or diagnostic.code == "invalid_worklog_header_option"
 end
 
 local function is_block_diagnostic(diagnostic)
   return diagnostic.code == "invalid_entry" or diagnostic.code == "unordered_timestamps"
+end
+
+local function interpret_worklog_header(header, diagnostics)
+  local result = {
+    default_label = nil,
+    quantize_minutes = nil,
+    declared_default = false,
+    declared_quantize = false,
+  }
+
+  for _, token in ipairs(header.option_tokens or {}) do
+    if token.key == "default" then
+      if result.declared_default then
+        push_diagnostic(diagnostics, {
+          code = "invalid_worklog_header_option",
+          severity = "error",
+          row = header.row,
+          message = "duplicate worklog header option: default",
+        })
+      else
+        result.declared_default = true
+        local default_label = token.value:match("^#([%w_%-]+)$")
+
+        if not default_label then
+          push_diagnostic(diagnostics, {
+            code = "invalid_worklog_header_option",
+            severity = "error",
+            row = header.row,
+            message = "worklog header option default must be in the form default=#label",
+          })
+        else
+          result.default_label = default_label
+        end
+      end
+    elseif token.key == "quantize" then
+      if result.declared_quantize then
+        push_diagnostic(diagnostics, {
+          code = "invalid_worklog_header_option",
+          severity = "error",
+          row = header.row,
+          message = "duplicate worklog header option: quantize",
+        })
+      else
+        result.declared_quantize = true
+        local quantize_minutes = tonumber(token.value)
+
+        if not quantize_minutes or quantize_minutes <= 0 or quantize_minutes ~= math.floor(quantize_minutes) then
+          push_diagnostic(diagnostics, {
+            code = "invalid_worklog_header_option",
+            severity = "error",
+            row = header.row,
+            message = "worklog header option quantize must be a positive integer",
+          })
+        else
+          result.quantize_minutes = quantize_minutes
+        end
+      end
+    else
+      push_diagnostic(diagnostics, {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = header.row,
+        message = "unknown worklog header option: " .. token.key,
+      })
+    end
+  end
+
+  for _, token in ipairs(header.invalid_tokens or {}) do
+    push_diagnostic(diagnostics, {
+      code = "invalid_worklog_header_option",
+      severity = "error",
+      row = header.row,
+      message = "worklog header options must use key=value: " .. token,
+    })
+  end
+
+  return result
 end
 
 function M.is_worklog(block)
@@ -165,9 +247,11 @@ end
 function M.analyze(document)
   local diagnostics = {}
   local header_nodes = {}
+  local interpreted_headers = {}
   local blocks = {}
   local worklog_blocks = {}
   local default_label = nil
+  local quantize_minutes = DEFAULT_QUANTIZE_MINUTES
 
   for _, node in ipairs(document.nodes) do
     if is_header(node) then
@@ -175,8 +259,17 @@ function M.analyze(document)
     end
   end
 
+  for i, header in ipairs(header_nodes) do
+    if is_worklog_header(header) then
+      interpreted_headers[i] = interpret_worklog_header(header, diagnostics)
+    else
+      interpreted_headers[i] = nil
+    end
+  end
+
   if #header_nodes > 0 then
     local first = header_nodes[1]
+    local first_options = interpreted_headers[1]
 
     if first.row ~= 1 or not is_worklog_header(first) then
       push_diagnostic(diagnostics, {
@@ -186,31 +279,46 @@ function M.analyze(document)
         message = INVALID_FIRST_HEADER_MESSAGE,
       })
     else
-      default_label = first.default_label
+      default_label = first_options.default_label
+      if first_options.quantize_minutes ~= nil then
+        quantize_minutes = first_options.quantize_minutes
+      end
     end
   end
 
   for i, header in ipairs(header_nodes) do
     local next_header = header_nodes[i + 1]
+    local interpreted_header = interpreted_headers[i] or {}
     local block = {
       kind = is_worklog_header(header) and "worklog_block" or "generic_block",
       header = header,
       start_row = header.row,
       body_start_row = header.row + 1,
       end_row = next_header and next_header.row or (document.row_count + 1),
-      header_default_label = header.default_label,
+      header_default_label = interpreted_header.default_label,
+      header_quantize_minutes = interpreted_header.quantize_minutes,
       default_label = is_worklog_header(header) and default_label or nil,
+      quantize_minutes = is_worklog_header(header) and quantize_minutes or nil,
     }
 
     block.body_nodes = body_nodes(document, block)
 
     if M.is_worklog(block) then
-      if i > 1 and header.default_label ~= nil then
+      if i > 1 and interpreted_header.declared_default then
         push_diagnostic(diagnostics, {
           code = "unexpected_default_label",
           severity = "error",
           row = header.row,
           message = UNEXPECTED_DEFAULT_LABEL_MESSAGE,
+        })
+      end
+
+      if i > 1 and interpreted_header.declared_quantize then
+        push_diagnostic(diagnostics, {
+          code = "unexpected_quantize",
+          severity = "error",
+          row = header.row,
+          message = UNEXPECTED_QUANTIZE_MESSAGE,
         })
       end
 
@@ -225,6 +333,7 @@ function M.analyze(document)
     kind = "analysis",
     document = document,
     default_label = default_label,
+    quantize_minutes = quantize_minutes,
     diagnostics = diagnostics,
     blocks = blocks,
     worklog_blocks = worklog_blocks,

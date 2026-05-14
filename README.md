@@ -37,10 +37,10 @@ Commands:
 
 ## Format
 
-With a default label:
+With a default label and custom quantization:
 
 ```text
---- worklog default=#ProjectOrion ---
+--- worklog default=#ProjectOrion quantize=30 ---
 08:04 bake strudel
 08:21 negotiate with goose #sales
 08:52 coffee with ghost #ooo
@@ -59,7 +59,9 @@ Without a default label:
 
 Rules:
 
-- The first line must be `--- worklog ---` or `--- worklog default=#label ---`.
+- The first line must be a worklog header, such as `--- worklog ---`, `--- worklog default=#label ---`, or `--- worklog default=#label quantize=30 ---`.
+- The first line may also declare `quantize=<minutes>` for `:WorklogQuantSum`; if omitted, quantization defaults to 15 minutes.
+- `quantize` must be a positive integer number of minutes.
 - Later editable worklog blocks use `--- worklog ---`.
 - Entry syntax is `HH:MM [text] [#label]`.
 - At most one trailing `#label` is allowed.
@@ -96,6 +98,7 @@ General behavior:
 - Effective label = explicit trailing label, otherwise the file default, otherwise unlabeled.
 - Exact output contains `--- summary exact ---`, `--- labels exact ---`, and `--- totals exact ---`.
 - Quantized output contains `--- summary quantized ---`, `--- labels quantized ---`, and `--- totals quantized ---`.
+- Quantized summaries use `quantize=<minutes>` from the first worklog header, defaulting to 15.
 - Item rows and label rows are sorted longest-to-shortest.
 - Equal quantized display durations are ordered by exact grouped duration.
 - In label sections, unlabeled time is rendered as `(unlabeled)`.
@@ -104,9 +107,9 @@ Quantized summary rules:
 
 1. Compute exact intervals from timestamps.
 2. Group identical items by text and effective label.
-3. Round total `activity` to the nearest 15 minutes.
-4. Round each grouped item down to 15 minutes.
-5. Distribute the remaining 15-minute blocks to the largest remainders.
+3. Round total `activity` to the nearest configured quantization bucket.
+4. Round each grouped item down to that bucket.
+5. Distribute the remaining bucket-sized blocks to the largest remainders.
 
 Deltas are rendered as `exact minutes - displayed minutes`, so a positive delta
 means the exact grouped time was longer than the displayed row.

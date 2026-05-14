@@ -8,8 +8,8 @@ local M = {}
 
 local NIL_LABEL_KEY = "\31"
 
-local function round_to_nearest_15(minutes)
-  return math.floor((minutes + 7.5) / 15) * 15
+local function round_to_nearest_bucket(minutes, bucket_minutes)
+  return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
 end
 
 local function label_key(label)
@@ -172,22 +172,23 @@ function M.summarize_block(block)
 end
 
 -- Quantize grouped summary rows together.
--- The overall activity total is rounded to the nearest 15 minutes, each grouped
--- item is rounded down, and the remaining 15-minute blocks are assigned to the
--- largest remainders. `#ooo` items participate in the same pass, but are
--- excluded from the final workday total.
-function M.quantized_summarize_entries(entries, default_label)
+-- The overall activity total is rounded to the nearest configured bucket, each
+-- grouped item is rounded down to that bucket, and the remaining bucket-sized
+-- blocks are assigned to the largest remainders. `#ooo` items participate in
+-- the same pass, but are excluded from the final workday total.
+function M.quantized_summarize_entries(entries, default_label, quantize_minutes)
+  local bucket_minutes = quantize_minutes or 15
   local summary = build_summary_from_intervals(build_intervals(entries), default_label)
   local exact_label_items = summary.label_items
   local exact_activity_total = summary.activity_total
   local exact_workday_total = summary.workday_total
-  local target_total = round_to_nearest_15(summary.activity_total)
+  local target_total = round_to_nearest_bucket(summary.activity_total, bucket_minutes)
   local quantized_total = 0
   local ranked = {}
 
   for i, item in ipairs(summary.items) do
     item.exact_duration = item.duration
-    local base = math.floor(item.duration / 15) * 15
+    local base = math.floor(item.duration / bucket_minutes) * bucket_minutes
     local remainder = item.duration - base
 
     item.error_minutes = remainder
@@ -208,13 +209,13 @@ function M.quantized_summarize_entries(entries, default_label)
     return a.remainder > b.remainder
   end)
 
-  local blocks = math.floor((target_total - quantized_total) / 15)
+  local blocks = math.floor((target_total - quantized_total) / bucket_minutes)
 
   for i = 1, blocks do
     local ranked_item = ranked[i]
     if ranked_item then
-      summary.items[ranked_item.index].duration = summary.items[ranked_item.index].duration + 15
-      summary.items[ranked_item.index].error_minutes = summary.items[ranked_item.index].error_minutes - 15
+      summary.items[ranked_item.index].duration = summary.items[ranked_item.index].duration + bucket_minutes
+      summary.items[ranked_item.index].error_minutes = summary.items[ranked_item.index].error_minutes - bucket_minutes
     end
   end
 
@@ -256,7 +257,7 @@ function M.quantized_summarize_entries(entries, default_label)
 end
 
 function M.quantized_summarize_block(block)
-  return M.quantized_summarize_entries(block.entries, block.default_label)
+  return M.quantized_summarize_entries(block.entries, block.default_label, block.quantize_minutes)
 end
 
 return M

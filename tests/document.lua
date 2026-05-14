@@ -17,7 +17,14 @@ return function(t)
         kind = "worklog_header",
         row = 1,
         raw = "--- worklog default=#ProjectOrion ---",
-        default_label = "ProjectOrion",
+        option_tokens = {
+          {
+            key = "default",
+            value = "#ProjectOrion",
+            raw = "default=#ProjectOrion",
+          },
+        },
+        invalid_tokens = {},
       },
       {
         kind = "entry",
@@ -57,6 +64,51 @@ return function(t)
       text = "negotiate with goose",
       explicit_label = "sales",
       excluded = false,
+    })
+  end)
+
+  t.test("document parse keeps worklog header options", function()
+    t.eq(document.parse_line("--- worklog default=#ProjectOrion quantize=30 nope ---"), {
+      kind = "worklog_header",
+      row = 1,
+      raw = "--- worklog default=#ProjectOrion quantize=30 nope ---",
+      option_tokens = {
+        {
+          key = "default",
+          value = "#ProjectOrion",
+          raw = "default=#ProjectOrion",
+        },
+        {
+          key = "quantize",
+          value = "30",
+          raw = "quantize=30",
+        },
+      },
+      invalid_tokens = { "nope" },
+    })
+
+    t.eq(document.parse_line("--- worklog quantize=foo unknown=bar default=sales ---"), {
+      kind = "worklog_header",
+      row = 1,
+      raw = "--- worklog quantize=foo unknown=bar default=sales ---",
+      option_tokens = {
+        {
+          key = "quantize",
+          value = "foo",
+          raw = "quantize=foo",
+        },
+        {
+          key = "unknown",
+          value = "bar",
+          raw = "unknown=bar",
+        },
+        {
+          key = "default",
+          value = "sales",
+          raw = "default=sales",
+        },
+      },
+      invalid_tokens = {},
     })
   end)
 

@@ -356,7 +356,7 @@ return function(t)
 
   t.test("quantized summaries show an unlabeled label bucket without a default label", function()
     t.reset({
-      "--- worklog ---",
+      "--- worklog quantize=30 ---",
       "08:00 plan",
       "08:12 call #sales",
       "08:30 done",
@@ -365,22 +365,52 @@ return function(t)
     vim.cmd("WorklogQuantSum")
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- worklog quantize=30 ---",
       "08:00 plan",
       "08:12 call #sales",
       "08:30 done",
       "",
       "--- summary quantized ---",
-      "0.25h (+3m) call #sales",
-      "0.25h (-3m) plan",
+      "0.50h (-12m) call #sales",
+      "0.00h (+12m) plan",
       "",
       "--- labels quantized ---",
-      "0.25h (+3m) #sales",
-      "0.25h (-3m) (unlabeled)",
+      "0.50h (-12m) #sales",
+      "0.00h (+12m) (unlabeled)",
       "",
       "--- totals quantized ---",
       "0.50h (+0m) activity",
       "0.50h (+0m) workday",
+    })
+  end)
+
+  t.test("quantized summaries honor file-wide 60 minute quantization", function()
+    t.reset({
+      "--- worklog quantize=60 ---",
+      "08:00 plan",
+      "08:20 call #sales",
+      "09:00 done",
+    })
+
+    vim.cmd("WorklogQuantSum")
+
+    t.eq(t.get_lines(), {
+      "--- worklog quantize=60 ---",
+      "08:00 plan",
+      "08:20 call #sales",
+      "09:00 done",
+      "",
+      "--- summary quantized ---",
+      "1.00h (-20m) call #sales",
+      "0.00h (+20m) plan",
+      "",
+      "--- labels quantized ---",
+      "1.00h (-20m) #sales",
+      "0.00h (+20m) (unlabeled)",
+      "",
+      "--- totals quantized ---",
+      "1.00h (+0m) activity",
+      "1.00h (+0m) workday",
     })
   end)
 

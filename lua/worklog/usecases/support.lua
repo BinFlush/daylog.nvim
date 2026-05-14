@@ -4,7 +4,7 @@ local context = require("worklog.context")
 
 local M = {}
 
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be --- worklog --- or --- worklog default=#label ---"
+local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---"
 
 -- Shared use-case helpers.
 --

@@ -9,7 +9,7 @@ local M = {}
 -- cursor. The returned context keeps only the semantic analysis, selected
 -- block, and the block's effective default label.
 
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be --- worklog --- or --- worklog default=#label ---"
+local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---"
 
 local function build_context(analysis, block)
   if not block then

@@ -69,7 +69,7 @@ return function(t)
 
   t.test("quantized summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
-      "--- worklog ---",
+      "--- worklog quantize=30 ---",
       "08:00 plan",
       "08:12 call #sales",
       "08:30 done",
@@ -80,39 +80,90 @@ return function(t)
         {
           text = "call",
           label = "sales",
-          duration = 15,
+          duration = 30,
           exact_duration = 18,
-          error_minutes = 3,
+          error_minutes = -12,
           excluded = false,
         },
         {
           text = "plan",
           label = nil,
-          duration = 15,
+          duration = 0,
           exact_duration = 12,
-          error_minutes = -3,
+          error_minutes = 12,
           excluded = false,
         },
       },
       label_items = {
         {
           label = "sales",
-          duration = 15,
+          duration = 30,
           exact_duration = 18,
-          error_minutes = 3,
+          error_minutes = -12,
           excluded = false,
         },
         {
           label = nil,
-          duration = 15,
+          duration = 0,
           exact_duration = 12,
-          error_minutes = -3,
+          error_minutes = 12,
           excluded = false,
         },
       },
       default_label = nil,
       activity_total = 30,
       workday_total = 30,
+      activity_error_minutes = 0,
+      workday_error_minutes = 0,
+    })
+  end)
+
+  t.test("quantized summary supports 60 minute rounding", function()
+    local block = block_from_lines({
+      "--- worklog quantize=60 ---",
+      "08:00 plan",
+      "08:20 call #sales",
+      "09:00 done",
+    })
+
+    t.eq(summary.quantized_summarize_block(block), {
+      items = {
+        {
+          text = "call",
+          label = "sales",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+          excluded = false,
+        },
+        {
+          text = "plan",
+          label = nil,
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+          excluded = false,
+        },
+      },
+      label_items = {
+        {
+          label = "sales",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+          excluded = false,
+        },
+        {
+          label = nil,
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+          excluded = false,
+        },
+      },
+      default_label = nil,
+      activity_total = 60,
+      workday_total = 60,
       activity_error_minutes = 0,
       workday_error_minutes = 0,
     })
