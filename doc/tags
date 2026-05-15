@@ -1,0 +1,14 @@
+:WorklogCopy	worklog.txt	/*:WorklogCopy*
+:WorklogInsert	worklog.txt	/*:WorklogInsert*
+:WorklogOrder	worklog.txt	/*:WorklogOrder*
+:WorklogQuantSum	worklog.txt	/*:WorklogQuantSum*
+:WorklogRepeat	worklog.txt	/*:WorklogRepeat*
+:WorklogSummarize	worklog.txt	/*:WorklogSummarize*
+worklog-commands	worklog.txt	/*worklog-commands*
+worklog-contents	worklog.txt	/*worklog-contents*
+worklog-development	worklog.txt	/*worklog-development*
+worklog-format	worklog.txt	/*worklog-format*
+worklog-overview	worklog.txt	/*worklog-overview*
+worklog-sticky-metadata	worklog.txt	/*worklog-sticky-metadata*
+worklog-summaries	worklog.txt	/*worklog-summaries*
+worklog.nvim	worklog.txt	/*worklog.nvim*

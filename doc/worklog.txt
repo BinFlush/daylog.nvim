@@ -1,0 +1,247 @@
+*worklog.nvim*              Structured plain-text worklogs for Neovim
+
+==============================================================================
+CONTENTS                                                    *worklog-contents*
+
+1. Overview.................................................|worklog-overview|
+2. Format...................................................|worklog-format|
+3. Sticky metadata..........................................|worklog-sticky-metadata|
+4. Commands.................................................|worklog-commands|
+5. Summaries................................................|worklog-summaries|
+6. Development..............................................|worklog-development|
+
+==============================================================================
+OVERVIEW                                                    *worklog-overview*
+
+worklog.nvim is a Neovim plugin for structured timestamped plain-text worklogs.
+
+It is designed for workflows where the worklog is a source of truth and later
+needs to produce exact or rounded reporting summaries.
+
+A worklog can track:
+
+- activity text
+- reporting tag
+- work location
+- out-of-office time
+- exact totals
+- quantized reporting totals
+
+Files ending in `.wkl` are detected as filetype `worklog` when the plugin is
+loaded.
+
+==============================================================================
+FORMAT                                                        *worklog-format*
+
+A worklog block starts with a worklog header:
+
+>
+  --- worklog ---
+<
+
+The header may set initial sticky metadata and options:
+
+>
+  --- worklog #ClientA @office quantize=30 ---
+<
+
+A worklog entry has this shape:
+
+>
+  HH:MM text [#tag|#-] [@location|@-]
+<
+
+Example:
+
+>
+  --- worklog #ClientA @office quantize=30 ---
+  08:00 planning
+  10:00 implementation @home
+  13:00 internal meeting #internal
+  14:00 client followup #ClientA @client
+  17:00 done
+<
+
+Rules:
+
+- Times use `HH:MM`.
+- A timestamped line starts an interval.
+- The interval ends at the next timestamped line.
+- A final closing line such as `17:00 done` closes the previous interval.
+- Non-timestamped lines under an entry are notes.
+- Notes move with their timestamped entry when copied or ordered.
+- `quantize=<minutes>` sets the quantization bucket for that worklog block.
+- If no quantize option is present, quantization defaults to 15 minutes.
+
+==============================================================================
+STICKY METADATA                                      *worklog-sticky-metadata*
+
+`#tag` is the current reporting tag.
+
+Examples:
+
+>
+  #ClientA
+  #internal
+  #sales
+  #ooo
+<
+
+`@location` is the current work location.
+
+Examples:
+
+>
+  @home
+  @office
+  @client
+<
+
+Both are sticky. When an entry omits a tag or location, it inherits the current
+value from the header or previous entries.
+
+Example:
+
+>
+  --- worklog #ClientA @office ---
+  08:00 planning
+  10:00 implementation @home
+  13:00 internal meeting #internal
+  14:00 client followup #ClientA @client
+  17:00 done
+<
+
+Effective intervals:
+
+>
+  08:00-10:00  planning          #ClientA   @office
+  10:00-13:00  implementation    #ClientA   @home
+  13:00-14:00  internal meeting  #internal  @home
+  14:00-17:00  client followup   #ClientA   @client
+<
+
+To clear sticky metadata:
+
+>
+  #-   clears the active tag
+  @-   clears the active location
+<
+
+Example:
+
+>
+  --- worklog ---
+  08:00 planning
+  10:00 break #ooo
+  10:15 back to untagged work #-
+  12:00 client call #ClientA @client
+  13:00 back to untagged, no-location work #- @-
+  14:00 done
+<
+
+The special tag `#ooo` means out of office.
+
+`#ooo` intervals count toward `activity`, but not toward `workday`.
+
+`#ooo` is sticky until another tag or `#-` replaces it.
+
+==============================================================================
+COMMANDS                                                    *worklog-commands*
+
+                                                        *:WorklogInsert*
+:WorklogInsert
+
+Insert the current time into the worklog block under the cursor.
+
+- The cursor must be inside a worklog block or on its header.
+- The new timestamp is inserted in chronological order.
+- Equal timestamps stay grouped together.
+- Insert mode starts on the new line.
+
+                                                        *:WorklogRepeat*
+:WorklogRepeat
+
+Repeat the activity under the cursor at the current time.
+
+- The cursor must be on a timestamped worklog entry.
+- The entry is inserted in chronological order.
+- Sticky tag and location meaning are preserved.
+
+                                                        *:WorklogCopy*
+:WorklogCopy
+
+Append a normalized editable copy of the active worklog.
+
+The active worklog is the latest `--- worklog ... ---` block in the buffer.
+
+                                                        *:WorklogOrder*
+:WorklogOrder
+
+Rewrite all worklog blocks in chronological order.
+
+- Timestamped entries are sorted by time.
+- Equal timestamps preserve their relative order.
+- Notes move with their entry.
+- Clear tokens are emitted when needed to preserve sticky metadata meaning.
+
+                                                        *:WorklogSummarize*
+:WorklogSummarize
+
+Append an exact summary for the active worklog.
+
+The summary may include item totals, tag totals, location totals, and overall
+activity/workday totals.
+
+                                                        *:WorklogQuantSum*
+:WorklogQuantSum
+
+Append a quantized summary for the active worklog.
+
+The bucket size is read from `quantize=<minutes>` on that worklog block. If
+omitted, the default is 15 minutes.
+
+==============================================================================
+SUMMARIES                                                  *worklog-summaries*
+
+An interval is the time from one timestamped entry to the next.
+
+Summaries group intervals by:
+
+- activity text
+- effective `#tag`
+- effective `@location`
+
+Exact summaries use raw interval durations.
+
+Quantized summaries round grouped work into buckets.
+
+Summary rows are ordered longest-to-shortest.
+
+Tag and location sections are omitted when they only contain placeholder buckets.
+The `activity` total is omitted when it is identical to `workday`.
+
+The special tag `#ooo` is excluded from `workday`, but included in `activity`.
+
+==============================================================================
+DEVELOPMENT                                              *worklog-development*
+
+Run the full test suite:
+
+>
+  nvim --headless -i NONE -u NONE \
+    "+set rtp+=." \
+    "+lua dofile('tests/run.lua')" \
+    +qa!
+<
+
+Smoke check:
+
+>
+  nvim --headless -u NONE \
+    "+set rtp+=." \
+    "+lua require('worklog').setup()" \
+    +qa
+<
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
