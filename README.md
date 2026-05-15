@@ -10,8 +10,8 @@ keep the source log editable and human-readable, and only derive the neat
 reporting view when you need it.
 
 For example, you might keep a `.wkl` file open during work, add quick lines like
-`08:21 negotiate with goose #sales`, fix rough timestamps later, then append an
-exact or quantized summary when it is time to report hours.
+`08:21 negotiate with goose #sales @client`, fix rough timestamps later, then
+append an exact or quantized summary when it is time to report hours.
 
 `*.wkl` is detected as filetype `worklog` when the plugin is loaded.
 
@@ -37,39 +37,59 @@ Commands:
 
 ## Format
 
-With a default label and custom quantization:
+With sticky tag and location metadata plus custom quantization:
 
 ```text
---- worklog default=#ProjectOrion quantize=30 ---
+--- worklog #ProjectOrion @office quantize=30 ---
 08:04 bake strudel
-08:21 negotiate with goose #sales
-08:52 coffee with ghost #ooo
-10:00 done
+08:21 negotiate with goose #sales @client
+08:52 coffee with ghost #ooo @home
+10:00 done #ProjectOrion @office
 ```
 
-Without a default label:
+Without initial sticky metadata:
 
 ```text
 --- worklog ---
 08:04 bake strudel
 08:21 negotiate with goose #sales
-08:52 coffee with ghost #ooo
+08:52 coffee with ghost @home
 10:00 done
 ```
 
 Rules:
 
-- The first line must be a worklog header, such as `--- worklog ---`, `--- worklog default=#label ---`, or `--- worklog default=#label quantize=30 ---`.
-- The first line may also declare `quantize=<minutes>` for `:WorklogQuantSum`; if omitted, quantization defaults to 15 minutes.
+- The first line must be a worklog header, such as `--- worklog ---` or `--- worklog #ClientA @office quantize=30 ---`.
+- Any worklog header may initialize sticky `#tag` and `@location` metadata for that block.
+- Only the first worklog header may declare `quantize=<minutes>` for `:WorklogQuantSum`; if omitted, quantization defaults to 15 minutes.
 - `quantize` must be a positive integer number of minutes.
-- Later editable worklog blocks use `--- worklog ---`.
-- Entry syntax is `HH:MM [text] [#label]`.
-- At most one trailing `#label` is allowed.
-- If a default label exists, unlabeled entries inherit it.
-- Otherwise unlabeled entries stay unlabeled.
-- `#ooo` is special: it counts toward `activity`, but not `workday`.
+- Entry syntax is `HH:MM [text] [#tag] [@location]`.
+- At most one trailing `#tag` and one trailing `@location` are allowed on each entry.
+- `#tag` and `@location` are sticky inside a block.
+- An entry that omits one or both metadata tokens inherits the current sticky values.
+- `#ooo` is special: it counts toward `activity`, but not `workday`, and it stays sticky until another tag replaces it.
 - Non-timestamped lines under an entry are notes; they move with that entry when copied or ordered.
 - A closing line such as `10:00 done` just provides the end time for the previous entry.
+
+Example:
+
+```text
+--- worklog #ClientA @office quantize=30 ---
+08:00 plan migration
+10:30 implement migration @home
+13:00 internal meeting #internal
+15:00 client followup #ClientA @client
+17:00 done
+```
+
+Effective intervals:
+
+```text
+08:00-10:30 plan migration      #ClientA  @office
+10:30-13:00 implement migration #ClientA  @home
+13:00-15:00 internal meeting    #internal @home
+15:00-17:00 client followup     #ClientA  @client
+```
 
 ## Commands
 
@@ -77,10 +97,10 @@ Rules:
 | --- | --- | --- |
 | `:WorklogInsert` | Worklog under cursor, including header | Insert current time in order and enter insert mode |
 | `:WorklogRepeat` | Current entry in worklog under cursor | Reinsert the same activity at the current time |
-| `:WorklogCopy` | Active worklog | Append a normalized `--- worklog ---` copy |
+| `:WorklogCopy` | Active worklog | Append a normalized `--- worklog ... ---` copy |
 | `:WorklogOrder` | All worklog blocks | Rewrite each block in chronological order |
-| `:WorklogSummarize` | Active worklog | Append exact grouped summary, label totals, and totals |
-| `:WorklogQuantSum` | Active worklog | Append quantized grouped summary, label totals, and totals |
+| `:WorklogSummarize` | Active worklog | Append exact grouped summary, tag totals, location totals, and totals |
+| `:WorklogQuantSum` | Active worklog | Append quantized grouped summary, tag totals, location totals, and totals |
 
 General behavior:
 
@@ -89,24 +109,26 @@ General behavior:
 - `:WorklogCopy`, `:WorklogSummarize`, and `:WorklogQuantSum` use the active worklog.
 - Commands validate only the blocks they operate on.
 - `:WorklogOrder` can repair decreasing timestamps, but malformed entry lines still block it.
+- `:WorklogOrder` also refuses reorders that would require clearing a sticky tag or location implicitly, because the syntax has no reset token.
+- `:WorklogRepeat` can fail for the same reason when repeating an older entry into a later sticky context.
 - Equal timestamps are allowed and keep their relative order.
 
 ## Summary Semantics
 
 - An interval is the time from one entry to the next.
-- Summary items group by `text + effective label`.
-- Effective label = explicit trailing label, otherwise the file default, otherwise unlabeled.
-- Exact output contains `--- summary exact ---`, `--- labels exact ---`, and `--- totals exact ---`.
-- Quantized output contains `--- summary quantized ---`, `--- labels quantized ---`, and `--- totals quantized ---`.
+- Summary items group by `text + effective tag + effective location`.
+- Exact output contains `--- summary exact ---`, `--- tags exact ---`, `--- locations exact ---`, and `--- totals exact ---`.
+- Quantized output contains `--- summary quantized ---`, `--- tags quantized ---`, `--- locations quantized ---`, and `--- totals quantized ---`.
 - Quantized summaries use `quantize=<minutes>` from the first worklog header, defaulting to 15.
-- Item rows and label rows are sorted longest-to-shortest.
+- Item rows, tag rows, and location rows are sorted longest-to-shortest.
 - Equal quantized display durations are ordered by exact grouped duration.
-- In label sections, unlabeled time is rendered as `(unlabeled)`.
+- In tag sections, missing tags are rendered as `(untagged)`.
+- In location sections, missing locations are rendered as `(no location)`.
 
 Quantized summary rules:
 
 1. Compute exact intervals from timestamps.
-2. Group identical items by text and effective label.
+2. Group identical items by text and effective metadata.
 3. Round total `activity` to the nearest configured quantization bucket.
 4. Round each grouped item down to that bucket.
 5. Distribute the remaining bucket-sized blocks to the largest remainders.
@@ -119,12 +141,12 @@ means the exact grouped time was longer than the displayed row.
 Source worklog:
 
 ```text
---- worklog default=#ProjectOrion ---
+--- worklog #ProjectOrion @office ---
 08:04 bake strudel
-08:21 negotiate with goose #sales
-08:33 bake strudel
-08:52 coffee with ghost #ooo
-09:11 polish trombone
+08:21 negotiate with goose #sales @client
+08:33 bake strudel #ProjectOrion @office
+08:52 coffee with ghost #ooo @home
+09:11 polish trombone #ProjectOrion @office
 09:36 bake strudel
 10:00 done
 ```
@@ -133,15 +155,20 @@ Exact summary:
 
 ```text
 --- summary exact ---
-1.00h bake strudel
-0.42h polish trombone
-0.32h coffee with ghost (ooo)
-0.20h negotiate with goose #sales
+1.00h bake strudel #ProjectOrion @office
+0.42h polish trombone #ProjectOrion @office
+0.32h coffee with ghost #ooo @home
+0.20h negotiate with goose #sales @client
 
---- labels exact ---
+--- tags exact ---
 1.42h #ProjectOrion
 0.32h #ooo
 0.20h #sales
+
+--- locations exact ---
+1.42h @office
+0.32h @home
+0.20h @client
 
 --- totals exact ---
 1.93h activity
@@ -152,15 +179,20 @@ Quantized summary:
 
 ```text
 --- summary quantized ---
-1.00h (+0m) bake strudel
-0.50h (-5m) polish trombone
-0.25h (+4m) coffee with ghost (ooo)
-0.25h (-3m) negotiate with goose #sales
+1.00h (+0m) bake strudel #ProjectOrion @office
+0.50h (-5m) polish trombone #ProjectOrion @office
+0.25h (+4m) coffee with ghost #ooo @home
+0.25h (-3m) negotiate with goose #sales @client
 
---- labels quantized ---
+--- tags quantized ---
 1.50h (-5m) #ProjectOrion
 0.25h (+4m) #ooo
 0.25h (-3m) #sales
+
+--- locations quantized ---
+1.50h (-5m) @office
+0.25h (+4m) @home
+0.25h (-3m) @client
 
 --- totals quantized ---
 2.00h (-4m) activity
