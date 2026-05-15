@@ -1,7 +1,6 @@
 return function(t)
   local append_copy = require("worklog.usecases.append_copy")
   local append_summary = require("worklog.usecases.append_summary")
-  local body = require("worklog.body")
   local insert_now = require("worklog.usecases.insert_now")
   local order_worklogs = require("worklog.usecases.order_worklogs")
   local repeat_current = require("worklog.usecases.repeat_current")
@@ -86,22 +85,29 @@ return function(t)
     })
   end)
 
-  t.test("append_copy usecase propagates normalization failure", function()
-    local old_normalized_lines = body.normalized_lines
-    body.normalized_lines = function()
-      return nil, "worklog: synthetic normalized failure"
-    end
-
-    local result, err = append_copy.run({
-      "--- worklog #ProjectOrion @office ---",
-      "08:00 plan",
-      "09:00 done",
+  t.test("append_copy preserves clear tokens needed to keep meaning", function()
+    local result = append_copy.run({
+      "--- worklog ---",
+      "08:00 break #ooo @home",
+      "09:00 resume #- @-",
+      "10:00 done",
     })
 
-    body.normalized_lines = old_normalized_lines
-
-    t.eq(result, nil)
-    t.eq(err, "worklog: synthetic normalized failure")
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 4,
+          end_index = 4,
+          lines = {
+            "",
+            "--- worklog ---",
+            "08:00 break #ooo @home",
+            "09:00 resume #- @-",
+            "10:00 done",
+          },
+        },
+      },
+    })
   end)
 
   t.test("repeat_current usecase re-emits only the tag change", function()
@@ -142,28 +148,42 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current usecase fails when repeating would clear a sticky tag", function()
-    local result, err = repeat_current.run({
+  t.test("repeat_current usecase emits a tag clear when needed", function()
+    local result = repeat_current.run({
       "--- worklog @office ---",
       "08:00 planning",
       "10:00 internal meeting #internal",
       "11:00 done",
     }, 2, "10:30")
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: cannot repeat an untagged entry after sticky tag has been set")
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = { "10:30 planning #-" },
+        },
+      },
+    })
   end)
 
-  t.test("repeat_current usecase fails when repeating would clear a sticky location", function()
-    local result, err = repeat_current.run({
+  t.test("repeat_current usecase emits a location clear when needed", function()
+    local result = repeat_current.run({
       "--- worklog #ClientA ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
     }, 2, "10:30")
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: cannot repeat an entry without location after sticky location has been set")
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = { "10:30 planning @-" },
+        },
+      },
+    })
   end)
 
   t.test("order_worklogs usecase returns replace edits for representable sticky rewrites", function()
@@ -189,25 +209,45 @@ return function(t)
     })
   end)
 
-  t.test("order_worklogs usecase fails when sorting would clear a sticky tag", function()
-    local result, err = order_worklogs.run({
+  t.test("order_worklogs usecase emits a tag clear when sorting needs it", function()
+    local result = order_worklogs.run({
       "--- worklog ---",
       "09:00 done",
       "08:00 plan #sales",
     })
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: cannot reorder entry at line 2 because sticky tag cannot be cleared implicitly")
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 3,
+          lines = {
+            "08:00 plan #sales",
+            "09:00 done #-",
+          },
+        },
+      },
+    })
   end)
 
-  t.test("order_worklogs usecase fails when sorting would clear a sticky location", function()
-    local result, err = order_worklogs.run({
+  t.test("order_worklogs usecase emits a location clear when sorting needs it", function()
+    local result = order_worklogs.run({
       "--- worklog #sales ---",
       "09:00 done",
       "08:00 plan @client",
     })
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: cannot reorder entry at line 2 because sticky location cannot be cleared implicitly")
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 3,
+          lines = {
+            "08:00 plan @client",
+            "09:00 done @-",
+          },
+        },
+      },
+    })
   end)
 end

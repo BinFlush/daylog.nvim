@@ -83,6 +83,62 @@ return function(t)
     })
   end)
 
+  t.test("summary treats cleared metadata as untagged and no location", function()
+    local block = block_from_lines({
+      "--- worklog ---",
+      "08:00 break #ooo @home",
+      "09:00 resume #- @-",
+      "10:00 done",
+    })
+
+    t.eq(summary.summarize_block(block), {
+      items = {
+        {
+          text = "break",
+          tag = "ooo",
+          location = "home",
+          duration = 60,
+          exact_duration = 60,
+          excluded = true,
+        },
+        {
+          text = "resume",
+          tag = nil,
+          location = nil,
+          duration = 60,
+          exact_duration = 60,
+          excluded = false,
+        },
+      },
+      tag_items = {
+        {
+          tag = "ooo",
+          duration = 60,
+          exact_duration = 60,
+        },
+        {
+          tag = nil,
+          duration = 60,
+          exact_duration = 60,
+        },
+      },
+      location_items = {
+        {
+          location = "home",
+          duration = 60,
+          exact_duration = 60,
+        },
+        {
+          location = nil,
+          duration = 60,
+          exact_duration = 60,
+        },
+      },
+      activity_total = 120,
+      workday_total = 60,
+    })
+  end)
+
   t.test("quantized summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
       "--- worklog @office quantize=30 ---",

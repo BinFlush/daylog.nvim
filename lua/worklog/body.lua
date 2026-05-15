@@ -32,24 +32,6 @@ local function lines_from_nodes(nodes)
   return lines
 end
 
-local function representable_error(item, current_tag, current_location)
-  if item.tag == nil and current_tag ~= nil then
-    return string.format(
-      "worklog: cannot reorder entry at line %d because sticky tag cannot be cleared implicitly",
-      item.row
-    )
-  end
-
-  if item.location == nil and current_location ~= nil then
-    return string.format(
-      "worklog: cannot reorder entry at line %d because sticky location cannot be cleared implicitly",
-      item.row
-    )
-  end
-
-  return nil
-end
-
 local function rewrite_body(block)
   local preamble_lines = {}
   local items = {}
@@ -63,11 +45,15 @@ local function rewrite_body(block)
 
   for index, item in ipairs(block.items) do
     table.insert(items, {
-      minutes = item.minutes,
-      text = item.text,
-      tag = item.tag,
-      location = item.location,
-      excluded = item.excluded,
+        minutes = item.minutes,
+        text = item.text,
+        explicit_tag = item.explicit_tag,
+        explicit_tag_clear = item.explicit_tag_clear,
+        explicit_location = item.explicit_location,
+        explicit_location_clear = item.explicit_location_clear,
+        tag = item.tag,
+        location = item.location,
+        excluded = item.excluded,
       row = item.start_row,
       index = index,
       lines = trim_trailing_empty_lines(lines_from_nodes(item.nodes)),
@@ -90,11 +76,6 @@ local function rebuild_lines(preamble_lines, items, header_tag, header_location,
   end
 
   for _, item in ipairs(items) do
-    local err = representable_error(item, current_tag, current_location)
-    if err then
-      return nil, err
-    end
-
     table.insert(lines, format_entry(item, current_tag, current_location))
     current_tag = item.tag
     current_location = item.location
@@ -120,6 +101,10 @@ local function sorted_items(items)
     table.insert(result, {
       minutes = item.minutes,
       text = item.text,
+      explicit_tag = item.explicit_tag,
+      explicit_tag_clear = item.explicit_tag_clear,
+      explicit_location = item.explicit_location,
+      explicit_location_clear = item.explicit_location_clear,
       tag = item.tag,
       location = item.location,
       excluded = item.excluded,

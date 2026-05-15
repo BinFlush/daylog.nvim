@@ -29,7 +29,9 @@ local function semantic_entry(item)
     minutes = item.minutes,
     text = item.text,
     explicit_tag = item.explicit_tag,
+    explicit_tag_clear = item.explicit_tag_clear,
     explicit_location = item.explicit_location,
+    explicit_location_clear = item.explicit_location_clear,
     tag = item.tag,
     location = item.location,
     excluded = item.excluded,
@@ -37,15 +39,29 @@ local function semantic_entry(item)
 end
 
 local function semantic_entry_from_node(node, current_tag, current_location)
-  local tag = node.explicit_tag or current_tag
-  local location = node.explicit_location or current_location
+  local tag = current_tag
+  local location = current_location
+
+  if node.explicit_tag_clear then
+    tag = nil
+  elseif node.explicit_tag ~= nil then
+    tag = node.explicit_tag
+  end
+
+  if node.explicit_location_clear then
+    location = nil
+  elseif node.explicit_location ~= nil then
+    location = node.explicit_location
+  end
 
   return {
     row = node.row,
     minutes = node.minutes,
     text = node.text,
     explicit_tag = node.explicit_tag,
+    explicit_tag_clear = node.explicit_tag_clear,
     explicit_location = node.explicit_location,
+    explicit_location_clear = node.explicit_location_clear,
     tag = tag,
     location = location,
     excluded = tag == "ooo",
@@ -75,7 +91,9 @@ local function analyze_worklog_items(block, diagnostics)
         minutes = entry.minutes,
         text = entry.text,
         explicit_tag = entry.explicit_tag,
+        explicit_tag_clear = entry.explicit_tag_clear,
         explicit_location = entry.explicit_location,
+        explicit_location_clear = entry.explicit_location_clear,
         tag = entry.tag,
         location = entry.location,
         excluded = entry.excluded,
@@ -138,14 +156,16 @@ end
 local function interpret_worklog_header(header, diagnostics)
   local result = {
     tag = nil,
+    has_tag = false,
     location = nil,
+    has_location = false,
     quantize_minutes = nil,
     declared_quantize = false,
   }
 
   for _, token in ipairs(header.metadata_tokens or {}) do
     if token.kind == "tag" then
-      if result.tag ~= nil then
+      if result.has_tag then
         push_diagnostic(diagnostics, {
           code = "invalid_worklog_header_metadata",
           severity = "error",
@@ -153,10 +173,11 @@ local function interpret_worklog_header(header, diagnostics)
           message = "multiple worklog header tags are not allowed",
         })
       else
+        result.has_tag = true
         result.tag = token.value
       end
     elseif token.kind == "location" then
-      if result.location ~= nil then
+      if result.has_location then
         push_diagnostic(diagnostics, {
           code = "invalid_worklog_header_metadata",
           severity = "error",
@@ -164,6 +185,7 @@ local function interpret_worklog_header(header, diagnostics)
           message = "multiple worklog header locations are not allowed",
         })
       else
+        result.has_location = true
         result.location = token.value
       end
     end

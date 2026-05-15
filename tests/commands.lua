@@ -141,6 +141,28 @@ return function(t)
     })
   end)
 
+  t.test("copy preserves clear tokens needed to return to nil metadata", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 break #ooo @home",
+      "09:00 resume #- @-",
+      "10:00 done",
+    })
+
+    vim.cmd("WorklogCopy")
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 break #ooo @home",
+      "09:00 resume #- @-",
+      "10:00 done",
+      "",
+      "--- worklog ---",
+      "08:00 break #ooo @home",
+      "09:00 resume #- @-",
+      "10:00 done",
+    })
+  end)
+
   t.test("repeat inserts into explicit worklog block containing cursor", function()
     t.reset({
       "--- worklog #ProjectOrion @office ---",
@@ -214,6 +236,32 @@ return function(t)
       "--- worklog ---",
       "08:00 first",
       "08:30 first",
+      "09:00 done",
+    })
+  end)
+
+  t.test("repeat emits clear tokens when replaying nil metadata after sticky values were set", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 first",
+      "08:15 break #ooo @home",
+      "09:00 done",
+    })
+    t.set_cursor(2, 0)
+
+    local old_date = os.date
+    os.date = function()
+      return "08:30"
+    end
+
+    vim.cmd("WorklogRepeat")
+    os.date = old_date
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 first",
+      "08:15 break #ooo @home",
+      "08:30 first #- @-",
       "09:00 done",
     })
   end)
@@ -341,6 +389,40 @@ return function(t)
       "1.00h plan",
       "",
       "--- totals exact ---",
+      "1.00h workday",
+    })
+  end)
+
+  t.test("summaries show cleared metadata as placeholder buckets", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 break #ooo @home",
+      "09:00 resume #- @-",
+      "10:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 break #ooo @home",
+      "09:00 resume #- @-",
+      "10:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h break #ooo @home",
+      "1.00h resume",
+      "",
+      "--- tags exact ---",
+      "1.00h #ooo",
+      "1.00h (untagged)",
+      "",
+      "--- locations exact ---",
+      "1.00h @home",
+      "1.00h (no location)",
+      "",
+      "--- totals exact ---",
+      "2.00h activity",
       "1.00h workday",
     })
   end)
@@ -633,7 +715,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog order refuses impossible sticky metadata clears", function()
+  t.test("worklog order emits clear tokens when sorting needs them", function()
     t.reset({
       "--- worklog ---",
       "09:00 done",
@@ -644,8 +726,8 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- worklog ---",
-      "09:00 done",
       "08:00 plan #sales",
+      "09:00 done #-",
     })
   end)
 end

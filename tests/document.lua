@@ -193,6 +193,49 @@ return function(t)
     })
   end)
 
+  t.test("document parse recognizes clear tokens in headers and entries", function()
+    t.eq(document.parse_line("--- worklog #- @- quantize=30 ---"), {
+      kind = "worklog_header",
+      row = 1,
+      raw = "--- worklog #- @- quantize=30 ---",
+      metadata_tokens = {
+        {
+          kind = "tag",
+          value = nil,
+          clear = true,
+          raw = "#-",
+        },
+        {
+          kind = "location",
+          value = nil,
+          clear = true,
+          raw = "@-",
+        },
+      },
+      option_tokens = {
+        {
+          key = "quantize",
+          value = "30",
+          raw = "quantize=30",
+        },
+      },
+      invalid_tokens = {},
+    })
+
+    t.eq(document.parse_line("08:04 reset #- @-"), {
+      kind = "entry",
+      row = 1,
+      raw = "08:04 reset #- @-",
+      minutes = 484,
+      text = "reset",
+      explicit_tag = nil,
+      explicit_tag_clear = true,
+      explicit_location = nil,
+      explicit_location_clear = true,
+      excluded = false,
+    })
+  end)
+
   t.test("document parse marks malformed time-like lines as invalid entries", function()
     local doc = document.parse({
       "08:00 plan #sales #meeting",

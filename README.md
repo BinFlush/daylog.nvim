@@ -23,14 +23,15 @@ append an exact or quantized summary when it is time to report hours.
 10:00 implementation @home
 13:00 internal meeting #internal
 14:00 client followup #ClientA @client
+15:00 admin #- @-
 17:00 done
 ```
 
 - `#tag` and `@location` are sticky inside a worklog block.
 - When either token is omitted, the entry inherits the current sticky value.
+- `#-` clears the sticky tag and `@-` clears the sticky location.
 - Write a new timestamped entry whenever the tag or location changes.
 - `#ooo` is sticky too, and its intervals count toward `activity` but not `workday`.
-- There is currently no syntax for clearing a sticky tag or location back to empty.
 
 ## Install
 
@@ -80,12 +81,12 @@ Rules:
 - Any worklog header may initialize sticky `#tag` and `@location` metadata for that block.
 - Any worklog header may also declare `quantize=<minutes>` for quantized summaries of that block; if omitted, quantization defaults to 15 minutes.
 - `quantize` must be a positive integer number of minutes.
-- Entry syntax is `HH:MM [text] [#tag] [@location]`.
+- Entry syntax is `HH:MM [text] [#tag|#-] [@location|@-]`.
 - At most one trailing `#tag` and one trailing `@location` are allowed on each entry.
 - `#tag` and `@location` are sticky inside a block.
+- `#-` clears the active tag and `@-` clears the active location.
 - An entry that omits one or both metadata tokens inherits the current sticky values.
 - `#ooo` is special: it counts toward `activity`, but not `workday`, and it stays sticky until another tag replaces it.
-- There is currently no `clear tag` or `clear location` token; once a sticky value is set inside a block, later entries inherit it until another value replaces it.
 - Non-timestamped lines under an entry are notes; they move with that entry when copied or ordered.
 - A closing line such as `10:00 done` just provides the end time for the previous entry.
 
@@ -97,6 +98,7 @@ Example:
 10:30 implement migration @home
 13:00 internal meeting #internal
 15:00 client followup #ClientA @client
+16:00 admin #- @-
 17:00 done
 ```
 
@@ -106,7 +108,8 @@ Effective intervals:
 08:00-10:30 plan migration      #ClientA  @office
 10:30-13:00 implement migration #ClientA  @home
 13:00-15:00 internal meeting    #internal @home
-15:00-17:00 client followup     #ClientA  @client
+15:00-16:00 client followup     #ClientA  @client
+16:00-17:00 admin               (untagged) (no location)
 ```
 
 ## Commands
@@ -127,8 +130,6 @@ General behavior:
 - `:WorklogCopy`, `:WorklogSummarize`, and `:WorklogQuantSum` use the active worklog.
 - Commands validate only the blocks they operate on.
 - `:WorklogOrder` can repair decreasing timestamps, but malformed entry lines still block it.
-- `:WorklogOrder` also refuses reorders that would require clearing a sticky tag or location implicitly, because the syntax has no reset token.
-- `:WorklogRepeat` can fail for the same reason when repeating an older entry into a later sticky context.
 - Equal timestamps are allowed and keep their relative order.
 
 ## Summary Semantics

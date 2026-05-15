@@ -14,7 +14,9 @@ local function semantic_entry(entry)
     minutes = entry.minutes,
     text = entry.text,
     explicit_tag = entry.explicit_tag,
+    explicit_tag_clear = entry.explicit_tag_clear,
     explicit_location = entry.explicit_location,
+    explicit_location_clear = entry.explicit_location_clear,
     tag = entry.tag,
     location = entry.location,
     excluded = entry.excluded,
@@ -32,27 +34,23 @@ function M.format(entry, current_tag, current_location)
     table.insert(parts, entry.text)
   end
 
-  if entry.tag and entry.tag ~= current_tag then
-    table.insert(parts, "#" .. entry.tag)
+  if entry.tag ~= current_tag then
+    if entry.tag == nil then
+      table.insert(parts, "#-")
+    else
+      table.insert(parts, "#" .. entry.tag)
+    end
   end
 
-  if entry.location and entry.location ~= current_location then
-    table.insert(parts, "@" .. entry.location)
+  if entry.location ~= current_location then
+    if entry.location == nil then
+      table.insert(parts, "@-")
+    else
+      table.insert(parts, "@" .. entry.location)
+    end
   end
 
   return table.concat(parts, " ")
-end
-
-function M.is_representable(entry, current_tag, current_location)
-  if entry.tag == nil and current_tag ~= nil then
-    return false, "worklog: cannot repeat an untagged entry after sticky tag has been set"
-  end
-
-  if entry.location == nil and current_location ~= nil then
-    return false, "worklog: cannot repeat an entry without location after sticky location has been set"
-  end
-
-  return true
 end
 
 function M.parse(line, current_tag, current_location)

@@ -92,4 +92,17 @@ return function(t)
       "09:00 done",
     })
   end)
+
+  t.test("body sorted lines emit clear tokens when needed", function()
+    local block = block_from_lines({
+      "--- worklog ---",
+      "09:00 done",
+      "08:00 plan #sales @client",
+    })
+
+    t.eq(body.sorted_lines(block, entry.format), {
+      "08:00 plan #sales @client",
+      "09:00 done #- @-",
+    })
+  end)
 end

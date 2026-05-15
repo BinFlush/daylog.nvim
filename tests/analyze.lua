@@ -406,6 +406,38 @@ return function(t)
     })
   end)
 
+  t.test("analyze clears sticky tag and location when asked", function()
+    local entries = analyze.analyze(document.parse({
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 plan",
+      "09:00 reset #- @-",
+      "10:00 done",
+    })).worklog_blocks[1].entries
+
+    t.eq(entries[2], {
+      row = 3,
+      minutes = 540,
+      text = "reset",
+      explicit_tag = nil,
+      explicit_tag_clear = true,
+      explicit_location = nil,
+      explicit_location_clear = true,
+      tag = nil,
+      location = nil,
+      excluded = false,
+    })
+    t.eq(entries[3], {
+      row = 4,
+      minutes = 600,
+      text = "done",
+      explicit_tag = nil,
+      explicit_location = nil,
+      tag = nil,
+      location = nil,
+      excluded = false,
+    })
+  end)
+
   t.test("analyze keeps ooo sticky until another tag replaces it", function()
     local entries = analyze.analyze(document.parse({
       "--- worklog #ProjectOrion @office ---",
@@ -447,6 +479,37 @@ return function(t)
     })
   end)
 
+  t.test("analyze can return from ooo to untagged with tag clear", function()
+    local entries = analyze.analyze(document.parse({
+      "--- worklog ---",
+      "08:00 break #ooo",
+      "09:00 resume #-",
+      "10:00 done",
+    })).worklog_blocks[1].entries
+
+    t.eq(entries[2], {
+      row = 3,
+      minutes = 540,
+      text = "resume",
+      explicit_tag = nil,
+      explicit_tag_clear = true,
+      explicit_location = nil,
+      tag = nil,
+      location = nil,
+      excluded = false,
+    })
+    t.eq(entries[3], {
+      row = 4,
+      minutes = 600,
+      text = "done",
+      explicit_tag = nil,
+      explicit_location = nil,
+      tag = nil,
+      location = nil,
+      excluded = false,
+    })
+  end)
+
   t.test("analyze keeps sticky tag when only location changes", function()
     local entries = analyze.analyze(document.parse({
       "--- worklog #ProjectOrion @office ---",
@@ -473,6 +536,37 @@ return function(t)
       explicit_location = nil,
       tag = "ProjectOrion",
       location = "client",
+      excluded = false,
+    })
+  end)
+
+  t.test("analyze can return from a location to no location with location clear", function()
+    local entries = analyze.analyze(document.parse({
+      "--- worklog ---",
+      "08:00 travel @home",
+      "09:00 arrive @-",
+      "10:00 done",
+    })).worklog_blocks[1].entries
+
+    t.eq(entries[2], {
+      row = 3,
+      minutes = 540,
+      text = "arrive",
+      explicit_tag = nil,
+      explicit_location = nil,
+      explicit_location_clear = true,
+      tag = nil,
+      location = nil,
+      excluded = false,
+    })
+    t.eq(entries[3], {
+      row = 4,
+      minutes = 600,
+      text = "done",
+      explicit_tag = nil,
+      explicit_location = nil,
+      tag = nil,
+      location = nil,
       excluded = false,
     })
   end)

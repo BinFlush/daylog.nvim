@@ -28,14 +28,13 @@ function M.run(lines, row, time)
   local minutes = entry.parse(time).minutes
   insertion_state = support.get_insert_state(ctx.block, minutes)
 
-  local ok, representable_err = entry.is_representable(current_item, insertion_state.tag, insertion_state.location)
-  if not ok then
-    return nil, representable_err
-  end
-
   local line = entry.format({
     minutes = minutes,
     text = current_item.text,
+    explicit_tag = current_item.explicit_tag,
+    explicit_tag_clear = current_item.explicit_tag_clear,
+    explicit_location = current_item.explicit_location,
+    explicit_location_clear = current_item.explicit_location_clear,
     tag = current_item.tag,
     location = current_item.location,
     excluded = current_item.excluded,

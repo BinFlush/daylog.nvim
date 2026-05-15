@@ -13,17 +13,25 @@ local function normalize_text(text)
 end
 
 local function parse_metadata_token(token)
+  if token == "#-" then
+    return "tag", nil, true
+  end
+
+  if token == "@-" then
+    return "location", nil, true
+  end
+
   local tag = token:match("^#([%w_%-]+)$")
   if tag then
-    return "tag", tag
+    return "tag", tag, false
   end
 
   local location = token:match("^@([%w_%-]+)$")
   if location then
-    return "location", location
+    return "location", location, false
   end
 
-  return nil, nil
+  return nil, nil, false
 end
 
 local function parse_worklog_tokens(text)
@@ -38,12 +46,13 @@ local function parse_worklog_tokens(text)
   end
 
   for token in text:gmatch("%S+") do
-    local kind, value = parse_metadata_token(token)
+    local kind, value, clear = parse_metadata_token(token)
 
     if kind then
       table.insert(result.metadata_tokens, {
         kind = kind,
         value = value,
+        clear = clear or nil,
         raw = token,
       })
     else
@@ -67,11 +76,15 @@ end
 local function parse_entry_metadata(text)
   local tokens = {}
   local tag = nil
+  local tag_clear = nil
+  local has_tag = false
   local location = nil
+  local location_clear = nil
+  local has_location = false
   local split_index = 0
 
   if text == "" then
-    return "", nil, nil
+    return "", nil, nil, nil, nil
   end
 
   for token in text:gmatch("%S+") do
@@ -91,20 +104,24 @@ local function parse_entry_metadata(text)
   end
 
   for i = split_index + 1, #tokens do
-    local kind, value = parse_metadata_token(tokens[i])
+    local kind, value, clear = parse_metadata_token(tokens[i])
 
     if kind == "tag" then
-      if tag ~= nil then
-        return nil, nil, nil, "multiple trailing tags are not allowed"
+      if has_tag then
+        return nil, nil, nil, nil, nil, "multiple trailing tags are not allowed"
       end
 
+      has_tag = true
       tag = value
+      tag_clear = clear or nil
     elseif kind == "location" then
-      if location ~= nil then
-        return nil, nil, nil, "multiple trailing locations are not allowed"
+      if has_location then
+        return nil, nil, nil, nil, nil, "multiple trailing locations are not allowed"
       end
 
+      has_location = true
       location = value
+      location_clear = clear or nil
     end
   end
 
@@ -114,7 +131,7 @@ local function parse_entry_metadata(text)
     table.insert(text_tokens, tokens[i])
   end
 
-  return table.concat(text_tokens, " "), tag, location
+  return table.concat(text_tokens, " "), tag, tag_clear, location, location_clear
 end
 
 local function parse_header(line, row)
@@ -173,9 +190,9 @@ local function parse_entry(line, row)
   end
 
   local text = normalize_text(rest:gsub("^%s+", ""))
-  local explicit_tag, explicit_location, err
+  local explicit_tag, explicit_tag_clear, explicit_location, explicit_location_clear, err
 
-  text, explicit_tag, explicit_location, err = parse_entry_metadata(text)
+  text, explicit_tag, explicit_tag_clear, explicit_location, explicit_location_clear, err = parse_entry_metadata(text)
   if err then
     return {
       kind = "invalid_entry",
@@ -192,7 +209,9 @@ local function parse_entry(line, row)
     minutes = hh * 60 + mm,
     text = text,
     explicit_tag = explicit_tag,
+    explicit_tag_clear = explicit_tag_clear,
     explicit_location = explicit_location,
+    explicit_location_clear = explicit_location_clear,
     excluded = explicit_tag == "ooo",
   }
 end
