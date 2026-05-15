@@ -20,7 +20,7 @@ return function(t)
     t.eq(ctx.block.start_row, 8)
     t.eq(ctx.block.body_start_row, 9)
     t.eq(ctx.block.end_row, 11)
-    t.eq(ctx.analysis.quantize_minutes, 30)
+    t.eq(ctx.block.quantize_minutes, 15)
   end)
 
   t.test("context includes header rows when selecting worklogs by cursor", function()

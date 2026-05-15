@@ -21,7 +21,7 @@ return function(t)
     }))
 
     t.eq(analysis.kind, "analysis")
-    t.eq(analysis.quantize_minutes, 30)
+    t.eq(analysis.quantize_minutes, 15)
     t.eq(analysis.diagnostics, {})
     t.eq(#analysis.blocks, 3)
     t.eq(#analysis.worklog_blocks, 2)
@@ -163,6 +163,8 @@ return function(t)
     local second = analysis.worklog_blocks[2]
     t.eq(second.header_tag, "internal")
     t.eq(second.header_location, "office")
+    t.eq(second.header_quantize_minutes, nil)
+    t.eq(second.quantize_minutes, 15)
     t.eq(second.entries, {
       {
         row = 13,
@@ -203,19 +205,12 @@ return function(t)
       "10:00 done",
     }))
 
-    t.eq(analysis.quantize_minutes, 15)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_first_header",
         severity = "error",
         row = 1,
         message = "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---",
-      },
-      {
-        code = "unexpected_quantize",
-        severity = "error",
-        row = 3,
-        message = "worklog: only the first worklog header may declare quantize=<minutes>",
       },
       {
         code = "invalid_entry",
@@ -231,6 +226,9 @@ return function(t)
         message = "timestamps are not in non-decreasing order",
       },
     })
+
+    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 60)
+    t.eq(analysis.worklog_blocks[1].quantize_minutes, 60)
   end)
 
   t.test("analyze reports invalid worklog header metadata and options", function()
@@ -240,7 +238,6 @@ return function(t)
       "09:00 done",
     }))
 
-    t.eq(analysis.quantize_minutes, 15)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_worklog_header_metadata",
@@ -273,6 +270,9 @@ return function(t)
         message = "worklog header tokens must be #tag, @location, or key=value: nope",
       },
     })
+
+    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, nil)
+    t.eq(analysis.worklog_blocks[1].quantize_minutes, 15)
   end)
 
   t.test("analyze reports duplicate worklog header options", function()
@@ -282,7 +282,6 @@ return function(t)
       "09:00 done",
     }))
 
-    t.eq(analysis.quantize_minutes, 30)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_worklog_header_option",
@@ -291,6 +290,9 @@ return function(t)
         message = "duplicate worklog header option: quantize",
       },
     })
+
+    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 30)
+    t.eq(analysis.worklog_blocks[1].quantize_minutes, 30)
   end)
 
   t.test("analyze reports invalid options on later worklog headers", function()
@@ -322,13 +324,33 @@ return function(t)
         row = 4,
         message = "worklog header tokens must be #tag, @location, or key=value: nope",
       },
-      {
-        code = "unexpected_quantize",
-        severity = "error",
-        row = 4,
-        message = "worklog: only the first worklog header may declare quantize=<minutes>",
-      },
     })
+
+    t.eq(analysis.worklog_blocks[1].quantize_minutes, 15)
+    t.eq(analysis.worklog_blocks[2].header_quantize_minutes, nil)
+    t.eq(analysis.worklog_blocks[2].quantize_minutes, 15)
+  end)
+
+  t.test("analyze keeps quantize local to each worklog", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog #ProjectOrion @office quantize=30 ---",
+      "08:00 plan",
+      "09:00 done",
+      "--- worklog #internal @home quantize=60 ---",
+      "10:00 tea",
+      "11:00 done",
+      "--- worklog #sales @client ---",
+      "12:00 call",
+      "13:00 done",
+    }))
+
+    t.eq(analysis.diagnostics, {})
+    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 30)
+    t.eq(analysis.worklog_blocks[1].quantize_minutes, 30)
+    t.eq(analysis.worklog_blocks[2].header_quantize_minutes, 60)
+    t.eq(analysis.worklog_blocks[2].quantize_minutes, 60)
+    t.eq(analysis.worklog_blocks[3].header_quantize_minutes, nil)
+    t.eq(analysis.worklog_blocks[3].quantize_minutes, 15)
   end)
 
   t.test("analyze keeps sticky metadata nil until changed", function()

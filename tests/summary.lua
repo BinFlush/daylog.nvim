@@ -8,6 +8,11 @@ return function(t)
     return analysis.worklog_blocks[1]
   end
 
+  local function block_at(lines, index)
+    local analysis = analyze.analyze(document.parse(lines))
+    return analysis.worklog_blocks[index]
+  end
+
   t.test("summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
       "--- worklog #ProjectOrion @office ---",
@@ -149,6 +154,74 @@ return function(t)
       "08:20 call #sales @client",
       "09:00 done",
     })
+
+    t.eq(summary.quantized_summarize_block(block), {
+      items = {
+        {
+          text = "call",
+          tag = "sales",
+          location = "client",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+          excluded = false,
+        },
+        {
+          text = "plan",
+          tag = nil,
+          location = "office",
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+          excluded = false,
+        },
+      },
+      tag_items = {
+        {
+          tag = "sales",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+        },
+        {
+          tag = nil,
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+        },
+      },
+      location_items = {
+        {
+          location = "client",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+        },
+        {
+          location = "office",
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+        },
+      },
+      activity_total = 60,
+      workday_total = 60,
+      activity_error_minutes = 0,
+      workday_error_minutes = 0,
+    })
+  end)
+
+  t.test("quantized summary uses the selected block quantize", function()
+    local block = block_at({
+      "--- worklog @office quantize=30 ---",
+      "08:00 plan",
+      "08:12 call #sales @client",
+      "08:30 done",
+      "--- worklog @office quantize=60 ---",
+      "09:00 plan",
+      "09:20 call #sales @client",
+      "10:00 done",
+    }, 2)
 
     t.eq(summary.quantized_summarize_block(block), {
       items = {

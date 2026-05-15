@@ -78,7 +78,7 @@ Rules:
 
 - The first line must be a worklog header, such as `--- worklog ---` or `--- worklog #ClientA @office quantize=30 ---`.
 - Any worklog header may initialize sticky `#tag` and `@location` metadata for that block.
-- Only the first worklog header may declare `quantize=<minutes>` for `:WorklogQuantSum`; if omitted, quantization defaults to 15 minutes.
+- Any worklog header may also declare `quantize=<minutes>` for quantized summaries of that block; if omitted, quantization defaults to 15 minutes.
 - `quantize` must be a positive integer number of minutes.
 - Entry syntax is `HH:MM [text] [#tag] [@location]`.
 - At most one trailing `#tag` and one trailing `@location` are allowed on each entry.
@@ -137,7 +137,7 @@ General behavior:
 - Summary items group by `text + effective tag + effective location`.
 - Exact output contains `--- summary exact ---`, `--- tags exact ---`, `--- locations exact ---`, and `--- totals exact ---`.
 - Quantized output contains `--- summary quantized ---`, `--- tags quantized ---`, `--- locations quantized ---`, and `--- totals quantized ---`.
-- Quantized summaries use `quantize=<minutes>` from the first worklog header, defaulting to 15.
+- Quantized summaries use `quantize=<minutes>` from the active worklog header, defaulting to 15 for that block.
 - Item rows, tag rows, and location rows are sorted longest-to-shortest.
 - Equal quantized display durations are ordered by exact grouped duration.
 - In tag sections, missing tags are rendered as `(untagged)`.

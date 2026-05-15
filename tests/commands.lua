@@ -111,6 +111,33 @@ return function(t)
       "11:00 tea",
       "note tea",
       "12:00",
+      })
+  end)
+
+  t.test("copy preserves explicit quantize on the active worklog header", function()
+    t.reset({
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 first",
+      "09:00 done",
+      "",
+      "--- worklog #sales @client quantize=30 ---",
+      "11:00 tea",
+      "12:00",
+    })
+
+    vim.cmd("WorklogCopy")
+    t.eq(t.get_lines(), {
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 first",
+      "09:00 done",
+      "",
+      "--- worklog #sales @client quantize=30 ---",
+      "11:00 tea",
+      "12:00",
+      "",
+      "--- worklog #sales @client quantize=30 ---",
+      "11:00 tea",
+      "12:00",
     })
   end)
 
@@ -404,21 +431,29 @@ return function(t)
     })
   end)
 
-  t.test("quantized summaries honor file-wide 60 minute quantization", function()
+  t.test("quantized summaries honor active worklog quantization", function()
     t.reset({
+      "--- worklog @office quantize=30 ---",
+      "08:00 earlier",
+      "08:30 done",
+      "",
       "--- worklog @office quantize=60 ---",
-      "08:00 plan",
-      "08:20 call #sales @client",
-      "09:00 done",
+      "09:00 plan",
+      "09:20 call #sales @client",
+      "10:00 done",
     })
 
     vim.cmd("WorklogQuantSum")
 
     t.eq(t.get_lines(), {
+      "--- worklog @office quantize=30 ---",
+      "08:00 earlier",
+      "08:30 done",
+      "",
       "--- worklog @office quantize=60 ---",
-      "08:00 plan",
-      "08:20 call #sales @client",
-      "09:00 done",
+      "09:00 plan",
+      "09:20 call #sales @client",
+      "10:00 done",
       "",
       "--- summary quantized ---",
       "1.00h (-20m) call #sales @client",

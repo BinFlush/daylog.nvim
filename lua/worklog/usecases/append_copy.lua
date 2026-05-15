@@ -23,7 +23,8 @@ function M.run(lines)
   local rendered = render.worklog_lines(
     normalized,
     ctx.block.header_tag,
-    ctx.block.header_location
+    ctx.block.header_location,
+    ctx.block.header_quantize_minutes
   )
   return support.append_edit(lines, rendered)
 end

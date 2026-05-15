@@ -7,7 +7,6 @@ local M = {}
 -- source of truth for command-time behavior.
 
 local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
-local UNEXPECTED_QUANTIZE_MESSAGE = "worklog: only the first worklog header may declare quantize=<minutes>"
 local DEFAULT_QUANTIZE_MINUTES = 15
 
 local function push_diagnostic(diagnostics, diagnostic)
@@ -127,7 +126,6 @@ end
 
 local function is_structural_diagnostic(diagnostic)
   return diagnostic.code == "invalid_first_header"
-    or diagnostic.code == "unexpected_quantize"
     or diagnostic.code == "invalid_worklog_header_option"
     or diagnostic.code == "invalid_worklog_header_metadata"
     or diagnostic.code == "invalid_worklog_header_token"
@@ -269,7 +267,6 @@ function M.analyze(document)
   local interpreted_headers = {}
   local blocks = {}
   local worklog_blocks = {}
-  local quantize_minutes = DEFAULT_QUANTIZE_MINUTES
 
   for _, node in ipairs(document.nodes) do
     if is_header(node) then
@@ -287,7 +284,6 @@ function M.analyze(document)
 
   if #header_nodes > 0 then
     local first = header_nodes[1]
-    local first_options = interpreted_headers[1]
 
     if first.row ~= 1 or not is_worklog_header(first) then
       push_diagnostic(diagnostics, {
@@ -296,10 +292,6 @@ function M.analyze(document)
         row = first.row,
         message = INVALID_FIRST_HEADER_MESSAGE,
       })
-    else
-      if first_options.quantize_minutes ~= nil then
-        quantize_minutes = first_options.quantize_minutes
-      end
     end
   end
 
@@ -315,21 +307,12 @@ function M.analyze(document)
       header_tag = interpreted_header.tag,
       header_location = interpreted_header.location,
       header_quantize_minutes = interpreted_header.quantize_minutes,
-      quantize_minutes = is_worklog_header(header) and quantize_minutes or nil,
+      quantize_minutes = is_worklog_header(header) and (interpreted_header.quantize_minutes or DEFAULT_QUANTIZE_MINUTES) or nil,
     }
 
     block.body_nodes = body_nodes(document, block)
 
     if M.is_worklog(block) then
-      if i > 1 and interpreted_header.declared_quantize then
-        push_diagnostic(diagnostics, {
-          code = "unexpected_quantize",
-          severity = "error",
-          row = header.row,
-          message = UNEXPECTED_QUANTIZE_MESSAGE,
-        })
-      end
-
       block.items, block.entries = analyze_worklog_items(block, diagnostics)
       table.insert(worklog_blocks, block)
     end
@@ -340,7 +323,7 @@ function M.analyze(document)
   return {
     kind = "analysis",
     document = document,
-    quantize_minutes = quantize_minutes,
+    quantize_minutes = DEFAULT_QUANTIZE_MINUTES,
     diagnostics = diagnostics,
     blocks = blocks,
     worklog_blocks = worklog_blocks,

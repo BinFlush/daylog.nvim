@@ -62,7 +62,7 @@ local function extend_lines(target, source)
   end
 end
 
-function M.worklog_lines(lines, header_tag, header_location)
+function M.worklog_lines(lines, header_tag, header_location, header_quantize_minutes)
   local header = { "--- worklog" }
 
   if header_tag then
@@ -71,6 +71,10 @@ function M.worklog_lines(lines, header_tag, header_location)
 
   if header_location then
     table.insert(header, "@" .. header_location)
+  end
+
+  if header_quantize_minutes then
+    table.insert(header, "quantize=" .. tostring(header_quantize_minutes))
   end
 
   local rendered = {
