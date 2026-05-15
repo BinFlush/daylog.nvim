@@ -21,16 +21,16 @@ return function(t)
     t.eq(body.insert_index(block, 510), 3)
   end)
 
-  t.test("body state_before follows sticky metadata through equal timestamps", function()
+  t.test("body state_before includes equal timestamp entries at insertion time", function()
     local block = block_from_lines({
       "--- worklog #ProjectOrion @office ---",
-      "08:00 first",
+      "08:00 first #sales",
       "08:00 second @client",
       "09:00 done",
     })
 
     t.eq(body.state_before(block, 479), { tag = "ProjectOrion", location = "office" })
-    t.eq(body.state_before(block, 480), { tag = "ProjectOrion", location = "client" })
+    t.eq(body.state_before(block, 480), { tag = "sales", location = "client" })
   end)
 
   t.test("body normalized lines keep preamble and trim trailing item blanks", function()

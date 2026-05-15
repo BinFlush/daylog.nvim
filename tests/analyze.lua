@@ -384,6 +384,107 @@ return function(t)
     })
   end)
 
+  t.test("analyze keeps ooo sticky until another tag replaces it", function()
+    local entries = analyze.analyze(document.parse({
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 break #ooo",
+      "08:30 lunch",
+      "09:00 work #ProjectOrion",
+      "09:30 done",
+    })).worklog_blocks[1].entries
+
+    t.eq(entries[1], {
+      row = 2,
+      minutes = 480,
+      text = "break",
+      explicit_tag = "ooo",
+      explicit_location = nil,
+      tag = "ooo",
+      location = "office",
+      excluded = true,
+    })
+    t.eq(entries[2], {
+      row = 3,
+      minutes = 510,
+      text = "lunch",
+      explicit_tag = nil,
+      explicit_location = nil,
+      tag = "ooo",
+      location = "office",
+      excluded = true,
+    })
+    t.eq(entries[3], {
+      row = 4,
+      minutes = 540,
+      text = "work",
+      explicit_tag = "ProjectOrion",
+      explicit_location = nil,
+      tag = "ProjectOrion",
+      location = "office",
+      excluded = false,
+    })
+  end)
+
+  t.test("analyze keeps sticky tag when only location changes", function()
+    local entries = analyze.analyze(document.parse({
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 plan",
+      "09:00 travel @client",
+      "10:00 done",
+    })).worklog_blocks[1].entries
+
+    t.eq(entries[2], {
+      row = 3,
+      minutes = 540,
+      text = "travel",
+      explicit_tag = nil,
+      explicit_location = "client",
+      tag = "ProjectOrion",
+      location = "client",
+      excluded = false,
+    })
+    t.eq(entries[3], {
+      row = 4,
+      minutes = 600,
+      text = "done",
+      explicit_tag = nil,
+      explicit_location = nil,
+      tag = "ProjectOrion",
+      location = "client",
+      excluded = false,
+    })
+  end)
+
+  t.test("analyze keeps sticky location when only tag changes", function()
+    local entries = analyze.analyze(document.parse({
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 plan",
+      "09:00 internal #internal",
+      "10:00 done",
+    })).worklog_blocks[1].entries
+
+    t.eq(entries[2], {
+      row = 3,
+      minutes = 540,
+      text = "internal",
+      explicit_tag = "internal",
+      explicit_location = nil,
+      tag = "internal",
+      location = "office",
+      excluded = false,
+    })
+    t.eq(entries[3], {
+      row = 4,
+      minutes = 600,
+      text = "done",
+      explicit_tag = nil,
+      explicit_location = nil,
+      tag = "internal",
+      location = "office",
+      excluded = false,
+    })
+  end)
+
   t.test("analyze helpers expose structural and block diagnostics", function()
     local analysis = analyze.analyze(document.parse({
       "--- summary exact ---",

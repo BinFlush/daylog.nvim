@@ -15,6 +15,23 @@ append an exact or quantized summary when it is time to report hours.
 
 `*.wkl` is detected as filetype `worklog` when the plugin is loaded.
 
+## Sticky Metadata
+
+```text
+--- worklog #ClientA @office ---
+08:00 planning
+10:00 implementation @home
+13:00 internal meeting #internal
+14:00 client followup #ClientA @client
+17:00 done
+```
+
+- `#tag` and `@location` are sticky inside a worklog block.
+- When either token is omitted, the entry inherits the current sticky value.
+- Write a new timestamped entry whenever the tag or location changes.
+- `#ooo` is sticky too, and its intervals count toward `activity` but not `workday`.
+- There is currently no syntax for clearing a sticky tag or location back to empty.
+
 ## Install
 
 ```lua
@@ -68,6 +85,7 @@ Rules:
 - `#tag` and `@location` are sticky inside a block.
 - An entry that omits one or both metadata tokens inherits the current sticky values.
 - `#ooo` is special: it counts toward `activity`, but not `workday`, and it stays sticky until another tag replaces it.
+- There is currently no `clear tag` or `clear location` token; once a sticky value is set inside a block, later entries inherit it until another value replaces it.
 - Non-timestamped lines under an entry are notes; they move with that entry when copied or ordered.
 - A closing line such as `10:00 done` just provides the end time for the previous entry.
 

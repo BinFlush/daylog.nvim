@@ -90,8 +90,7 @@ end
 function M.repeat_current()
   local lines = buffer_lines()
   local row = cursor_row()
-  local current_line = vim.api.nvim_get_current_line()
-  local result, err = repeat_current.run(lines, row, current_line, os.date("%H:%M"))
+  local result, err = repeat_current.run(lines, row, os.date("%H:%M"))
   if not result then
     warn(err)
     return

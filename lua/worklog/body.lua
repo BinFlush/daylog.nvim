@@ -156,6 +156,8 @@ function M.state_before(block, minutes)
     location = block.header_location,
   }
 
+  -- Inserted entries are placed after existing equal timestamps, so the sticky
+  -- state before insertion includes every item at the same minute.
   for _, item in ipairs(block.items) do
     if item.minutes > minutes then
       break

@@ -5,7 +5,7 @@ local M = {}
 
 -- Build the edit script for repeating the current activity at a new time.
 
-function M.run(lines, row, _current_line, time)
+function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)
   local current_item = nil
   local insertion_state = nil
