@@ -25,9 +25,9 @@ return function(t)
 
   t.test("append_summary usecase returns appended summary lines", function()
     local result = append_summary.run({
-      "--- worklog ---",
+      "--- worklog @office ---",
       "08:00 plan",
-      "08:30 call #sales",
+      "08:30 call #sales @client",
       "09:00 done",
     })
 
@@ -39,12 +39,16 @@ return function(t)
           lines = {
             "",
             "--- summary exact ---",
-            "0.50h plan",
-            "0.50h call #sales",
+            "0.50h plan @office",
+            "0.50h call #sales @client",
             "",
-            "--- labels exact ---",
-            "0.50h (unlabeled)",
+            "--- tags exact ---",
+            "0.50h (untagged)",
             "0.50h #sales",
+            "",
+            "--- locations exact ---",
+            "0.50h @office",
+            "0.50h @client",
             "",
             "--- totals exact ---",
             "1.00h activity",
@@ -57,10 +61,10 @@ return function(t)
 
   t.test("order_worklogs usecase returns replace edits for worklog bodies", function()
     local result = order_worklogs.run({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion ---",
       "08:30 later",
-      "08:00 earlier",
-      "09:00 done",
+      "08:00 earlier #sales",
+      "09:00 done #ProjectOrion",
     })
 
     t.eq(result, {
@@ -69,8 +73,8 @@ return function(t)
           start_index = 1,
           end_index = 4,
           lines = {
-            "08:00 earlier",
-            "08:30 later",
+            "08:00 earlier #sales",
+            "08:30 later #ProjectOrion",
             "09:00 done",
           },
         },

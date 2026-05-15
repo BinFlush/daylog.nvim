@@ -12,33 +12,23 @@ local function normalize_text(text)
   return text
 end
 
-local function ends_with_label(text)
-  return text:match("^#([%w_%-]+)$") ~= nil or text:match("%s+#([%w_%-]+)$") ~= nil
-end
-
-local function parse_trailing_label(text)
-  local prefix, label = text:match("^(.-)%s+#([%w_%-]+)$")
-
-  if not label then
-    label = text:match("^#([%w_%-]+)$")
-    if label then
-      return "", label
-    end
-
-    return text, nil
+local function parse_metadata_token(token)
+  local tag = token:match("^#([%w_%-]+)$")
+  if tag then
+    return "tag", tag
   end
 
-  prefix = normalize_text(prefix)
-
-  if ends_with_label(prefix) then
-    return nil, nil, "multiple trailing labels are not allowed"
+  local location = token:match("^@([%w_%-]+)$")
+  if location then
+    return "location", location
   end
 
-  return prefix, label
+  return nil, nil
 end
 
-local function parse_worklog_options(text)
+local function parse_worklog_tokens(text)
   local result = {
+    metadata_tokens = {},
     option_tokens = {},
     invalid_tokens = {},
   }
@@ -48,30 +38,95 @@ local function parse_worklog_options(text)
   end
 
   for token in text:gmatch("%S+") do
-    local key, value = token:match("^([%w_%-]+)=(.*)$")
-    if key then
-      table.insert(result.option_tokens, {
-        key = key,
+    local kind, value = parse_metadata_token(token)
+
+    if kind then
+      table.insert(result.metadata_tokens, {
+        kind = kind,
         value = value,
         raw = token,
       })
     else
-      table.insert(result.invalid_tokens, token)
+      local key, option_value = token:match("^([%w_%-]+)=(.*)$")
+
+      if key then
+        table.insert(result.option_tokens, {
+          key = key,
+          value = option_value,
+          raw = token,
+        })
+      else
+        table.insert(result.invalid_tokens, token)
+      end
     end
   end
 
   return result
 end
 
+local function parse_entry_metadata(text)
+  local tokens = {}
+  local tag = nil
+  local location = nil
+  local split_index = 0
+
+  if text == "" then
+    return "", nil, nil
+  end
+
+  for token in text:gmatch("%S+") do
+    table.insert(tokens, token)
+  end
+
+  split_index = #tokens
+
+  while split_index > 0 do
+    local kind = parse_metadata_token(tokens[split_index])
+
+    if not kind then
+      break
+    end
+
+    split_index = split_index - 1
+  end
+
+  for i = split_index + 1, #tokens do
+    local kind, value = parse_metadata_token(tokens[i])
+
+    if kind == "tag" then
+      if tag ~= nil then
+        return nil, nil, nil, "multiple trailing tags are not allowed"
+      end
+
+      tag = value
+    elseif kind == "location" then
+      if location ~= nil then
+        return nil, nil, nil, "multiple trailing locations are not allowed"
+      end
+
+      location = value
+    end
+  end
+
+  local text_tokens = {}
+
+  for i = 1, split_index do
+    table.insert(text_tokens, tokens[i])
+  end
+
+  return table.concat(text_tokens, " "), tag, location
+end
+
 local function parse_header(line, row)
   local options_text = line:match("^%-%-%- worklog%s*(.-)%s*%-%-%-$")
   if options_text ~= nil then
-    local options = parse_worklog_options(options_text)
+    local options = parse_worklog_tokens(options_text)
 
     return {
       kind = "worklog_header",
       row = row,
       raw = line,
+      metadata_tokens = options.metadata_tokens,
       option_tokens = options.option_tokens,
       invalid_tokens = options.invalid_tokens,
     }
@@ -118,9 +173,9 @@ local function parse_entry(line, row)
   end
 
   local text = normalize_text(rest:gsub("^%s+", ""))
-  local explicit_label, err
+  local explicit_tag, explicit_location, err
 
-  text, explicit_label, err = parse_trailing_label(text)
+  text, explicit_tag, explicit_location, err = parse_entry_metadata(text)
   if err then
     return {
       kind = "invalid_entry",
@@ -136,8 +191,9 @@ local function parse_entry(line, row)
     raw = line,
     minutes = hh * 60 + mm,
     text = text,
-    explicit_label = explicit_label,
-    excluded = explicit_label == "ooo",
+    explicit_tag = explicit_tag,
+    explicit_location = explicit_location,
+    excluded = explicit_tag == "ooo",
   }
 end
 

@@ -3,7 +3,7 @@ return function(t)
 
   t.test("document parse preserves line kinds and rows", function()
     local doc = document.parse({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office quantize=30 ---",
       "08:00 plan",
       "note about planning",
       "",
@@ -16,12 +16,24 @@ return function(t)
       {
         kind = "worklog_header",
         row = 1,
-        raw = "--- worklog default=#ProjectOrion ---",
+        raw = "--- worklog #ProjectOrion @office quantize=30 ---",
+        metadata_tokens = {
+          {
+            kind = "tag",
+            value = "ProjectOrion",
+            raw = "#ProjectOrion",
+          },
+          {
+            kind = "location",
+            value = "office",
+            raw = "@office",
+          },
+        },
         option_tokens = {
           {
-            key = "default",
-            value = "#ProjectOrion",
-            raw = "default=#ProjectOrion",
+            key = "quantize",
+            value = "30",
+            raw = "quantize=30",
           },
         },
         invalid_tokens = {},
@@ -32,7 +44,8 @@ return function(t)
         raw = "08:00 plan",
         minutes = 480,
         text = "plan",
-        explicit_label = nil,
+        explicit_tag = nil,
+        explicit_location = nil,
         excluded = false,
       },
       {
@@ -56,28 +69,36 @@ return function(t)
   end)
 
   t.test("document parse_line parses a single line directly", function()
-    t.eq(document.parse_line("08:21 negotiate with goose #sales"), {
+    t.eq(document.parse_line("08:21 negotiate with goose #sales @client"), {
       kind = "entry",
       row = 1,
-      raw = "08:21 negotiate with goose #sales",
+      raw = "08:21 negotiate with goose #sales @client",
       minutes = 501,
       text = "negotiate with goose",
-      explicit_label = "sales",
+      explicit_tag = "sales",
+      explicit_location = "client",
       excluded = false,
     })
   end)
 
-  t.test("document parse keeps worklog header options", function()
-    t.eq(document.parse_line("--- worklog default=#ProjectOrion quantize=30 nope ---"), {
+  t.test("document parse keeps worklog header metadata and options", function()
+    t.eq(document.parse_line("--- worklog #ProjectOrion @office quantize=30 nope ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog default=#ProjectOrion quantize=30 nope ---",
-      option_tokens = {
+      raw = "--- worklog #ProjectOrion @office quantize=30 nope ---",
+      metadata_tokens = {
         {
-          key = "default",
-          value = "#ProjectOrion",
-          raw = "default=#ProjectOrion",
+          kind = "tag",
+          value = "ProjectOrion",
+          raw = "#ProjectOrion",
         },
+        {
+          kind = "location",
+          value = "office",
+          raw = "@office",
+        },
+      },
+      option_tokens = {
         {
           key = "quantize",
           value = "30",
@@ -87,10 +108,22 @@ return function(t)
       invalid_tokens = { "nope" },
     })
 
-    t.eq(document.parse_line("--- worklog quantize=foo unknown=bar default=sales ---"), {
+    t.eq(document.parse_line("--- worklog quantize=foo unknown=bar #internal @home ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog quantize=foo unknown=bar default=sales ---",
+      raw = "--- worklog quantize=foo unknown=bar #internal @home ---",
+      metadata_tokens = {
+        {
+          kind = "tag",
+          value = "internal",
+          raw = "#internal",
+        },
+        {
+          kind = "location",
+          value = "home",
+          raw = "@home",
+        },
+      },
       option_tokens = {
         {
           key = "quantize",
@@ -102,21 +135,16 @@ return function(t)
           value = "bar",
           raw = "unknown=bar",
         },
-        {
-          key = "default",
-          value = "sales",
-          raw = "default=sales",
-        },
       },
       invalid_tokens = {},
     })
   end)
 
-  t.test("document parse keeps explicit labels only", function()
+  t.test("document parse keeps explicit entry metadata only", function()
     local doc = document.parse({
       "--- worklog ---",
       "08:21 negotiate with goose #sales",
-      "08:52 coffee with ghost #ooo",
+      "08:52 coffee with ghost #ooo @home",
       "09:00 done",
     })
 
@@ -126,16 +154,18 @@ return function(t)
       raw = "08:21 negotiate with goose #sales",
       minutes = 501,
       text = "negotiate with goose",
-      explicit_label = "sales",
+      explicit_tag = "sales",
+      explicit_location = nil,
       excluded = false,
     })
     t.eq(doc.nodes[3], {
       kind = "entry",
       row = 3,
-      raw = "08:52 coffee with ghost #ooo",
+      raw = "08:52 coffee with ghost #ooo @home",
       minutes = 532,
       text = "coffee with ghost",
-      explicit_label = "ooo",
+      explicit_tag = "ooo",
+      explicit_location = "home",
       excluded = true,
     })
     t.eq(doc.nodes[4], {
@@ -144,7 +174,21 @@ return function(t)
       raw = "09:00 done",
       minutes = 540,
       text = "done",
-      explicit_label = nil,
+      explicit_tag = nil,
+      explicit_location = nil,
+      excluded = false,
+    })
+  end)
+
+  t.test("document parse keeps inline hashtags in text", function()
+    t.eq(document.parse_line("08:04 fix #123 issue #sales @office"), {
+      kind = "entry",
+      row = 1,
+      raw = "08:04 fix #123 issue #sales @office",
+      minutes = 484,
+      text = "fix #123 issue",
+      explicit_tag = "sales",
+      explicit_location = "office",
       excluded = false,
     })
   end)
@@ -152,6 +196,7 @@ return function(t)
   t.test("document parse marks malformed time-like lines as invalid entries", function()
     local doc = document.parse({
       "08:00 plan #sales #meeting",
+      "08:00 plan @office @home",
       "24:00 no",
       "08:00x",
     })
@@ -161,17 +206,23 @@ return function(t)
         kind = "invalid_entry",
         row = 1,
         raw = "08:00 plan #sales #meeting",
-        message = "multiple trailing labels are not allowed",
+        message = "multiple trailing tags are not allowed",
       },
       {
         kind = "invalid_entry",
         row = 2,
+        raw = "08:00 plan @office @home",
+        message = "multiple trailing locations are not allowed",
+      },
+      {
+        kind = "invalid_entry",
+        row = 3,
         raw = "24:00 no",
         message = "invalid time",
       },
       {
         kind = "invalid_entry",
-        row = 3,
+        row = 4,
         raw = "08:00x",
         message = "expected whitespace after the time",
       },

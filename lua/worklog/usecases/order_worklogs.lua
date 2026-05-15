@@ -22,22 +22,34 @@ function M.run(lines)
   for i = #analysis.worklog_blocks, 1, -1 do
     local block = analysis.worklog_blocks[i]
     local diagnostic = analyze.find_block_diagnostic(analysis, block)
+    local reordered = nil
+    local reorder_err = nil
 
     if diagnostic and diagnostic.code == "invalid_entry" then
       return nil, support.invalid_entry_error(diagnostic)
     end
 
     if diagnostic and diagnostic.code == "unordered_timestamps" then
+      reordered, reorder_err = body.sorted_lines(block, entry.format)
+      if not reordered then
+        return nil, reorder_err
+      end
+
       table.insert(edits, {
         start_index = block.body_start_row - 1,
         end_index = block.end_row - 1,
-        lines = body.sorted_lines(block, analysis.default_label, entry.format),
+        lines = reordered,
       })
     else
+      reordered, reorder_err = body.normalized_lines(block, entry.format)
+      if not reordered then
+        return nil, reorder_err
+      end
+
       table.insert(edits, {
         start_index = block.body_start_row - 1,
         end_index = block.end_row - 1,
-        lines = body.normalized_lines(block, analysis.default_label, entry.format),
+        lines = reordered,
       })
     end
   end

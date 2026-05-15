@@ -7,9 +7,9 @@ local M = {}
 --
 -- Commands ask this module for the active worklog or the worklog under the
 -- cursor. The returned context keeps only the semantic analysis, selected
--- block, and the block's effective default label.
+-- block, and the block's sticky header metadata.
 
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---"
+local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
 local function build_context(analysis, block)
   if not block then
@@ -19,7 +19,8 @@ local function build_context(analysis, block)
   return {
     analysis = analysis,
     block = block,
-    default_label = block.default_label,
+    header_tag = block.header_tag,
+    header_location = block.header_location,
   }
 end
 

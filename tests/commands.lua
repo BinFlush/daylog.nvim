@@ -5,26 +5,26 @@ return function(t)
 
   t.test("summarize blocks on unordered worklog", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion ---",
       "08:30 later",
-      "08:00 earlier",
+      "08:00 earlier #sales",
       "09:00 done",
     })
 
     vim.cmd("WorklogSummarize")
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion ---",
       "08:30 later",
-      "08:00 earlier",
+      "08:00 earlier #sales",
       "09:00 done",
     })
   end)
 
   t.test("equal timestamps are allowed in summarize", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 same",
-      "08:00 same again",
+      "08:00 same again @client",
       "09:00 done",
     })
 
@@ -32,58 +32,61 @@ return function(t)
     local lines = t.get_lines()
 
     t.eq(lines[6], "--- summary exact ---")
-    t.eq(lines[7], "1.00h same again")
-    t.eq(lines[8], "0.00h same")
-    t.eq(lines[10], "--- labels exact ---")
+    t.eq(lines[7], "1.00h same again #ProjectOrion @client")
+    t.eq(lines[8], "0.00h same #ProjectOrion @office")
+    t.eq(lines[10], "--- tags exact ---")
     t.eq(lines[11], "1.00h #ProjectOrion")
-    t.eq(lines[14], "1.00h activity")
+    t.eq(lines[13], "--- locations exact ---")
+    t.eq(lines[14], "1.00h @client")
+    t.eq(lines[15], "0.00h @office")
+    t.eq(lines[18], "1.00h activity")
   end)
 
   t.test("worklog order rewrites all worklog blocks", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
-      "08:30 later #ProjectOrion",
+      "--- worklog #ProjectOrion @office ---",
+      "08:30 later",
       "note a",
-      "08:00 earlier",
+      "08:00 earlier #sales",
       "note b",
       "",
       "--- summary exact ---",
       "x",
       "",
-      "--- worklog ---",
-      "11:00 tea #ProjectOrion",
-      "10:00 coffee",
-      "12:00",
+      "--- worklog #internal @home ---",
+      "11:00 tea",
+      "10:00 coffee @client",
+      "12:00 done #internal @home",
     })
 
     vim.cmd("WorklogOrder")
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
-      "08:00 earlier",
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 earlier #sales",
       "note b",
-      "08:30 later",
+      "08:30 later #ProjectOrion",
       "note a",
       "--- summary exact ---",
       "x",
       "",
-      "--- worklog ---",
-      "10:00 coffee",
-      "11:00 tea",
-      "12:00",
+      "--- worklog #internal @home ---",
+      "10:00 coffee @client",
+      "11:00 tea @home",
+      "12:00 done",
     })
   end)
 
   t.test("copy uses latest active worklog and normalizes items", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
       "--- summary exact ---",
       "x",
       "",
-      "--- worklog ---",
-      "11:00 tea #ProjectOrion",
+      "--- worklog #sales @client ---",
+      "11:00 tea #sales @client",
       "note tea",
       "",
       "12:00",
@@ -91,20 +94,20 @@ return function(t)
 
     vim.cmd("WorklogCopy")
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
       "--- summary exact ---",
       "x",
       "",
-      "--- worklog ---",
-      "11:00 tea #ProjectOrion",
+      "--- worklog #sales @client ---",
+      "11:00 tea #sales @client",
       "note tea",
       "",
       "12:00",
       "",
-      "--- worklog ---",
+      "--- worklog #sales @client ---",
       "11:00 tea",
       "note tea",
       "12:00",
@@ -113,7 +116,7 @@ return function(t)
 
   t.test("repeat inserts into explicit worklog block containing cursor", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:04 bake strudel",
       "08:21 negotiate with goose",
       "10:00 done",
@@ -121,8 +124,8 @@ return function(t)
       "--- summary exact ---",
       "1.93h activity",
       "",
-      "--- worklog ---",
-      "11:00 tea #sales",
+      "--- worklog #sales @client ---",
+      "11:00 tea",
       "12:00",
     })
     t.set_cursor(10, 0)
@@ -135,13 +138,14 @@ return function(t)
     vim.cmd("WorklogRepeat")
     os.date = old_date
 
-    t.eq(t.get_lines()[12], "14:37 tea #sales")
+    t.eq(t.get_lines()[12], "14:37 tea")
   end)
 
-  t.test("repeat normalizes redundant default label away", function()
+  t.test("repeat re-emits sticky metadata when insertion state changed", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
-      "08:00 first #ProjectOrion",
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 first",
+      "08:15 break #ooo",
       "09:00 done",
     })
     t.set_cursor(2, 0)
@@ -155,14 +159,15 @@ return function(t)
     os.date = old_date
 
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
-      "08:00 first #ProjectOrion",
-      "08:30 first",
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 first",
+      "08:15 break #ooo",
+      "08:30 first #ProjectOrion",
       "09:00 done",
     })
   end)
 
-  t.test("repeat keeps unlabeled entries unlabeled without a default label", function()
+  t.test("repeat keeps untagged entries untagged without sticky header metadata", function()
     t.reset({
       "--- worklog ---",
       "08:00 first",
@@ -188,7 +193,7 @@ return function(t)
 
   t.test("insert orders into explicit worklog block after equal timestamps", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 first",
       "08:00 second",
       "09:00 done",
@@ -204,7 +209,7 @@ return function(t)
     os.date = old_date
 
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 first",
       "08:00 second",
       "08:00 ",
@@ -214,12 +219,12 @@ return function(t)
 
   t.test("insert works from a later worklog header", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 raw",
       "09:00 done",
       "",
-      "--- worklog ---",
-      "10:00 first #sales",
+      "--- worklog #sales @client ---",
+      "10:00 first",
       "11:00 done",
     })
     t.set_cursor(5, 0)
@@ -233,12 +238,12 @@ return function(t)
     os.date = old_date
 
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 raw",
       "09:00 done",
       "",
-      "--- worklog ---",
-      "10:00 first #sales",
+      "--- worklog #sales @client ---",
+      "10:00 first",
       "10:30 ",
       "11:00 done",
     })
@@ -258,11 +263,11 @@ return function(t)
     })
   end)
 
-  t.test("summaries show an unlabeled label bucket without a default label", function()
+  t.test("summaries show untagged and no location buckets without header metadata", function()
     t.reset({
       "--- worklog ---",
       "08:00 plan",
-      "08:15 call #sales",
+      "08:15 call #sales @client",
       "09:00 done",
     })
 
@@ -271,16 +276,20 @@ return function(t)
     t.eq(t.get_lines(), {
       "--- worklog ---",
       "08:00 plan",
-      "08:15 call #sales",
+      "08:15 call #sales @client",
       "09:00 done",
       "",
       "--- summary exact ---",
-      "0.75h call #sales",
+      "0.75h call #sales @client",
       "0.25h plan",
       "",
-      "--- labels exact ---",
+      "--- tags exact ---",
       "0.75h #sales",
-      "0.25h (unlabeled)",
+      "0.25h (untagged)",
+      "",
+      "--- locations exact ---",
+      "0.75h @client",
+      "0.25h (no location)",
       "",
       "--- totals exact ---",
       "1.00h activity",
@@ -290,31 +299,34 @@ return function(t)
 
   t.test("active summaries ignore unrelated invalid older worklog blocks", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 broken #sales #meeting",
       "09:00 done",
       "",
-      "--- worklog ---",
-      "10:00 plan #sales",
+      "--- worklog #sales @client ---",
+      "10:00 plan",
       "11:00 done",
     })
 
     vim.cmd("WorklogSummarize")
 
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 broken #sales #meeting",
       "09:00 done",
       "",
-      "--- worklog ---",
-      "10:00 plan #sales",
+      "--- worklog #sales @client ---",
+      "10:00 plan",
       "11:00 done",
       "",
       "--- summary exact ---",
-      "1.00h plan #sales",
+      "1.00h plan #sales @client",
       "",
-      "--- labels exact ---",
+      "--- tags exact ---",
       "1.00h #sales",
+      "",
+      "--- locations exact ---",
+      "1.00h @client",
       "",
       "--- totals exact ---",
       "1.00h activity",
@@ -324,29 +336,33 @@ return function(t)
 
   t.test("summaries ignore attached note lines", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 plan",
       "note about planning",
-      "08:30 call #sales",
+      "08:30 call #sales @client",
       "09:00 done",
     })
 
     vim.cmd("WorklogSummarize")
 
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 plan",
       "note about planning",
-      "08:30 call #sales",
+      "08:30 call #sales @client",
       "09:00 done",
       "",
       "--- summary exact ---",
-      "0.50h plan",
-      "0.50h call #sales",
+      "0.50h plan #ProjectOrion @office",
+      "0.50h call #sales @client",
       "",
-      "--- labels exact ---",
+      "--- tags exact ---",
       "0.50h #ProjectOrion",
       "0.50h #sales",
+      "",
+      "--- locations exact ---",
+      "0.50h @office",
+      "0.50h @client",
       "",
       "--- totals exact ---",
       "1.00h activity",
@@ -354,11 +370,11 @@ return function(t)
     })
   end)
 
-  t.test("quantized summaries show an unlabeled label bucket without a default label", function()
+  t.test("quantized summaries show untagged and no location buckets without header metadata", function()
     t.reset({
       "--- worklog quantize=30 ---",
       "08:00 plan",
-      "08:12 call #sales",
+      "08:12 call #sales @client",
       "08:30 done",
     })
 
@@ -367,16 +383,20 @@ return function(t)
     t.eq(t.get_lines(), {
       "--- worklog quantize=30 ---",
       "08:00 plan",
-      "08:12 call #sales",
+      "08:12 call #sales @client",
       "08:30 done",
       "",
       "--- summary quantized ---",
-      "0.50h (-12m) call #sales",
+      "0.50h (-12m) call #sales @client",
       "0.00h (+12m) plan",
       "",
-      "--- labels quantized ---",
+      "--- tags quantized ---",
       "0.50h (-12m) #sales",
-      "0.00h (+12m) (unlabeled)",
+      "0.00h (+12m) (untagged)",
+      "",
+      "--- locations quantized ---",
+      "0.50h (-12m) @client",
+      "0.00h (+12m) (no location)",
       "",
       "--- totals quantized ---",
       "0.50h (+0m) activity",
@@ -386,27 +406,31 @@ return function(t)
 
   t.test("quantized summaries honor file-wide 60 minute quantization", function()
     t.reset({
-      "--- worklog quantize=60 ---",
+      "--- worklog @office quantize=60 ---",
       "08:00 plan",
-      "08:20 call #sales",
+      "08:20 call #sales @client",
       "09:00 done",
     })
 
     vim.cmd("WorklogQuantSum")
 
     t.eq(t.get_lines(), {
-      "--- worklog quantize=60 ---",
+      "--- worklog @office quantize=60 ---",
       "08:00 plan",
-      "08:20 call #sales",
+      "08:20 call #sales @client",
       "09:00 done",
       "",
       "--- summary quantized ---",
-      "1.00h (-20m) call #sales",
-      "0.00h (+20m) plan",
+      "1.00h (-20m) call #sales @client",
+      "0.00h (+20m) plan @office",
       "",
-      "--- labels quantized ---",
+      "--- tags quantized ---",
       "1.00h (-20m) #sales",
-      "0.00h (+20m) (unlabeled)",
+      "0.00h (+20m) (untagged)",
+      "",
+      "--- locations quantized ---",
+      "1.00h (-20m) @client",
+      "0.00h (+20m) @office",
       "",
       "--- totals quantized ---",
       "1.00h (+0m) activity",
@@ -416,7 +440,7 @@ return function(t)
 
   t.test("repeat ignores non-worklog lines", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 task",
       "09:00",
       "",
@@ -427,7 +451,7 @@ return function(t)
 
     vim.cmd("WorklogRepeat")
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 task",
       "09:00",
       "",
@@ -436,33 +460,37 @@ return function(t)
     })
   end)
 
-  t.test("summaries keep exact label totals and omit the default label on item rows", function()
+  t.test("summaries keep exact tag and location totals and render ooo explicitly", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 plan",
-      "08:30 plan #sales",
+      "08:30 plan #sales @client",
       "09:00 break #ooo",
-      "09:15 done",
+      "09:15 done #ProjectOrion @office",
     })
 
     vim.cmd("WorklogSummarize")
 
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 plan",
-      "08:30 plan #sales",
+      "08:30 plan #sales @client",
       "09:00 break #ooo",
-      "09:15 done",
+      "09:15 done #ProjectOrion @office",
       "",
       "--- summary exact ---",
-      "0.50h plan",
-      "0.50h plan #sales",
-      "0.25h break (ooo)",
+      "0.50h plan #ProjectOrion @office",
+      "0.50h plan #sales @client",
+      "0.25h break #ooo @client",
       "",
-      "--- labels exact ---",
+      "--- tags exact ---",
       "0.50h #ProjectOrion",
       "0.50h #sales",
       "0.25h #ooo",
+      "",
+      "--- locations exact ---",
+      "0.75h @client",
+      "0.50h @office",
       "",
       "--- totals exact ---",
       "1.25h activity",
@@ -470,14 +498,14 @@ return function(t)
     })
   end)
 
-  t.test("quantsum shows signed exact deltas and explicit labels", function()
+  t.test("quantsum shows signed exact deltas and explicit metadata", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:04 bake strudel",
-      "08:21 negotiate with goose #sales",
-      "08:33 bake strudel",
-      "08:52 coffee with ghost #ooo",
-      "09:11 polish trombone",
+      "08:21 negotiate with goose #sales @client",
+      "08:33 bake strudel #ProjectOrion @office",
+      "08:52 coffee with ghost #ooo @home",
+      "09:11 polish trombone #ProjectOrion @office",
       "09:36 bake strudel",
       "10:00 done",
     })
@@ -485,25 +513,30 @@ return function(t)
     vim.cmd("WorklogQuantSum")
 
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:04 bake strudel",
-      "08:21 negotiate with goose #sales",
-      "08:33 bake strudel",
-      "08:52 coffee with ghost #ooo",
-      "09:11 polish trombone",
+      "08:21 negotiate with goose #sales @client",
+      "08:33 bake strudel #ProjectOrion @office",
+      "08:52 coffee with ghost #ooo @home",
+      "09:11 polish trombone #ProjectOrion @office",
       "09:36 bake strudel",
       "10:00 done",
       "",
       "--- summary quantized ---",
-      "1.00h (+0m) bake strudel",
-      "0.50h (-5m) polish trombone",
-      "0.25h (+4m) coffee with ghost (ooo)",
-      "0.25h (-3m) negotiate with goose #sales",
+      "1.00h (+0m) bake strudel #ProjectOrion @office",
+      "0.50h (-5m) polish trombone #ProjectOrion @office",
+      "0.25h (+4m) coffee with ghost #ooo @home",
+      "0.25h (-3m) negotiate with goose #sales @client",
       "",
-      "--- labels quantized ---",
+      "--- tags quantized ---",
       "1.50h (-5m) #ProjectOrion",
       "0.25h (+4m) #ooo",
       "0.25h (-3m) #sales",
+      "",
+      "--- locations quantized ---",
+      "1.50h (-5m) @office",
+      "0.25h (+4m) @home",
+      "0.25h (-3m) @client",
       "",
       "--- totals quantized ---",
       "2.00h (-4m) activity",
@@ -511,22 +544,22 @@ return function(t)
     })
   end)
 
-  t.test("invalid multiple trailing labels block commands", function()
+  t.test("invalid multiple trailing tags block commands", function()
     t.reset({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 plan #sales #meeting",
       "09:00 done",
     })
 
     vim.cmd("WorklogSummarize")
     t.eq(t.get_lines(), {
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 plan #sales #meeting",
       "09:00 done",
     })
   end)
 
-  t.test("worklog order can repair a misplaced unlabeled closing line", function()
+  t.test("worklog order refuses impossible sticky metadata clears", function()
     t.reset({
       "--- worklog ---",
       "09:00 done",
@@ -537,8 +570,8 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- worklog ---",
-      "08:00 plan #sales",
       "09:00 done",
+      "08:00 plan #sales",
     })
   end)
 end

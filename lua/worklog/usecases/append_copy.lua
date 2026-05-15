@@ -9,11 +9,22 @@ local M = {}
 
 function M.run(lines)
   local ctx, err = support.get_validated_active(lines)
+  local normalized = nil
+
   if not ctx then
     return nil, err
   end
 
-  local rendered = render.worklog_lines(body.normalized_lines(ctx.block, ctx.default_label, entry.format))
+  normalized, err = body.normalized_lines(ctx.block, entry.format)
+  if not normalized then
+    return nil, err
+  end
+
+  local rendered = render.worklog_lines(
+    normalized,
+    ctx.block.header_tag,
+    ctx.block.header_location
+  )
   return support.append_edit(lines, rendered)
 end
 

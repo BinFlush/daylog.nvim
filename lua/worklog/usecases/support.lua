@@ -4,7 +4,7 @@ local context = require("worklog.context")
 
 local M = {}
 
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog default=#label ---"
+local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
 -- Shared use-case helpers.
 --
@@ -59,6 +59,10 @@ end
 
 function M.get_insert_index(block, minutes)
   return body.insert_index(block, minutes)
+end
+
+function M.get_insert_state(block, minutes)
+  return body.state_before(block, minutes)
 end
 
 function M.append_edit(lines, appended_lines)

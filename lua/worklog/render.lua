@@ -4,26 +4,26 @@ local function hours_string(minutes)
   return string.format("%.2fh", minutes / 60)
 end
 
-local function item_text(item, default_label)
+local function item_text(item)
   local parts = {}
 
   if item.text ~= "" then
     table.insert(parts, item.text)
   end
 
-  if item.label and item.label ~= default_label and not item.excluded then
-    table.insert(parts, "#" .. item.label)
+  if item.tag then
+    table.insert(parts, "#" .. item.tag)
   end
 
-  if item.excluded then
-    table.insert(parts, "(ooo)")
+  if item.location then
+    table.insert(parts, "@" .. item.location)
   end
 
   return table.concat(parts, " ")
 end
 
-local function summary_line(prefix, item, default_label)
-  local text = item_text(item, default_label)
+local function summary_line(prefix, item)
+  local text = item_text(item)
 
   if text == "" then
     return prefix
@@ -32,16 +32,28 @@ local function summary_line(prefix, item, default_label)
   return string.format("%s %s", prefix, text)
 end
 
-local function label_text(item)
-  if item.label == nil then
-    return "(unlabeled)"
+local function tag_text(item)
+  if item.tag == nil then
+    return "(untagged)"
   end
 
-  return "#" .. item.label
+  return "#" .. item.tag
 end
 
-local function label_line(prefix, item)
-  return string.format("%s %s", prefix, label_text(item))
+local function location_text(item)
+  if item.location == nil then
+    return "(no location)"
+  end
+
+  return "@" .. item.location
+end
+
+local function tag_line(prefix, item)
+  return string.format("%s %s", prefix, tag_text(item))
+end
+
+local function location_line(prefix, item)
+  return string.format("%s %s", prefix, location_text(item))
 end
 
 local function extend_lines(target, source)
@@ -50,10 +62,20 @@ local function extend_lines(target, source)
   end
 end
 
-function M.worklog_lines(lines)
+function M.worklog_lines(lines, header_tag, header_location)
+  local header = { "--- worklog" }
+
+  if header_tag then
+    table.insert(header, "#" .. header_tag)
+  end
+
+  if header_location then
+    table.insert(header, "@" .. header_location)
+  end
+
   local rendered = {
     "",
-    "--- worklog ---",
+    table.concat(header, " ") .. " ---",
   }
 
   extend_lines(rendered, lines)
@@ -70,27 +92,41 @@ function M.summary_lines(summary, kind)
 
   for _, item in ipairs(summary.items) do
     if kind == "quantized" then
-      table.insert(lines, summary_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item, summary.default_label))
+      table.insert(lines, summary_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
     else
-      table.insert(lines, summary_line(hours_string(item.duration), item, summary.default_label))
+      table.insert(lines, summary_line(hours_string(item.duration), item))
     end
   end
 
   table.insert(lines, "")
 
   if kind == "exact" then
-    table.insert(lines, "--- labels exact ---")
+    table.insert(lines, "--- tags exact ---")
 
-    for _, item in ipairs(summary.label_items or {}) do
-      table.insert(lines, label_line(hours_string(item.duration), item))
+    for _, item in ipairs(summary.tag_items or {}) do
+      table.insert(lines, tag_line(hours_string(item.duration), item))
+    end
+
+    table.insert(lines, "")
+    table.insert(lines, "--- locations exact ---")
+
+    for _, item in ipairs(summary.location_items or {}) do
+      table.insert(lines, location_line(hours_string(item.duration), item))
     end
 
     table.insert(lines, "")
   elseif kind == "quantized" then
-    table.insert(lines, "--- labels quantized ---")
+    table.insert(lines, "--- tags quantized ---")
 
-    for _, item in ipairs(summary.label_items or {}) do
-      table.insert(lines, label_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
+    for _, item in ipairs(summary.tag_items or {}) do
+      table.insert(lines, tag_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
+    end
+
+    table.insert(lines, "")
+    table.insert(lines, "--- locations quantized ---")
+
+    for _, item in ipairs(summary.location_items or {}) do
+      table.insert(lines, location_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
     end
 
     table.insert(lines, "")

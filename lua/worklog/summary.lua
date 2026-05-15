@@ -3,21 +3,22 @@ local M = {}
 -- Semantic reporting for worklog blocks.
 --
 -- Summaries are built directly from semantic entries or worklog blocks. The
--- module owns interval derivation, grouping, label totals, sorting, and
+-- module owns interval derivation, grouping, tag/location totals, sorting, and
 -- quantization so reporting stays a first-class semantic concern.
 
-local NIL_LABEL_KEY = "\31"
+local NIL_TAG_KEY = "\31"
+local NIL_LOCATION_KEY = "\30"
 
 local function round_to_nearest_bucket(minutes, bucket_minutes)
   return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
 end
 
-local function label_key(label)
-  if label == nil then
-    return NIL_LABEL_KEY
+local function metadata_key(value, nil_key)
+  if value == nil then
+    return nil_key
   end
 
-  return label
+  return value
 end
 
 local function sort_by_duration(items)
@@ -52,19 +53,18 @@ local function sort_by_duration(items)
   return items
 end
 
-local function summarize_labels(items)
+local function summarize_metadata(items, field, nil_key)
   local buckets = {}
   local order = {}
 
   for _, item in ipairs(items) do
-    local key = label_key(item.label)
+    local key = metadata_key(item[field], nil_key)
 
     if not buckets[key] then
       buckets[key] = {
-        label = item.label,
+        [field] = item[field],
         duration = 0,
         exact_duration = 0,
-        excluded = item.excluded,
       }
       table.insert(order, key)
     end
@@ -73,20 +73,20 @@ local function summarize_labels(items)
     buckets[key].exact_duration = buckets[key].exact_duration + (item.exact_duration or item.duration)
   end
 
-  local label_items = {}
+  local summary_items = {}
 
   for _, key in ipairs(order) do
-    table.insert(label_items, buckets[key])
+    table.insert(summary_items, buckets[key])
   end
 
-  return label_items
+  return summary_items
 end
 
-local function label_items_by_key(items)
+local function items_by_key(items, field, nil_key)
   local result = {}
 
   for _, item in ipairs(items) do
-    result[label_key(item.label)] = item
+    result[metadata_key(item[field], nil_key)] = item
   end
 
   return result
@@ -104,7 +104,8 @@ local function build_intervals(entries)
       stop = next.minutes,
       duration = next.minutes - current.minutes,
       text = current.text,
-      label = current.label,
+      tag = current.tag,
+      location = current.location,
       excluded = current.excluded,
     })
   end
@@ -112,7 +113,7 @@ local function build_intervals(entries)
   return intervals
 end
 
-local function build_summary_from_intervals(intervals, default_label)
+local function build_summary_from_intervals(intervals)
   local buckets = {}
   local order = {}
 
@@ -120,12 +121,18 @@ local function build_summary_from_intervals(intervals, default_label)
   local workday_total = 0
 
   for _, iv in ipairs(intervals) do
-    local key = iv.text .. "|" .. label_key(iv.label) .. "|" .. tostring(iv.excluded)
+    local key = table.concat({
+      iv.text,
+      metadata_key(iv.tag, NIL_TAG_KEY),
+      metadata_key(iv.location, NIL_LOCATION_KEY),
+      tostring(iv.excluded),
+    }, "|")
 
     if not buckets[key] then
       buckets[key] = {
         text = iv.text,
-        label = iv.label,
+        tag = iv.tag,
+        location = iv.location,
         duration = 0,
         exact_duration = 0,
         excluded = iv.excluded,
@@ -151,24 +158,25 @@ local function build_summary_from_intervals(intervals, default_label)
 
   return {
     items = items,
-    label_items = summarize_labels(items),
-    default_label = default_label,
+    tag_items = summarize_metadata(items, "tag", NIL_TAG_KEY),
+    location_items = summarize_metadata(items, "location", NIL_LOCATION_KEY),
     activity_total = activity_total,
     workday_total = workday_total,
   }
 end
 
-function M.summarize_entries(entries, default_label)
-  local summary = build_summary_from_intervals(build_intervals(entries), default_label)
+function M.summarize_entries(entries)
+  local summary = build_summary_from_intervals(build_intervals(entries))
 
   sort_by_duration(summary.items)
-  sort_by_duration(summary.label_items)
+  sort_by_duration(summary.tag_items)
+  sort_by_duration(summary.location_items)
 
   return summary
 end
 
 function M.summarize_block(block)
-  return M.summarize_entries(block.entries, block.default_label)
+  return M.summarize_entries(block.entries)
 end
 
 -- Quantize grouped summary rows together.
@@ -176,10 +184,11 @@ end
 -- grouped item is rounded down to that bucket, and the remaining bucket-sized
 -- blocks are assigned to the largest remainders. `#ooo` items participate in
 -- the same pass, but are excluded from the final workday total.
-function M.quantized_summarize_entries(entries, default_label, quantize_minutes)
+function M.quantized_summarize_entries(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or 15
-  local summary = build_summary_from_intervals(build_intervals(entries), default_label)
-  local exact_label_items = summary.label_items
+  local summary = build_summary_from_intervals(build_intervals(entries))
+  local exact_tag_items = summary.tag_items
+  local exact_location_items = summary.location_items
   local exact_activity_total = summary.activity_total
   local exact_workday_total = summary.workday_total
   local target_total = round_to_nearest_bucket(summary.activity_total, bucket_minutes)
@@ -230,34 +239,50 @@ function M.quantized_summarize_entries(entries, default_label, quantize_minutes)
     end
   end
 
-  local quantized_label_items = summarize_labels(summary.items)
-  local quantized_by_label = label_items_by_key(quantized_label_items)
-  local label_items = {}
+  local quantized_tag_items = summarize_metadata(summary.items, "tag", NIL_TAG_KEY)
+  local quantized_by_tag = items_by_key(quantized_tag_items, "tag", NIL_TAG_KEY)
+  local tag_items = {}
 
-  for _, item in ipairs(exact_label_items) do
-    local quantized_item = quantized_by_label[label_key(item.label)]
+  for _, item in ipairs(exact_tag_items) do
+    local quantized_item = quantized_by_tag[metadata_key(item.tag, NIL_TAG_KEY)]
 
-    table.insert(label_items, {
-      label = item.label,
+    table.insert(tag_items, {
+      tag = item.tag,
       duration = quantized_item and quantized_item.duration or 0,
       exact_duration = item.exact_duration,
       error_minutes = item.duration - (quantized_item and quantized_item.duration or 0),
-      excluded = item.excluded,
     })
   end
 
-  summary.label_items = label_items
+  local quantized_location_items = summarize_metadata(summary.items, "location", NIL_LOCATION_KEY)
+  local quantized_by_location = items_by_key(quantized_location_items, "location", NIL_LOCATION_KEY)
+  local location_items = {}
+
+  for _, item in ipairs(exact_location_items) do
+    local quantized_item = quantized_by_location[metadata_key(item.location, NIL_LOCATION_KEY)]
+
+    table.insert(location_items, {
+      location = item.location,
+      duration = quantized_item and quantized_item.duration or 0,
+      exact_duration = item.exact_duration,
+      error_minutes = item.duration - (quantized_item and quantized_item.duration or 0),
+    })
+  end
+
+  summary.tag_items = tag_items
+  summary.location_items = location_items
   summary.activity_error_minutes = exact_activity_total - summary.activity_total
   summary.workday_error_minutes = exact_workday_total - summary.workday_total
 
   sort_by_duration(summary.items)
-  sort_by_duration(summary.label_items)
+  sort_by_duration(summary.tag_items)
+  sort_by_duration(summary.location_items)
 
   return summary
 end
 
 function M.quantized_summarize_block(block)
-  return M.quantized_summarize_entries(block.entries, block.default_label, block.quantize_minutes)
+  return M.quantized_summarize_entries(block.entries, block.quantize_minutes)
 end
 
 return M

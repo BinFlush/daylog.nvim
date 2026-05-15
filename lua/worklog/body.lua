@@ -32,6 +32,24 @@ local function lines_from_nodes(nodes)
   return lines
 end
 
+local function representable_error(item, current_tag, current_location)
+  if item.tag == nil and current_tag ~= nil then
+    return string.format(
+      "worklog: cannot reorder entry at line %d because sticky tag cannot be cleared implicitly",
+      item.row
+    )
+  end
+
+  if item.location == nil and current_location ~= nil then
+    return string.format(
+      "worklog: cannot reorder entry at line %d because sticky location cannot be cleared implicitly",
+      item.row
+    )
+  end
+
+  return nil
+end
+
 local function rewrite_body(block)
   local preamble_lines = {}
   local items = {}
@@ -47,7 +65,8 @@ local function rewrite_body(block)
     table.insert(items, {
       minutes = item.minutes,
       text = item.text,
-      label = item.label,
+      tag = item.tag,
+      location = item.location,
       excluded = item.excluded,
       row = item.start_row,
       index = index,
@@ -61,15 +80,25 @@ local function rewrite_body(block)
   }
 end
 
-local function rebuild_lines(preamble_lines, items, default_label, format_entry)
+local function rebuild_lines(preamble_lines, items, header_tag, header_location, format_entry)
   local lines = {}
+  local current_tag = header_tag
+  local current_location = header_location
 
   for _, line in ipairs(preamble_lines) do
     table.insert(lines, line)
   end
 
   for _, item in ipairs(items) do
-    table.insert(lines, format_entry(item, default_label))
+    local err = representable_error(item, current_tag, current_location)
+    if err then
+      return nil, err
+    end
+
+    table.insert(lines, format_entry(item, current_tag, current_location))
+    current_tag = item.tag
+    current_location = item.location
+
     for i = 2, #item.lines do
       table.insert(lines, item.lines[i])
     end
@@ -91,7 +120,8 @@ local function sorted_items(items)
     table.insert(result, {
       minutes = item.minutes,
       text = item.text,
-      label = item.label,
+      tag = item.tag,
+      location = item.location,
       excluded = item.excluded,
       row = item.row,
       index = item.index,
@@ -120,14 +150,32 @@ function M.insert_index(block, minutes)
   return block.end_row - 1
 end
 
-function M.normalized_lines(block, default_label, format_entry)
-  local body = rewrite_body(block)
-  return rebuild_lines(body.preamble_lines, body.items, default_label, format_entry)
+function M.state_before(block, minutes)
+  local state = {
+    tag = block.header_tag,
+    location = block.header_location,
+  }
+
+  for _, item in ipairs(block.items) do
+    if item.minutes > minutes then
+      break
+    end
+
+    state.tag = item.tag
+    state.location = item.location
+  end
+
+  return state
 end
 
-function M.sorted_lines(block, default_label, format_entry)
+function M.normalized_lines(block, format_entry)
   local body = rewrite_body(block)
-  return rebuild_lines(body.preamble_lines, sorted_items(body.items), default_label, format_entry)
+  return rebuild_lines(body.preamble_lines, body.items, block.header_tag, block.header_location, format_entry)
+end
+
+function M.sorted_lines(block, format_entry)
+  local body = rewrite_body(block)
+  return rebuild_lines(body.preamble_lines, sorted_items(body.items), block.header_tag, block.header_location, format_entry)
 end
 
 return M

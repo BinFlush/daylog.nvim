@@ -10,58 +10,69 @@ return function(t)
 
   t.test("summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
-      "--- worklog default=#ProjectOrion ---",
+      "--- worklog #ProjectOrion @office ---",
       "08:00 plan",
-      "08:30 call #sales",
+      "08:30 call #sales @client",
       "09:00 break #ooo",
-      "09:15 done",
+      "09:15 done #ProjectOrion @office",
     })
 
     t.eq(summary.summarize_block(block), {
       items = {
         {
           text = "plan",
-          label = "ProjectOrion",
+          tag = "ProjectOrion",
+          location = "office",
           duration = 30,
           exact_duration = 30,
           excluded = false,
         },
         {
           text = "call",
-          label = "sales",
+          tag = "sales",
+          location = "client",
           duration = 30,
           exact_duration = 30,
           excluded = false,
         },
         {
           text = "break",
-          label = "ooo",
+          tag = "ooo",
+          location = "client",
           duration = 15,
           exact_duration = 15,
           excluded = true,
         },
       },
-      label_items = {
+      tag_items = {
         {
-          label = "ProjectOrion",
+          tag = "ProjectOrion",
           duration = 30,
           exact_duration = 30,
-          excluded = false,
         },
         {
-          label = "sales",
+          tag = "sales",
           duration = 30,
           exact_duration = 30,
-          excluded = false,
         },
         {
-          label = "ooo",
+          tag = "ooo",
           duration = 15,
           exact_duration = 15,
-          excluded = true,
         },
       },
-      default_label = "ProjectOrion",
+      location_items = {
+        {
+          location = "client",
+          duration = 45,
+          exact_duration = 45,
+        },
+        {
+          location = "office",
+          duration = 30,
+          exact_duration = 30,
+        },
+      },
       activity_total = 75,
       workday_total = 60,
     })
@@ -69,9 +80,9 @@ return function(t)
 
   t.test("quantized summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
-      "--- worklog quantize=30 ---",
+      "--- worklog @office quantize=30 ---",
       "08:00 plan",
-      "08:12 call #sales",
+      "08:12 call #sales @client",
       "08:30 done",
     })
 
@@ -79,7 +90,8 @@ return function(t)
       items = {
         {
           text = "call",
-          label = "sales",
+          tag = "sales",
+          location = "client",
           duration = 30,
           exact_duration = 18,
           error_minutes = -12,
@@ -87,30 +99,42 @@ return function(t)
         },
         {
           text = "plan",
-          label = nil,
+          tag = nil,
+          location = "office",
           duration = 0,
           exact_duration = 12,
           error_minutes = 12,
           excluded = false,
         },
       },
-      label_items = {
+      tag_items = {
         {
-          label = "sales",
+          tag = "sales",
           duration = 30,
           exact_duration = 18,
           error_minutes = -12,
-          excluded = false,
         },
         {
-          label = nil,
+          tag = nil,
           duration = 0,
           exact_duration = 12,
           error_minutes = 12,
-          excluded = false,
         },
       },
-      default_label = nil,
+      location_items = {
+        {
+          location = "client",
+          duration = 30,
+          exact_duration = 18,
+          error_minutes = -12,
+        },
+        {
+          location = "office",
+          duration = 0,
+          exact_duration = 12,
+          error_minutes = 12,
+        },
+      },
       activity_total = 30,
       workday_total = 30,
       activity_error_minutes = 0,
@@ -120,9 +144,9 @@ return function(t)
 
   t.test("quantized summary supports 60 minute rounding", function()
     local block = block_from_lines({
-      "--- worklog quantize=60 ---",
+      "--- worklog @office quantize=60 ---",
       "08:00 plan",
-      "08:20 call #sales",
+      "08:20 call #sales @client",
       "09:00 done",
     })
 
@@ -130,7 +154,8 @@ return function(t)
       items = {
         {
           text = "call",
-          label = "sales",
+          tag = "sales",
+          location = "client",
           duration = 60,
           exact_duration = 40,
           error_minutes = -20,
@@ -138,30 +163,42 @@ return function(t)
         },
         {
           text = "plan",
-          label = nil,
+          tag = nil,
+          location = "office",
           duration = 0,
           exact_duration = 20,
           error_minutes = 20,
           excluded = false,
         },
       },
-      label_items = {
+      tag_items = {
         {
-          label = "sales",
+          tag = "sales",
           duration = 60,
           exact_duration = 40,
           error_minutes = -20,
-          excluded = false,
         },
         {
-          label = nil,
+          tag = nil,
           duration = 0,
           exact_duration = 20,
           error_minutes = 20,
-          excluded = false,
         },
       },
-      default_label = nil,
+      location_items = {
+        {
+          location = "client",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+        },
+        {
+          location = "office",
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+        },
+      },
       activity_total = 60,
       workday_total = 60,
       activity_error_minutes = 0,
