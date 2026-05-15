@@ -54,7 +54,31 @@ return function(t)
             "0.50h @client",
             "",
             "--- totals exact ---",
-            "1.00h activity",
+            "1.00h workday",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("append_summary omits placeholder-only metadata sections and activity total", function()
+    local result = append_summary.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = {
+            "",
+            "--- summary exact ---",
+            "1.00h plan",
+            "",
+            "--- totals exact ---",
             "1.00h workday",
           },
         },

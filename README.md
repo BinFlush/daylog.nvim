@@ -135,9 +135,11 @@ General behavior:
 
 - An interval is the time from one entry to the next.
 - Summary items group by `text + effective tag + effective location`.
-- Exact output contains `--- summary exact ---`, `--- tags exact ---`, `--- locations exact ---`, and `--- totals exact ---`.
-- Quantized output contains `--- summary quantized ---`, `--- tags quantized ---`, `--- locations quantized ---`, and `--- totals quantized ---`.
+- Exact output uses `--- summary exact ---` and `--- totals exact ---`, with tag/location sections included when they are meaningful.
+- Quantized output uses `--- summary quantized ---` and `--- totals quantized ---`, with tag/location sections included when they are meaningful.
 - Quantized summaries use `quantize=<minutes>` from the active worklog header, defaulting to 15 for that block.
+- Tag and location sections are omitted when the summary only has `(untagged)` or `(no location)` buckets.
+- Totals omit `activity` when there is no excluded `#ooo` time, because `activity` and `workday` are then identical.
 - Item rows, tag rows, and location rows are sorted longest-to-shortest.
 - Equal quantized display durations are ordered by exact grouped duration.
 - In tag sections, missing tags are rendered as `(untagged)`.

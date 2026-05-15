@@ -39,7 +39,7 @@ return function(t)
     t.eq(lines[13], "--- locations exact ---")
     t.eq(lines[14], "1.00h @client")
     t.eq(lines[15], "0.00h @office")
-    t.eq(lines[18], "1.00h activity")
+    t.eq(lines[18], "1.00h workday")
   end)
 
   t.test("worklog order rewrites all worklog blocks", function()
@@ -319,7 +319,28 @@ return function(t)
       "0.25h (no location)",
       "",
       "--- totals exact ---",
-      "1.00h activity",
+      "1.00h workday",
+    })
+  end)
+
+  t.test("summaries omit placeholder-only metadata sections", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h plan",
+      "",
+      "--- totals exact ---",
       "1.00h workday",
     })
   end)
@@ -356,7 +377,6 @@ return function(t)
       "1.00h @client",
       "",
       "--- totals exact ---",
-      "1.00h activity",
       "1.00h workday",
     })
   end)
@@ -392,7 +412,6 @@ return function(t)
       "0.50h @client",
       "",
       "--- totals exact ---",
-      "1.00h activity",
       "1.00h workday",
     })
   end)
@@ -426,7 +445,28 @@ return function(t)
       "0.00h (+12m) (no location)",
       "",
       "--- totals quantized ---",
-      "0.50h (+0m) activity",
+      "0.50h (+0m) workday",
+    })
+  end)
+
+  t.test("quantized summaries omit placeholder-only metadata sections", function()
+    t.reset({
+      "--- worklog quantize=30 ---",
+      "08:00 plan",
+      "08:30 done",
+    })
+
+    vim.cmd("WorklogQuantSum")
+
+    t.eq(t.get_lines(), {
+      "--- worklog quantize=30 ---",
+      "08:00 plan",
+      "08:30 done",
+      "",
+      "--- summary quantized ---",
+      "0.50h (+0m) plan",
+      "",
+      "--- totals quantized ---",
       "0.50h (+0m) workday",
     })
   end)
@@ -468,7 +508,6 @@ return function(t)
       "0.00h (+20m) @office",
       "",
       "--- totals quantized ---",
-      "1.00h (+0m) activity",
       "1.00h (+0m) workday",
     })
   end)
