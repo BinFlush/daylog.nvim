@@ -94,4 +94,8 @@ function M.invalid_entry_error(diagnostic)
   return invalid_entry_error(diagnostic)
 end
 
+function M.unordered_error(diagnostic)
+  return unordered_error(diagnostic)
+end
+
 return M

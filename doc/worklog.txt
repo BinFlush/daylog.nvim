@@ -168,6 +168,15 @@ Repeat the activity under the cursor at the current time.
 - Sticky tag and location meaning are preserved.
 - Clear tokens are emitted when needed.
 
+                                                        *:WorklogCheck*
+:WorklogCheck
+
+Validate the current buffer without modifying it.
+
+- The full buffer is analyzed, not just the active worklog.
+- The first relevant diagnostic is reported as a warning.
+- If no diagnostics are found, the command reports `worklog: ok`.
+
                                                         *:WorklogCopy*
 :WorklogCopy
 

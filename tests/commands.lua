@@ -363,6 +363,24 @@ return function(t)
     })
   end)
 
+  t.test("worklog check does not modify the buffer or cursor", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+    t.set_cursor(2, 3)
+
+    vim.cmd("WorklogCheck")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+    t.eq(vim.api.nvim_win_get_cursor(0), { 2, 3 })
+  end)
+
   t.test("summaries show untagged and no location buckets without header metadata", function()
     t.reset({
       "--- worklog ---",

@@ -2,6 +2,7 @@ local filetype = require("worklog.filetype")
 local append_copy = require("worklog.usecases.append_copy")
 local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
 local append_summary = require("worklog.usecases.append_summary")
+local check = require("worklog.usecases.check")
 local insert_now = require("worklog.usecases.insert_now")
 local order_worklogs = require("worklog.usecases.order_worklogs")
 local repeat_current = require("worklog.usecases.repeat_current")
@@ -10,6 +11,10 @@ local M = {}
 
 local function warn(message)
   vim.notify(message, vim.log.levels.WARN)
+end
+
+local function info(message)
+  vim.notify(message, vim.log.levels.INFO)
 end
 
 ---@return string[]
@@ -106,6 +111,18 @@ function M.order_worklogs()
   apply_result(result)
 end
 
+function M.check()
+  local lines = buffer_lines()
+  local result, err = check.run(lines)
+
+  if not result then
+    warn(err)
+    return
+  end
+
+  info(result.message)
+end
+
 function M.setup()
   filetype.register()
 
@@ -131,6 +148,10 @@ function M.setup()
 
   vim.api.nvim_create_user_command("WorklogQuantSum", function()
     M.append_quantized_summary()
+  end, {})
+
+  vim.api.nvim_create_user_command("WorklogCheck", function()
+    M.check()
   end, {})
 end
 

@@ -78,6 +78,7 @@ quantize=30    round summaries to 30-minute buckets
 | --- | --- |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
 | `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
+| `:WorklogCheck` | Validate the current buffer without modifying it |
 | `:WorklogCopy` | Append a normalized editable copy |
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
 | `:WorklogSummarize` | Append an exact summary |

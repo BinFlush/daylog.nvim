@@ -1,6 +1,7 @@
 return function(t)
   local append_copy = require("worklog.usecases.append_copy")
   local append_summary = require("worklog.usecases.append_summary")
+  local check = require("worklog.usecases.check")
   local insert_now = require("worklog.usecases.insert_now")
   local order_worklogs = require("worklog.usecases.order_worklogs")
   local repeat_current = require("worklog.usecases.repeat_current")
@@ -83,6 +84,54 @@ return function(t)
         },
       },
     })
+  end)
+
+  t.test("check usecase returns ok for a valid worklog", function()
+    local result = check.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    t.eq(result, {
+      message = "worklog: ok",
+    })
+  end)
+
+  t.test("check usecase returns the structural error first", function()
+    local result, err = check.run({
+      "--- summary exact ---",
+      "1.00h workday",
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---")
+  end)
+
+  t.test("check usecase returns invalid entry errors", function()
+    local result, err = check.run({
+      "--- worklog ---",
+      "08:00 plan #sales #meeting",
+      "09:00 done",
+    })
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: invalid worklog entry at line 2: multiple trailing tags are not allowed")
+  end)
+
+  t.test("check usecase returns unordered timestamp errors", function()
+    local result, err = check.run({
+      "--- worklog ---",
+      "09:00 later",
+      "08:00 earlier",
+      "10:00 done",
+    })
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder")
   end)
 
   t.test("append_copy preserves clear tokens needed to keep meaning", function()

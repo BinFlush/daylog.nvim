@@ -1,3 +1,4 @@
+:WorklogCheck	worklog.txt	/*:WorklogCheck*
 :WorklogCopy	worklog.txt	/*:WorklogCopy*
 :WorklogInsert	worklog.txt	/*:WorklogInsert*
 :WorklogOrder	worklog.txt	/*:WorklogOrder*
