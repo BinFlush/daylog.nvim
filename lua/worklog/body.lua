@@ -45,15 +45,15 @@ local function rewrite_body(block)
 
   for index, item in ipairs(block.items) do
     table.insert(items, {
-        minutes = item.minutes,
-        text = item.text,
-        explicit_tag = item.explicit_tag,
-        explicit_tag_clear = item.explicit_tag_clear,
-        explicit_location = item.explicit_location,
-        explicit_location_clear = item.explicit_location_clear,
-        tag = item.tag,
-        location = item.location,
-        excluded = item.excluded,
+      minutes = item.minutes,
+      text = item.text,
+      explicit_tag = item.explicit_tag,
+      explicit_tag_clear = item.explicit_tag_clear,
+      explicit_location = item.explicit_location,
+      explicit_location_clear = item.explicit_location_clear,
+      tag = item.tag,
+      location = item.location,
+      excluded = item.excluded,
       row = item.start_row,
       index = index,
       lines = trim_trailing_empty_lines(lines_from_nodes(item.nodes)),
@@ -155,6 +155,8 @@ function M.state_before(block, minutes)
   return state
 end
 
+-- Body rewrites are intentionally infallible now that explicit #- and @-
+-- tokens make sticky-to-nil transitions representable in canonical output.
 function M.normalized_lines(block, format_entry)
   local body = rewrite_body(block)
   return rebuild_lines(body.preamble_lines, body.items, block.header_tag, block.header_location, format_entry)

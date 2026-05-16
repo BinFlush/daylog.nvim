@@ -163,6 +163,31 @@ return function(t)
     })
   end)
 
+  t.test("copy does not preserve clear-only header metadata", function()
+    t.reset({
+      "--- worklog #- @- ---",
+      "08:00 plan",
+      "09:00 client #ClientA @home",
+      "10:00 reset #- @-",
+      "11:00 done",
+    })
+
+    vim.cmd("WorklogCopy")
+    t.eq(t.get_lines(), {
+      "--- worklog #- @- ---",
+      "08:00 plan",
+      "09:00 client #ClientA @home",
+      "10:00 reset #- @-",
+      "11:00 done",
+      "",
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 client #ClientA @home",
+      "10:00 reset #- @-",
+      "11:00 done",
+    })
+  end)
+
   t.test("repeat inserts into explicit worklog block containing cursor", function()
     t.reset({
       "--- worklog #ProjectOrion @office ---",

@@ -275,6 +275,50 @@ return function(t)
     t.eq(analysis.worklog_blocks[1].quantize_minutes, 15)
   end)
 
+  t.test("analyze reports duplicate header metadata when clear tokens are mixed in", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog #- #ClientA ---",
+      "08:00 plan",
+      "09:00 done",
+      "--- worklog #ClientA #- ---",
+      "10:00 plan",
+      "11:00 done",
+      "--- worklog @- @home ---",
+      "12:00 plan",
+      "13:00 done",
+      "--- worklog @home @- ---",
+      "14:00 plan",
+      "15:00 done",
+    }))
+
+    t.eq(analysis.diagnostics, {
+      {
+        code = "invalid_worklog_header_metadata",
+        severity = "error",
+        row = 1,
+        message = "multiple worklog header tags are not allowed",
+      },
+      {
+        code = "invalid_worklog_header_metadata",
+        severity = "error",
+        row = 4,
+        message = "multiple worklog header tags are not allowed",
+      },
+      {
+        code = "invalid_worklog_header_metadata",
+        severity = "error",
+        row = 7,
+        message = "multiple worklog header locations are not allowed",
+      },
+      {
+        code = "invalid_worklog_header_metadata",
+        severity = "error",
+        row = 10,
+        message = "multiple worklog header locations are not allowed",
+      },
+    })
+  end)
+
   t.test("analyze reports duplicate worklog header options", function()
     local analysis = analyze.analyze(document.parse({
       "--- worklog #ProjectOrion @office quantize=30 quantize=60 ---",
@@ -435,6 +479,63 @@ return function(t)
       tag = nil,
       location = nil,
       excluded = false,
+    })
+  end)
+
+  t.test("analyze treats clear-only headers as harmless nil metadata", function()
+    local block = analyze.analyze(document.parse({
+      "--- worklog #- @- ---",
+      "08:00 plan",
+      "09:00 client #ClientA @home",
+      "10:00 reset #- @-",
+      "11:00 done",
+    })).worklog_blocks[1]
+
+    t.eq(block.header_tag, nil)
+    t.eq(block.header_location, nil)
+    t.eq(block.entries, {
+      {
+        row = 2,
+        minutes = 480,
+        text = "plan",
+        explicit_tag = nil,
+        explicit_location = nil,
+        tag = nil,
+        location = nil,
+        excluded = false,
+      },
+      {
+        row = 3,
+        minutes = 540,
+        text = "client",
+        explicit_tag = "ClientA",
+        explicit_location = "home",
+        tag = "ClientA",
+        location = "home",
+        excluded = false,
+      },
+      {
+        row = 4,
+        minutes = 600,
+        text = "reset",
+        explicit_tag = nil,
+        explicit_tag_clear = true,
+        explicit_location = nil,
+        explicit_location_clear = true,
+        tag = nil,
+        location = nil,
+        excluded = false,
+      },
+      {
+        row = 5,
+        minutes = 660,
+        text = "done",
+        explicit_tag = nil,
+        explicit_location = nil,
+        tag = nil,
+        location = nil,
+        excluded = false,
+      },
     })
   end)
 
