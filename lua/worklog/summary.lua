@@ -245,9 +245,9 @@ local function build_summary_from_rows(rows)
   end
 
   return {
-    items = summarize_items(rows),
-    tag_items = summarize_metadata(rows, "tag", NIL_TAG_KEY),
-    location_items = summarize_metadata(rows, "location", NIL_LOCATION_KEY),
+    summary_items = summarize_items(rows),
+    tag_totals = summarize_metadata(rows, "tag", NIL_TAG_KEY),
+    location_totals = summarize_metadata(rows, "location", NIL_LOCATION_KEY),
     activity_total = activity_total,
     workday_total = workday_total,
   }
@@ -348,9 +348,9 @@ end
 function M.summarize_entries(entries)
   local summary = build_summary_from_rows(build_fine_grained_rows(build_intervals(entries)))
 
-  sort_summary_items(summary.items)
-  sort_by_duration(summary.tag_items)
-  sort_by_duration(summary.location_items)
+  sort_summary_items(summary.summary_items)
+  sort_by_duration(summary.tag_totals)
+  sort_by_duration(summary.location_totals)
 
   return summary
 end
@@ -375,18 +375,18 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
   local quantized_summary = build_summary_from_rows(quantized_rows)
 
   local summary = {
-    items = project_quantized_items(exact_summary.items, quantized_summary.items, summary_item_key, { "text", "tag", "excluded" }),
-    tag_items = project_quantized_items(
-      exact_summary.tag_items,
-      quantized_summary.tag_items,
+    summary_items = project_quantized_items(exact_summary.summary_items, quantized_summary.summary_items, summary_item_key, { "text", "tag", "excluded" }),
+    tag_totals = project_quantized_items(
+      exact_summary.tag_totals,
+      quantized_summary.tag_totals,
       function(row)
         return metadata_bucket_key(row, "tag", NIL_TAG_KEY)
       end,
       { "tag" }
     ),
-    location_items = project_quantized_items(
-      exact_summary.location_items,
-      quantized_summary.location_items,
+    location_totals = project_quantized_items(
+      exact_summary.location_totals,
+      quantized_summary.location_totals,
       function(row)
         return metadata_bucket_key(row, "location", NIL_LOCATION_KEY)
       end,
@@ -398,9 +398,9 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
     workday_error_minutes = exact_summary.workday_total - quantized_summary.workday_total,
   }
 
-  sort_summary_items(summary.items)
-  sort_by_duration(summary.tag_items)
-  sort_by_duration(summary.location_items)
+  sort_summary_items(summary.summary_items)
+  sort_by_duration(summary.tag_totals)
+  sort_by_duration(summary.location_totals)
 
   return summary
 end

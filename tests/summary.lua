@@ -33,7 +33,7 @@ return function(t)
     })
 
     t.eq(summary.summarize_block(block), {
-      items = {
+      summary_items = {
         {
           text = "plan",
           tag = "ProjectOrion",
@@ -56,7 +56,7 @@ return function(t)
           excluded = true,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "ProjectOrion",
           duration = 30,
@@ -73,7 +73,7 @@ return function(t)
           exact_duration = 15,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "client",
           duration = 45,
@@ -99,7 +99,7 @@ return function(t)
     })
 
     t.eq(summary.summarize_block(block), {
-      items = {
+      summary_items = {
         {
           text = "break",
           tag = "ooo",
@@ -115,7 +115,7 @@ return function(t)
           excluded = false,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "ooo",
           duration = 60,
@@ -127,7 +127,7 @@ return function(t)
           exact_duration = 60,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "home",
           duration = 60,
@@ -153,7 +153,7 @@ return function(t)
     })
 
     t.eq(summary.quantized_summarize_block(block), {
-      items = {
+      summary_items = {
         {
           text = "call",
           tag = "sales",
@@ -171,7 +171,7 @@ return function(t)
           excluded = false,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "sales",
           duration = 30,
@@ -185,7 +185,7 @@ return function(t)
           error_minutes = 12,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "client",
           duration = 30,
@@ -215,7 +215,7 @@ return function(t)
     })
 
     t.eq(summary.quantized_summarize_block(block), {
-      items = {
+      summary_items = {
         {
           text = "call",
           tag = "sales",
@@ -233,7 +233,7 @@ return function(t)
           excluded = false,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "sales",
           duration = 60,
@@ -247,7 +247,7 @@ return function(t)
           error_minutes = 20,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "client",
           duration = 60,
@@ -281,7 +281,7 @@ return function(t)
     }, 2)
 
     t.eq(summary.quantized_summarize_block(block), {
-      items = {
+      summary_items = {
         {
           text = "call",
           tag = "sales",
@@ -299,7 +299,7 @@ return function(t)
           excluded = false,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "sales",
           duration = 60,
@@ -313,7 +313,7 @@ return function(t)
           error_minutes = 20,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "client",
           duration = 60,
@@ -346,7 +346,7 @@ return function(t)
     local quantized = summary.quantized_summarize_block(block)
 
     t.eq(quantized, {
-      items = {
+      summary_items = {
         {
           text = "alpha",
           tag = "A",
@@ -372,7 +372,7 @@ return function(t)
           excluded = false,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "A",
           duration = 30,
@@ -392,7 +392,7 @@ return function(t)
           error_minutes = 17,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "x",
           duration = 30,
@@ -412,9 +412,9 @@ return function(t)
       workday_error_minutes = -9,
     })
 
-    t.eq(total_duration(quantized.items), quantized.activity_total)
-    t.eq(total_duration(quantized.tag_items), quantized.activity_total)
-    t.eq(total_duration(quantized.location_items), quantized.activity_total)
+    t.eq(total_duration(quantized.summary_items), quantized.activity_total)
+    t.eq(total_duration(quantized.tag_totals), quantized.activity_total)
+    t.eq(total_duration(quantized.location_totals), quantized.activity_total)
   end)
 
   t.test("quantized summary folds same text and tag across locations", function()
@@ -426,7 +426,7 @@ return function(t)
     })
 
     t.eq(summary.quantized_summarize_block(block), {
-      items = {
+      summary_items = {
         {
           text = "planning",
           tag = "ClientA",
@@ -436,7 +436,7 @@ return function(t)
           excluded = false,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "ClientA",
           duration = 30,
@@ -444,7 +444,7 @@ return function(t)
           error_minutes = 4,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "office",
           duration = 30,
@@ -477,7 +477,7 @@ return function(t)
     })
 
     t.eq(summary.summarize_block(block), {
-      items = {
+      summary_items = {
         {
           text = "planning",
           tag = "ClientA",
@@ -507,7 +507,7 @@ return function(t)
           excluded = false,
         },
       },
-      tag_items = {
+      tag_totals = {
         {
           tag = "ClientA",
           duration = 480,
@@ -519,7 +519,7 @@ return function(t)
           exact_duration = 60,
         },
       },
-      location_items = {
+      location_totals = {
         {
           location = "home",
           duration = 240,
@@ -550,7 +550,7 @@ return function(t)
       "14:00 done",
     })
 
-    t.eq(summary.summarize_block(block).items, {
+    t.eq(summary.summarize_block(block).summary_items, {
       {
         text = "meeting",
         tag = "internal",
