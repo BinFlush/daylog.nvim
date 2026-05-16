@@ -21,7 +21,7 @@ local function summary_item_key(row)
   return table.concat({
     row.text,
     metadata_key(row.tag, NIL_TAG_KEY),
-    tostring(row.excluded),
+    tostring(row.workday_excluded),
   }, "|")
 end
 
@@ -34,7 +34,7 @@ local function fine_grained_row_key(row)
     row.text,
     metadata_key(row.tag, NIL_TAG_KEY),
     metadata_key(row.location, NIL_LOCATION_KEY),
-    tostring(row.excluded),
+    tostring(row.workday_excluded),
   }, "|")
 end
 
@@ -90,7 +90,7 @@ local function build_intervals(entries)
       text = current.text,
       tag = current.tag,
       location = current.location,
-      excluded = current.excluded,
+      workday_excluded = current.workday_excluded,
     })
   end
 
@@ -101,11 +101,11 @@ end
 -- They preserve location so tag/location totals can be projected from the
 -- same quantized rows, even though main summary rows do not render location.
 local function build_fine_grained_rows(intervals)
-  return project_rows(intervals, fine_grained_row_key, { "text", "tag", "location", "excluded" })
+  return project_rows(intervals, fine_grained_row_key, { "text", "tag", "location", "workday_excluded" })
 end
 
 local function summarize_items(rows)
-  return project_rows(rows, summary_item_key, { "text", "tag", "excluded" })
+  return project_rows(rows, summary_item_key, { "text", "tag", "workday_excluded" })
 end
 
 local function summarize_metadata(rows, field, nil_key)
@@ -128,7 +128,7 @@ local function build_summary_from_rows(rows)
   for _, row in ipairs(rows) do
     activity_total = activity_total + row.duration
 
-    if not row.excluded then
+    if not row.workday_excluded then
       workday_total = workday_total + row.duration
     end
   end
@@ -379,7 +379,7 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
       exact_summary.summary_items,
       quantized_summary.summary_items,
       summary_item_key,
-      { "text", "tag", "excluded" }
+      { "text", "tag", "workday_excluded" }
     ),
     tag_totals = project_quantized_items(
       exact_summary.tag_totals,

@@ -47,7 +47,7 @@ return function(t)
         explicit_location = nil,
         tag = "ProjectOrion",
         location = "office",
-        excluded = false,
+        workday_excluded = false,
       },
       {
         kind = "entry_item",
@@ -61,7 +61,7 @@ return function(t)
         explicit_location = "home",
         tag = "ProjectOrion",
         location = "home",
-        excluded = false,
+        workday_excluded = false,
       },
       {
         kind = "entry_item",
@@ -75,7 +75,7 @@ return function(t)
         explicit_location = nil,
         tag = "ooo",
         location = "home",
-        excluded = true,
+        workday_excluded = true,
       },
       {
         kind = "entry_item",
@@ -89,7 +89,7 @@ return function(t)
         explicit_location = nil,
         tag = "ooo",
         location = "home",
-        excluded = true,
+        workday_excluded = true,
       },
       {
         kind = "entry_item",
@@ -103,7 +103,7 @@ return function(t)
         explicit_location = "client",
         tag = "ProjectOrion",
         location = "client",
-        excluded = false,
+        workday_excluded = false,
       },
     })
     t.eq(first.entries, {
@@ -115,7 +115,7 @@ return function(t)
         explicit_location = nil,
         tag = "ProjectOrion",
         location = "office",
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 4,
@@ -125,7 +125,7 @@ return function(t)
         explicit_location = "home",
         tag = "ProjectOrion",
         location = "home",
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 5,
@@ -135,7 +135,7 @@ return function(t)
         explicit_location = nil,
         tag = "ooo",
         location = "home",
-        excluded = true,
+        workday_excluded = true,
       },
       {
         row = 6,
@@ -145,7 +145,7 @@ return function(t)
         explicit_location = nil,
         tag = "ooo",
         location = "home",
-        excluded = true,
+        workday_excluded = true,
       },
       {
         row = 7,
@@ -155,7 +155,7 @@ return function(t)
         explicit_location = "client",
         tag = "ProjectOrion",
         location = "client",
-        excluded = false,
+        workday_excluded = false,
       },
     })
 
@@ -173,7 +173,7 @@ return function(t)
         explicit_location = nil,
         tag = "internal",
         location = "office",
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 14,
@@ -183,7 +183,7 @@ return function(t)
         explicit_location = nil,
         tag = "internal",
         location = "office",
-        excluded = false,
+        workday_excluded = false,
       },
     })
 
@@ -414,7 +414,7 @@ return function(t)
         explicit_location = nil,
         tag = nil,
         location = nil,
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 3,
@@ -424,7 +424,7 @@ return function(t)
         explicit_location = nil,
         tag = "sales",
         location = nil,
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 4,
@@ -434,7 +434,7 @@ return function(t)
         explicit_location = "client",
         tag = "sales",
         location = "client",
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 5,
@@ -444,7 +444,7 @@ return function(t)
         explicit_location = nil,
         tag = "sales",
         location = "client",
-        excluded = false,
+        workday_excluded = false,
       },
     })
   end)
@@ -467,7 +467,7 @@ return function(t)
       explicit_location_clear = true,
       tag = nil,
       location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -477,7 +477,7 @@ return function(t)
       explicit_location = nil,
       tag = nil,
       location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -501,7 +501,7 @@ return function(t)
         explicit_location = nil,
         tag = nil,
         location = nil,
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 3,
@@ -511,7 +511,7 @@ return function(t)
         explicit_location = "home",
         tag = "ClientA",
         location = "home",
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 4,
@@ -523,7 +523,7 @@ return function(t)
         explicit_location_clear = true,
         tag = nil,
         location = nil,
-        excluded = false,
+        workday_excluded = false,
       },
       {
         row = 5,
@@ -533,7 +533,7 @@ return function(t)
         explicit_location = nil,
         tag = nil,
         location = nil,
-        excluded = false,
+        workday_excluded = false,
       },
     })
   end)
@@ -555,7 +555,7 @@ return function(t)
       explicit_location = nil,
       tag = "ooo",
       location = "office",
-      excluded = true,
+      workday_excluded = true,
     })
     t.eq(entries[2], {
       row = 3,
@@ -565,7 +565,7 @@ return function(t)
       explicit_location = nil,
       tag = "ooo",
       location = "office",
-      excluded = true,
+      workday_excluded = true,
     })
     t.eq(entries[3], {
       row = 4,
@@ -575,7 +575,7 @@ return function(t)
       explicit_location = nil,
       tag = "ProjectOrion",
       location = "office",
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -596,7 +596,7 @@ return function(t)
       explicit_location = nil,
       tag = nil,
       location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -606,7 +606,7 @@ return function(t)
       explicit_location = nil,
       tag = nil,
       location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -626,7 +626,7 @@ return function(t)
       explicit_location = "client",
       tag = "ProjectOrion",
       location = "client",
-      excluded = false,
+      workday_excluded = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -636,7 +636,7 @@ return function(t)
       explicit_location = nil,
       tag = "ProjectOrion",
       location = "client",
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -657,7 +657,7 @@ return function(t)
       explicit_location_clear = true,
       tag = nil,
       location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -667,7 +667,7 @@ return function(t)
       explicit_location = nil,
       tag = nil,
       location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -687,7 +687,7 @@ return function(t)
       explicit_location = nil,
       tag = "internal",
       location = "office",
-      excluded = false,
+      workday_excluded = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -697,7 +697,7 @@ return function(t)
       explicit_location = nil,
       tag = "internal",
       location = "office",
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 

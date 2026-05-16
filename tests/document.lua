@@ -46,7 +46,7 @@ return function(t)
         text = "plan",
         explicit_tag = nil,
         explicit_location = nil,
-        excluded = false,
+        workday_excluded = false,
       },
       {
         kind = "note_line",
@@ -77,7 +77,7 @@ return function(t)
       text = "negotiate with goose",
       explicit_tag = "sales",
       explicit_location = "client",
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -156,7 +156,7 @@ return function(t)
       text = "negotiate with goose",
       explicit_tag = "sales",
       explicit_location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
     t.eq(doc.nodes[3], {
       kind = "entry",
@@ -166,7 +166,7 @@ return function(t)
       text = "coffee with ghost",
       explicit_tag = "ooo",
       explicit_location = "home",
-      excluded = true,
+      workday_excluded = true,
     })
     t.eq(doc.nodes[4], {
       kind = "entry",
@@ -176,7 +176,7 @@ return function(t)
       text = "done",
       explicit_tag = nil,
       explicit_location = nil,
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -189,7 +189,7 @@ return function(t)
       text = "fix #123 issue",
       explicit_tag = "sales",
       explicit_location = "office",
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 
@@ -232,7 +232,7 @@ return function(t)
       explicit_tag_clear = true,
       explicit_location = nil,
       explicit_location_clear = true,
-      excluded = false,
+      workday_excluded = false,
     })
   end)
 

@@ -19,7 +19,7 @@ local function semantic_entry(entry)
     explicit_location_clear = entry.explicit_location_clear,
     tag = entry.tag,
     location = entry.location,
-    excluded = entry.excluded,
+    workday_excluded = entry.workday_excluded,
   }
 end
 

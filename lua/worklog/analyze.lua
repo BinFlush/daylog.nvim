@@ -34,7 +34,7 @@ local function semantic_entry(item)
     explicit_location_clear = item.explicit_location_clear,
     tag = item.tag,
     location = item.location,
-    excluded = item.excluded,
+    workday_excluded = item.workday_excluded,
   }
 end
 
@@ -64,7 +64,7 @@ local function semantic_entry_from_node(node, current_tag, current_location)
     explicit_location_clear = node.explicit_location_clear,
     tag = tag,
     location = location,
-    excluded = tag == "ooo",
+    workday_excluded = tag == "ooo",
   }
 end
 
@@ -96,7 +96,7 @@ local function analyze_worklog_items(block, diagnostics)
         explicit_location_clear = entry.explicit_location_clear,
         tag = entry.tag,
         location = entry.location,
-        excluded = entry.excluded,
+        workday_excluded = entry.workday_excluded,
       }
       table.insert(items, current)
       table.insert(entries, entry)

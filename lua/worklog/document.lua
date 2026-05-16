@@ -212,7 +212,7 @@ local function parse_entry(line, row)
     explicit_tag_clear = explicit_tag_clear,
     explicit_location = explicit_location,
     explicit_location_clear = explicit_location_clear,
-    excluded = explicit_tag == "ooo",
+    workday_excluded = explicit_tag == "ooo",
   }
 end
 

@@ -37,7 +37,7 @@ function M.run(lines, row, time)
     explicit_location_clear = current_item.explicit_location_clear,
     tag = current_item.tag,
     location = current_item.location,
-    excluded = current_item.excluded,
+    workday_excluded = current_item.workday_excluded,
   }, insertion_state.tag, insertion_state.location)
   local insert_index = support.get_insert_index(ctx.block, minutes)
 

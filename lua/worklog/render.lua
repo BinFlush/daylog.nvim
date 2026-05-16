@@ -89,9 +89,9 @@ local function has_metadata_items(items, field)
   return false
 end
 
-local function has_excluded_items(items)
+local function has_workday_excluded_items(items)
   for _, item in ipairs(items or {}) do
-    if item.excluded then
+    if item.workday_excluded then
       return true
     end
   end
@@ -187,13 +187,13 @@ function M.summary_lines(summary, kind)
   table.insert(lines, "--- totals" .. header_suffix .. " ---")
 
   if kind == "quantized" then
-    if has_excluded_items(summary.summary_items) then
+    if has_workday_excluded_items(summary.summary_items) then
       table.insert(lines, string.format("%s (%+dm) activity", hours_string(summary.activity_total), summary.activity_error_minutes or 0))
     end
 
     table.insert(lines, string.format("%s (%+dm) workday", hours_string(summary.workday_total), summary.workday_error_minutes or 0))
   else
-    if has_excluded_items(summary.summary_items) then
+    if has_workday_excluded_items(summary.summary_items) then
       table.insert(lines, string.format("%s activity", hours_string(summary.activity_total)))
     end
 

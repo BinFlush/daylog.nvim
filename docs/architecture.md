@@ -63,7 +63,7 @@ duration
 activity text
 tag
 location
-excluded
+workday_excluded
 ```
 
 The dimensions partition the interval set:
@@ -72,7 +72,7 @@ The dimensions partition the interval set:
 activity text  partitions intervals by what was done
 tag            partitions intervals by reporting bucket
 location       partitions intervals by where the work happened
-excluded       partitions intervals into workday and non-workday time
+workday_excluded       partitions intervals into workday and non-workday time
 ```
 
 Therefore:
@@ -86,7 +86,7 @@ sum(location totals) = activity total
 And:
 
 ```text
-workday total = sum(intervals where excluded = false)
+workday total = sum(intervals where workday_excluded = false)
 ```
 
 ## Module overview
@@ -159,7 +159,7 @@ A semantic entry has explicit metadata and effective metadata:
   explicit_location_clear = nil,
   location = "office",
 
-  excluded = false,
+  workday_excluded = false,
 }
 ```
 
@@ -232,7 +232,7 @@ Quantization rounds full-grain rows.
 The full grain is:
 
 ```text
-activity text + tag + location + excluded
+activity text + tag + location + workday_excluded
 ```
 
 Intervals with the same full grain are summed before rounding.
@@ -283,13 +283,13 @@ error(r) = exact(r) - quantized(r)
 The quantized full-grain rows are projected into displayed sections:
 
 ```text
-main summary rows -> activity text + tag + excluded
+main summary rows -> activity text + tag + workday_excluded
 tag totals        -> tag
 location totals   -> location
 overall totals    -> all rows
 ```
 
-Rows where `excluded = true` contribute to activity totals, but not workday
+Rows where `workday_excluded = true` contribute to activity totals, but not workday
 totals.
 
 ## Summary ordering and rendering
@@ -297,7 +297,7 @@ totals.
 Main summary rows group by:
 
 ```text
-activity text + tag + excluded
+activity text + tag + workday_excluded
 ```
 
 Location is reported only in location totals.
