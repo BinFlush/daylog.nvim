@@ -579,6 +579,66 @@ return function(t)
     })
   end)
 
+  t.test("summary preserves stable order when text groups tie completely", function()
+    local block = block_from_lines({
+      "--- worklog ---",
+      "08:00 alpha",
+      "09:00 beta",
+      "10:00 done",
+    })
+
+    t.eq(summary.summarize_block(block).summary_items, {
+      {
+        text = "alpha",
+        tag = nil,
+        duration = 60,
+        exact_duration = 60,
+        workday_excluded = false,
+      },
+      {
+        text = "beta",
+        tag = nil,
+        duration = 60,
+        exact_duration = 60,
+        workday_excluded = false,
+      },
+    })
+  end)
+
+  t.test("summary preserves stable order within same-text tag ties", function()
+    local block = block_from_lines({
+      "--- worklog ---",
+      "08:00 meeting #ClientA",
+      "09:00 other",
+      "10:00 meeting #internal",
+      "11:00 done",
+    })
+
+    t.eq(summary.summarize_block(block).summary_items, {
+      {
+        text = "meeting",
+        tag = "ClientA",
+        duration = 60,
+        exact_duration = 60,
+        workday_excluded = false,
+      },
+      {
+        text = "meeting",
+        tag = "internal",
+        duration = 60,
+        exact_duration = 60,
+        workday_excluded = false,
+      },
+      {
+        text = "other",
+        tag = "ClientA",
+        duration = 60,
+        exact_duration = 60,
+        workday_excluded = false,
+      },
+    })
+  end)
+
   t.test("summary keeps activity text containing pipes separate", function()
     local block = block_from_lines({
       "--- worklog ---",

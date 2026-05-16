@@ -25,6 +25,11 @@ local function make_key(...)
   return table.concat(parts, "|")
 end
 
+-- Row identities in this module:
+-- fine-grained rows keep text, tag, location, and workday exclusion so exact
+-- and quantized reporting can start from one shared base;
+-- summary items fold that base down to text, tag, and workday exclusion;
+-- metadata totals fold rows down again to just tag or location.
 local function summary_item_key(row)
   return make_key(row.text, row.tag, row.workday_excluded)
 end
@@ -248,6 +253,13 @@ local function sort_summary_items(items)
   return items
 end
 
+local function finalize_summary_order(summary)
+  sort_summary_items(summary.summary_items)
+  sort_by_duration(summary.tag_totals)
+  sort_by_duration(summary.location_totals)
+  return summary
+end
+
 local function round_to_nearest_bucket(minutes, bucket_minutes)
   return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
 end
@@ -335,6 +347,8 @@ local function project_quantized_items(exact_items, quantized_items, key_fn, fie
       projected[field] = item[field]
     end
 
+    -- Exact and quantized projections should stay aligned. Falling back to zero
+    -- keeps this helper defensive if an internal mismatch ever slips through.
     projected.duration = quantized_item and quantized_item.duration or 0
     projected.exact_duration = item.exact_duration
     projected.error_minutes = item.duration - (quantized_item and quantized_item.duration or 0)
@@ -347,11 +361,7 @@ end
 function M.summarize_entries(entries)
   local summary = build_summary_from_rows(build_fine_grained_rows(build_intervals(entries)))
 
-  sort_summary_items(summary.summary_items)
-  sort_by_duration(summary.tag_totals)
-  sort_by_duration(summary.location_totals)
-
-  return summary
+  return finalize_summary_order(summary)
 end
 
 function M.summarize_block(block)
@@ -402,11 +412,7 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
     workday_error_minutes = exact_summary.workday_total - quantized_summary.workday_total,
   }
 
-  sort_summary_items(summary.summary_items)
-  sort_by_duration(summary.tag_totals)
-  sort_by_duration(summary.location_totals)
-
-  return summary
+  return finalize_summary_order(summary)
 end
 
 function M.quantized_summarize_block(block)
