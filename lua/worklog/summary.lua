@@ -85,33 +85,42 @@ local function sort_text_groups_by_duration(groups)
   return groups
 end
 
-local function summarize_metadata(items, field, nil_key)
+-- Project rows into coarser reporting buckets.
+-- `key_fn` decides which rows belong to the same bucket, while `fields`
+-- decides which descriptive labels survive into the projected row.
+-- Durations are always accumulated, and first-seen group order is preserved.
+local function project_rows(rows, key_fn, fields)
   local buckets = {}
   local order = {}
 
-  for _, item in ipairs(items) do
-    local key = metadata_key(item[field], nil_key)
+  for _, row in ipairs(rows) do
+    local key = key_fn(row)
 
     if not buckets[key] then
-      buckets[key] = {
-        [field] = item[field],
+      local bucket = {
         duration = 0,
         exact_duration = 0,
       }
+
+      for _, field in ipairs(fields) do
+        bucket[field] = row[field]
+      end
+
+      buckets[key] = bucket
       table.insert(order, key)
     end
 
-    buckets[key].duration = buckets[key].duration + item.duration
-    buckets[key].exact_duration = buckets[key].exact_duration + (item.exact_duration or item.duration)
+    buckets[key].duration = buckets[key].duration + row.duration
+    buckets[key].exact_duration = buckets[key].exact_duration + (row.exact_duration or row.duration)
   end
 
-  local summary_items = {}
+  local result = {}
 
   for _, key in ipairs(order) do
-    table.insert(summary_items, buckets[key])
+    table.insert(result, buckets[key])
   end
 
-  return summary_items
+  return result
 end
 
 local function summary_item_key(row)
@@ -127,34 +136,17 @@ local function metadata_bucket_key(row, field, nil_key)
 end
 
 local function summarize_items(rows)
-  local buckets = {}
-  local order = {}
+  return project_rows(rows, summary_item_key, { "text", "tag", "excluded" })
+end
 
-  for _, row in ipairs(rows) do
-    local key = summary_item_key(row)
-
-    if not buckets[key] then
-      buckets[key] = {
-        text = row.text,
-        tag = row.tag,
-        duration = 0,
-        exact_duration = 0,
-        excluded = row.excluded,
-      }
-      table.insert(order, key)
-    end
-
-    buckets[key].duration = buckets[key].duration + row.duration
-    buckets[key].exact_duration = buckets[key].exact_duration + (row.exact_duration or row.duration)
-  end
-
-  local items = {}
-
-  for _, key in ipairs(order) do
-    table.insert(items, buckets[key])
-  end
-
-  return items
+local function summarize_metadata(rows, field, nil_key)
+  return project_rows(
+    rows,
+    function(row)
+      return metadata_bucket_key(row, field, nil_key)
+    end,
+    { field }
+  )
 end
 
 local function sort_summary_items(items)
@@ -221,46 +213,25 @@ local function build_intervals(entries)
   return intervals
 end
 
+local function fine_grained_row_key(row)
+  return table.concat({
+    row.text,
+    metadata_key(row.tag, NIL_TAG_KEY),
+    metadata_key(row.location, NIL_LOCATION_KEY),
+    tostring(row.excluded),
+  }, "|")
+end
+
 -- Fine-grained rows are the quantization base.
 -- They preserve location so tag/location totals can be projected from the
 -- same quantized rows, even though main summary rows do not render location.
 local function build_fine_grained_rows(intervals)
-  local buckets = {}
-  local order = {}
-
-  for _, iv in ipairs(intervals) do
-    local key = table.concat({
-      iv.text,
-      metadata_key(iv.tag, NIL_TAG_KEY),
-      metadata_key(iv.location, NIL_LOCATION_KEY),
-      tostring(iv.excluded),
-    }, "|")
-
-    if not buckets[key] then
-      buckets[key] = {
-        text = iv.text,
-        tag = iv.tag,
-        location = iv.location,
-        excluded = iv.excluded,
-        duration = 0,
-        exact_duration = 0,
-      }
-      table.insert(order, key)
-    end
-
-    buckets[key].duration = buckets[key].duration + iv.duration
-    buckets[key].exact_duration = buckets[key].exact_duration + iv.duration
-  end
-
-  local rows = {}
-
-  for _, key in ipairs(order) do
-    table.insert(rows, buckets[key])
-  end
-
-  return rows
+  return project_rows(intervals, fine_grained_row_key, { "text", "tag", "location", "excluded" })
 end
 
+-- Project one row set into every exact reporting section.
+-- Main summary items fold location away, while tag and location totals keep
+-- their own label fields and all totals are derived from the same source rows.
 local function build_summary_from_rows(rows)
   local activity_total = 0
   local workday_total = 0
@@ -350,6 +321,9 @@ local function items_by_custom_key(items, key_fn)
   return result
 end
 
+-- Reapply quantized durations onto exact ordered sections.
+-- Exact rows define the visible labels and exact totals, while the quantized
+-- rows provide the displayed duration after one shared quantization pass.
 local function project_quantized_items(exact_items, quantized_items, key_fn, fields)
   local result = {}
   local quantized_by_key = items_by_custom_key(quantized_items, key_fn)
