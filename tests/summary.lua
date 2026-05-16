@@ -23,6 +23,12 @@ return function(t)
     return total
   end
 
+  local function assert_activity_totals_match(t, result)
+    t.eq(total_duration(result.summary_items), result.activity_total)
+    t.eq(total_duration(result.tag_totals), result.activity_total)
+    t.eq(total_duration(result.location_totals), result.activity_total)
+  end
+
   t.test("summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
       "--- worklog #ProjectOrion @office ---",
@@ -412,9 +418,7 @@ return function(t)
       workday_error_minutes = -9,
     })
 
-    t.eq(total_duration(quantized.summary_items), quantized.activity_total)
-    t.eq(total_duration(quantized.tag_totals), quantized.activity_total)
-    t.eq(total_duration(quantized.location_totals), quantized.activity_total)
+    assert_activity_totals_match(t, quantized)
   end)
 
   t.test("quantized summary folds same text and tag across locations", function()
