@@ -4,7 +4,7 @@ local function hours_string(minutes)
   return string.format("%.2fh", minutes / 60)
 end
 
-local function summary_item_text(item, show_tag)
+local function summary_item_label(item, show_tag)
   local parts = {}
 
   if item.text ~= "" then
@@ -19,7 +19,7 @@ local function summary_item_text(item, show_tag)
 end
 
 local function summary_line(prefix, item, show_tag)
-  local text = summary_item_text(item, show_tag)
+  local text = summary_item_label(item, show_tag)
 
   if text == "" then
     return prefix

@@ -1,6 +1,7 @@
 local analyze = require("worklog.analyze")
 local body = require("worklog.body")
 local context = require("worklog.context")
+local entry = require("worklog.entry")
 
 local M = {}
 
@@ -63,6 +64,16 @@ end
 
 function M.get_insert_state(block, minutes)
   return body.state_before(block, minutes)
+end
+
+function M.parse_clock_minutes(time)
+  local parsed, err = entry.parse(time)
+
+  if not parsed then
+    return nil, "worklog: invalid current time: " .. (err or tostring(time))
+  end
+
+  return parsed.minutes
 end
 
 function M.append_edit(lines, appended_lines)

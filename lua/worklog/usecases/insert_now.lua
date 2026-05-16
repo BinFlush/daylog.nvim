@@ -1,4 +1,3 @@
-local entry = require("worklog.entry")
 local support = require("worklog.usecases.support")
 
 local M = {}
@@ -8,12 +7,18 @@ local M = {}
 
 function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)
+  local minutes = nil
+
   if not ctx then
     return nil, err
   end
 
-  local parsed_entry = entry.parse(time)
-  local insert_index = support.get_insert_index(ctx.block, parsed_entry.minutes)
+  minutes, err = support.parse_clock_minutes(time)
+  if not minutes then
+    return nil, err
+  end
+
+  local insert_index = support.get_insert_index(ctx.block, minutes)
 
   return {
     edits = {

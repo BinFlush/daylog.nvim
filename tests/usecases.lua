@@ -26,6 +26,17 @@ return function(t)
     })
   end)
 
+  t.test("insert_now usecase rejects invalid injected current time", function()
+    local result, err = insert_now.run({
+      "--- worklog ---",
+      "08:00 first",
+      "09:00 done",
+    }, 1, "25:00")
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: invalid current time: invalid time")
+  end)
+
   t.test("append_summary usecase returns appended summary lines", function()
     local result = append_summary.run({
       "--- worklog @office ---",
@@ -233,6 +244,17 @@ return function(t)
         },
       },
     })
+  end)
+
+  t.test("repeat_current usecase rejects invalid injected current time", function()
+    local result, err = repeat_current.run({
+      "--- worklog ---",
+      "08:00 planning",
+      "09:00 done",
+    }, 2, "25:00")
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
   t.test("order_worklogs usecase returns replace edits for representable sticky rewrites", function()

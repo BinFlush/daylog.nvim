@@ -6,36 +6,35 @@ local M = {}
 -- module owns interval derivation, grouping, tag/location totals, sorting, and
 -- quantization so reporting stays a first-class semantic concern.
 
-local NIL_TAG_KEY = "\31"
-local NIL_LOCATION_KEY = "\30"
-
-local function metadata_key(value, nil_key)
+local function key_part(value)
   if value == nil then
-    return nil_key
+    return "nil:"
   end
 
-  return value
+  value = tostring(value)
+  return "str:" .. #value .. ":" .. value
+end
+
+local function make_key(...)
+  local parts = {}
+
+  for i = 1, select("#", ...) do
+    table.insert(parts, key_part(select(i, ...)))
+  end
+
+  return table.concat(parts, "|")
 end
 
 local function summary_item_key(row)
-  return table.concat({
-    row.text,
-    metadata_key(row.tag, NIL_TAG_KEY),
-    tostring(row.workday_excluded),
-  }, "|")
+  return make_key(row.text, row.tag, row.workday_excluded)
 end
 
-local function metadata_bucket_key(row, field, nil_key)
-  return metadata_key(row[field], nil_key)
+local function metadata_bucket_key(row, field)
+  return make_key(row[field])
 end
 
 local function fine_grained_row_key(row)
-  return table.concat({
-    row.text,
-    metadata_key(row.tag, NIL_TAG_KEY),
-    metadata_key(row.location, NIL_LOCATION_KEY),
-    tostring(row.workday_excluded),
-  }, "|")
+  return make_key(row.text, row.tag, row.location, row.workday_excluded)
 end
 
 -- Project rows into coarser reporting buckets.
@@ -108,11 +107,11 @@ local function summarize_items(rows)
   return project_rows(rows, summary_item_key, { "text", "tag", "workday_excluded" })
 end
 
-local function summarize_metadata(rows, field, nil_key)
+local function summarize_metadata(rows, field)
   return project_rows(
     rows,
     function(row)
-      return metadata_bucket_key(row, field, nil_key)
+      return metadata_bucket_key(row, field)
     end,
     { field }
   )
@@ -135,8 +134,8 @@ local function build_summary_from_rows(rows)
 
   return {
     summary_items = summarize_items(rows),
-    tag_totals = summarize_metadata(rows, "tag", NIL_TAG_KEY),
-    location_totals = summarize_metadata(rows, "location", NIL_LOCATION_KEY),
+    tag_totals = summarize_metadata(rows, "tag"),
+    location_totals = summarize_metadata(rows, "location"),
     activity_total = activity_total,
     workday_total = workday_total,
   }
@@ -385,7 +384,7 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
       exact_summary.tag_totals,
       quantized_summary.tag_totals,
       function(row)
-        return metadata_bucket_key(row, "tag", NIL_TAG_KEY)
+        return metadata_bucket_key(row, "tag")
       end,
       { "tag" }
     ),
@@ -393,7 +392,7 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
       exact_summary.location_totals,
       quantized_summary.location_totals,
       function(row)
-        return metadata_bucket_key(row, "location", NIL_LOCATION_KEY)
+        return metadata_bucket_key(row, "location")
       end,
       { "location" }
     ),

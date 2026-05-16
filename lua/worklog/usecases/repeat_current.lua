@@ -9,6 +9,7 @@ function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)
   local current_item = nil
   local insertion_state = nil
+  local minutes = nil
 
   if not ctx then
     return nil, err
@@ -25,7 +26,11 @@ function M.run(lines, row, time)
     return nil, "worklog: current line is not a valid worklog entry"
   end
 
-  local minutes = entry.parse(time).minutes
+  minutes, err = support.parse_clock_minutes(time)
+  if not minutes then
+    return nil, err
+  end
+
   insertion_state = support.get_insert_state(ctx.block, minutes)
 
   local line = entry.format({

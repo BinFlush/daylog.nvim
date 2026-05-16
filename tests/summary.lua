@@ -578,4 +578,30 @@ return function(t)
       },
     })
   end)
+
+  t.test("summary keeps activity text containing pipes separate", function()
+    local block = block_from_lines({
+      "--- worklog ---",
+      "08:00 alpha|beta",
+      "09:00 alpha #beta",
+      "10:00 done",
+    })
+
+    t.eq(summary.summarize_block(block).summary_items, {
+      {
+        text = "alpha|beta",
+        tag = nil,
+        duration = 60,
+        exact_duration = 60,
+        workday_excluded = false,
+      },
+      {
+        text = "alpha",
+        tag = "beta",
+        duration = 60,
+        exact_duration = 60,
+        workday_excluded = false,
+      },
+    })
+  end)
 end

@@ -69,10 +69,10 @@ workday_excluded
 The dimensions partition the interval set:
 
 ```text
-activity text  partitions intervals by what was done
-tag            partitions intervals by reporting bucket
-location       partitions intervals by where the work happened
-workday_excluded       partitions intervals into workday and non-workday time
+activity text      partitions intervals by what was done
+tag                partitions intervals by reporting bucket
+location           partitions intervals by where the work happened
+workday_excluded   partitions intervals into workday and non-workday time
 ```
 
 Therefore:
