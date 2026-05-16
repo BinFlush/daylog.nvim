@@ -111,7 +111,7 @@ return function(t)
       "11:00 tea",
       "note tea",
       "12:00",
-      })
+    })
   end)
 
   t.test("copy preserves explicit quantize on the active worklog header", function()
@@ -265,31 +265,34 @@ return function(t)
     })
   end)
 
-  t.test("repeat emits clear tokens when replaying nil metadata after sticky values were set", function()
-    t.reset({
-      "--- worklog ---",
-      "08:00 first",
-      "08:15 break #ooo @home",
-      "09:00 done",
-    })
-    t.set_cursor(2, 0)
+  t.test(
+    "repeat emits clear tokens when replaying nil metadata after sticky values were set",
+    function()
+      t.reset({
+        "--- worklog ---",
+        "08:00 first",
+        "08:15 break #ooo @home",
+        "09:00 done",
+      })
+      t.set_cursor(2, 0)
 
-    local old_date = os.date
-    os.date = function()
-      return "08:30"
+      local old_date = os.date
+      os.date = function()
+        return "08:30"
+      end
+
+      vim.cmd("WorklogRepeat")
+      os.date = old_date
+
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+        "08:00 first",
+        "08:15 break #ooo @home",
+        "08:30 first #- @-",
+        "09:00 done",
+      })
     end
-
-    vim.cmd("WorklogRepeat")
-    os.date = old_date
-
-    t.eq(t.get_lines(), {
-      "--- worklog ---",
-      "08:00 first",
-      "08:15 break #ooo @home",
-      "08:30 first #- @-",
-      "09:00 done",
-    })
-  end)
+  )
 
   t.test("insert orders into explicit worklog block after equal timestamps", function()
     t.reset({
@@ -414,37 +417,40 @@ return function(t)
     })
   end)
 
-  t.test("summaries keep same-text different-tag rows adjacent and sort by combined duration", function()
-    t.reset({
-      "--- worklog ---",
-      "08:00 meeting #ClientA",
-      "09:00 implementation #ClientA",
-      "12:00 meeting #internal",
-      "14:00 done",
-    })
+  t.test(
+    "summaries keep same-text different-tag rows adjacent and sort by combined duration",
+    function()
+      t.reset({
+        "--- worklog ---",
+        "08:00 meeting #ClientA",
+        "09:00 implementation #ClientA",
+        "12:00 meeting #internal",
+        "14:00 done",
+      })
 
-    vim.cmd("WorklogSummarize")
+      vim.cmd("WorklogSummarize")
 
-    t.eq(t.get_lines(), {
-      "--- worklog ---",
-      "08:00 meeting #ClientA",
-      "09:00 implementation #ClientA",
-      "12:00 meeting #internal",
-      "14:00 done",
-      "",
-      "--- summary exact ---",
-      "2.00h meeting #internal",
-      "1.00h meeting #ClientA",
-      "3.00h implementation",
-      "",
-      "--- tags exact ---",
-      "4.00h #ClientA",
-      "2.00h #internal",
-      "",
-      "--- totals exact ---",
-      "6.00h workday",
-    })
-  end)
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+        "08:00 meeting #ClientA",
+        "09:00 implementation #ClientA",
+        "12:00 meeting #internal",
+        "14:00 done",
+        "",
+        "--- summary exact ---",
+        "2.00h meeting #internal",
+        "1.00h meeting #ClientA",
+        "3.00h implementation",
+        "",
+        "--- tags exact ---",
+        "4.00h #ClientA",
+        "2.00h #internal",
+        "",
+        "--- totals exact ---",
+        "6.00h workday",
+      })
+    end
+  )
 
   t.test("summaries omit placeholder-only metadata sections", function()
     t.reset({
@@ -573,38 +579,41 @@ return function(t)
     })
   end)
 
-  t.test("quantized summaries show untagged and no location buckets without header metadata", function()
-    t.reset({
-      "--- worklog quantize=30 ---",
-      "08:00 plan",
-      "08:12 call #sales @client",
-      "08:30 done",
-    })
+  t.test(
+    "quantized summaries show untagged and no location buckets without header metadata",
+    function()
+      t.reset({
+        "--- worklog quantize=30 ---",
+        "08:00 plan",
+        "08:12 call #sales @client",
+        "08:30 done",
+      })
 
-    vim.cmd("WorklogQuantSum")
+      vim.cmd("WorklogQuantSum")
 
-    t.eq(t.get_lines(), {
-      "--- worklog quantize=30 ---",
-      "08:00 plan",
-      "08:12 call #sales @client",
-      "08:30 done",
-      "",
-      "--- summary quantized ---",
-      "0.50h (-12m) call",
-      "0.00h (+12m) plan",
-      "",
-      "--- tags quantized ---",
-      "0.50h (-12m) #sales",
-      "0.00h (+12m) (untagged)",
-      "",
-      "--- locations quantized ---",
-      "0.50h (-12m) @client",
-      "0.00h (+12m) (no location)",
-      "",
-      "--- totals quantized ---",
-      "0.50h (+0m) workday",
-    })
-  end)
+      t.eq(t.get_lines(), {
+        "--- worklog quantize=30 ---",
+        "08:00 plan",
+        "08:12 call #sales @client",
+        "08:30 done",
+        "",
+        "--- summary quantized ---",
+        "0.50h (-12m) call",
+        "0.00h (+12m) plan",
+        "",
+        "--- tags quantized ---",
+        "0.50h (-12m) #sales",
+        "0.00h (+12m) (untagged)",
+        "",
+        "--- locations quantized ---",
+        "0.50h (-12m) @client",
+        "0.00h (+12m) (no location)",
+        "",
+        "--- totals quantized ---",
+        "0.50h (+0m) workday",
+      })
+    end
+  )
 
   t.test("quantized summaries omit placeholder-only metadata sections", function()
     t.reset({

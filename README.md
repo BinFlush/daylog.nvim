@@ -139,6 +139,18 @@ docs/architecture.md
 
 ## Development
 
+Format Lua files:
+
+```sh
+stylua lua tests plugin
+```
+
+Check formatting only:
+
+```sh
+stylua --check lua tests plugin
+```
+
 Run the full suite:
 
 ```sh

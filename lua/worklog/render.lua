@@ -134,7 +134,14 @@ function M.summary_lines(summary, kind)
 
   for _, item in ipairs(summary.summary_items) do
     if kind == "quantized" then
-      table.insert(lines, summary_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item, conflicts[item.text]))
+      table.insert(
+        lines,
+        summary_line(
+          string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0),
+          item,
+          conflicts[item.text]
+        )
+      )
     else
       table.insert(lines, summary_line(hours_string(item.duration), item, conflicts[item.text]))
     end
@@ -167,7 +174,13 @@ function M.summary_lines(summary, kind)
       table.insert(lines, "--- tags quantized ---")
 
       for _, item in ipairs(summary.tag_totals or {}) do
-        table.insert(lines, tag_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
+        table.insert(
+          lines,
+          tag_line(
+            string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0),
+            item
+          )
+        )
       end
 
       table.insert(lines, "")
@@ -177,7 +190,13 @@ function M.summary_lines(summary, kind)
       table.insert(lines, "--- locations quantized ---")
 
       for _, item in ipairs(summary.location_totals or {}) do
-        table.insert(lines, location_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
+        table.insert(
+          lines,
+          location_line(
+            string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0),
+            item
+          )
+        )
       end
 
       table.insert(lines, "")
@@ -188,10 +207,24 @@ function M.summary_lines(summary, kind)
 
   if kind == "quantized" then
     if has_workday_excluded_items(summary.summary_items) then
-      table.insert(lines, string.format("%s (%+dm) activity", hours_string(summary.activity_total), summary.activity_error_minutes or 0))
+      table.insert(
+        lines,
+        string.format(
+          "%s (%+dm) activity",
+          hours_string(summary.activity_total),
+          summary.activity_error_minutes or 0
+        )
+      )
     end
 
-    table.insert(lines, string.format("%s (%+dm) workday", hours_string(summary.workday_total), summary.workday_error_minutes or 0))
+    table.insert(
+      lines,
+      string.format(
+        "%s (%+dm) workday",
+        hours_string(summary.workday_total),
+        summary.workday_error_minutes or 0
+      )
+    )
   else
     if has_workday_excluded_items(summary.summary_items) then
       table.insert(lines, string.format("%s activity", hours_string(summary.activity_total)))

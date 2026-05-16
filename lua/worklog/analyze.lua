@@ -6,7 +6,8 @@ local M = {}
 -- items with attached note lines, and structured diagnostics. It is the main
 -- source of truth for command-time behavior.
 
-local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+local INVALID_FIRST_HEADER_MESSAGE =
+  "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 local DEFAULT_QUANTIZE_MINUTES = 15
 
 local function push_diagnostic(diagnostics, diagnostic)
@@ -204,7 +205,11 @@ local function interpret_worklog_header(header, diagnostics)
         result.declared_quantize = true
         local quantize_minutes = tonumber(token.value)
 
-        if not quantize_minutes or quantize_minutes <= 0 or quantize_minutes ~= math.floor(quantize_minutes) then
+        if
+          not quantize_minutes
+          or quantize_minutes <= 0
+          or quantize_minutes ~= math.floor(quantize_minutes)
+        then
           push_diagnostic(diagnostics, {
             code = "invalid_worklog_header_option",
             severity = "error",
@@ -329,7 +334,9 @@ function M.analyze(document)
       header_tag = interpreted_header.tag,
       header_location = interpreted_header.location,
       header_quantize_minutes = interpreted_header.quantize_minutes,
-      quantize_minutes = is_worklog_header(header) and (interpreted_header.quantize_minutes or DEFAULT_QUANTIZE_MINUTES) or nil,
+      quantize_minutes = is_worklog_header(header)
+          and (interpreted_header.quantize_minutes or DEFAULT_QUANTIZE_MINUTES)
+        or nil,
     }
 
     block.body_nodes = body_nodes(document, block)
@@ -367,7 +374,11 @@ end
 
 function M.find_block_diagnostic(analysis, block)
   for _, diagnostic in ipairs(analysis.diagnostics) do
-    if is_block_diagnostic(diagnostic) and diagnostic.row >= block.start_row and diagnostic.row < block.end_row then
+    if
+      is_block_diagnostic(diagnostic)
+      and diagnostic.row >= block.start_row
+      and diagnostic.row < block.end_row
+    then
       return diagnostic
     end
   end

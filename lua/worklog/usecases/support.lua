@@ -5,7 +5,8 @@ local entry = require("worklog.entry")
 
 local M = {}
 
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+local NO_WORKLOG_ERROR =
+  "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
 -- Shared use-case helpers.
 --
@@ -15,7 +16,11 @@ local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a 
 -- and focused on one operation each.
 
 local function invalid_entry_error(diagnostic)
-  return string.format("worklog: invalid worklog entry at line %d: %s", diagnostic.row, diagnostic.message)
+  return string.format(
+    "worklog: invalid worklog entry at line %d: %s",
+    diagnostic.row,
+    diagnostic.message
+  )
 end
 
 local function unordered_error(diagnostic)

@@ -51,10 +51,51 @@ return function(t)
   end)
 
   t.test("entry format suppresses unchanged sticky metadata and keeps explicit changes", function()
-    t.eq(entry.format({ minutes = 480, text = "first", tag = "ProjectOrion", location = "office", workday_excluded = false }, "ProjectOrion", "office"), "08:00 first")
-    t.eq(entry.format({ minutes = 480, text = "second", tag = "ProjectOrion", location = "client", workday_excluded = false }, "ProjectOrion", "office"), "08:00 second @client")
-    t.eq(entry.format({ minutes = 480, text = "third", tag = "sales", location = "client", workday_excluded = false }, "ProjectOrion", "office"), "08:00 third #sales @client")
-    t.eq(entry.format({ minutes = 480, text = "break", tag = "ooo", location = "office", workday_excluded = true }, "ProjectOrion", "office"), "08:00 break #ooo")
-    t.eq(entry.format({ minutes = 480, text = "reset", tag = nil, location = nil, workday_excluded = false }, "ProjectOrion", "office"), "08:00 reset #- @-")
+    t.eq(
+      entry.format({
+        minutes = 480,
+        text = "first",
+        tag = "ProjectOrion",
+        location = "office",
+        workday_excluded = false,
+      }, "ProjectOrion", "office"),
+      "08:00 first"
+    )
+    t.eq(
+      entry.format({
+        minutes = 480,
+        text = "second",
+        tag = "ProjectOrion",
+        location = "client",
+        workday_excluded = false,
+      }, "ProjectOrion", "office"),
+      "08:00 second @client"
+    )
+    t.eq(
+      entry.format({
+        minutes = 480,
+        text = "third",
+        tag = "sales",
+        location = "client",
+        workday_excluded = false,
+      }, "ProjectOrion", "office"),
+      "08:00 third #sales @client"
+    )
+    t.eq(
+      entry.format(
+        { minutes = 480, text = "break", tag = "ooo", location = "office", workday_excluded = true },
+        "ProjectOrion",
+        "office"
+      ),
+      "08:00 break #ooo"
+    )
+    t.eq(
+      entry.format(
+        { minutes = 480, text = "reset", tag = nil, location = nil, workday_excluded = false },
+        "ProjectOrion",
+        "office"
+      ),
+      "08:00 reset #- @-"
+    )
   end)
 end

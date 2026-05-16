@@ -69,7 +69,9 @@ dofile(root .. "/tests/filetype.lua")(t)
 dofile(root .. "/tests/commands.lua")(t)
 
 if #failures > 0 then
-  error(string.format("%d/%d tests failed\n\n%s", #failures, tests_run, table.concat(failures, "\n\n")))
+  error(
+    string.format("%d/%d tests failed\n\n%s", #failures, tests_run, table.concat(failures, "\n\n"))
+  )
 end
 
 print(string.format("ok: %d tests", tests_run))

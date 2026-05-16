@@ -192,7 +192,8 @@ local function parse_entry(line, row)
   local text = normalize_text(rest:gsub("^%s+", ""))
   local explicit_tag, explicit_tag_clear, explicit_location, explicit_location_clear, err
 
-  text, explicit_tag, explicit_tag_clear, explicit_location, explicit_location_clear, err = parse_entry_metadata(text)
+  text, explicit_tag, explicit_tag_clear, explicit_location, explicit_location_clear, err =
+    parse_entry_metadata(text)
   if err then
     return {
       kind = "invalid_entry",

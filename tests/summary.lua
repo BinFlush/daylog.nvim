@@ -545,39 +545,42 @@ return function(t)
     })
   end)
 
-  t.test("summary keeps same-text different-tag rows adjacent and sorts by combined duration", function()
-    local block = block_from_lines({
-      "--- worklog ---",
-      "08:00 meeting #ClientA",
-      "09:00 implementation #ClientA",
-      "12:00 meeting #internal",
-      "14:00 done",
-    })
+  t.test(
+    "summary keeps same-text different-tag rows adjacent and sorts by combined duration",
+    function()
+      local block = block_from_lines({
+        "--- worklog ---",
+        "08:00 meeting #ClientA",
+        "09:00 implementation #ClientA",
+        "12:00 meeting #internal",
+        "14:00 done",
+      })
 
-    t.eq(summary.summarize_block(block).summary_items, {
-      {
-        text = "meeting",
-        tag = "internal",
-        duration = 120,
-        exact_duration = 120,
-        workday_excluded = false,
-      },
-      {
-        text = "meeting",
-        tag = "ClientA",
-        duration = 60,
-        exact_duration = 60,
-        workday_excluded = false,
-      },
-      {
-        text = "implementation",
-        tag = "ClientA",
-        duration = 180,
-        exact_duration = 180,
-        workday_excluded = false,
-      },
-    })
-  end)
+      t.eq(summary.summarize_block(block).summary_items, {
+        {
+          text = "meeting",
+          tag = "internal",
+          duration = 120,
+          exact_duration = 120,
+          workday_excluded = false,
+        },
+        {
+          text = "meeting",
+          tag = "ClientA",
+          duration = 60,
+          exact_duration = 60,
+          workday_excluded = false,
+        },
+        {
+          text = "implementation",
+          tag = "ClientA",
+          duration = 180,
+          exact_duration = 180,
+          workday_excluded = false,
+        },
+      })
+    end
+  )
 
   t.test("summary preserves stable order when text groups tie completely", function()
     local block = block_from_lines({

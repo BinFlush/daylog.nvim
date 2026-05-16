@@ -9,7 +9,8 @@ local M = {}
 -- cursor. The returned context keeps only the semantic analysis, selected
 -- block, and the block's sticky header metadata.
 
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+local NO_WORKLOG_ERROR =
+  "worklog: no worklog block found; first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
 local function build_context(analysis, block)
   if not block then

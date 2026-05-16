@@ -119,7 +119,10 @@ return function(t)
     })
 
     t.eq(result, nil)
-    t.eq(err, "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---")
+    t.eq(
+      err,
+      "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+    )
   end)
 
   t.test("check usecase returns invalid entry errors", function()
@@ -257,28 +260,31 @@ return function(t)
     t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
-  t.test("order_worklogs usecase returns replace edits for representable sticky rewrites", function()
-    local result = order_worklogs.run({
-      "--- worklog #ProjectOrion @office ---",
-      "08:30 later",
-      "08:00 earlier #sales @client",
-      "09:00 done #ProjectOrion @office",
-    })
+  t.test(
+    "order_worklogs usecase returns replace edits for representable sticky rewrites",
+    function()
+      local result = order_worklogs.run({
+        "--- worklog #ProjectOrion @office ---",
+        "08:30 later",
+        "08:00 earlier #sales @client",
+        "09:00 done #ProjectOrion @office",
+      })
 
-    t.eq(result, {
-      edits = {
-        {
-          start_index = 1,
-          end_index = 4,
-          lines = {
-            "08:00 earlier #sales @client",
-            "08:30 later #ProjectOrion @office",
-            "09:00 done",
+      t.eq(result, {
+        edits = {
+          {
+            start_index = 1,
+            end_index = 4,
+            lines = {
+              "08:00 earlier #sales @client",
+              "08:30 later #ProjectOrion @office",
+              "09:00 done",
+            },
           },
         },
-      },
-    })
-  end)
+      })
+    end
+  )
 
   t.test("order_worklogs usecase emits a tag clear when sorting needs it", function()
     local result = order_worklogs.run({

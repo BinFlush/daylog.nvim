@@ -712,7 +712,10 @@ return function(t)
       "10:00 done",
     }))
 
-    t.eq(analyze.structural_error(analysis), "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---")
+    t.eq(
+      analyze.structural_error(analysis),
+      "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+    )
     t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), {
       code = "invalid_entry",
       severity = "error",

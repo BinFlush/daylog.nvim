@@ -159,12 +159,24 @@ end
 -- tokens make sticky-to-nil transitions representable in canonical output.
 function M.normalized_lines(block, format_entry)
   local body = rewrite_body(block)
-  return rebuild_lines(body.preamble_lines, body.items, block.header_tag, block.header_location, format_entry)
+  return rebuild_lines(
+    body.preamble_lines,
+    body.items,
+    block.header_tag,
+    block.header_location,
+    format_entry
+  )
 end
 
 function M.sorted_lines(block, format_entry)
   local body = rewrite_body(block)
-  return rebuild_lines(body.preamble_lines, sorted_items(body.items), block.header_tag, block.header_location, format_entry)
+  return rebuild_lines(
+    body.preamble_lines,
+    sorted_items(body.items),
+    block.header_tag,
+    block.header_location,
+    format_entry
+  )
 end
 
 return M

@@ -105,7 +105,11 @@ end
 -- They preserve location so tag/location totals can be projected from the
 -- same quantized rows, even though main summary rows do not render location.
 local function build_fine_grained_rows(intervals)
-  return project_rows(intervals, fine_grained_row_key, { "text", "tag", "location", "workday_excluded" })
+  return project_rows(
+    intervals,
+    fine_grained_row_key,
+    { "text", "tag", "location", "workday_excluded" }
+  )
 end
 
 local function summarize_items(rows)
@@ -113,13 +117,9 @@ local function summarize_items(rows)
 end
 
 local function summarize_metadata(rows, field)
-  return project_rows(
-    rows,
-    function(row)
-      return metadata_bucket_key(row, field)
-    end,
-    { field }
-  )
+  return project_rows(rows, function(row)
+    return metadata_bucket_key(row, field)
+  end, { field })
 end
 
 -- Project one row set into every exact reporting section.
@@ -315,7 +315,8 @@ local function quantize_rows(rows, bucket_minutes, target_total)
     local ranked_row = ranked[i]
     if ranked_row then
       result[ranked_row.index].duration = result[ranked_row.index].duration + bucket_minutes
-      result[ranked_row.index].error_minutes = result[ranked_row.index].error_minutes - bucket_minutes
+      result[ranked_row.index].error_minutes = result[ranked_row.index].error_minutes
+        - bucket_minutes
     end
   end
 
