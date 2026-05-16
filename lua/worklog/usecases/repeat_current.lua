@@ -14,7 +14,7 @@ function M.run(lines, row, time)
     return nil, err
   end
 
-  for _, item in ipairs(ctx.block.items) do
+  for _, item in ipairs(ctx.block.entry_items) do
     if item.entry.row == row then
       current_item = item
       break

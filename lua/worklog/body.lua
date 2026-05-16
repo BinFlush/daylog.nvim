@@ -35,7 +35,7 @@ end
 local function rewrite_body(block)
   local preamble_lines = {}
   local items = {}
-  local first_item_row = block.items[1] and block.items[1].start_row or math.huge
+  local first_item_row = block.entry_items[1] and block.entry_items[1].start_row or math.huge
 
   for _, node in ipairs(block.body_nodes) do
     if node.row < first_item_row then
@@ -43,7 +43,7 @@ local function rewrite_body(block)
     end
   end
 
-  for index, item in ipairs(block.items) do
+  for index, item in ipairs(block.entry_items) do
     table.insert(items, {
       minutes = item.minutes,
       text = item.text,
@@ -126,7 +126,7 @@ local function sorted_items(items)
 end
 
 function M.insert_index(block, minutes)
-  for _, item in ipairs(block.items) do
+  for _, item in ipairs(block.entry_items) do
     if item.minutes > minutes then
       return item.start_row - 1
     end
@@ -143,7 +143,7 @@ function M.state_before(block, minutes)
 
   -- Inserted entries are placed after existing equal timestamps, so the sticky
   -- state before insertion includes every item at the same minute.
-  for _, item in ipairs(block.items) do
+  for _, item in ipairs(block.entry_items) do
     if item.minutes > minutes then
       break
     end

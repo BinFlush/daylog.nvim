@@ -68,8 +68,8 @@ local function semantic_entry_from_node(node, current_tag, current_location)
   }
 end
 
-local function analyze_worklog_items(block, diagnostics)
-  local items = {}
+local function analyze_entry_items(block, diagnostics)
+  local entry_items = {}
   local entries = {}
   local current = nil
   local current_tag = block.header_tag
@@ -98,7 +98,7 @@ local function analyze_worklog_items(block, diagnostics)
         location = entry.location,
         workday_excluded = entry.workday_excluded,
       }
-      table.insert(items, current)
+      table.insert(entry_items, current)
       table.insert(entries, entry)
     elseif node.kind == "note_line" or node.kind == "blank_line" then
       if current then
@@ -118,20 +118,20 @@ local function analyze_worklog_items(block, diagnostics)
     end
   end
 
-  for i = 2, #items do
-    if items[i].minutes < items[i - 1].minutes then
+  for i = 2, #entry_items do
+    if entry_items[i].minutes < entry_items[i - 1].minutes then
       push_diagnostic(diagnostics, {
         code = "unordered_timestamps",
         severity = "error",
-        row = items[i - 1].row or items[i - 1].start_row,
-        row2 = items[i].row or items[i].start_row,
+        row = entry_items[i - 1].row or entry_items[i - 1].start_row,
+        row2 = entry_items[i].row or entry_items[i].start_row,
         message = "timestamps are not in non-decreasing order",
       })
       break
     end
   end
 
-  return items, entries
+  return entry_items, entries
 end
 
 local function is_worklog_header(node)
@@ -335,7 +335,7 @@ function M.analyze(document)
     block.body_nodes = body_nodes(document, block)
 
     if M.is_worklog(block) then
-      block.items, block.entries = analyze_worklog_items(block, diagnostics)
+      block.entry_items, block.entries = analyze_entry_items(block, diagnostics)
       table.insert(worklog_blocks, block)
     end
 

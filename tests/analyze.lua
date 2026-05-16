@@ -34,7 +34,7 @@ return function(t)
     t.eq(first.header_quantize_minutes, 30)
     t.eq(first.quantize_minutes, 30)
     t.eq(#first.body_nodes, 7)
-    t.eq(first.items, {
+    t.eq(first.entry_items, {
       {
         kind = "entry_item",
         entry = analysis.document.nodes[2],
