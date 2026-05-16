@@ -345,7 +345,6 @@ function M.analyze(document)
   return {
     kind = "analysis",
     document = document,
-    quantize_minutes = DEFAULT_QUANTIZE_MINUTES,
     diagnostics = diagnostics,
     blocks = blocks,
     worklog_blocks = worklog_blocks,

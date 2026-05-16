@@ -8,23 +8,19 @@ local repeat_current = require("worklog.usecases.repeat_current")
 
 local M = {}
 
--- helpers
 local function warn(message)
   vim.notify(message, vim.log.levels.WARN)
 end
-
 
 ---@return string[]
 local function buffer_lines()
   return vim.api.nvim_buf_get_lines(0, 0, -1, false)
 end
 
-
 ---@return integer
 local function cursor_row()
   return vim.api.nvim_win_get_cursor(0)[1]
 end
-
 
 local function apply_result(result)
   for _, edit in ipairs(result.edits or {}) do

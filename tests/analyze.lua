@@ -21,7 +21,6 @@ return function(t)
     }))
 
     t.eq(analysis.kind, "analysis")
-    t.eq(analysis.quantize_minutes, 15)
     t.eq(analysis.diagnostics, {})
     t.eq(#analysis.blocks, 3)
     t.eq(#analysis.worklog_blocks, 2)

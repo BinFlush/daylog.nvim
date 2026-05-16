@@ -13,6 +13,16 @@ return function(t)
     return analysis.worklog_blocks[index]
   end
 
+  local function total_duration(items)
+    local total = 0
+
+    for _, item in ipairs(items) do
+      total = total + item.duration
+    end
+
+    return total
+  end
+
   t.test("summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
       "--- worklog #ProjectOrion @office ---",
@@ -402,25 +412,9 @@ return function(t)
       workday_error_minutes = -9,
     })
 
-    local item_total = 0
-    local tag_total = 0
-    local location_total = 0
-
-    for _, item in ipairs(quantized.items) do
-      item_total = item_total + item.duration
-    end
-
-    for _, item in ipairs(quantized.tag_items) do
-      tag_total = tag_total + item.duration
-    end
-
-    for _, item in ipairs(quantized.location_items) do
-      location_total = location_total + item.duration
-    end
-
-    t.eq(item_total, quantized.activity_total)
-    t.eq(tag_total, quantized.activity_total)
-    t.eq(location_total, quantized.activity_total)
+    t.eq(total_duration(quantized.items), quantized.activity_total)
+    t.eq(total_duration(quantized.tag_items), quantized.activity_total)
+    t.eq(total_duration(quantized.location_items), quantized.activity_total)
   end)
 
   t.test("quantized summary folds same text and tag across locations", function()

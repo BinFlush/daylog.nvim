@@ -114,16 +114,24 @@ local function summarize_metadata(items, field, nil_key)
   return summary_items
 end
 
+local function summary_item_key(row)
+  return table.concat({
+    row.text,
+    metadata_key(row.tag, NIL_TAG_KEY),
+    tostring(row.excluded),
+  }, "|")
+end
+
+local function metadata_bucket_key(row, field, nil_key)
+  return metadata_key(row[field], nil_key)
+end
+
 local function summarize_items(rows)
   local buckets = {}
   local order = {}
 
   for _, row in ipairs(rows) do
-    local key = table.concat({
-      row.text,
-      metadata_key(row.tag, NIL_TAG_KEY),
-      tostring(row.excluded),
-    }, "|")
+    local key = summary_item_key(row)
 
     if not buckets[key] then
       buckets[key] = {
@@ -213,6 +221,9 @@ local function build_intervals(entries)
   return intervals
 end
 
+-- Fine-grained rows are the quantization base.
+-- They preserve location so tag/location totals can be projected from the
+-- same quantized rows, even though main summary rows do not render location.
 local function build_fine_grained_rows(intervals)
   local buckets = {}
   local order = {}
@@ -271,13 +282,13 @@ local function build_summary_from_rows(rows)
   }
 end
 
-local function copy_items(items)
+local function copy_rows(rows)
   local result = {}
 
-  for _, item in ipairs(items) do
+  for _, row in ipairs(rows) do
     local copy = {}
 
-    for key, value in pairs(item) do
+    for key, value in pairs(row) do
       copy[key] = value
     end
 
@@ -287,8 +298,8 @@ local function copy_items(items)
   return result
 end
 
-local function quantize_items(items, bucket_minutes, target_total)
-  local result = copy_items(items)
+local function quantize_rows(rows, bucket_minutes, target_total)
+  local result = copy_rows(rows)
   local quantized_total = 0
   local ranked = {}
 
@@ -327,18 +338,6 @@ local function quantize_items(items, bucket_minutes, target_total)
   end
 
   return result
-end
-
-local function item_key(item)
-  return table.concat({
-    item.text,
-    metadata_key(item.tag, NIL_TAG_KEY),
-    tostring(item.excluded),
-  }, "|")
-end
-
-local function metadata_item_key(item, field, nil_key)
-  return metadata_key(item[field], nil_key)
 end
 
 local function items_by_custom_key(items, key_fn)
@@ -398,24 +397,24 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
   local exact_rows = build_fine_grained_rows(build_intervals(entries))
   local exact_summary = build_summary_from_rows(exact_rows)
   local target_total = round_to_nearest_bucket(exact_summary.activity_total, bucket_minutes)
-  local quantized_rows = quantize_items(exact_rows, bucket_minutes, target_total)
+  local quantized_rows = quantize_rows(exact_rows, bucket_minutes, target_total)
   local quantized_summary = build_summary_from_rows(quantized_rows)
 
   local summary = {
-    items = project_quantized_items(exact_summary.items, quantized_summary.items, item_key, { "text", "tag", "excluded" }),
+    items = project_quantized_items(exact_summary.items, quantized_summary.items, summary_item_key, { "text", "tag", "excluded" }),
     tag_items = project_quantized_items(
       exact_summary.tag_items,
       quantized_summary.tag_items,
-      function(item)
-        return metadata_item_key(item, "tag", NIL_TAG_KEY)
+      function(row)
+        return metadata_bucket_key(row, "tag", NIL_TAG_KEY)
       end,
       { "tag" }
     ),
     location_items = project_quantized_items(
       exact_summary.location_items,
       quantized_summary.location_items,
-      function(item)
-        return metadata_item_key(item, "location", NIL_LOCATION_KEY)
+      function(row)
+        return metadata_bucket_key(row, "location", NIL_LOCATION_KEY)
       end,
       { "location" }
     ),
