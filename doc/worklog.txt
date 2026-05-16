@@ -15,14 +15,14 @@ OVERVIEW                                                    *worklog-overview*
 
 worklog.nvim is a Neovim plugin for structured timestamped plain-text worklogs.
 
-It is designed for workflows where the worklog is a source of truth and later
-needs to produce exact or rounded reporting summaries.
+It helps you keep a plain-text source of truth for what you did during the day,
+then derive exact or rounded summaries for reporting.
 
 A worklog can track:
 
 - activity text
-- reporting tag
-- work location
+- reporting tags
+- work locations
 - out-of-office time
 - exact totals
 - quantized reporting totals
@@ -166,6 +166,7 @@ Repeat the activity under the cursor at the current time.
 - The cursor must be on a timestamped worklog entry.
 - The entry is inserted in chronological order.
 - Sticky tag and location meaning are preserved.
+- Clear tokens are emitted when needed.
 
                                                         *:WorklogCopy*
 :WorklogCopy
@@ -173,6 +174,9 @@ Repeat the activity under the cursor at the current time.
 Append a normalized editable copy of the active worklog.
 
 The active worklog is the latest `--- worklog ... ---` block in the buffer.
+
+The copied block preserves the meaning of the source block while removing
+unnecessary repeated metadata.
 
                                                         *:WorklogOrder*
 :WorklogOrder
@@ -189,13 +193,13 @@ Rewrite all worklog blocks in chronological order.
 
 Append an exact summary for the active worklog.
 
-The summary may include item totals, tag totals, location totals, and overall
-activity/workday totals.
+The summary includes item totals and overall totals. Tag and location totals are
+included when they contain meaningful buckets.
 
                                                         *:WorklogQuantSum*
 :WorklogQuantSum
 
-Append a quantized summary for the active worklog.
+Append a rounded summary for the active worklog.
 
 The bucket size is read from `quantize=<minutes>` on that worklog block. If
 omitted, the default is 15 minutes.
@@ -205,17 +209,71 @@ SUMMARIES                                                  *worklog-summaries*
 
 An interval is the time from one timestamped entry to the next.
 
-Summaries group intervals by:
+Main summary rows group intervals by:
 
 - activity text
 - effective `#tag`
-- effective `@location`
+
+Location does not split main summary rows. Location is reported separately in
+the location totals.
+
+Main summary rows:
+
+- never render location
+- render `#tag` only when the same activity text appears under multiple tags
+- are ordered by combined activity duration
+- keep same-text different-tag rows adjacent
+
+Example:
+
+>
+  --- worklog #ClientA @office ---
+  08:00 planning
+  10:00 planning @home
+  12:00 meeting #internal
+  13:00 done
+<
+
+Exact summary:
+
+>
+  --- summary exact ---
+  4.00h planning
+  1.00h meeting
+
+  --- tags exact ---
+  4.00h #ClientA
+  1.00h #internal
+
+  --- locations exact ---
+  3.00h @home
+  2.00h @office
+
+  --- totals exact ---
+  5.00h workday
+<
+
+If the same activity text appears under multiple tags, the tag is shown to
+disambiguate the rows:
+
+>
+  1.00h meeting #ClientA
+  1.00h meeting #internal
+<
 
 Exact summaries use raw interval durations.
 
-Quantized summaries round grouped work into buckets.
+Quantized summaries round work into buckets. The bucket size is read from
+`quantize=<minutes>` on the active worklog block.
 
-Summary rows are ordered longest-to-shortest.
+Quantized summaries use one rounding pass over full-grain rows:
+
+>
+  activity text + effective #tag + effective @location
+<
+
+The displayed summary, tag totals, location totals, and overall totals are then
+derived from that same rounded base.
 
 Tag and location sections are omitted when they only contain placeholder buckets.
 The `activity` total is omitted when it is identical to `workday`.
