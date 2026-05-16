@@ -9,16 +9,137 @@ local M = {}
 local NIL_TAG_KEY = "\31"
 local NIL_LOCATION_KEY = "\30"
 
-local function round_to_nearest_bucket(minutes, bucket_minutes)
-  return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
-end
-
 local function metadata_key(value, nil_key)
   if value == nil then
     return nil_key
   end
 
   return value
+end
+
+local function summary_item_key(row)
+  return table.concat({
+    row.text,
+    metadata_key(row.tag, NIL_TAG_KEY),
+    tostring(row.excluded),
+  }, "|")
+end
+
+local function metadata_bucket_key(row, field, nil_key)
+  return metadata_key(row[field], nil_key)
+end
+
+local function fine_grained_row_key(row)
+  return table.concat({
+    row.text,
+    metadata_key(row.tag, NIL_TAG_KEY),
+    metadata_key(row.location, NIL_LOCATION_KEY),
+    tostring(row.excluded),
+  }, "|")
+end
+
+-- Project rows into coarser reporting buckets.
+-- `key_fn` decides which rows belong to the same bucket, while `fields`
+-- decides which descriptive labels survive into the projected row.
+-- Durations are always accumulated, and first-seen group order is preserved.
+local function project_rows(rows, key_fn, fields)
+  local buckets = {}
+  local order = {}
+
+  for _, row in ipairs(rows) do
+    local key = key_fn(row)
+
+    if not buckets[key] then
+      local bucket = {
+        duration = 0,
+        exact_duration = 0,
+      }
+
+      for _, field in ipairs(fields) do
+        bucket[field] = row[field]
+      end
+
+      buckets[key] = bucket
+      table.insert(order, key)
+    end
+
+    buckets[key].duration = buckets[key].duration + row.duration
+    buckets[key].exact_duration = buckets[key].exact_duration + (row.exact_duration or row.duration)
+  end
+
+  local result = {}
+
+  for _, key in ipairs(order) do
+    table.insert(result, buckets[key])
+  end
+
+  return result
+end
+
+local function build_intervals(entries)
+  local intervals = {}
+
+  for i = 1, #entries - 1 do
+    local current = entries[i]
+    local next = entries[i + 1]
+
+    table.insert(intervals, {
+      start = current.minutes,
+      stop = next.minutes,
+      duration = next.minutes - current.minutes,
+      text = current.text,
+      tag = current.tag,
+      location = current.location,
+      excluded = current.excluded,
+    })
+  end
+
+  return intervals
+end
+
+-- Fine-grained rows are the quantization base.
+-- They preserve location so tag/location totals can be projected from the
+-- same quantized rows, even though main summary rows do not render location.
+local function build_fine_grained_rows(intervals)
+  return project_rows(intervals, fine_grained_row_key, { "text", "tag", "location", "excluded" })
+end
+
+local function summarize_items(rows)
+  return project_rows(rows, summary_item_key, { "text", "tag", "excluded" })
+end
+
+local function summarize_metadata(rows, field, nil_key)
+  return project_rows(
+    rows,
+    function(row)
+      return metadata_bucket_key(row, field, nil_key)
+    end,
+    { field }
+  )
+end
+
+-- Project one row set into every exact reporting section.
+-- Main summary items fold location away, while tag and location totals keep
+-- their own label fields and all totals are derived from the same source rows.
+local function build_summary_from_rows(rows)
+  local activity_total = 0
+  local workday_total = 0
+
+  for _, row in ipairs(rows) do
+    activity_total = activity_total + row.duration
+
+    if not row.excluded then
+      workday_total = workday_total + row.duration
+    end
+  end
+
+  return {
+    summary_items = summarize_items(rows),
+    tag_totals = summarize_metadata(rows, "tag", NIL_TAG_KEY),
+    location_totals = summarize_metadata(rows, "location", NIL_LOCATION_KEY),
+    activity_total = activity_total,
+    workday_total = workday_total,
+  }
 end
 
 local function sort_by_duration(items)
@@ -85,70 +206,6 @@ local function sort_text_groups_by_duration(groups)
   return groups
 end
 
--- Project rows into coarser reporting buckets.
--- `key_fn` decides which rows belong to the same bucket, while `fields`
--- decides which descriptive labels survive into the projected row.
--- Durations are always accumulated, and first-seen group order is preserved.
-local function project_rows(rows, key_fn, fields)
-  local buckets = {}
-  local order = {}
-
-  for _, row in ipairs(rows) do
-    local key = key_fn(row)
-
-    if not buckets[key] then
-      local bucket = {
-        duration = 0,
-        exact_duration = 0,
-      }
-
-      for _, field in ipairs(fields) do
-        bucket[field] = row[field]
-      end
-
-      buckets[key] = bucket
-      table.insert(order, key)
-    end
-
-    buckets[key].duration = buckets[key].duration + row.duration
-    buckets[key].exact_duration = buckets[key].exact_duration + (row.exact_duration or row.duration)
-  end
-
-  local result = {}
-
-  for _, key in ipairs(order) do
-    table.insert(result, buckets[key])
-  end
-
-  return result
-end
-
-local function summary_item_key(row)
-  return table.concat({
-    row.text,
-    metadata_key(row.tag, NIL_TAG_KEY),
-    tostring(row.excluded),
-  }, "|")
-end
-
-local function metadata_bucket_key(row, field, nil_key)
-  return metadata_key(row[field], nil_key)
-end
-
-local function summarize_items(rows)
-  return project_rows(rows, summary_item_key, { "text", "tag", "excluded" })
-end
-
-local function summarize_metadata(rows, field, nil_key)
-  return project_rows(
-    rows,
-    function(row)
-      return metadata_bucket_key(row, field, nil_key)
-    end,
-    { field }
-  )
-end
-
 local function sort_summary_items(items)
   local groups_by_text = {}
   local groups = {}
@@ -192,65 +249,8 @@ local function sort_summary_items(items)
   return items
 end
 
-local function build_intervals(entries)
-  local intervals = {}
-
-  for i = 1, #entries - 1 do
-    local current = entries[i]
-    local next = entries[i + 1]
-
-    table.insert(intervals, {
-      start = current.minutes,
-      stop = next.minutes,
-      duration = next.minutes - current.minutes,
-      text = current.text,
-      tag = current.tag,
-      location = current.location,
-      excluded = current.excluded,
-    })
-  end
-
-  return intervals
-end
-
-local function fine_grained_row_key(row)
-  return table.concat({
-    row.text,
-    metadata_key(row.tag, NIL_TAG_KEY),
-    metadata_key(row.location, NIL_LOCATION_KEY),
-    tostring(row.excluded),
-  }, "|")
-end
-
--- Fine-grained rows are the quantization base.
--- They preserve location so tag/location totals can be projected from the
--- same quantized rows, even though main summary rows do not render location.
-local function build_fine_grained_rows(intervals)
-  return project_rows(intervals, fine_grained_row_key, { "text", "tag", "location", "excluded" })
-end
-
--- Project one row set into every exact reporting section.
--- Main summary items fold location away, while tag and location totals keep
--- their own label fields and all totals are derived from the same source rows.
-local function build_summary_from_rows(rows)
-  local activity_total = 0
-  local workday_total = 0
-
-  for _, row in ipairs(rows) do
-    activity_total = activity_total + row.duration
-
-    if not row.excluded then
-      workday_total = workday_total + row.duration
-    end
-  end
-
-  return {
-    summary_items = summarize_items(rows),
-    tag_totals = summarize_metadata(rows, "tag", NIL_TAG_KEY),
-    location_totals = summarize_metadata(rows, "location", NIL_LOCATION_KEY),
-    activity_total = activity_total,
-    workday_total = workday_total,
-  }
+local function round_to_nearest_bucket(minutes, bucket_minutes)
+  return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
 end
 
 local function copy_rows(rows)
@@ -274,14 +274,14 @@ local function quantize_rows(rows, bucket_minutes, target_total)
   local quantized_total = 0
   local ranked = {}
 
-  for i, item in ipairs(result) do
-    local exact_duration = item.exact_duration or item.duration
+  for i, row in ipairs(result) do
+    local exact_duration = row.exact_duration or row.duration
     local base = math.floor(exact_duration / bucket_minutes) * bucket_minutes
     local remainder = exact_duration - base
 
-    item.exact_duration = exact_duration
-    item.error_minutes = remainder
-    item.duration = base
+    row.exact_duration = exact_duration
+    row.error_minutes = remainder
+    row.duration = base
     quantized_total = quantized_total + base
 
     table.insert(ranked, {
@@ -301,10 +301,10 @@ local function quantize_rows(rows, bucket_minutes, target_total)
   local blocks = math.floor((target_total - quantized_total) / bucket_minutes)
 
   for i = 1, blocks do
-    local ranked_item = ranked[i]
-    if ranked_item then
-      result[ranked_item.index].duration = result[ranked_item.index].duration + bucket_minutes
-      result[ranked_item.index].error_minutes = result[ranked_item.index].error_minutes - bucket_minutes
+    local ranked_row = ranked[i]
+    if ranked_row then
+      result[ranked_row.index].duration = result[ranked_row.index].duration + bucket_minutes
+      result[ranked_row.index].error_minutes = result[ranked_row.index].error_minutes - bucket_minutes
     end
   end
 
@@ -375,7 +375,12 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
   local quantized_summary = build_summary_from_rows(quantized_rows)
 
   local summary = {
-    summary_items = project_quantized_items(exact_summary.summary_items, quantized_summary.summary_items, summary_item_key, { "text", "tag", "excluded" }),
+    summary_items = project_quantized_items(
+      exact_summary.summary_items,
+      quantized_summary.summary_items,
+      summary_item_key,
+      { "text", "tag", "excluded" }
+    ),
     tag_totals = project_quantized_items(
       exact_summary.tag_totals,
       quantized_summary.tag_totals,
