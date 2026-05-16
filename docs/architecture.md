@@ -1,24 +1,24 @@
 # worklog.nvim architecture
 
-`worklog.nvim` is a structured plain-text worklog plugin for Neovim.
+`worklog.nvim` is a Neovim plugin for structured plain-text worklogs.
 
-The codebase is organized around a semantic core: source lines are parsed into
-syntax nodes, analyzed into worklog meaning, and used by pure command use cases
-that return edit scripts.
+The core pipeline is:
 
-The main design goals are:
+```text
+source lines -> syntax nodes -> semantic worklog -> edit scripts
+```
 
-- keep the worklog file human-readable
-- preserve the worklog as a source of truth
-- support structured reporting without requiring a database
-- make derived summaries reproducible
-- keep Neovim integration separate from worklog semantics
+Design goals:
+
+- keep worklogs human-readable
+- preserve the worklog as the source of truth
+- derive reproducible summaries
+- keep Neovim API usage out of the semantic core
+- prefer explicit syntax over silent semantic changes
 
 ## Core model
 
-A worklog is a small domain language.
-
-Example:
+A worklog is a sequence of timestamped entries inside a worklog block.
 
 ```text
 --- worklog #ClientA @office quantize=30 ---
@@ -29,7 +29,10 @@ Example:
 17:00 done
 ```
 
-This means:
+A timestamped entry starts an interval. The interval ends at the next timestamped
+entry.
+
+Metadata belongs to the interval that starts at the entry.
 
 ```text
 08:00-10:00  planning          #ClientA   @office
@@ -38,12 +41,52 @@ This means:
 14:00-17:00  client followup   #ClientA   @client
 ```
 
-`#tag` and `@location` are sticky. Clear tokens make sticky-to-empty transitions
-explicit:
+`#tag` and `@location` are sticky. If an entry omits one, it inherits the current
+value.
 
 ```text
-#- clears the active tag
-@- clears the active location
+#-   clears the active tag
+@-   clears the active location
+```
+
+`#ooo` marks out-of-office time. It contributes to `activity`, but not
+`workday`.
+
+## Reporting model
+
+All reporting starts from intervals.
+
+Each interval has:
+
+```text
+duration
+activity text
+tag
+location
+excluded
+```
+
+The dimensions partition the interval set:
+
+```text
+activity text  partitions intervals by what was done
+tag            partitions intervals by reporting bucket
+location       partitions intervals by where the work happened
+excluded       partitions intervals into workday and non-workday time
+```
+
+Therefore:
+
+```text
+sum(item totals)     = activity total
+sum(tag totals)      = activity total
+sum(location totals) = activity total
+```
+
+And:
+
+```text
+workday total = sum(intervals where excluded = false)
 ```
 
 ## Module overview
@@ -53,7 +96,7 @@ document.lua   -> syntax-preserving parser
 analyze.lua    -> semantic analyzer
 entry.lua      -> single-entry parser/formatter
 body.lua       -> body reconstruction
-summary.lua    -> reporting
+summary.lua    -> reporting and quantization
 render.lua     -> output rendering
 usecases/      -> pure command operations
 init.lua       -> Neovim shell
@@ -63,14 +106,16 @@ init.lua       -> Neovim shell
 
 `document.lua` parses source lines into syntax nodes.
 
-It should preserve:
+It preserves:
 
 - raw line text
-- source rows
+- row numbers
 - line kinds
-- syntactic metadata tokens
+- metadata tokens
+- header option tokens
+- invalid time-like entry lines
 
-It may recognize syntax shapes such as:
+It recognizes syntax such as:
 
 ```text
 #tag
@@ -80,13 +125,10 @@ It may recognize syntax shapes such as:
 key=value
 HH:MM
 --- worklog ... ---
---- summary exact ---
 ```
 
-But it should not decide their semantic meaning.
-
-For example, it may know that `#ooo` is a tag token, but it should not decide
-that `#ooo` is excluded from workday. That belongs in `analyze.lua`.
+It does not assign business meaning. For example, it parses `#ooo` as a tag;
+`analyze.lua` decides that `#ooo` is excluded from workday.
 
 ## `analyze.lua`
 
@@ -95,60 +137,50 @@ that `#ooo` is excluded from workday. That belongs in `analyze.lua`.
 It owns:
 
 - worklog block discovery
-- effective sticky tag/location per entry
-- tag/location clear semantics
+- sticky tag and location state
+- clear-token semantics
 - `#ooo` exclusion
 - block-local `quantize` interpretation
-- semantic diagnostics
-- unordered timestamp diagnostics
+- diagnostics
 
-A semantic entry should contain both explicit and effective metadata where
-needed:
+A semantic entry has explicit metadata and effective metadata:
 
 ```lua
 {
   row = 2,
   minutes = 480,
   text = "planning",
+
   explicit_tag = nil,
   explicit_tag_clear = nil,
   tag = "ClientA",
+
   explicit_location = nil,
   explicit_location_clear = nil,
   location = "office",
+
   excluded = false,
 }
 ```
 
-The analyzer is the source of truth for command-time behavior.
+Quantization is block-local. Consumers should use:
 
-## Sticky metadata
-
-Rules:
-
-- The header may initialize tag and location for that block.
-- An entry may set tag, location, or both.
-- An entry may clear tag with `#-`.
-- An entry may clear location with `@-`.
-- Omitted metadata inherits the current sticky value.
-- `#ooo` is a normal sticky tag with special reporting meaning.
-- `#ooo` intervals count toward `activity`, but not `workday`.
-
-Clear-only headers such as this are harmless and canonicalize to no header
-metadata:
-
-```text
---- worklog #- @- ---
+```lua
+block.quantize_minutes
 ```
 
 ## `entry.lua`
 
-`entry.lua` handles one timestamped entry.
+`entry.lua` parses and formats one timestamped entry.
 
-It parses a single line into semantic entry data and formats an entry back to a
-canonical source line.
+Formatting is relative to the current sticky state. It emits only the metadata
+needed to preserve meaning.
 
-It is used by commands such as insert, repeat, copy, and order.
+If the current tag is `ClientA`, returning to untagged work renders as:
+
+```text
+10:00 resume #-
+```
 
 ## `body.lua`
 
@@ -158,74 +190,157 @@ It owns:
 
 - normalized body lines
 - sorted body lines
-- insertion index
-- sticky state before an insertion point
-- canonical emission of `#-` and `@-` when needed
+- insertion indexes
+- sticky state before insertion
+- canonical emission of `#-` and `@-`
 
-Body rewrites are intentionally infallible now that `#-` and `@-` exist. Any
-transition from sticky metadata back to nil can be represented explicitly.
-
-For example, a rewrite can safely emit:
+Because clear tokens exist, body rewrites can preserve meaning explicitly.
 
 ```text
-08:00 client work #ClientA @client
-10:00 untagged local work #- @-
+--- worklog ---
+09:00 done
+08:00 plan #sales @client
 ```
 
-rather than silently changing the meaning of the second entry.
+can become:
+
+```text
+--- worklog ---
+08:00 plan #sales @client
+09:00 done #- @-
+```
 
 ## `summary.lua`
 
 `summary.lua` owns reporting.
 
-It builds intervals from semantic entries:
+It builds intervals from adjacent semantic entries:
 
 ```text
 entry[i] -> entry[i + 1]
 ```
 
-Then it groups and totals by semantic meaning.
+The final timestamped entry closes the previous interval and does not produce its
+own interval.
 
-It reports:
+Exact summaries use raw interval durations.
 
-- item totals
-- tag totals
-- location totals
-- activity total
-- workday total
+## Quantization
 
-Exact summaries use raw durations.
+Quantization rounds full-grain rows.
 
-Quantized summaries round grouped time into the block’s configured bucket size.
-
-Ordering belongs in `summary.lua`, not `render.lua`.
-
-Summary lists should already be sorted before rendering:
+The full grain is:
 
 ```text
-duration descending
-exact duration descending as tie-breaker when relevant
-stable original order as final tie-breaker
+activity text + tag + location + excluded
 ```
+
+Intervals with the same full grain are summed before rounding.
+
+Let `q` be the bucket size in minutes. If omitted:
+
+```text
+q = 15
+```
+
+Let `A` be the exact activity total.
+
+The target rounded activity total is:
+
+```text
+Q = floor((A + q / 2) / q) * q
+```
+
+For each full-grain row `r`:
+
+```text
+base(r)      = floor(exact(r) / q) * q
+remainder(r) = exact(r) - base(r)
+```
+
+Set:
+
+```text
+quantized(r) = base(r)
+```
+
+Let:
+
+```text
+B = sum base(r)
+k = (Q - B) / q
+```
+
+Give one additional bucket to the `k` rows with the largest remainders. Break
+ties by first-seen row order.
+
+For each row:
+
+```text
+error(r) = exact(r) - quantized(r)
+```
+
+The quantized full-grain rows are projected into displayed sections:
+
+```text
+main summary rows -> activity text + tag + excluded
+tag totals        -> tag
+location totals   -> location
+overall totals    -> all rows
+```
+
+Rows where `excluded = true` contribute to activity totals, but not workday
+totals.
+
+## Summary ordering and rendering
+
+Main summary rows group by:
+
+```text
+activity text + tag + excluded
+```
+
+Location is reported only in location totals.
+
+Main summary rows:
+
+- never render location
+- render `#tag` only when the same activity text appears under multiple tags
+- keep same-text different-tag rows adjacent
+
+Ordering:
+
+1. group main rows by activity text
+2. sort text groups by displayed duration descending
+3. sort tag variants inside each text group by displayed duration descending
+4. use exact duration and first-seen order as tie-breakers
+
+Tag and location totals are sorted by displayed duration, then exact duration,
+then first-seen order.
 
 ## `render.lua`
 
-`render.lua` turns summary objects and worklog line lists into output lines.
+`render.lua` turns semantic output objects into lines.
 
-It should not decide semantics. It should mostly print the data it receives.
+It may handle presentation rules:
 
-It may omit redundant sections, such as placeholder-only tag/location summaries
-or `activity` when it is identical to `workday`.
+- omit placeholder-only tag/location sections
+- omit `activity` when it equals `workday`
+- render missing tags as `(untagged)`
+- render missing locations as `(no location)`
+- hide main-summary tags unless needed for disambiguation
+
+It should not decide reporting semantics or ordering.
 
 ## `usecases/`
 
-The `usecases/` directory contains pure command modules.
+Usecase modules are pure command operations.
 
 A usecase should:
 
 - accept plain Lua inputs
 - call context/analyze/body/summary helpers
-- return either an edit script or an error message
+- return an edit script or an error message
 - avoid direct Neovim API calls
 
 Example:
@@ -234,7 +349,7 @@ Example:
 local result, err = append_summary.run(lines)
 ```
 
-On success:
+Success:
 
 ```lua
 {
@@ -248,21 +363,15 @@ On success:
 }
 ```
 
-On failure:
+Failure:
 
 ```lua
 nil, "worklog: ..."
 ```
 
-This keeps command behavior easy to test without Neovim UI state.
-
 ## Edit scripts
 
-An edit script is a project-level data structure, not a Neovim concept.
-
-It describes how to change the buffer.
-
-Example:
+An edit script is a project data structure.
 
 ```lua
 {
@@ -275,13 +384,13 @@ Example:
 }
 ```
 
-`init.lua` applies this with:
+`init.lua` applies edits with:
 
 ```lua
 vim.api.nvim_buf_set_lines(0, start_index, end_index, false, lines)
 ```
 
-These indexes are zero-based because the Neovim buffer API is zero-based.
+Indexes are zero-based because the Neovim buffer API is zero-based.
 
 ## `init.lua`
 
@@ -291,53 +400,13 @@ It should:
 
 - register filetype support
 - register user commands
-- gather buffer lines
-- gather cursor row/current time where needed
+- read buffer lines
+- read cursor row and current time where needed
 - call usecases
 - apply edit scripts
 - show warnings
 
-It should not contain worklog business logic.
-
-## Command flow
-
-`:WorklogSummarize`:
-
-```text
-init.lua
-  gets current buffer lines
-  calls usecases.append_summary.run(lines)
-
-append_summary.lua
-  resolves active worklog context
-  validates target block
-  calls summary.summarize_block(block)
-  calls render.summary_lines(...)
-  returns append edit
-
-init.lua
-  applies returned edit script
-```
-
-`:WorklogRepeat`:
-
-```text
-init.lua
-  gets lines, cursor row, current time
-  calls usecases.repeat_current.run(lines, row, time)
-
-repeat_current.lua
-  resolves worklog under cursor
-  finds semantic item at row
-  computes insertion point
-  computes sticky state at insertion point
-  formats a repeated entry that preserves meaning
-  emits #-/@- when needed
-  returns insert edit
-
-init.lua
-  applies returned edit script
-```
+It should not contain worklog semantics.
 
 ## Error philosophy
 
@@ -346,51 +415,34 @@ Prefer explicit syntax over silent semantic corruption.
 Good behavior:
 
 ```text
-emit #- when a rewrite needs to return to untagged work
-emit @- when a rewrite needs to return to no location
+emit #- when a rewrite returns to untagged work
+emit @- when a rewrite returns to no location
 exclude #ooo from workday while keeping it in activity
 ```
 
 Bad behavior:
 
 ```text
-silently changing untagged work into #ClientA
-silently changing no-location work into @office
-silently including #ooo in workday
+change untagged work into #ClientA
+change no-location work into @office
+include #ooo in workday
 ```
-
-## Future ideas
-
-Possible future improvements:
-
-- Tree-sitter syntax highlighting
-- export formats for external reporting systems
-- richer reports
-- validation command
-- health check
-- more filetype niceties
-
-Avoid adding features before the core workflow has been used in real worklogs.
 
 ## Testing expectations
 
-Core areas that need tests:
+Core areas:
 
 - syntax parsing
-- header metadata
-- sticky tag inheritance
-- sticky location inheritance
-- `#-`
-- `@-`
+- sticky tag/location inheritance
+- `#-` and `@-`
 - `#ooo`
 - exact summaries
 - quantized summaries
 - tag totals
 - location totals
-- copy behavior
-- order behavior
-- repeat behavior
+- copy, order, repeat, and insert behavior
 - equal timestamp insertion behavior
+- quantized summary invariants
 
 Run:
 
@@ -410,9 +462,13 @@ nvim --headless -u NONE \
   +qa
 ```
 
-## Design principle
+## Future ideas
 
-Keep the plugin focused, plain-text, and reliable.
+Possible improvements:
 
-The worklog file is the user’s source of truth. Derived blocks are useful, but
-they must not distort the meaning of the source data.
+- Tree-sitter syntax highlighting
+- export formats
+- richer reports
+- validation command
+- health check
+- more filetype niceties
