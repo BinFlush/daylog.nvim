@@ -53,6 +53,38 @@ local function sort_by_duration(items)
   return items
 end
 
+local function sort_text_groups_by_duration(groups)
+  local indexed = {}
+
+  for i, group in ipairs(groups) do
+    table.insert(indexed, {
+      index = i,
+      group = group,
+    })
+  end
+
+  table.sort(indexed, function(a, b)
+    if a.group.duration == b.group.duration then
+      local a_exact = a.group.exact_duration or a.group.duration
+      local b_exact = b.group.exact_duration or b.group.duration
+
+      if a_exact ~= b_exact then
+        return a_exact > b_exact
+      end
+
+      return a.index < b.index
+    end
+
+    return a.group.duration > b.group.duration
+  end)
+
+  for i, indexed_group in ipairs(indexed) do
+    groups[i] = indexed_group.group
+  end
+
+  return groups
+end
+
 local function summarize_metadata(items, field, nil_key)
   local buckets = {}
   local order = {}
@@ -82,14 +114,82 @@ local function summarize_metadata(items, field, nil_key)
   return summary_items
 end
 
-local function items_by_key(items, field, nil_key)
-  local result = {}
+local function summarize_items(rows)
+  local buckets = {}
+  local order = {}
 
-  for _, item in ipairs(items) do
-    result[metadata_key(item[field], nil_key)] = item
+  for _, row in ipairs(rows) do
+    local key = table.concat({
+      row.text,
+      metadata_key(row.tag, NIL_TAG_KEY),
+      tostring(row.excluded),
+    }, "|")
+
+    if not buckets[key] then
+      buckets[key] = {
+        text = row.text,
+        tag = row.tag,
+        duration = 0,
+        exact_duration = 0,
+        excluded = row.excluded,
+      }
+      table.insert(order, key)
+    end
+
+    buckets[key].duration = buckets[key].duration + row.duration
+    buckets[key].exact_duration = buckets[key].exact_duration + (row.exact_duration or row.duration)
   end
 
-  return result
+  local items = {}
+
+  for _, key in ipairs(order) do
+    table.insert(items, buckets[key])
+  end
+
+  return items
+end
+
+local function sort_summary_items(items)
+  local groups_by_text = {}
+  local groups = {}
+  local ordered = {}
+
+  for _, item in ipairs(items) do
+    local group = groups_by_text[item.text]
+
+    if not group then
+      group = {
+        text = item.text,
+        items = {},
+        duration = 0,
+        exact_duration = 0,
+      }
+      groups_by_text[item.text] = group
+      table.insert(groups, group)
+    end
+
+    table.insert(group.items, item)
+    group.duration = group.duration + item.duration
+    group.exact_duration = group.exact_duration + (item.exact_duration or item.duration)
+  end
+
+  for _, group in ipairs(groups) do
+    sort_by_duration(group.items)
+  end
+
+  sort_text_groups_by_duration(groups)
+
+  for _, group in ipairs(groups) do
+    for _, item in ipairs(group.items) do
+      table.insert(ordered, item)
+    end
+  end
+
+  for i, item in ipairs(ordered) do
+    items[i] = item
+  end
+
+  return items
 end
 
 local function build_intervals(entries)
@@ -113,12 +213,9 @@ local function build_intervals(entries)
   return intervals
 end
 
-local function build_summary_from_intervals(intervals)
+local function build_fine_grained_rows(intervals)
   local buckets = {}
   local order = {}
-
-  local activity_total = 0
-  local workday_total = 0
 
   for _, iv in ipairs(intervals) do
     local key = table.concat({
@@ -133,73 +230,74 @@ local function build_summary_from_intervals(intervals)
         text = iv.text,
         tag = iv.tag,
         location = iv.location,
+        excluded = iv.excluded,
         duration = 0,
         exact_duration = 0,
-        excluded = iv.excluded,
       }
       table.insert(order, key)
     end
 
     buckets[key].duration = buckets[key].duration + iv.duration
     buckets[key].exact_duration = buckets[key].exact_duration + iv.duration
+  end
 
-    activity_total = activity_total + iv.duration
+  local rows = {}
 
-    if not iv.excluded then
-      workday_total = workday_total + iv.duration
+  for _, key in ipairs(order) do
+    table.insert(rows, buckets[key])
+  end
+
+  return rows
+end
+
+local function build_summary_from_rows(rows)
+  local activity_total = 0
+  local workday_total = 0
+
+  for _, row in ipairs(rows) do
+    activity_total = activity_total + row.duration
+
+    if not row.excluded then
+      workday_total = workday_total + row.duration
     end
   end
 
-  local items = {}
-
-  for _, key in ipairs(order) do
-    table.insert(items, buckets[key])
-  end
-
   return {
-    items = items,
-    tag_items = summarize_metadata(items, "tag", NIL_TAG_KEY),
-    location_items = summarize_metadata(items, "location", NIL_LOCATION_KEY),
+    items = summarize_items(rows),
+    tag_items = summarize_metadata(rows, "tag", NIL_TAG_KEY),
+    location_items = summarize_metadata(rows, "location", NIL_LOCATION_KEY),
     activity_total = activity_total,
     workday_total = workday_total,
   }
 end
 
-function M.summarize_entries(entries)
-  local summary = build_summary_from_intervals(build_intervals(entries))
+local function copy_items(items)
+  local result = {}
 
-  sort_by_duration(summary.items)
-  sort_by_duration(summary.tag_items)
-  sort_by_duration(summary.location_items)
+  for _, item in ipairs(items) do
+    local copy = {}
 
-  return summary
+    for key, value in pairs(item) do
+      copy[key] = value
+    end
+
+    table.insert(result, copy)
+  end
+
+  return result
 end
 
-function M.summarize_block(block)
-  return M.summarize_entries(block.entries)
-end
-
--- Quantize grouped summary rows together.
--- The overall activity total is rounded to the nearest configured bucket, each
--- grouped item is rounded down to that bucket, and the remaining bucket-sized
--- blocks are assigned to the largest remainders. `#ooo` items participate in
--- the same pass, but are excluded from the final workday total.
-function M.quantized_summarize_entries(entries, quantize_minutes)
-  local bucket_minutes = quantize_minutes or 15
-  local summary = build_summary_from_intervals(build_intervals(entries))
-  local exact_tag_items = summary.tag_items
-  local exact_location_items = summary.location_items
-  local exact_activity_total = summary.activity_total
-  local exact_workday_total = summary.workday_total
-  local target_total = round_to_nearest_bucket(summary.activity_total, bucket_minutes)
+local function quantize_items(items, bucket_minutes, target_total)
+  local result = copy_items(items)
   local quantized_total = 0
   local ranked = {}
 
-  for i, item in ipairs(summary.items) do
-    item.exact_duration = item.duration
-    local base = math.floor(item.duration / bucket_minutes) * bucket_minutes
-    local remainder = item.duration - base
+  for i, item in ipairs(result) do
+    local exact_duration = item.exact_duration or item.duration
+    local base = math.floor(exact_duration / bucket_minutes) * bucket_minutes
+    local remainder = exact_duration - base
 
+    item.exact_duration = exact_duration
     item.error_minutes = remainder
     item.duration = base
     quantized_total = quantized_total + base
@@ -223,58 +321,111 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
   for i = 1, blocks do
     local ranked_item = ranked[i]
     if ranked_item then
-      summary.items[ranked_item.index].duration = summary.items[ranked_item.index].duration + bucket_minutes
-      summary.items[ranked_item.index].error_minutes = summary.items[ranked_item.index].error_minutes - bucket_minutes
+      result[ranked_item.index].duration = result[ranked_item.index].duration + bucket_minutes
+      result[ranked_item.index].error_minutes = result[ranked_item.index].error_minutes - bucket_minutes
     end
   end
 
-  summary.activity_total = 0
-  summary.workday_total = 0
+  return result
+end
 
-  for _, item in ipairs(summary.items) do
-    summary.activity_total = summary.activity_total + item.duration
+local function item_key(item)
+  return table.concat({
+    item.text,
+    metadata_key(item.tag, NIL_TAG_KEY),
+    tostring(item.excluded),
+  }, "|")
+end
 
-    if not item.excluded then
-      summary.workday_total = summary.workday_total + item.duration
+local function metadata_item_key(item, field, nil_key)
+  return metadata_key(item[field], nil_key)
+end
+
+local function items_by_custom_key(items, key_fn)
+  local result = {}
+
+  for _, item in ipairs(items) do
+    result[key_fn(item)] = item
+  end
+
+  return result
+end
+
+local function project_quantized_items(exact_items, quantized_items, key_fn, fields)
+  local result = {}
+  local quantized_by_key = items_by_custom_key(quantized_items, key_fn)
+
+  for _, item in ipairs(exact_items) do
+    local projected = {}
+    local quantized_item = quantized_by_key[key_fn(item)]
+
+    for _, field in ipairs(fields) do
+      projected[field] = item[field]
     end
+
+    projected.duration = quantized_item and quantized_item.duration or 0
+    projected.exact_duration = item.exact_duration
+    projected.error_minutes = item.duration - (quantized_item and quantized_item.duration or 0)
+    table.insert(result, projected)
   end
 
-  local quantized_tag_items = summarize_metadata(summary.items, "tag", NIL_TAG_KEY)
-  local quantized_by_tag = items_by_key(quantized_tag_items, "tag", NIL_TAG_KEY)
-  local tag_items = {}
+  return result
+end
 
-  for _, item in ipairs(exact_tag_items) do
-    local quantized_item = quantized_by_tag[metadata_key(item.tag, NIL_TAG_KEY)]
+function M.summarize_entries(entries)
+  local summary = build_summary_from_rows(build_fine_grained_rows(build_intervals(entries)))
 
-    table.insert(tag_items, {
-      tag = item.tag,
-      duration = quantized_item and quantized_item.duration or 0,
-      exact_duration = item.exact_duration,
-      error_minutes = item.duration - (quantized_item and quantized_item.duration or 0),
-    })
-  end
+  sort_summary_items(summary.items)
+  sort_by_duration(summary.tag_items)
+  sort_by_duration(summary.location_items)
 
-  local quantized_location_items = summarize_metadata(summary.items, "location", NIL_LOCATION_KEY)
-  local quantized_by_location = items_by_key(quantized_location_items, "location", NIL_LOCATION_KEY)
-  local location_items = {}
+  return summary
+end
 
-  for _, item in ipairs(exact_location_items) do
-    local quantized_item = quantized_by_location[metadata_key(item.location, NIL_LOCATION_KEY)]
+function M.summarize_block(block)
+  return M.summarize_entries(block.entries)
+end
 
-    table.insert(location_items, {
-      location = item.location,
-      duration = quantized_item and quantized_item.duration or 0,
-      exact_duration = item.exact_duration,
-      error_minutes = item.duration - (quantized_item and quantized_item.duration or 0),
-    })
-  end
+-- Quantize grouped summary rows together.
+-- The overall activity total is rounded to the nearest configured bucket, each
+-- fine-grained row is rounded down to that bucket, and the remaining
+-- bucket-sized blocks are assigned to the largest remainders. Every displayed
+-- quantized section is then projected from that one quantized fine-grained
+-- base. `#ooo` rows participate in the same pass, but are excluded from the
+-- final workday total.
+function M.quantized_summarize_entries(entries, quantize_minutes)
+  local bucket_minutes = quantize_minutes or 15
+  local exact_rows = build_fine_grained_rows(build_intervals(entries))
+  local exact_summary = build_summary_from_rows(exact_rows)
+  local target_total = round_to_nearest_bucket(exact_summary.activity_total, bucket_minutes)
+  local quantized_rows = quantize_items(exact_rows, bucket_minutes, target_total)
+  local quantized_summary = build_summary_from_rows(quantized_rows)
 
-  summary.tag_items = tag_items
-  summary.location_items = location_items
-  summary.activity_error_minutes = exact_activity_total - summary.activity_total
-  summary.workday_error_minutes = exact_workday_total - summary.workday_total
+  local summary = {
+    items = project_quantized_items(exact_summary.items, quantized_summary.items, item_key, { "text", "tag", "excluded" }),
+    tag_items = project_quantized_items(
+      exact_summary.tag_items,
+      quantized_summary.tag_items,
+      function(item)
+        return metadata_item_key(item, "tag", NIL_TAG_KEY)
+      end,
+      { "tag" }
+    ),
+    location_items = project_quantized_items(
+      exact_summary.location_items,
+      quantized_summary.location_items,
+      function(item)
+        return metadata_item_key(item, "location", NIL_LOCATION_KEY)
+      end,
+      { "location" }
+    ),
+    activity_total = quantized_summary.activity_total,
+    workday_total = quantized_summary.workday_total,
+    activity_error_minutes = exact_summary.activity_total - quantized_summary.activity_total,
+    workday_error_minutes = exact_summary.workday_total - quantized_summary.workday_total,
+  }
 
-  sort_by_duration(summary.items)
+  sort_summary_items(summary.items)
   sort_by_duration(summary.tag_items)
   sort_by_duration(summary.location_items)
 

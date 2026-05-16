@@ -132,14 +132,20 @@ Summaries group work by:
 
 - activity text
 - effective `#tag`
-- effective `@location`
+
+Location affects only location totals; it does not split main summary rows.
 
 Exact summaries use the raw intervals.
 
 Quantized summaries round grouped work into buckets. The bucket size is read
 from `quantize=<minutes>` on the active worklog block, or defaults to 15.
 
-Summary rows are ordered longest-to-shortest.
+Main summary rows:
+
+- never render location
+- render `#tag` only when the same activity text appears under multiple tags
+- are ordered by text-group duration descending
+- keep same-text different-tag rows adjacent
 
 Tag and location sections are omitted when they only contain placeholder buckets.
 The `activity` total is omitted when it is identical to `workday`.

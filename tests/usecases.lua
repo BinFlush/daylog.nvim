@@ -41,8 +41,8 @@ return function(t)
           lines = {
             "",
             "--- summary exact ---",
-            "0.50h plan @office",
-            "0.50h call #sales @client",
+            "0.50h plan",
+            "0.50h call",
             "",
             "--- tags exact ---",
             "0.50h (untagged)",

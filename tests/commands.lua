@@ -32,8 +32,8 @@ return function(t)
     local lines = t.get_lines()
 
     t.eq(lines[6], "--- summary exact ---")
-    t.eq(lines[7], "1.00h same again #ProjectOrion @client")
-    t.eq(lines[8], "0.00h same #ProjectOrion @office")
+    t.eq(lines[7], "1.00h same again")
+    t.eq(lines[8], "0.00h same")
     t.eq(lines[10], "--- tags exact ---")
     t.eq(lines[11], "1.00h #ProjectOrion")
     t.eq(lines[13], "--- locations exact ---")
@@ -380,7 +380,7 @@ return function(t)
       "09:00 done",
       "",
       "--- summary exact ---",
-      "0.75h call #sales @client",
+      "0.75h call",
       "0.25h plan",
       "",
       "--- tags exact ---",
@@ -393,6 +393,38 @@ return function(t)
       "",
       "--- totals exact ---",
       "1.00h workday",
+    })
+  end)
+
+  t.test("summaries keep same-text different-tag rows adjacent and sort by combined duration", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 meeting #ClientA",
+      "09:00 implementation #ClientA",
+      "12:00 meeting #internal",
+      "14:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 meeting #ClientA",
+      "09:00 implementation #ClientA",
+      "12:00 meeting #internal",
+      "14:00 done",
+      "",
+      "--- summary exact ---",
+      "2.00h meeting #internal",
+      "1.00h meeting #ClientA",
+      "3.00h implementation",
+      "",
+      "--- tags exact ---",
+      "4.00h #ClientA",
+      "2.00h #internal",
+      "",
+      "--- totals exact ---",
+      "6.00h workday",
     })
   end)
 
@@ -435,7 +467,7 @@ return function(t)
       "10:00 done",
       "",
       "--- summary exact ---",
-      "1.00h break #ooo @home",
+      "1.00h break",
       "1.00h resume",
       "",
       "--- tags exact ---",
@@ -475,7 +507,7 @@ return function(t)
       "11:00 done",
       "",
       "--- summary exact ---",
-      "1.00h plan #sales @client",
+      "1.00h plan",
       "",
       "--- tags exact ---",
       "1.00h #sales",
@@ -507,8 +539,8 @@ return function(t)
       "09:00 done",
       "",
       "--- summary exact ---",
-      "0.50h plan #ProjectOrion @office",
-      "0.50h call #sales @client",
+      "0.50h plan",
+      "0.50h call",
       "",
       "--- tags exact ---",
       "0.50h #ProjectOrion",
@@ -540,7 +572,7 @@ return function(t)
       "08:30 done",
       "",
       "--- summary quantized ---",
-      "0.50h (-12m) call #sales @client",
+      "0.50h (-12m) call",
       "0.00h (+12m) plan",
       "",
       "--- tags quantized ---",
@@ -603,8 +635,8 @@ return function(t)
       "10:00 done",
       "",
       "--- summary quantized ---",
-      "1.00h (-20m) call #sales @client",
-      "0.00h (+20m) plan @office",
+      "1.00h (-20m) call",
+      "0.00h (+20m) plan",
       "",
       "--- tags quantized ---",
       "1.00h (-20m) #sales",
@@ -660,9 +692,9 @@ return function(t)
       "09:15 done #ProjectOrion @office",
       "",
       "--- summary exact ---",
-      "0.50h plan #ProjectOrion @office",
-      "0.50h plan #sales @client",
-      "0.25h break #ooo @client",
+      "0.50h plan #ProjectOrion",
+      "0.50h plan #sales",
+      "0.25h break",
       "",
       "--- tags exact ---",
       "0.50h #ProjectOrion",
@@ -704,10 +736,10 @@ return function(t)
       "10:00 done",
       "",
       "--- summary quantized ---",
-      "1.00h (+0m) bake strudel #ProjectOrion @office",
-      "0.50h (-5m) polish trombone #ProjectOrion @office",
-      "0.25h (+4m) coffee with ghost #ooo @home",
-      "0.25h (-3m) negotiate with goose #sales @client",
+      "1.00h (+0m) bake strudel",
+      "0.50h (-5m) polish trombone",
+      "0.25h (+4m) coffee with ghost",
+      "0.25h (-3m) negotiate with goose",
       "",
       "--- tags quantized ---",
       "1.50h (-5m) #ProjectOrion",

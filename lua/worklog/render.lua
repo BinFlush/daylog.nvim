@@ -4,26 +4,22 @@ local function hours_string(minutes)
   return string.format("%.2fh", minutes / 60)
 end
 
-local function item_text(item)
+local function summary_item_text(item, show_tag)
   local parts = {}
 
   if item.text ~= "" then
     table.insert(parts, item.text)
   end
 
-  if item.tag then
+  if show_tag and item.tag then
     table.insert(parts, "#" .. item.tag)
-  end
-
-  if item.location then
-    table.insert(parts, "@" .. item.location)
   end
 
   return table.concat(parts, " ")
 end
 
-local function summary_line(prefix, item)
-  local text = item_text(item)
+local function summary_line(prefix, item, show_tag)
+  local text = summary_item_text(item, show_tag)
 
   if text == "" then
     return prefix
@@ -60,6 +56,27 @@ local function extend_lines(target, source)
   for _, line in ipairs(source) do
     table.insert(target, line)
   end
+end
+
+local function text_tag_conflicts(items)
+  local tags_by_text = {}
+  local conflicts = {}
+
+  for _, item in ipairs(items or {}) do
+    local key = item.tag == nil and "\31" or item.tag
+    local text_tags = tags_by_text[item.text]
+
+    if not text_tags then
+      text_tags = {}
+      tags_by_text[item.text] = text_tags
+    elseif not text_tags[key] then
+      conflicts[item.text] = true
+    end
+
+    text_tags[key] = true
+  end
+
+  return conflicts
 end
 
 local function has_metadata_items(items, field)
@@ -110,15 +127,16 @@ end
 function M.summary_lines(summary, kind)
   local header_suffix = kind == "quantized" and " quantized" or " exact"
   local lines = {}
+  local conflicts = text_tag_conflicts(summary.items)
 
   table.insert(lines, "")
   table.insert(lines, "--- summary" .. header_suffix .. " ---")
 
   for _, item in ipairs(summary.items) do
     if kind == "quantized" then
-      table.insert(lines, summary_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item))
+      table.insert(lines, summary_line(string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0), item, conflicts[item.text]))
     else
-      table.insert(lines, summary_line(hours_string(item.duration), item))
+      table.insert(lines, summary_line(hours_string(item.duration), item, conflicts[item.text]))
     end
   end
 
