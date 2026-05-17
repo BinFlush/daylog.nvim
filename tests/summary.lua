@@ -23,10 +23,10 @@ return function(t)
     return total
   end
 
-  local function assert_activity_totals_match(t, result)
-    t.eq(total_duration(result.summary_items), result.activity_total)
-    t.eq(total_duration(result.tag_totals), result.activity_total)
-    t.eq(total_duration(result.location_totals), result.activity_total)
+  local function assert_activity_totals_match(test, result)
+    test.eq(total_duration(result.summary_items), result.activity_total)
+    test.eq(total_duration(result.tag_totals), result.activity_total)
+    test.eq(total_duration(result.location_totals), result.activity_total)
   end
 
   t.test("summary summarizes semantic worklog blocks directly", function()

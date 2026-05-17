@@ -1,6 +1,21 @@
 return function(t)
   local worklog = require("worklog")
 
+  local function with_mocked_date(value, fn)
+    local old_date = os.date
+
+    rawset(os, "date", function()
+      return value
+    end)
+
+    local ok, err = xpcall(fn, debug.traceback)
+    rawset(os, "date", old_date)
+
+    if not ok then
+      error(err, 0)
+    end
+  end
+
   worklog.setup()
 
   t.test("summarize blocks on unordered worklog", function()
@@ -204,13 +219,9 @@ return function(t)
     })
     t.set_cursor(10, 0)
 
-    local old_date = os.date
-    os.date = function()
-      return "14:37"
-    end
-
-    vim.cmd("WorklogRepeat")
-    os.date = old_date
+    with_mocked_date("14:37", function()
+      vim.cmd("WorklogRepeat")
+    end)
 
     t.eq(t.get_lines()[12], "14:37 tea")
   end)
@@ -224,13 +235,9 @@ return function(t)
     })
     t.set_cursor(2, 0)
 
-    local old_date = os.date
-    os.date = function()
-      return "08:30"
-    end
-
-    vim.cmd("WorklogRepeat")
-    os.date = old_date
+    with_mocked_date("08:30", function()
+      vim.cmd("WorklogRepeat")
+    end)
 
     t.eq(t.get_lines(), {
       "--- worklog #ProjectOrion @office ---",
@@ -249,13 +256,9 @@ return function(t)
     })
     t.set_cursor(2, 0)
 
-    local old_date = os.date
-    os.date = function()
-      return "08:30"
-    end
-
-    vim.cmd("WorklogRepeat")
-    os.date = old_date
+    with_mocked_date("08:30", function()
+      vim.cmd("WorklogRepeat")
+    end)
 
     t.eq(t.get_lines(), {
       "--- worklog ---",
@@ -276,13 +279,9 @@ return function(t)
       })
       t.set_cursor(2, 0)
 
-      local old_date = os.date
-      os.date = function()
-        return "08:30"
-      end
-
-      vim.cmd("WorklogRepeat")
-      os.date = old_date
+      with_mocked_date("08:30", function()
+        vim.cmd("WorklogRepeat")
+      end)
 
       t.eq(t.get_lines(), {
         "--- worklog ---",
@@ -303,13 +302,9 @@ return function(t)
     })
     t.set_cursor(1, 0)
 
-    local old_date = os.date
-    os.date = function()
-      return "08:00"
-    end
-
-    vim.cmd("WorklogInsert")
-    os.date = old_date
+    with_mocked_date("08:00", function()
+      vim.cmd("WorklogInsert")
+    end)
 
     t.eq(t.get_lines(), {
       "--- worklog #ProjectOrion @office ---",
@@ -332,13 +327,9 @@ return function(t)
     })
     t.set_cursor(5, 0)
 
-    local old_date = os.date
-    os.date = function()
-      return "10:30"
-    end
-
-    vim.cmd("WorklogInsert")
-    os.date = old_date
+    with_mocked_date("10:30", function()
+      vim.cmd("WorklogInsert")
+    end)
 
     t.eq(t.get_lines(), {
       "--- worklog #ProjectOrion @office ---",

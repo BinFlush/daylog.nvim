@@ -5,6 +5,8 @@ return function(t)
   local insert_now = require("worklog.usecases.insert_now")
   local order_worklogs = require("worklog.usecases.order_worklogs")
   local repeat_current = require("worklog.usecases.repeat_current")
+  local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
+    .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
   t.test("insert_now usecase returns an edit script and cursor action", function()
     local result = insert_now.run({
@@ -119,10 +121,7 @@ return function(t)
     })
 
     t.eq(result, nil)
-    t.eq(
-      err,
-      "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
-    )
+    t.eq(err, INVALID_FIRST_HEADER_MESSAGE)
   end)
 
   t.test("check usecase returns invalid entry errors", function()

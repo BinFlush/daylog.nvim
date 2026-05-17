@@ -24,21 +24,6 @@ local function body_nodes(document, block)
   return nodes
 end
 
-local function semantic_entry(item)
-  return {
-    row = item.entry.row,
-    minutes = item.minutes,
-    text = item.text,
-    explicit_tag = item.explicit_tag,
-    explicit_tag_clear = item.explicit_tag_clear,
-    explicit_location = item.explicit_location,
-    explicit_location_clear = item.explicit_location_clear,
-    tag = item.tag,
-    location = item.location,
-    workday_excluded = item.workday_excluded,
-  }
-end
-
 local function semantic_entry_from_node(node, current_tag, current_location)
   local tag = current_tag
   local location = current_location

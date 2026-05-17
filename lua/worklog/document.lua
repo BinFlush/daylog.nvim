@@ -81,7 +81,6 @@ local function parse_entry_metadata(text)
   local location = nil
   local location_clear = nil
   local has_location = false
-  local split_index = 0
 
   if text == "" then
     return "", nil, nil, nil, nil
@@ -91,7 +90,7 @@ local function parse_entry_metadata(text)
     table.insert(tokens, token)
   end
 
-  split_index = #tokens
+  local split_index = #tokens
 
   while split_index > 0 do
     local kind = parse_metadata_token(tokens[split_index])

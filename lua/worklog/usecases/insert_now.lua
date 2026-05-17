@@ -7,7 +7,7 @@ local M = {}
 
 function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)
-  local minutes = nil
+  local minutes
 
   if not ctx then
     return nil, err

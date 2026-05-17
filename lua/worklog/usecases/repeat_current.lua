@@ -8,8 +8,7 @@ local M = {}
 function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)
   local current_item = nil
-  local insertion_state = nil
-  local minutes = nil
+  local minutes
 
   if not ctx then
     return nil, err
@@ -31,7 +30,7 @@ function M.run(lines, row, time)
     return nil, err
   end
 
-  insertion_state = support.get_insert_state(ctx.block, minutes)
+  local insertion_state = support.get_insert_state(ctx.block, minutes)
 
   local line = entry.format({
     minutes = minutes,

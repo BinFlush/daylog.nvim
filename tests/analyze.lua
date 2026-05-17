@@ -1,6 +1,8 @@
 return function(t)
   local analyze = require("worklog.analyze")
   local document = require("worklog.document")
+  local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
+    .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
   t.test("analyze derives worklog blocks, items, and sticky metadata", function()
     local analysis = analyze.analyze(document.parse({
@@ -209,7 +211,7 @@ return function(t)
         code = "invalid_first_header",
         severity = "error",
         row = 1,
-        message = "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---",
+        message = INVALID_FIRST_HEADER_MESSAGE,
       },
       {
         code = "invalid_entry",
@@ -712,10 +714,7 @@ return function(t)
       "10:00 done",
     }))
 
-    t.eq(
-      analyze.structural_error(analysis),
-      "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
-    )
+    t.eq(analyze.structural_error(analysis), INVALID_FIRST_HEADER_MESSAGE)
     t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), {
       code = "invalid_entry",
       severity = "error",
