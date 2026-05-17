@@ -131,6 +131,12 @@ For full format and command details, see:
 :help worklog.nvim
 ```
 
+For integration diagnostics, run:
+
+```vim
+:checkhealth worklog
+```
+
 For internal design notes, see:
 
 ```text

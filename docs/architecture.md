@@ -467,12 +467,12 @@ nvim --headless -i NONE -u NONE \
   +qa!
 ```
 
-Smoke check:
+Run the Neovim health check directly:
 
 ```sh
 nvim --headless -u NONE \
   "+set rtp+=." \
-  "+lua require('worklog').setup()" \
+  "+checkhealth worklog" \
   +qa
 ```
 
@@ -484,5 +484,4 @@ Possible improvements:
 - export formats
 - richer reports
 - validation command
-- health check
 - more filetype niceties

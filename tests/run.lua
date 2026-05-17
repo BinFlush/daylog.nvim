@@ -95,6 +95,7 @@ dofile(root .. "/tests/context.lua")(t)
 dofile(root .. "/tests/body.lua")(t)
 dofile(root .. "/tests/filetype.lua")(t)
 dofile(root .. "/tests/commands.lua")(t)
+dofile(root .. "/tests/health.lua")(t)
 
 restore_output()
 

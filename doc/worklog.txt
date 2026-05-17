@@ -30,6 +30,9 @@ A worklog can track:
 Files ending in `.wkl` are detected as filetype `worklog` when the plugin is
 loaded.
 
+Run `:checkhealth worklog` to verify setup, command registration, help docs,
+and optional development tooling.
+
 ==============================================================================
 FORMAT                                                        *worklog-format*
 
@@ -321,12 +324,12 @@ Run the full test suite directly:
     +qa!
 <
 
-Smoke check:
+Run the Neovim health check directly:
 
 >
   nvim --headless -u NONE \
     "+set rtp+=." \
-    "+lua require('worklog').setup()" \
+    "+checkhealth worklog" \
     +qa
 <
 

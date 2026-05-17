@@ -20,10 +20,10 @@ test:
       "+lua dofile('tests/run.lua')" \
       +qa!
 
-smoke:
+health:
     nvim --headless -u NONE \
       "+set rtp+=." \
-      "+lua require('worklog').setup()" \
+      "+checkhealth worklog" \
       +qa
 
 helptags:
@@ -46,4 +46,4 @@ check:
     just lint
     just helptags-check
     just test
-    just smoke
+    just health

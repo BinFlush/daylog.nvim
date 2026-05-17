@@ -17,6 +17,14 @@ local function info(message)
   vim.notify(message, vim.log.levels.INFO)
 end
 
+local function ensure_user_command(name, callback)
+  if vim.fn.exists(":" .. name) == 2 then
+    return
+  end
+
+  vim.api.nvim_create_user_command(name, callback, {})
+end
+
 ---@return string[]
 local function buffer_lines()
   return vim.api.nvim_buf_get_lines(0, 0, -1, false)
@@ -126,33 +134,33 @@ end
 function M.setup()
   filetype.register()
 
-  vim.api.nvim_create_user_command("WorklogInsert", function()
+  ensure_user_command("WorklogInsert", function()
     M.insert_now()
-  end, {})
+  end)
 
-  vim.api.nvim_create_user_command("WorklogRepeat", function()
+  ensure_user_command("WorklogRepeat", function()
     M.repeat_current()
-  end, {})
+  end)
 
-  vim.api.nvim_create_user_command("WorklogOrder", function()
+  ensure_user_command("WorklogOrder", function()
     M.order_worklogs()
-  end, {})
+  end)
 
-  vim.api.nvim_create_user_command("WorklogCopy", function()
+  ensure_user_command("WorklogCopy", function()
     M.append_copy()
-  end, {})
+  end)
 
-  vim.api.nvim_create_user_command("WorklogSummarize", function()
+  ensure_user_command("WorklogSummarize", function()
     M.append_summary()
-  end, {})
+  end)
 
-  vim.api.nvim_create_user_command("WorklogQuantSum", function()
+  ensure_user_command("WorklogQuantSum", function()
     M.append_quantized_summary()
-  end, {})
+  end)
 
-  vim.api.nvim_create_user_command("WorklogCheck", function()
+  ensure_user_command("WorklogCheck", function()
     M.check()
-  end, {})
+  end)
 end
 
 return M
