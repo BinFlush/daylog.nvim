@@ -3,10 +3,62 @@ return function(t)
   local append_summary = require("worklog.usecases.append_summary")
   local check = require("worklog.usecases.check")
   local insert_now = require("worklog.usecases.insert_now")
+  local new_worklog = require("worklog.usecases.new_worklog")
   local order_worklogs = require("worklog.usecases.order_worklogs")
   local repeat_current = require("worklog.usecases.repeat_current")
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
     .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+
+  t.test("new_worklog usecase creates the initial header in an empty buffer", function()
+    local result = new_worklog.run({ "" })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 0,
+          end_index = 1,
+          lines = { "--- worklog ---" },
+        },
+      },
+      cursor = { 1, 0 },
+    })
+  end)
+
+  t.test("new_worklog usecase appends a header with defaults", function()
+    local result = new_worklog.run({ "notes" }, {
+      tag = "ClientA",
+      location = "office",
+      quantize_minutes = 30,
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 1,
+          lines = { "", "--- worklog #ClientA @office quantize=30 ---" },
+        },
+      },
+      cursor = { 3, 0 },
+    })
+  end)
+
+  t.test("new_worklog usecase reuses a trailing blank line when appending", function()
+    local result = new_worklog.run({ "notes", "" }, {
+      tag = "ClientA",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 2,
+          end_index = 2,
+          lines = { "--- worklog #ClientA ---" },
+        },
+      },
+      cursor = { 3, 0 },
+    })
+  end)
 
   t.test("insert_now usecase returns an edit script and cursor action", function()
     local result = insert_now.run({

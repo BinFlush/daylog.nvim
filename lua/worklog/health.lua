@@ -89,6 +89,7 @@ function M.check()
   end
 
   start("Commands")
+  check_command("WorklogNew")
   check_command("WorklogInsert")
   check_command("WorklogRepeat")
   check_command("WorklogCopy")

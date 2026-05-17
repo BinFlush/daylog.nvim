@@ -175,6 +175,15 @@ GOTCHAS                                                      *worklog-gotchas*
 ==============================================================================
 COMMANDS                                                    *worklog-commands*
 
+                                                           *:WorklogNew*
+:WorklogNew
+
+Create a new worklog block at the end of the buffer.
+
+- In an empty buffer, this creates the initial worklog header.
+- In a populated buffer, this appends a new worklog block at the end.
+- The header uses optional defaults from `require('worklog').setup({ defaults = ... })`.
+
                                                         *:WorklogInsert*
 :WorklogInsert
 

@@ -3,7 +3,9 @@ local append_copy = require("worklog.usecases.append_copy")
 local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
 local append_summary = require("worklog.usecases.append_summary")
 local check = require("worklog.usecases.check")
+local config = require("worklog.config")
 local insert_now = require("worklog.usecases.insert_now")
+local new_worklog = require("worklog.usecases.new_worklog")
 local order_worklogs = require("worklog.usecases.order_worklogs")
 local repeat_current = require("worklog.usecases.repeat_current")
 
@@ -131,8 +133,24 @@ function M.check()
   info(result.message)
 end
 
-function M.setup()
+function M.new_worklog()
+  local lines = buffer_lines()
+  local result, err = new_worklog.run(lines, config.get().defaults)
+  if not result then
+    warn(err)
+    return
+  end
+
+  apply_result(result)
+end
+
+function M.setup(options)
+  config.setup(options)
   filetype.register()
+
+  ensure_user_command("WorklogNew", function()
+    M.new_worklog()
+  end)
 
   ensure_user_command("WorklogInsert", function()
     M.insert_now()

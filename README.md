@@ -76,6 +76,7 @@ quantize=30    round summaries to 30-minute buckets
 
 | Command | Effect |
 | --- | --- |
+| `:WorklogNew` | Create a new worklog block using configured defaults |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
 | `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
 | `:WorklogCheck` | Validate the current buffer without modifying it |
@@ -109,10 +110,18 @@ Example with `lazy.nvim`:
 return {
   "BinFlush/worklog.nvim",
   config = function()
-    require("worklog").setup()
+    require("worklog").setup({
+      defaults = {
+        tag = "ClientA",
+        location = "office",
+        quantize_minutes = 30,
+      },
+    })
   end,
 }
 ```
+
+All default fields are optional.
 
 A common place for this file is:
 

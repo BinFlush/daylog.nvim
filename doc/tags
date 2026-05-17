@@ -1,6 +1,7 @@
 :WorklogCheck	worklog.txt	/*:WorklogCheck*
 :WorklogCopy	worklog.txt	/*:WorklogCopy*
 :WorklogInsert	worklog.txt	/*:WorklogInsert*
+:WorklogNew	worklog.txt	/*:WorklogNew*
 :WorklogOrder	worklog.txt	/*:WorklogOrder*
 :WorklogQuantSum	worklog.txt	/*:WorklogQuantSum*
 :WorklogRepeat	worklog.txt	/*:WorklogRepeat*

@@ -16,6 +16,17 @@ return function(t)
     end
   end
 
+  local function with_worklog_setup(options, fn)
+    worklog.setup(options)
+
+    local ok, err = xpcall(fn, debug.traceback)
+    worklog.setup()
+
+    if not ok then
+      error(err, 0)
+    end
+  end
+
   worklog.setup()
 
   t.test("summarize blocks on unordered worklog", function()
@@ -33,6 +44,38 @@ return function(t)
       "08:00 earlier #sales",
       "09:00 done",
     })
+  end)
+
+  t.test("new creates the initial worklog block in an empty buffer", function()
+    t.reset({})
+
+    vim.cmd("WorklogNew")
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+    })
+    t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
+  end)
+
+  t.test("new appends a worklog block with configured defaults", function()
+    with_worklog_setup({
+      defaults = {
+        tag = "ClientA",
+        location = "office",
+        quantize_minutes = 30,
+      },
+    }, function()
+      t.reset({
+        "notes",
+      })
+
+      vim.cmd("WorklogNew")
+      t.eq(t.get_lines(), {
+        "notes",
+        "",
+        "--- worklog #ClientA @office quantize=30 ---",
+      })
+      t.eq(vim.api.nvim_win_get_cursor(0), { 3, 0 })
+    end)
   end)
 
   t.test("equal timestamps are allowed in summarize", function()

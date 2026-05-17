@@ -99,7 +99,7 @@ local function has_workday_excluded_items(items)
   return false
 end
 
-function M.worklog_lines(lines, header_tag, header_location, header_quantize_minutes)
+function M.worklog_header_line(header_tag, header_location, header_quantize_minutes)
   local header = { "--- worklog" }
 
   if header_tag then
@@ -114,9 +114,13 @@ function M.worklog_lines(lines, header_tag, header_location, header_quantize_min
     table.insert(header, "quantize=" .. tostring(header_quantize_minutes))
   end
 
+  return table.concat(header, " ") .. " ---"
+end
+
+function M.worklog_lines(lines, header_tag, header_location, header_quantize_minutes)
   local rendered = {
     "",
-    table.concat(header, " ") .. " ---",
+    M.worklog_header_line(header_tag, header_location, header_quantize_minutes),
   }
 
   extend_lines(rendered, lines)
