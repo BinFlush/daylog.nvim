@@ -1,0 +1,42 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl tar gzip just luarocks cargo
+
+      - name: Install Neovim
+        run: |
+          curl -LO https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz
+          tar xzf nvim-linux-x86_64.tar.gz
+          echo "$PWD/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+
+      - name: Install luacheck
+        run: sudo luarocks install luacheck
+
+      - name: Install StyLua
+        run: |
+          cargo install stylua --locked
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Show tool versions
+        run: |
+          nvim --version | head -n 1
+          just --version
+          stylua --version
+          luacheck --version
+
+      - name: Run checks
+        run: just check
