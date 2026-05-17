@@ -97,6 +97,7 @@ dofile(root .. "/tests/filetype.lua")(t)
 dofile(root .. "/tests/commands.lua")(t)
 dofile(root .. "/tests/health.lua")(t)
 dofile(root .. "/tests/compat.lua")(t)
+dofile(root .. "/tests/invariants.lua")(t)
 
 restore_output()
 
