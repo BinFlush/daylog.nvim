@@ -335,6 +335,12 @@ Run the Neovim health check directly:
     "+checkhealth worklog" \
     +qa
 <
+==============================================================================
+LICENSE                                                      *worklog-license*
+
+worklog.nvim is released under the MIT License.
+
+See the LICENSE file in the repository root.
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

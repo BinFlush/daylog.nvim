@@ -163,3 +163,7 @@ just install
 This configures `git` to use the repository's `.githooks/` directory.
 
 For available convenience recipes, run `just --list` or inspect `justfile`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
