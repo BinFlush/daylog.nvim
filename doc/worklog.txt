@@ -292,7 +292,33 @@ The special tag `#ooo` is excluded from `workday`, but included in `activity`.
 ==============================================================================
 DEVELOPMENT                                              *worklog-development*
 
-Run the full test suite:
+Set up local contributor tooling once:
+
+>
+  just install
+<
+
+This configures `git` to use the repository's `.githooks/` directory.
+
+The included `pre-commit` hook runs:
+
+>
+  just check
+<
+
+Common development commands:
+
+>
+  just format
+  just format-check
+  just lint
+  just test
+  just smoke
+  just docs
+  just check
+<
+
+Run the full test suite directly:
 
 >
   nvim --headless -i NONE -u NONE \

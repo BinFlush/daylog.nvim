@@ -3,6 +3,9 @@
 default:
     just --list
 
+install:
+    git config --local core.hooksPath .githooks
+
 format:
     stylua lua tests plugin
 

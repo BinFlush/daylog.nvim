@@ -139,32 +139,14 @@ docs/architecture.md
 
 ## Development
 
-Format Lua files:
+Set up local tooling:
 
 ```sh
-stylua lua tests plugin
+just install
 ```
 
-Check formatting only:
+This configures `git` to use the repository's `.githooks/` directory. The
+included `pre-commit` hook runs `just check`.
 
-```sh
-stylua --check lua tests plugin
-```
+See justfile for other convenience commands
 
-Run the full suite:
-
-```sh
-nvim --headless -i NONE -u NONE \
-  "+set rtp+=." \
-  "+lua dofile('tests/run.lua')" \
-  +qa!
-```
-
-Smoke check:
-
-```sh
-nvim --headless -u NONE \
-  "+set rtp+=." \
-  "+lua require('worklog').setup()" \
-  +qa
-```

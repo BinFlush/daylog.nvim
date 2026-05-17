@@ -444,7 +444,28 @@ Core areas:
 - equal timestamp insertion behavior
 - quantized summary invariants
 
-Run:
+Set up local contributor tooling once:
+
+```sh
+just install
+```
+
+This configures `git` to use the repository's `.githooks/` directory. The
+included `pre-commit` hook runs `just check`.
+
+Other convenience commands (see `justfile` for more):
+
+```sh
+just format
+just format-check
+just lint
+just test
+just smoke
+just docs
+just check
+```
+
+Run the full test suite directly:
 
 ```sh
 nvim --headless -i NONE -u NONE \
