@@ -452,6 +452,9 @@ just install
 
 This configures `git` to use the repository's `.githooks/` directory.
 
+Local verification is split between `just static-check` and `just nvim-check`.
+Run `just check` for the full local gate.
+
 For available convenience recipes, run `just --list` or inspect `justfile`.
 
 ```sh

@@ -25,6 +25,9 @@ Versioning loosely follows SemVer, with compatibility focused on `.wkl` semantic
 
 ### Changed
 
+- Focused `:checkhealth worklog` on runtime plugin integration and split
+  contributor checks into static and Neovim-dependent groups.
+
 ### Fixed
 
 ## 0.1.0 - 2026-05-17

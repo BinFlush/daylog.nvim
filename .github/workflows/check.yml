@@ -2,12 +2,10 @@ name: Check
 
 on:
   push:
-    branches:
-      - main
   pull_request:
 
 jobs:
-  check:
+  static:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,13 +15,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl tar gzip just luarocks cargo
-
-      - name: Install Neovim
-        run: |
-          curl -LO https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz
-          tar xzf nvim-linux-x86_64.tar.gz
-          echo "$PWD/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+          sudo apt-get install -y just luarocks cargo
 
       - name: Install luacheck
         run: sudo luarocks install luacheck
@@ -35,10 +27,51 @@ jobs:
 
       - name: Show tool versions
         run: |
-          nvim --version | head -n 1
           just --version
           stylua --version
           luacheck --version
 
-      - name: Run checks
-        run: just check
+      - name: Run static checks
+        run: just static-check
+
+  nvim:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim:
+          - v0.8.0
+          - v0.9.5
+          - v0.10.4
+          - stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl tar gzip just
+
+      - name: Install Neovim
+        run: |
+          version="${{ matrix.neovim }}"
+          if curl -fsSLO "https://github.com/neovim/neovim/releases/download/${version}/nvim-linux-x86_64.tar.gz"; then
+            archive="nvim-linux-x86_64.tar.gz"
+            directory="nvim-linux-x86_64"
+          else
+            curl -fsSLO "https://github.com/neovim/neovim/releases/download/${version}/nvim-linux64.tar.gz"
+            archive="nvim-linux64.tar.gz"
+            directory="nvim-linux64"
+          fi
+          tar xzf "$archive"
+          echo "$PWD/$directory/bin" >> "$GITHUB_PATH"
+
+      - name: Show tool versions
+        run: |
+          nvim --version | head -n 1
+          just --version
+
+      - name: Run Neovim checks
+        run: just nvim-check

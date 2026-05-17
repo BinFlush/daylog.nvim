@@ -31,7 +31,7 @@ Files ending in `.wkl` are detected as filetype `worklog` when the plugin is
 loaded.
 
 Run `:checkhealth worklog` to verify setup, command registration, help docs,
-and optional development tooling.
+and runtime plugin integration.
 
 Users who need reproducible behavior can pin a tagged release. `.wkl`
 compatibility notes are tracked in `CHANGELOG.md`.
@@ -305,6 +305,14 @@ Set up local contributor tooling once:
 <
 
 This configures `git` to use the repository's `.githooks/` directory.
+
+Local checks are split between:
+
+>
+  just static-check
+  just nvim-check
+  just check
+<
 
 For available convenience recipes, run `just --list` or inspect `justfile`.
 

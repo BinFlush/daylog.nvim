@@ -137,6 +137,9 @@ For integration diagnostics, run:
 :checkhealth worklog
 ```
 
+This health check focuses on runtime plugin integration rather than contributor
+tooling.
+
 For internal design notes, see:
 
 ```text
@@ -161,6 +164,9 @@ just install
 ```
 
 This configures `git` to use the repository's `.githooks/` directory.
+
+Local checks are split into `just static-check` and `just nvim-check`. Run
+`just check` for the full local gate.
 
 For available convenience recipes, run `just --list` or inspect `justfile`.
 

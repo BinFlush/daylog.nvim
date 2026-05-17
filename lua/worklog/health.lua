@@ -32,10 +32,6 @@ local function report_error(message, advice)
   end
 end
 
-local function executable(name)
-  return vim.fn.executable(name) == 1
-end
-
 local function has_command(name)
   return vim.fn.exists(":" .. name) == 2
 end
@@ -56,16 +52,6 @@ local function check_command(name)
   else
     report_error(":" .. name .. " is missing", {
       "Run require('worklog').setup() during startup.",
-    })
-  end
-end
-
-local function check_executable(name)
-  if executable(name) then
-    ok(name .. " is available")
-  else
-    warn(name .. " is not available", {
-      "Only needed for development.",
     })
   end
 end
@@ -128,11 +114,6 @@ function M.check()
       "Run :helptags doc or just helptags.",
     })
   end
-
-  start("Development tools")
-  check_executable("stylua")
-  check_executable("luacheck")
-  check_executable("just")
 end
 
 return M

@@ -32,6 +32,10 @@ helptags:
 lint:
     luacheck lua tests plugin
 
+static-check:
+    just format-check
+    just lint
+
 # Verify doc/tags is up to date without modifying the working tree.
 # We generate helptags in a temporary copy of doc/ and compare the result.
 helptags-check:
@@ -41,12 +45,14 @@ helptags-check:
     nvim --headless -u NONE "+helptags $tmp/doc" +qa; \
     diff -u doc/tags "$tmp/doc/tags"
 
-check:
-    just format-check
-    just lint
+nvim-check:
     just helptags-check
     just test
     just health
+
+check:
+    just static-check
+    just nvim-check
 
 release-check:
     just check
