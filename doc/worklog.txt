@@ -33,6 +33,10 @@ loaded.
 Run `:checkhealth worklog` to verify setup, command registration, help docs,
 and runtime plugin integration.
 
+Requirements:
+
+  Neovim 0.8.0 or newer.
+
 Users who need reproducible behavior can pin a tagged release. `.wkl`
 compatibility notes are tracked in `CHANGELOG.md`.
 

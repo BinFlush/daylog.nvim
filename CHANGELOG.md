@@ -27,6 +27,8 @@ Versioning loosely follows SemVer, with compatibility focused on `.wkl` semantic
 
 - Focused `:checkhealth worklog` on runtime plugin integration and split
   contributor checks into static and Neovim-dependent groups.
+- Documented Neovim 0.8.0 as the minimum supported version and kept CI focused
+  on the supported floor plus newer releases.
 
 ### Fixed
 

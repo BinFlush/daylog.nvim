@@ -86,6 +86,10 @@ quantize=30    round summaries to 30-minute buckets
 
 The active worklog is the latest `--- worklog ... ---` block in the file.
 
+## Requirements
+
+- Neovim 0.8.0 or newer
+
 ## Install
 
 Example with `lazy.nvim`:
