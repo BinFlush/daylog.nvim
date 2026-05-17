@@ -86,6 +86,17 @@ quantize=30    round summaries to 30-minute buckets
 
 The active worklog is the latest `--- worklog ... ---` block in the file.
 
+## Limitations and syntax gotchas
+
+- The final timestamp closes the previous interval and has no duration of its own.
+- Entries use `HH:MM`; ranges, dates, and seconds are not supported.
+- Keep times ordered before summarizing; use `:WorklogOrder` to rewrite blocks.
+- `#tag` and `@location` are sticky until replaced or cleared with `#-` and `@-`.
+- Only trailing metadata tokens are parsed as metadata; multiple trailing tags or locations are invalid.
+- `#ooo` counts as activity but is excluded from workday totals.
+- Main summary rows do not split by location; locations are reported separately.
+- The active worklog is the latest worklog block in the file.
+
 ## Requirements
 
 - Neovim 0.8.0 or newer

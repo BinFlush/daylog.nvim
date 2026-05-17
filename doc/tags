@@ -9,6 +9,7 @@ worklog-commands	worklog.txt	/*worklog-commands*
 worklog-contents	worklog.txt	/*worklog-contents*
 worklog-development	worklog.txt	/*worklog-development*
 worklog-format	worklog.txt	/*worklog-format*
+worklog-gotchas	worklog.txt	/*worklog-gotchas*
 worklog-license	worklog.txt	/*worklog-license*
 worklog-overview	worklog.txt	/*worklog-overview*
 worklog-sticky-metadata	worklog.txt	/*worklog-sticky-metadata*

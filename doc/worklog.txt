@@ -6,9 +6,10 @@ CONTENTS                                                    *worklog-contents*
 1. Overview.................................................|worklog-overview|
 2. Format...................................................|worklog-format|
 3. Sticky metadata..........................................|worklog-sticky-metadata|
-4. Commands.................................................|worklog-commands|
-5. Summaries................................................|worklog-summaries|
-6. Development..............................................|worklog-development|
+4. Gotchas..................................................|worklog-gotchas|
+5. Commands.................................................|worklog-commands|
+6. Summaries................................................|worklog-summaries|
+7. Development..............................................|worklog-development|
 
 ==============================================================================
 OVERVIEW                                                    *worklog-overview*
@@ -154,6 +155,22 @@ The special tag `#ooo` means out of office.
 `#ooo` intervals count toward `activity`, but not toward `workday`.
 
 `#ooo` is sticky until another tag or `#-` replaces it.
+
+==============================================================================
+GOTCHAS                                                      *worklog-gotchas*
+
+- The final timestamp closes the previous interval and has no duration of its
+  own.
+- Entries use `HH:MM`; ranges, dates, and seconds are not supported.
+- Keep times ordered before summarizing; use `:WorklogOrder` to rewrite blocks.
+- `#tag` and `@location` are sticky until replaced or cleared with `#-` and
+  `@-`.
+- Only trailing metadata tokens are parsed as metadata; multiple trailing tags
+  or multiple trailing locations are invalid.
+- `#ooo` counts as activity but is excluded from `workday` totals.
+- Main summary rows do not split by location; locations are reported
+  separately.
+- The active worklog is the latest `--- worklog ... ---` block in the file.
 
 ==============================================================================
 COMMANDS                                                    *worklog-commands*
