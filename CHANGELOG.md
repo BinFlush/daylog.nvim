@@ -23,17 +23,34 @@ Versioning loosely follows SemVer, with compatibility focused on `.wkl` semantic
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## 0.2.0 - 2026-05-17
+
+### Added
+
+- Added `:WorklogNew` to create a new worklog block at the end of the buffer.
+- Added optional `worklog.setup({ defaults = ... })` header defaults for new
+  worklogs: `tag`, `location`, `quantize_minutes`, and `duration_format`.
 - Added `duration=decimal|hhmm` as a block-local worklog header option for
   summary duration rendering.
 
 ### Changed
 
-- Focused `:checkhealth worklog` on runtime plugin integration and split
-  contributor checks into static and Neovim-dependent groups.
-- Documented Neovim 0.8.0 as the minimum supported version and kept CI focused
-  on the supported floor plus newer releases.
+- Summary rendering can now vary per worklog via `duration=decimal|hhmm`.
+  Users who need stable rendered summary text should pin a release tag and keep
+  `duration=decimal` unless they explicitly want `hhmm` output.
+- Focused `:checkhealth worklog` on runtime plugin integration and split local
+  contributor checks into `just static-check`, `just nvim-check`, and
+  `just check`.
+- Documented Neovim 0.8.0 as the minimum supported version.
 
-### Fixed
+### Development
+
+- Added GitHub Actions CI for static checks and Neovim-dependent checks across
+  the supported floor and newer releases.
 
 ## 0.1.0 - 2026-05-17
 
