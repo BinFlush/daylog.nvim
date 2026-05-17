@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-stylua --check lua tests plugin
-
-nvim --headless -i NONE -u NONE \
-  "+set rtp+=." \
-  "+lua dofile('tests/run.lua')" \
-  +qa!
+just check

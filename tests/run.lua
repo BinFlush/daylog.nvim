@@ -3,6 +3,34 @@ local failures = {}
 
 vim.o.hidden = true
 
+local original_notify = vim.notify
+local original_err_writeln = vim.api.nvim_err_writeln
+
+local function should_suppress_message(message)
+  return type(message) == "string" and message:match("^worklog:")
+end
+
+local function restore_output()
+  vim.notify = original_notify
+  vim.api.nvim_err_writeln = original_err_writeln
+end
+
+vim.notify = function(message, level, opts)
+  if should_suppress_message(message) then
+    return
+  end
+
+  return original_notify(message, level, opts)
+end
+
+vim.api.nvim_err_writeln = function(message)
+  if should_suppress_message(message) then
+    return
+  end
+
+  return original_err_writeln(message)
+end
+
 local function format_value(value)
   return vim.inspect(value)
 end
@@ -68,10 +96,17 @@ dofile(root .. "/tests/body.lua")(t)
 dofile(root .. "/tests/filetype.lua")(t)
 dofile(root .. "/tests/commands.lua")(t)
 
+restore_output()
+
 if #failures > 0 then
   error(
-    string.format("%d/%d tests failed\n\n%s", #failures, tests_run, table.concat(failures, "\n\n"))
+    string.format(
+      "%d/%d tests failed\n\n%s\n",
+      #failures,
+      tests_run,
+      table.concat(failures, "\n\n")
+    )
   )
 end
 
-print(string.format("ok: %d tests", tests_run))
+print(string.format("ok: %d tests\n", tests_run))
