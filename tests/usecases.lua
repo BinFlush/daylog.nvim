@@ -1,5 +1,6 @@
 return function(t)
   local append_copy = require("worklog.usecases.append_copy")
+  local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
   local append_summary = require("worklog.usecases.append_summary")
   local check = require("worklog.usecases.check")
   local insert_now = require("worklog.usecases.insert_now")
@@ -29,6 +30,7 @@ return function(t)
       tag = "ClientA",
       location = "office",
       quantize_minutes = 30,
+      duration_format = "hhmm",
     })
 
     t.eq(result, {
@@ -36,7 +38,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 1,
-          lines = { "", "--- worklog #ClientA @office quantize=30 ---" },
+          lines = { "", "--- worklog #ClientA @office quantize=30 duration=hhmm ---" },
         },
       },
       cursor = { 3, 0 },
@@ -151,6 +153,56 @@ return function(t)
     })
   end)
 
+  t.test("append_summary uses the worklog duration format", function()
+    local result = append_summary.run({
+      "--- worklog duration=hhmm ---",
+      "08:00 plan",
+      "09:30 done",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = {
+            "",
+            "--- summary exact ---",
+            "1:30 plan",
+            "",
+            "--- totals exact ---",
+            "1:30 workday",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("append_quantized_summary uses the worklog duration format", function()
+    local result = append_quantized_summary.run({
+      "--- worklog quantize=30 duration=hhmm ---",
+      "08:00 plan",
+      "08:34 done",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = {
+            "",
+            "--- summary quantized ---",
+            "0:30 (+4m) plan",
+            "",
+            "--- totals quantized ---",
+            "0:30 (+4m) workday",
+          },
+        },
+      },
+    })
+  end)
+
   t.test("check usecase returns ok for a valid worklog", function()
     local result = check.run({
       "--- worklog ---",
@@ -218,6 +270,29 @@ return function(t)
             "08:00 break #ooo @home",
             "09:00 resume #- @-",
             "10:00 done",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("append_copy preserves explicit duration format on the header", function()
+    local result = append_copy.run({
+      "--- worklog #sales @client duration=hhmm ---",
+      "11:00 tea",
+      "12:00",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = {
+            "",
+            "--- worklog #sales @client duration=hhmm ---",
+            "11:00 tea",
+            "12:00",
           },
         },
       },

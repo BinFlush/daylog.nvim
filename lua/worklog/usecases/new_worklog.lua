@@ -11,8 +11,12 @@ end
 function M.run(lines, defaults)
   defaults = defaults or {}
 
-  local header =
-    render.worklog_header_line(defaults.tag, defaults.location, defaults.quantize_minutes)
+  local header = render.worklog_header_line(
+    defaults.tag,
+    defaults.location,
+    defaults.quantize_minutes,
+    defaults.duration_format
+  )
 
   if empty_buffer(lines) then
     return {

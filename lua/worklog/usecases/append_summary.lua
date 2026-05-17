@@ -12,7 +12,8 @@ function M.run(lines)
     return nil, err
   end
 
-  local rendered = render.summary_lines(summary.summarize_block(ctx.block), "exact")
+  local rendered =
+    render.summary_lines(summary.summarize_block(ctx.block), "exact", ctx.block.duration_format)
   return support.append_edit(lines, rendered)
 end
 

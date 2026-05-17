@@ -6,7 +6,7 @@ return function(t)
 
   t.test("analyze derives worklog blocks, items, and sticky metadata", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office quantize=30 ---",
+      "--- worklog #ProjectOrion @office quantize=30 duration=hhmm ---",
       "08:00 plan",
       "note about planning",
       "08:30 call @home",
@@ -34,7 +34,9 @@ return function(t)
     t.eq(first.header_tag, "ProjectOrion")
     t.eq(first.header_location, "office")
     t.eq(first.header_quantize_minutes, 30)
+    t.eq(first.header_duration_format, "hhmm")
     t.eq(first.quantize_minutes, 30)
+    t.eq(first.duration_format, "hhmm")
     t.eq(#first.body_nodes, 7)
     t.eq(first.entry_items, {
       {
@@ -166,6 +168,8 @@ return function(t)
     t.eq(second.header_location, "office")
     t.eq(second.header_quantize_minutes, nil)
     t.eq(second.quantize_minutes, 15)
+    t.eq(second.header_duration_format, nil)
+    t.eq(second.duration_format, "decimal")
     t.eq(second.entries, {
       {
         row = 13,
@@ -234,7 +238,7 @@ return function(t)
 
   t.test("analyze reports invalid worklog header metadata and options", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion #sales @office @home quantize=0 nope unknown=bar ---",
+      "--- worklog #ProjectOrion #sales @office @home quantize=0 duration=clock nope unknown=bar ---",
       "08:00 plan",
       "09:00 done",
     }))
@@ -262,6 +266,12 @@ return function(t)
         code = "invalid_worklog_header_option",
         severity = "error",
         row = 1,
+        message = "worklog header option duration must be decimal or hhmm",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
         message = "unknown worklog header option: unknown",
       },
       {
@@ -274,6 +284,8 @@ return function(t)
 
     t.eq(analysis.worklog_blocks[1].header_quantize_minutes, nil)
     t.eq(analysis.worklog_blocks[1].quantize_minutes, 15)
+    t.eq(analysis.worklog_blocks[1].header_duration_format, nil)
+    t.eq(analysis.worklog_blocks[1].duration_format, "decimal")
   end)
 
   t.test("analyze reports duplicate header metadata when clear tokens are mixed in", function()
@@ -322,7 +334,7 @@ return function(t)
 
   t.test("analyze reports duplicate worklog header options", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office quantize=30 quantize=60 ---",
+      "--- worklog #ProjectOrion @office quantize=30 duration=decimal quantize=60 duration=hhmm ---",
       "08:00 plan",
       "09:00 done",
     }))
@@ -334,10 +346,18 @@ return function(t)
         row = 1,
         message = "duplicate worklog header option: quantize",
       },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 1,
+        message = "duplicate worklog header option: duration",
+      },
     })
 
     t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 30)
     t.eq(analysis.worklog_blocks[1].quantize_minutes, 30)
+    t.eq(analysis.worklog_blocks[1].header_duration_format, "decimal")
+    t.eq(analysis.worklog_blocks[1].duration_format, "decimal")
   end)
 
   t.test("analyze reports invalid options on later worklog headers", function()
@@ -345,7 +365,7 @@ return function(t)
       "--- worklog #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 done",
-      "--- worklog #internal @home quantize=0 nope unknown=bar ---",
+      "--- worklog #internal @home quantize=0 duration=clock nope unknown=bar ---",
       "10:00 tea",
       "11:00 done",
     }))
@@ -356,6 +376,12 @@ return function(t)
         severity = "error",
         row = 4,
         message = "worklog header option quantize must be a positive integer",
+      },
+      {
+        code = "invalid_worklog_header_option",
+        severity = "error",
+        row = 4,
+        message = "worklog header option duration must be decimal or hhmm",
       },
       {
         code = "invalid_worklog_header_option",
@@ -374,14 +400,16 @@ return function(t)
     t.eq(analysis.worklog_blocks[1].quantize_minutes, 15)
     t.eq(analysis.worklog_blocks[2].header_quantize_minutes, nil)
     t.eq(analysis.worklog_blocks[2].quantize_minutes, 15)
+    t.eq(analysis.worklog_blocks[2].header_duration_format, nil)
+    t.eq(analysis.worklog_blocks[2].duration_format, "decimal")
   end)
 
-  t.test("analyze keeps quantize local to each worklog", function()
+  t.test("analyze keeps quantize and duration format local to each worklog", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office quantize=30 ---",
+      "--- worklog #ProjectOrion @office quantize=30 duration=hhmm ---",
       "08:00 plan",
       "09:00 done",
-      "--- worklog #internal @home quantize=60 ---",
+      "--- worklog #internal @home quantize=60 duration=decimal ---",
       "10:00 tea",
       "11:00 done",
       "--- worklog #sales @client ---",
@@ -392,10 +420,16 @@ return function(t)
     t.eq(analysis.diagnostics, {})
     t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 30)
     t.eq(analysis.worklog_blocks[1].quantize_minutes, 30)
+    t.eq(analysis.worklog_blocks[1].header_duration_format, "hhmm")
+    t.eq(analysis.worklog_blocks[1].duration_format, "hhmm")
     t.eq(analysis.worklog_blocks[2].header_quantize_minutes, 60)
     t.eq(analysis.worklog_blocks[2].quantize_minutes, 60)
+    t.eq(analysis.worklog_blocks[2].header_duration_format, "decimal")
+    t.eq(analysis.worklog_blocks[2].duration_format, "decimal")
     t.eq(analysis.worklog_blocks[3].header_quantize_minutes, nil)
     t.eq(analysis.worklog_blocks[3].quantize_minutes, 15)
+    t.eq(analysis.worklog_blocks[3].header_duration_format, nil)
+    t.eq(analysis.worklog_blocks[3].duration_format, "decimal")
   end)
 
   t.test("analyze keeps sticky metadata nil until changed", function()

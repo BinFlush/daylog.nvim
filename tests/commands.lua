@@ -62,6 +62,7 @@ return function(t)
         tag = "ClientA",
         location = "office",
         quantize_minutes = 30,
+        duration_format = "hhmm",
       },
     }, function()
       t.reset({
@@ -72,7 +73,7 @@ return function(t)
       t.eq(t.get_lines(), {
         "notes",
         "",
-        "--- worklog #ClientA @office quantize=30 ---",
+        "--- worklog #ClientA @office quantize=30 duration=hhmm ---",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 3, 0 })
     end)

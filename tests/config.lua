@@ -7,6 +7,7 @@ return function(t)
         tag = "ClientA",
         location = "office",
         quantize_minutes = 30,
+        duration_format = "hhmm",
       },
     })
 
@@ -15,6 +16,7 @@ return function(t)
         tag = "ClientA",
         location = "office",
         quantize_minutes = 30,
+        duration_format = "hhmm",
       },
     })
 
@@ -61,6 +63,14 @@ return function(t)
     })
     t.ok(not ok)
     t.ok(tostring(err):match("defaults.quantize_minutes must be a positive integer") ~= nil)
+
+    ok, err = pcall(config.setup, {
+      defaults = {
+        duration_format = "clock",
+      },
+    })
+    t.ok(not ok)
+    t.ok(tostring(err):match("defaults.duration_format must be decimal or hhmm") ~= nil)
 
     config.setup()
   end)

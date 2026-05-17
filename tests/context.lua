@@ -26,6 +26,7 @@ return function(t)
     t.eq(ctx.block.body_start_row, 9)
     t.eq(ctx.block.end_row, 11)
     t.eq(ctx.block.quantize_minutes, 15)
+    t.eq(ctx.block.duration_format, "decimal")
   end)
 
   t.test("context includes header rows when selecting worklogs by cursor", function()

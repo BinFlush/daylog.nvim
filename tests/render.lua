@@ -119,4 +119,95 @@ return function(t)
       }
     )
   end)
+
+  t.test("render supports hhmm exact durations", function()
+    t.eq(
+      render.summary_lines({
+        summary_items = {
+          {
+            text = "planning",
+            tag = "ClientA",
+            duration = 90,
+            exact_duration = 90,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 90,
+            exact_duration = 90,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 90,
+            exact_duration = 90,
+          },
+        },
+        activity_total = 90,
+        workday_total = 90,
+      }, "exact", "hhmm"),
+      {
+        "",
+        "--- summary exact ---",
+        "1:30 planning",
+        "",
+        "--- tags exact ---",
+        "1:30 #ClientA",
+        "",
+        "--- locations exact ---",
+        "1:30 @office",
+        "",
+        "--- totals exact ---",
+        "1:30 workday",
+      }
+    )
+  end)
+
+  t.test("render supports hhmm quantized durations", function()
+    t.eq(
+      render.summary_lines({
+        summary_items = {
+          {
+            text = "plan",
+            tag = nil,
+            duration = 90,
+            exact_duration = 95,
+            error_minutes = 5,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = nil,
+            duration = 90,
+            exact_duration = 95,
+            error_minutes = 5,
+          },
+        },
+        location_totals = {
+          {
+            location = nil,
+            duration = 90,
+            exact_duration = 95,
+            error_minutes = 5,
+          },
+        },
+        activity_total = 90,
+        workday_total = 90,
+        activity_error_minutes = 5,
+        workday_error_minutes = 5,
+      }, "quantized", "hhmm"),
+      {
+        "",
+        "--- summary quantized ---",
+        "1:30 (+5m) plan",
+        "",
+        "--- totals quantized ---",
+        "1:30 (+5m) workday",
+      }
+    )
+  end)
 end

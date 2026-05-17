@@ -8,6 +8,10 @@ local function is_metadata_value(value)
   return type(value) == "string" and value:match("^[%w_%-]+$") ~= nil
 end
 
+local function is_duration_format(value)
+  return value == "decimal" or value == "hhmm"
+end
+
 local function normalize_defaults(defaults)
   if defaults == nil then
     return {}
@@ -45,6 +49,14 @@ local function normalize_defaults(defaults)
     end
 
     result.quantize_minutes = defaults.quantize_minutes
+  end
+
+  if defaults.duration_format ~= nil then
+    if not is_duration_format(defaults.duration_format) then
+      error("worklog: defaults.duration_format must be decimal or hhmm")
+    end
+
+    result.duration_format = defaults.duration_format
   end
 
   return result

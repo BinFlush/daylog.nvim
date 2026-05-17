@@ -1,7 +1,19 @@
 local M = {}
 
-local function hours_string(minutes)
+local function decimal_hours_string(minutes)
   return string.format("%.2fh", minutes / 60)
+end
+
+local function hhmm_string(minutes)
+  return string.format("%d:%02d", math.floor(minutes / 60), minutes % 60)
+end
+
+local function duration_string(minutes, duration_format)
+  if duration_format == "hhmm" then
+    return hhmm_string(minutes)
+  end
+
+  return decimal_hours_string(minutes)
 end
 
 local function summary_item_label(item, show_tag)
@@ -99,7 +111,12 @@ local function has_workday_excluded_items(items)
   return false
 end
 
-function M.worklog_header_line(header_tag, header_location, header_quantize_minutes)
+function M.worklog_header_line(
+  header_tag,
+  header_location,
+  header_quantize_minutes,
+  header_duration_format
+)
   local header = { "--- worklog" }
 
   if header_tag then
@@ -114,13 +131,28 @@ function M.worklog_header_line(header_tag, header_location, header_quantize_minu
     table.insert(header, "quantize=" .. tostring(header_quantize_minutes))
   end
 
+  if header_duration_format then
+    table.insert(header, "duration=" .. header_duration_format)
+  end
+
   return table.concat(header, " ") .. " ---"
 end
 
-function M.worklog_lines(lines, header_tag, header_location, header_quantize_minutes)
+function M.worklog_lines(
+  lines,
+  header_tag,
+  header_location,
+  header_quantize_minutes,
+  header_duration_format
+)
   local rendered = {
     "",
-    M.worklog_header_line(header_tag, header_location, header_quantize_minutes),
+    M.worklog_header_line(
+      header_tag,
+      header_location,
+      header_quantize_minutes,
+      header_duration_format
+    ),
   }
 
   extend_lines(rendered, lines)
@@ -128,10 +160,11 @@ function M.worklog_lines(lines, header_tag, header_location, header_quantize_min
   return rendered
 end
 
-function M.summary_lines(summary, kind)
+function M.summary_lines(summary, kind, duration_format)
   local header_suffix = kind == "quantized" and " quantized" or " exact"
   local lines = {}
   local conflicts = text_tag_conflicts(summary.summary_items)
+  local format = duration_format or "decimal"
 
   table.insert(lines, "")
   table.insert(lines, "--- summary" .. header_suffix .. " ---")
@@ -141,13 +174,20 @@ function M.summary_lines(summary, kind)
       table.insert(
         lines,
         summary_line(
-          string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0),
+          string.format(
+            "%s (%+dm)",
+            duration_string(item.duration, format),
+            item.error_minutes or 0
+          ),
           item,
           conflicts[item.text]
         )
       )
     else
-      table.insert(lines, summary_line(hours_string(item.duration), item, conflicts[item.text]))
+      table.insert(
+        lines,
+        summary_line(duration_string(item.duration, format), item, conflicts[item.text])
+      )
     end
   end
 
@@ -158,7 +198,7 @@ function M.summary_lines(summary, kind)
       table.insert(lines, "--- tags exact ---")
 
       for _, item in ipairs(summary.tag_totals or {}) do
-        table.insert(lines, tag_line(hours_string(item.duration), item))
+        table.insert(lines, tag_line(duration_string(item.duration, format), item))
       end
 
       table.insert(lines, "")
@@ -168,7 +208,7 @@ function M.summary_lines(summary, kind)
       table.insert(lines, "--- locations exact ---")
 
       for _, item in ipairs(summary.location_totals or {}) do
-        table.insert(lines, location_line(hours_string(item.duration), item))
+        table.insert(lines, location_line(duration_string(item.duration, format), item))
       end
 
       table.insert(lines, "")
@@ -181,7 +221,11 @@ function M.summary_lines(summary, kind)
         table.insert(
           lines,
           tag_line(
-            string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0),
+            string.format(
+              "%s (%+dm)",
+              duration_string(item.duration, format),
+              item.error_minutes or 0
+            ),
             item
           )
         )
@@ -197,7 +241,11 @@ function M.summary_lines(summary, kind)
         table.insert(
           lines,
           location_line(
-            string.format("%s (%+dm)", hours_string(item.duration), item.error_minutes or 0),
+            string.format(
+              "%s (%+dm)",
+              duration_string(item.duration, format),
+              item.error_minutes or 0
+            ),
             item
           )
         )
@@ -215,7 +263,7 @@ function M.summary_lines(summary, kind)
         lines,
         string.format(
           "%s (%+dm) activity",
-          hours_string(summary.activity_total),
+          duration_string(summary.activity_total, format),
           summary.activity_error_minutes or 0
         )
       )
@@ -225,16 +273,19 @@ function M.summary_lines(summary, kind)
       lines,
       string.format(
         "%s (%+dm) workday",
-        hours_string(summary.workday_total),
+        duration_string(summary.workday_total, format),
         summary.workday_error_minutes or 0
       )
     )
   else
     if has_workday_excluded_items(summary.summary_items) then
-      table.insert(lines, string.format("%s activity", hours_string(summary.activity_total)))
+      table.insert(
+        lines,
+        string.format("%s activity", duration_string(summary.activity_total, format))
+      )
     end
 
-    table.insert(lines, string.format("%s workday", hours_string(summary.workday_total)))
+    table.insert(lines, string.format("%s workday", duration_string(summary.workday_total, format)))
   end
 
   return lines

@@ -70,6 +70,7 @@ Useful syntax:
 #-             clear current tag
 @-             clear current location
 quantize=30    round summaries to 30-minute buckets
+duration=hhmm  render summary durations as hours:minutes
 ```
 
 ## Commands
@@ -115,13 +116,15 @@ return {
         tag = "ClientA",
         location = "office",
         quantize_minutes = 30,
+        duration_format = "hhmm",
       },
     })
   end,
 }
 ```
 
-All default fields are optional.
+All default fields are optional: `tag`, `location`, `quantize_minutes`, and
+`duration_format`.
 
 A common place for this file is:
 

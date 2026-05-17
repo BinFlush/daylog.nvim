@@ -141,6 +141,7 @@ It owns:
 - clear-token semantics
 - `#ooo` exclusion
 - block-local `quantize` interpretation
+- block-local `duration` interpretation
 - diagnostics
 
 A semantic entry has explicit metadata and effective metadata:
@@ -167,6 +168,12 @@ Quantization is block-local. Consumers should use:
 
 ```lua
 block.quantize_minutes
+```
+
+Summary duration formatting is also block-local. Consumers should use:
+
+```lua
+block.duration_format
 ```
 
 ## `entry.lua`
@@ -223,7 +230,8 @@ entry[i] -> entry[i + 1]
 The final timestamped entry closes the previous interval and does not produce its
 own interval.
 
-Exact summaries use raw interval durations.
+Exact summaries use raw interval durations. Rendering can display them as
+decimal hours or `hh:mm` duration strings.
 
 ## Quantization
 

@@ -53,7 +53,7 @@ A worklog block starts with a worklog header:
 The header may set initial sticky metadata and options:
 
 >
-  --- worklog #ClientA @office quantize=30 ---
+  --- worklog #ClientA @office quantize=30 duration=hhmm ---
 <
 
 A worklog entry has this shape:
@@ -83,6 +83,10 @@ Rules:
 - Notes move with their timestamped entry when copied or ordered.
 - `quantize=<minutes>` sets the quantization bucket for that worklog block.
 - If no quantize option is present, quantization defaults to 15 minutes.
+- `duration=decimal|hhmm` sets how summaries render durations for that worklog
+  block.
+- If no duration option is present, summaries default to decimal hours such as
+  `1.50h`.
 
 ==============================================================================
 STICKY METADATA                                      *worklog-sticky-metadata*
@@ -182,7 +186,8 @@ Create a new worklog block at the end of the buffer.
 
 - In an empty buffer, this creates the initial worklog header.
 - In a populated buffer, this appends a new worklog block at the end.
-- The header uses optional defaults from `require('worklog').setup({ defaults = ... })`.
+- The header uses optional defaults from `require('worklog').setup({ defaults = ... })`,
+  including `duration_format`.
 
                                                         *:WorklogInsert*
 :WorklogInsert
@@ -241,6 +246,8 @@ Append an exact summary for the active worklog.
 The summary includes item totals and overall totals. Tag and location totals are
 included when they contain meaningful buckets.
 
+Durations render according to `duration=decimal|hhmm` on that worklog block.
+
                                                         *:WorklogQuantSum*
 :WorklogQuantSum
 
@@ -248,6 +255,8 @@ Append a rounded summary for the active worklog.
 
 The bucket size is read from `quantize=<minutes>` on that worklog block. If
 omitted, the default is 15 minutes.
+
+Durations render according to `duration=decimal|hhmm` on that worklog block.
 
 ==============================================================================
 SUMMARIES                                                  *worklog-summaries*

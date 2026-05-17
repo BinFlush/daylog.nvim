@@ -9,6 +9,7 @@ local M = {}
 local INVALID_FIRST_HEADER_MESSAGE =
   "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 local DEFAULT_QUANTIZE_MINUTES = 15
+local DEFAULT_DURATION_FORMAT = "decimal"
 
 local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
@@ -147,6 +148,8 @@ local function interpret_worklog_header(header, diagnostics)
     has_location = false,
     quantize_minutes = nil,
     declared_quantize = false,
+    duration_format = nil,
+    declared_duration = false,
   }
 
   for _, token in ipairs(header.metadata_tokens or {}) do
@@ -203,6 +206,28 @@ local function interpret_worklog_header(header, diagnostics)
           })
         else
           result.quantize_minutes = quantize_minutes
+        end
+      end
+    elseif token.key == "duration" then
+      if result.declared_duration then
+        push_diagnostic(diagnostics, {
+          code = "invalid_worklog_header_option",
+          severity = "error",
+          row = header.row,
+          message = "duplicate worklog header option: duration",
+        })
+      else
+        result.declared_duration = true
+
+        if token.value ~= "decimal" and token.value ~= "hhmm" then
+          push_diagnostic(diagnostics, {
+            code = "invalid_worklog_header_option",
+            severity = "error",
+            row = header.row,
+            message = "worklog header option duration must be decimal or hhmm",
+          })
+        else
+          result.duration_format = token.value
         end
       end
     else
@@ -319,8 +344,12 @@ function M.analyze(document)
       header_tag = interpreted_header.tag,
       header_location = interpreted_header.location,
       header_quantize_minutes = interpreted_header.quantize_minutes,
+      header_duration_format = interpreted_header.duration_format,
       quantize_minutes = is_worklog_header(header)
           and (interpreted_header.quantize_minutes or DEFAULT_QUANTIZE_MINUTES)
+        or nil,
+      duration_format = is_worklog_header(header)
+          and (interpreted_header.duration_format or DEFAULT_DURATION_FORMAT)
         or nil,
     }
 

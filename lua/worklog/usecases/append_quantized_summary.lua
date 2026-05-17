@@ -12,7 +12,11 @@ function M.run(lines)
     return nil, err
   end
 
-  local rendered = render.summary_lines(summary.quantized_summarize_block(ctx.block), "quantized")
+  local rendered = render.summary_lines(
+    summary.quantized_summarize_block(ctx.block),
+    "quantized",
+    ctx.block.duration_format
+  )
   return support.append_edit(lines, rendered)
 end
 

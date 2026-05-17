@@ -23,6 +23,9 @@ Versioning loosely follows SemVer, with compatibility focused on `.wkl` semantic
 
 ### Added
 
+- Added `duration=decimal|hhmm` as a block-local worklog header option for
+  summary duration rendering.
+
 ### Changed
 
 - Focused `:checkhealth worklog` on runtime plugin integration and split
