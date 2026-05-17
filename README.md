@@ -145,8 +145,6 @@ Set up local tooling:
 just install
 ```
 
-This configures `git` to use the repository's `.githooks/` directory. The
-included `pre-commit` hook runs `just check`.
+This configures `git` to use the repository's `.githooks/` directory.
 
-See justfile for other convenience commands
-
+For available convenience recipes, run `just --list` or inspect `justfile`.

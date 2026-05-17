@@ -300,22 +300,16 @@ Set up local contributor tooling once:
 
 This configures `git` to use the repository's `.githooks/` directory.
 
-The included `pre-commit` hook runs:
+For available convenience recipes, run `just --list` or inspect `justfile`.
 
 >
-  just check
+  just --list
 <
 
-Common development commands:
+If you edit this help file, regenerate `doc/tags` with:
 
 >
-  just format
-  just format-check
-  just lint
-  just test
-  just smoke
-  just docs
-  just check
+  just helptags
 <
 
 Run the full test suite directly:

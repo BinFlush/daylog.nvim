@@ -450,19 +450,12 @@ Set up local contributor tooling once:
 just install
 ```
 
-This configures `git` to use the repository's `.githooks/` directory. The
-included `pre-commit` hook runs `just check`.
+This configures `git` to use the repository's `.githooks/` directory.
 
-Other convenience commands (see `justfile` for more):
+For available convenience recipes, run `just --list` or inspect `justfile`.
 
 ```sh
-just format
-just format-check
-just lint
-just test
-just smoke
-just docs
-just check
+just --list
 ```
 
 Run the full test suite directly:
