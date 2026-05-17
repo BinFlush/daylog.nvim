@@ -6,55 +6,63 @@ local M = {}
 -- module owns interval derivation, grouping, tag/location totals, sorting, and
 -- quantization so reporting stays a first-class semantic concern.
 
-local function key_part(value)
+local NIL = {}
+
+local function normalize_key_part(value)
   if value == nil then
-    return "nil:"
+    return NIL
   end
 
-  value = tostring(value)
-  return "str:" .. #value .. ":" .. value
+  return value
 end
 
-local function make_key(...)
-  local parts = {}
+local function get_nested(root, item, key_fields)
+  local node = root
 
-  for i = 1, select("#", ...) do
-    table.insert(parts, key_part(select(i, ...)))
+  assert(#key_fields > 0, "get_nested requires at least one key field")
+
+  for i = 1, #key_fields do
+    node = node[normalize_key_part(item[key_fields[i]])]
+
+    if not node then
+      return nil
+    end
   end
 
-  return table.concat(parts, "|")
+  return node
 end
 
--- Row identities in this module:
--- fine-grained rows keep text, tag, location, and workday exclusion so exact
--- and quantized reporting can start from one shared base;
--- summary items fold that base down to text, tag, and workday exclusion;
--- metadata totals fold rows down again to just tag or location.
-local function summary_item_key(row)
-  return make_key(row.text, row.tag, row.workday_excluded)
-end
+local function put_nested(root, item, key_fields, value)
+  local node = root
 
-local function metadata_bucket_key(row, field)
-  return make_key(row[field])
-end
+  assert(#key_fields > 0, "put_nested requires at least one key field")
 
-local function fine_grained_row_key(row)
-  return make_key(row.text, row.tag, row.location, row.workday_excluded)
+  for i = 1, #key_fields - 1 do
+    local key = normalize_key_part(item[key_fields[i]])
+
+    if not node[key] then
+      node[key] = {}
+    end
+
+    node = node[key]
+  end
+
+  node[normalize_key_part(item[key_fields[#key_fields]])] = value
 end
 
 -- Project rows into coarser reporting buckets.
--- `key_fn` decides which rows belong to the same bucket, while `fields`
--- decides which descriptive labels survive into the projected row.
+-- `key_fields` decides which row fields define identity, while `fields` decides
+-- which descriptive labels survive into the projected row.
 -- Durations are always accumulated, and first-seen group order is preserved.
-local function project_rows(rows, key_fn, fields)
+local function project_rows(rows, key_fields, fields)
   local buckets = {}
   local order = {}
 
   for _, row in ipairs(rows) do
-    local key = key_fn(row)
+    local bucket = get_nested(buckets, row, key_fields)
 
-    if not buckets[key] then
-      local bucket = {
+    if not bucket then
+      bucket = {
         duration = 0,
         exact_duration = 0,
       }
@@ -63,21 +71,15 @@ local function project_rows(rows, key_fn, fields)
         bucket[field] = row[field]
       end
 
-      buckets[key] = bucket
-      table.insert(order, key)
+      put_nested(buckets, row, key_fields, bucket)
+      table.insert(order, bucket)
     end
 
-    buckets[key].duration = buckets[key].duration + row.duration
-    buckets[key].exact_duration = buckets[key].exact_duration + (row.exact_duration or row.duration)
+    bucket.duration = bucket.duration + row.duration
+    bucket.exact_duration = bucket.exact_duration + (row.exact_duration or row.duration)
   end
 
-  local result = {}
-
-  for _, key in ipairs(order) do
-    table.insert(result, buckets[key])
-  end
-
-  return result
+  return order
 end
 
 local function build_intervals(entries)
@@ -107,19 +109,21 @@ end
 local function build_fine_grained_rows(intervals)
   return project_rows(
     intervals,
-    fine_grained_row_key,
+    { "text", "tag", "location", "workday_excluded" },
     { "text", "tag", "location", "workday_excluded" }
   )
 end
 
 local function summarize_items(rows)
-  return project_rows(rows, summary_item_key, { "text", "tag", "workday_excluded" })
+  return project_rows(
+    rows,
+    { "text", "tag", "workday_excluded" },
+    { "text", "tag", "workday_excluded" }
+  )
 end
 
 local function summarize_metadata(rows, field)
-  return project_rows(rows, function(row)
-    return metadata_bucket_key(row, field)
-  end, { field })
+  return project_rows(rows, { field }, { field })
 end
 
 -- Project one row set into every exact reporting section.
@@ -323,11 +327,11 @@ local function quantize_rows(rows, bucket_minutes, target_total)
   return result
 end
 
-local function items_by_custom_key(items, key_fn)
+local function items_by_fields(items, key_fields)
   local result = {}
 
   for _, item in ipairs(items) do
-    result[key_fn(item)] = item
+    put_nested(result, item, key_fields, item)
   end
 
   return result
@@ -336,13 +340,13 @@ end
 -- Reapply quantized durations onto exact ordered sections.
 -- Exact rows define the visible labels and exact totals, while the quantized
 -- rows provide the displayed duration after one shared quantization pass.
-local function project_quantized_items(exact_items, quantized_items, key_fn, fields)
+local function project_quantized_items(exact_items, quantized_items, key_fields, fields)
   local result = {}
-  local quantized_by_key = items_by_custom_key(quantized_items, key_fn)
+  local quantized_index = items_by_fields(quantized_items, key_fields)
 
   for _, item in ipairs(exact_items) do
     local projected = {}
-    local quantized_item = quantized_by_key[key_fn(item)]
+    local quantized_item = get_nested(quantized_index, item, key_fields)
 
     for _, field in ipairs(fields) do
       projected[field] = item[field]
@@ -361,7 +365,6 @@ end
 
 function M.summarize_entries(entries)
   local summary = build_summary_from_rows(build_fine_grained_rows(build_intervals(entries)))
-
   return finalize_summary_order(summary)
 end
 
@@ -388,23 +391,19 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
     summary_items = project_quantized_items(
       exact_summary.summary_items,
       quantized_summary.summary_items,
-      summary_item_key,
+      { "text", "tag", "workday_excluded" },
       { "text", "tag", "workday_excluded" }
     ),
     tag_totals = project_quantized_items(
       exact_summary.tag_totals,
       quantized_summary.tag_totals,
-      function(row)
-        return metadata_bucket_key(row, "tag")
-      end,
+      { "tag" },
       { "tag" }
     ),
     location_totals = project_quantized_items(
       exact_summary.location_totals,
       quantized_summary.location_totals,
-      function(row)
-        return metadata_bucket_key(row, "location")
-      end,
+      { "location" },
       { "location" }
     ),
     activity_total = quantized_summary.activity_total,
