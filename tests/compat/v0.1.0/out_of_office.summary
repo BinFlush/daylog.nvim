@@ -1,0 +1,23 @@
+--- worklog #ProjectOrion @office ---
+08:00 plan
+08:30 plan #sales @client
+09:00 break #ooo
+09:15 done #ProjectOrion @office
+
+--- summary exact ---
+0.50h plan #ProjectOrion
+0.50h plan #sales
+0.25h break
+
+--- tags exact ---
+0.50h #ProjectOrion
+0.50h #sales
+0.25h #ooo
+
+--- locations exact ---
+0.75h @client
+0.50h @office
+
+--- totals exact ---
+1.25h activity
+1.00h workday

@@ -143,6 +143,15 @@ For internal design notes, see:
 docs/architecture.md
 ```
 
+## Versioning and compatibility
+
+`main` is the active development branch. Tagged releases are the recommended
+compatibility points for users who need reproducible `.wkl` behavior.
+
+The `.wkl` format is intended to be stable. Changes that affect parsing,
+sticky metadata, summaries, rendering, or quantization are documented in
+`CHANGELOG.md`.
+
 ## Development
 
 Set up local tooling:

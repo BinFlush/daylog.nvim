@@ -33,6 +33,9 @@ loaded.
 Run `:checkhealth worklog` to verify setup, command registration, help docs,
 and optional development tooling.
 
+Users who need reproducible behavior can pin a tagged release. `.wkl`
+compatibility notes are tracked in `CHANGELOG.md`.
+
 ==============================================================================
 FORMAT                                                        *worklog-format*
 

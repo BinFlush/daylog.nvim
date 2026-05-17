@@ -47,3 +47,6 @@ check:
     just helptags-check
     just test
     just health
+
+release-check:
+    just check

@@ -1,0 +1,24 @@
+--- worklog #ClientA @office ---
+08:00 plan
+08:30 pair @home
+09:00 untagged #- @-
+09:30 review
+10:00 done
+
+--- summary exact ---
+0.50h plan
+0.50h pair
+0.50h untagged
+0.50h review
+
+--- tags exact ---
+1.00h #ClientA
+1.00h (untagged)
+
+--- locations exact ---
+1.00h (no location)
+0.50h @office
+0.50h @home
+
+--- totals exact ---
+2.00h workday
