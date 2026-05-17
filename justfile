@@ -26,7 +26,11 @@ smoke:
 docs:
     nvim --headless -u NONE "+helptags doc" +qa
 
+lint:
+    luacheck lua tests plugin
+
 check:
     just format-check
+    just lint
     just test
     just smoke
