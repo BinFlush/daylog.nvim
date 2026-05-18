@@ -23,6 +23,10 @@ Versioning loosely follows SemVer, with compatibility focused on `.wkl` semantic
 
 ### Added
 
+- Added optional `journal` configuration and `:WorklogToday` to open today's
+  dated `.wkl` file, create parent directories, and initialize missing or empty
+  journals with configured defaults and the current time.
+
 ### Changed
 
 ### Fixed

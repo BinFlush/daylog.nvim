@@ -8,8 +8,9 @@ CONTENTS                                                    *worklog-contents*
 3. Sticky metadata..........................................|worklog-sticky-metadata|
 4. Gotchas..................................................|worklog-gotchas|
 5. Commands.................................................|worklog-commands|
-6. Summaries................................................|worklog-summaries|
-7. Development..............................................|worklog-development|
+6. Configuration..............................................|worklog-config|
+7. Summaries................................................|worklog-summaries|
+8. Development..............................................|worklog-development|
 
 ==============================================================================
 OVERVIEW                                                    *worklog-overview*
@@ -189,7 +190,18 @@ Create a new worklog block at the end of the buffer.
 - The header uses optional defaults from `require('worklog').setup({ defaults = ... })`,
   including `duration_format`.
 
-                                                        *:WorklogInsert*
+                                                        *:WorklogToday*
+:WorklogToday
+
+Open today's journal file from `require('worklog').setup({ journal = ... })`.
+
+- The path is `{root}/{strftime(directory)}/YYYY-MM-DD.wkl`.
+- Parent directories are created when needed.
+- If the file is missing or empty, the command creates the first worklog block
+  using configured defaults, then inserts the current time.
+- If the file already has content, it is opened without modification.
+
+                                                         *:WorklogInsert*
 :WorklogInsert
 
 Insert the current time into the worklog block under the cursor.
@@ -257,6 +269,70 @@ The bucket size is read from `quantize=<minutes>` on that worklog block. If
 omitted, the default is 15 minutes.
 
 Durations render according to `duration=decimal|hhmm` on that worklog block.
+
+==============================================================================
+CONFIGURATION                                                  *worklog-config*
+
+Configure `worklog.nvim` with:
+
+>
+  require('worklog').setup({
+    defaults = {
+      tag = 'ClientA',
+      location = 'office',
+      quantize_minutes = 30,
+      duration_format = 'hhmm',
+    },
+    journal = {
+      root = '~/timereg',
+      directory = '%Y/%V',
+    },
+  })
+<
+
+`defaults` are used by |:WorklogNew| and by the initial header created from
+|:WorklogToday|.
+
+`journal` is optional:
+
+- `root` is the base directory used by |:WorklogToday|.
+- `directory` is an optional `strftime` template under that root.
+- The filename is always `YYYY-MM-DD.wkl`.
+
+Examples:
+
+>
+  root = '~/timereg', directory = '%Y/%V'
+<
+
+opens:
+
+>
+  ~/timereg/2026/21/2026-05-18.wkl
+<
+
+>
+  root = '~/worklog', directory = '%Y'
+<
+
+opens:
+
+>
+  ~/worklog/2026/2026-05-18.wkl
+<
+
+>
+  root = '~/worklog', directory = ''
+<
+
+opens:
+
+>
+  ~/worklog/2026-05-18.wkl
+<
+
+`directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees better
+than `%Y/%V` around new year boundaries.
 
 ==============================================================================
 SUMMARIES                                                  *worklog-summaries*

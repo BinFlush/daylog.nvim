@@ -62,6 +62,29 @@ local function normalize_defaults(defaults)
   return result
 end
 
+local function normalize_journal(journal)
+  if journal == nil then
+    return nil
+  end
+
+  if type(journal) ~= "table" then
+    error("worklog: setup journal must be a table")
+  end
+
+  if type(journal.root) ~= "string" or journal.root == "" then
+    error("worklog: journal.root must be a non-empty string")
+  end
+
+  if journal.directory ~= nil and type(journal.directory) ~= "string" then
+    error("worklog: journal.directory must be a string")
+  end
+
+  return {
+    root = journal.root,
+    directory = journal.directory or "",
+  }
+end
+
 local function normalize_config(options)
   if options == nil then
     return {
@@ -73,9 +96,16 @@ local function normalize_config(options)
     error("worklog: setup options must be a table")
   end
 
-  return {
+  local result = {
     defaults = normalize_defaults(options.defaults),
   }
+
+  local journal = normalize_journal(options.journal)
+  if journal ~= nil then
+    result.journal = journal
+  end
+
+  return result
 end
 
 function M.setup(options)

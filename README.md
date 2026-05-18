@@ -78,6 +78,7 @@ duration=hhmm  render summary durations as hours:minutes
 | Command | Effect |
 | --- | --- |
 | `:WorklogNew` | Create a new worklog block using configured defaults |
+| `:WorklogToday` | Open today's journal file and initialize it if needed |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
 | `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
 | `:WorklogCheck` | Validate the current buffer without modifying it |
@@ -118,6 +119,10 @@ return {
         quantize_minutes = 30,
         duration_format = "hhmm",
       },
+      journal = {
+        root = "~/timereg",
+        directory = "%Y/%V",
+      },
     })
   end,
 }
@@ -125,6 +130,24 @@ return {
 
 All default fields are optional: `tag`, `location`, `quantize_minutes`, and
 `duration_format`.
+
+Journal settings are optional too:
+
+- `journal.root` is the base directory used by `:WorklogToday`.
+- `journal.directory` is an optional `strftime` template under that root.
+- The journal filename is always `YYYY-MM-DD.wkl`.
+
+With the example above, `:WorklogToday` opens:
+
+```text
+~/timereg/2026/21/2026-05-18.wkl
+```
+
+If the file is missing or empty, `:WorklogToday` creates the first worklog block
+using your configured defaults and inserts the current time.
+
+`journal.directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees
+better than `%Y/%V` around new year boundaries.
 
 A common place for this file is:
 
@@ -143,6 +166,7 @@ you like, for example:
 
 ```lua
 vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>", { desc = "Worklog insert time" })
+vim.keymap.set("n", "<leader>wt", "<cmd>WorklogToday<cr>", { desc = "Worklog open today" })
 vim.keymap.set("n", "<leader>wr", "<cmd>WorklogRepeat<cr>", { desc = "Worklog repeat activity" })
 vim.keymap.set("n", "<leader>ww", "<cmd>WorklogCopy<cr>", { desc = "Worklog copy block" })
 vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>", { desc = "Worklog order blocks" })

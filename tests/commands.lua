@@ -16,6 +16,25 @@ return function(t)
     end
   end
 
+  local function with_mocked_time(value, fn)
+    local old_time = os.time
+
+    rawset(os, "time", function(argument)
+      if argument ~= nil then
+        return old_time(argument)
+      end
+
+      return value
+    end)
+
+    local ok, err = xpcall(fn, debug.traceback)
+    rawset(os, "time", old_time)
+
+    if not ok then
+      error(err, 0)
+    end
+  end
+
   local function with_worklog_setup(options, fn)
     worklog.setup(options)
 
@@ -76,6 +95,189 @@ return function(t)
         "--- worklog #ClientA @office quantize=30 duration=hhmm ---",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 3, 0 })
+    end)
+  end)
+
+  t.test("today opens a new journal file and initializes the first entry", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+
+    with_worklog_setup({
+      defaults = {
+        tag = "ClientA",
+        location = "office",
+        quantize_minutes = 30,
+        duration_format = "hhmm",
+      },
+      journal = {
+        root = root,
+        directory = "%Y/%V",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogToday")
+      end)
+
+      local expected_dir = root .. "/" .. os.date("%Y/%V", now)
+      local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+
+      t.eq(vim.fn.isdirectory(expected_dir), 1)
+      t.eq(vim.api.nvim_buf_get_name(0), expected_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office quantize=30 duration=hhmm ---",
+        "08:45 ",
+      })
+      t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
+    end)
+  end)
+
+  t.test("today initializes an existing empty journal file", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+    local expected_dir = root .. "/" .. os.date("%Y", now)
+    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+
+    vim.fn.mkdir(expected_dir, "p")
+    vim.fn.writefile({}, expected_path)
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogToday")
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), expected_path)
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+        "08:45 ",
+      })
+    end)
+  end)
+
+  t.test("today opens an existing journal file without changing it", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+    local expected_dir = root .. "/" .. os.date("%Y", now)
+    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+
+    vim.fn.mkdir(expected_dir, "p")
+    vim.fn.writefile({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    }, expected_path)
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogToday")
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), expected_path)
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+        "08:00 plan",
+        "09:00 done",
+      })
+      t.ok(not vim.bo.modified)
+    end)
+  end)
+
+  t.test("today does nothing when journal settings are missing", function()
+    with_worklog_setup({}, function()
+      vim.cmd("enew!")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
+      vim.bo.modified = false
+
+      vim.cmd("WorklogToday")
+
+      t.eq(vim.api.nvim_buf_get_name(0), "")
+      t.eq(t.get_lines(), { "scratch" })
+    end)
+  end)
+
+  t.test("today does not create directories when current buffer has unsaved changes", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+    local expected_dir = root .. "/" .. os.date("%Y", now)
+    local old_hidden = vim.o.hidden
+    local old_autowrite = vim.o.autowrite
+    local old_autowriteall = vim.o.autowriteall
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      local ok, err = xpcall(function()
+        vim.o.hidden = false
+        vim.o.autowrite = false
+        vim.o.autowriteall = false
+
+        vim.cmd("enew!")
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
+
+        vim.cmd("WorklogToday")
+
+        t.eq(vim.api.nvim_buf_get_name(0), "")
+        t.eq(t.get_lines(), { "scratch" })
+        t.ok(vim.bo.modified)
+        t.eq(vim.fn.isdirectory(expected_dir), 0)
+      end, debug.traceback)
+
+      vim.o.hidden = old_hidden
+      vim.o.autowrite = old_autowrite
+      vim.o.autowriteall = old_autowriteall
+
+      if not ok then
+        error(err, 0)
+      end
     end)
   end)
 

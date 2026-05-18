@@ -6,7 +6,9 @@
 :WorklogQuantSum	worklog.txt	/*:WorklogQuantSum*
 :WorklogRepeat	worklog.txt	/*:WorklogRepeat*
 :WorklogSummarize	worklog.txt	/*:WorklogSummarize*
+:WorklogToday	worklog.txt	/*:WorklogToday*
 worklog-commands	worklog.txt	/*worklog-commands*
+worklog-config	worklog.txt	/*worklog-config*
 worklog-contents	worklog.txt	/*worklog-contents*
 worklog-development	worklog.txt	/*worklog-development*
 worklog-format	worklog.txt	/*worklog-format*

@@ -9,6 +9,10 @@ return function(t)
         quantize_minutes = 30,
         duration_format = "hhmm",
       },
+      journal = {
+        root = "~/timereg",
+        directory = "%Y/%V",
+      },
     })
 
     t.eq(config.get(), {
@@ -17,6 +21,10 @@ return function(t)
         location = "office",
         quantize_minutes = 30,
         duration_format = "hhmm",
+      },
+      journal = {
+        root = "~/timereg",
+        directory = "%Y/%V",
       },
     })
 
@@ -71,6 +79,46 @@ return function(t)
     })
     t.ok(not ok)
     t.ok(tostring(err):match("defaults.duration_format must be decimal or hhmm") ~= nil)
+
+    config.setup()
+  end)
+
+  t.test("config setup validates journal settings", function()
+    local ok, err = pcall(config.setup, {
+      journal = "bad",
+    })
+    t.ok(not ok)
+    t.ok(tostring(err):match("setup journal must be a table") ~= nil)
+
+    ok, err = pcall(config.setup, {
+      journal = {
+        root = "",
+      },
+    })
+    t.ok(not ok)
+    t.ok(tostring(err):match("journal.root must be a non%-empty string") ~= nil)
+
+    ok, err = pcall(config.setup, {
+      journal = {
+        root = "~/timereg",
+        directory = 15,
+      },
+    })
+    t.ok(not ok)
+    t.ok(tostring(err):match("journal.directory must be a string") ~= nil)
+
+    config.setup({
+      journal = {
+        root = "~/timereg",
+      },
+    })
+    t.eq(config.get(), {
+      defaults = {},
+      journal = {
+        root = "~/timereg",
+        directory = "",
+      },
+    })
 
     config.setup()
   end)
