@@ -6,18 +6,19 @@ All notable user-facing changes to this project are documented here.
 
 `main` is the active development branch and may receive ongoing changes.
 
-Tagged releases are the recommended compatibility points for users who need
-reproducible behavior.
+Tagged releases are the compatibility points for users who need reproducible
+`.wkl` parsing, summaries, and rendering.
 
-The `.wkl` format is intended to be stable. Changes that alter the meaning of
-existing valid worklogs, summary totals, sticky metadata, or quantization are
-treated as breaking changes and called out clearly.
+`worklog.nvim` is pre-1.0, so breaking syntax or semantic changes may still
+happen, but they are called out clearly in this changelog.
 
-Versioning loosely follows SemVer, with compatibility focused on `.wkl` semantics:
-
-- Patch releases fix bugs without intentionally changing behavior for valid files.
-- Minor releases add compatible syntax, commands, or reporting features.
-- Major releases may change how existing valid `.wkl` files parse, summarize, or render.
+- The project aims to preserve existing valid `.wkl` files where practical.
+- Unknown or unsupported header options are reported as diagnostics, not
+  silently ignored.
+- Patch releases may change derived results when they fix miscomputed
+  behavior; those changes are documented here.
+- Compatibility applies to worklog blocks and their semantics. Generated
+  summary text is derived output, not canonical source data.
 
 ## Unreleased
 

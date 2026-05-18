@@ -8,6 +8,7 @@
 :WorklogSummarize	worklog.txt	/*:WorklogSummarize*
 :WorklogToday	worklog.txt	/*:WorklogToday*
 worklog-commands	worklog.txt	/*worklog-commands*
+worklog-compatibility	worklog.txt	/*worklog-compatibility*
 worklog-config	worklog.txt	/*worklog-config*
 worklog-contents	worklog.txt	/*worklog-contents*
 worklog-development	worklog.txt	/*worklog-development*

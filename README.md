@@ -199,12 +199,19 @@ docs/architecture.md
 
 ## Versioning and compatibility
 
-`main` is the active development branch. Tagged releases are the recommended
-compatibility points for users who need reproducible `.wkl` behavior.
+`main` is the active development branch. Tagged releases are the compatibility
+points for users who need reproducible `.wkl` parsing, summaries, and
+rendering.
 
-The `.wkl` format is intended to be stable. Changes that affect parsing,
-sticky metadata, summaries, rendering, or quantization are documented in
-`CHANGELOG.md`.
+- `worklog.nvim` is pre-1.0, so breaking syntax or semantic changes may still
+  happen, but they are called out clearly in `CHANGELOG.md`.
+- The project aims to preserve existing valid `.wkl` files where practical.
+- Unknown or unsupported header options are reported as diagnostics instead of
+  being silently ignored.
+- Patch releases may change derived results when they fix miscomputed
+  behavior; those changes are documented.
+- Compatibility applies to worklog blocks and their semantics. Generated
+  summary text is derived output, not canonical source data.
 
 ## Development
 
