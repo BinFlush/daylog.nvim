@@ -469,6 +469,109 @@ return function(t)
     })
   end)
 
+  t.test("combined quantized summaries preserve daily rounding and sum errors", function()
+    t.eq(
+      summary.combine_quantized_summaries({
+        {
+          summary_items = {
+            {
+              text = "plan",
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+              workday_excluded = false,
+            },
+          },
+          tag_totals = {
+            {
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          location_totals = {
+            {
+              location = "office",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          activity_total = 30,
+          workday_total = 30,
+          activity_error_minutes = -10,
+          workday_error_minutes = -10,
+        },
+        {
+          summary_items = {
+            {
+              text = "plan",
+              tag = "ClientA",
+              duration = 0,
+              exact_duration = 20,
+              error_minutes = 20,
+              workday_excluded = false,
+            },
+          },
+          tag_totals = {
+            {
+              tag = "ClientA",
+              duration = 0,
+              exact_duration = 20,
+              error_minutes = 20,
+            },
+          },
+          location_totals = {
+            {
+              location = "office",
+              duration = 0,
+              exact_duration = 20,
+              error_minutes = 20,
+            },
+          },
+          activity_total = 0,
+          workday_total = 0,
+          activity_error_minutes = 20,
+          workday_error_minutes = 20,
+        },
+      }),
+      {
+        summary_items = {
+          {
+            text = "plan",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 40,
+            error_minutes = 10,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 40,
+            error_minutes = 10,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 30,
+            exact_duration = 40,
+            error_minutes = 10,
+          },
+        },
+        activity_total = 30,
+        workday_total = 30,
+        activity_error_minutes = 10,
+        workday_error_minutes = 10,
+      }
+    )
+  end)
+
   t.test("summary ignores location for main item identity and keeps totals unchanged", function()
     local block = block_from_lines({
       "--- worklog #ClientA @office ---",

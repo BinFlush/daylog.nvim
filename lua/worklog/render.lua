@@ -111,6 +111,150 @@ local function has_workday_excluded_items(items)
   return false
 end
 
+local function section_headers(kind, options)
+  local header_suffix = kind == "quantized" and " quantized" or " exact"
+  options = options or {}
+
+  return {
+    summary = options.summary_header or ("--- summary" .. header_suffix .. " ---"),
+    tag = options.tag_header or ("--- tags" .. header_suffix .. " ---"),
+    location = options.location_header or ("--- locations" .. header_suffix .. " ---"),
+    total = options.total_header or ("--- totals" .. header_suffix .. " ---"),
+    leading_blank = options.leading_blank ~= false,
+  }
+end
+
+local function append_summary_lines(lines, summary, kind, duration_format, options)
+  local headers = section_headers(kind, options)
+  local conflicts = text_tag_conflicts(summary.summary_items)
+  local format = duration_format or "decimal"
+
+  if headers.leading_blank then
+    table.insert(lines, "")
+  end
+
+  table.insert(lines, headers.summary)
+
+  for _, item in ipairs(summary.summary_items) do
+    if kind == "quantized" then
+      table.insert(
+        lines,
+        summary_line(
+          string.format(
+            "%s (%+dm)",
+            duration_string(item.duration, format),
+            item.error_minutes or 0
+          ),
+          item,
+          conflicts[item.text]
+        )
+      )
+    else
+      table.insert(
+        lines,
+        summary_line(duration_string(item.duration, format), item, conflicts[item.text])
+      )
+    end
+  end
+
+  table.insert(lines, "")
+
+  if kind == "exact" then
+    if has_metadata_items(summary.tag_totals, "tag") then
+      table.insert(lines, headers.tag)
+
+      for _, item in ipairs(summary.tag_totals or {}) do
+        table.insert(lines, tag_line(duration_string(item.duration, format), item))
+      end
+
+      table.insert(lines, "")
+    end
+
+    if has_metadata_items(summary.location_totals, "location") then
+      table.insert(lines, headers.location)
+
+      for _, item in ipairs(summary.location_totals or {}) do
+        table.insert(lines, location_line(duration_string(item.duration, format), item))
+      end
+
+      table.insert(lines, "")
+    end
+  elseif kind == "quantized" then
+    if has_metadata_items(summary.tag_totals, "tag") then
+      table.insert(lines, headers.tag)
+
+      for _, item in ipairs(summary.tag_totals or {}) do
+        table.insert(
+          lines,
+          tag_line(
+            string.format(
+              "%s (%+dm)",
+              duration_string(item.duration, format),
+              item.error_minutes or 0
+            ),
+            item
+          )
+        )
+      end
+
+      table.insert(lines, "")
+    end
+
+    if has_metadata_items(summary.location_totals, "location") then
+      table.insert(lines, headers.location)
+
+      for _, item in ipairs(summary.location_totals or {}) do
+        table.insert(
+          lines,
+          location_line(
+            string.format(
+              "%s (%+dm)",
+              duration_string(item.duration, format),
+              item.error_minutes or 0
+            ),
+            item
+          )
+        )
+      end
+
+      table.insert(lines, "")
+    end
+  end
+
+  table.insert(lines, headers.total)
+
+  if kind == "quantized" then
+    if has_workday_excluded_items(summary.summary_items) then
+      table.insert(
+        lines,
+        string.format(
+          "%s (%+dm) activity",
+          duration_string(summary.activity_total, format),
+          summary.activity_error_minutes or 0
+        )
+      )
+    end
+
+    table.insert(
+      lines,
+      string.format(
+        "%s (%+dm) workday",
+        duration_string(summary.workday_total, format),
+        summary.workday_error_minutes or 0
+      )
+    )
+  else
+    if has_workday_excluded_items(summary.summary_items) then
+      table.insert(
+        lines,
+        string.format("%s activity", duration_string(summary.activity_total, format))
+      )
+    end
+
+    table.insert(lines, string.format("%s workday", duration_string(summary.workday_total, format)))
+  end
+end
+
 function M.worklog_header_line(
   header_tag,
   header_location,
@@ -160,133 +304,32 @@ function M.worklog_lines(
   return rendered
 end
 
-function M.summary_lines(summary, kind, duration_format)
-  local header_suffix = kind == "quantized" and " quantized" or " exact"
+function M.summary_lines(summary, kind, duration_format, options)
   local lines = {}
-  local conflicts = text_tag_conflicts(summary.summary_items)
-  local format = duration_format or "decimal"
+  append_summary_lines(lines, summary, kind, duration_format, options)
+  return lines
+end
 
-  table.insert(lines, "")
-  table.insert(lines, "--- summary" .. header_suffix .. " ---")
+function M.week_report_lines(report, duration_format)
+  local lines = {}
 
-  for _, item in ipairs(summary.summary_items) do
-    if kind == "quantized" then
-      table.insert(
-        lines,
-        summary_line(
-          string.format(
-            "%s (%+dm)",
-            duration_string(item.duration, format),
-            item.error_minutes or 0
-          ),
-          item,
-          conflicts[item.text]
-        )
-      )
-    else
-      table.insert(
-        lines,
-        summary_line(duration_string(item.duration, format), item, conflicts[item.text])
-      )
-    end
+  for index, day in ipairs(report.days) do
+    append_summary_lines(lines, day.summary, "quantized", duration_format, {
+      leading_blank = index > 1,
+      summary_header = "--- day summary quantized " .. day.date_label .. " ---",
+      tag_header = "--- day tags quantized " .. day.date_label .. " ---",
+      location_header = "--- day locations quantized " .. day.date_label .. " ---",
+      total_header = "--- day totals quantized " .. day.date_label .. " ---",
+    })
   end
 
-  table.insert(lines, "")
-
-  if kind == "exact" then
-    if has_metadata_items(summary.tag_totals, "tag") then
-      table.insert(lines, "--- tags exact ---")
-
-      for _, item in ipairs(summary.tag_totals or {}) do
-        table.insert(lines, tag_line(duration_string(item.duration, format), item))
-      end
-
-      table.insert(lines, "")
-    end
-
-    if has_metadata_items(summary.location_totals, "location") then
-      table.insert(lines, "--- locations exact ---")
-
-      for _, item in ipairs(summary.location_totals or {}) do
-        table.insert(lines, location_line(duration_string(item.duration, format), item))
-      end
-
-      table.insert(lines, "")
-    end
-  elseif kind == "quantized" then
-    if has_metadata_items(summary.tag_totals, "tag") then
-      table.insert(lines, "--- tags quantized ---")
-
-      for _, item in ipairs(summary.tag_totals or {}) do
-        table.insert(
-          lines,
-          tag_line(
-            string.format(
-              "%s (%+dm)",
-              duration_string(item.duration, format),
-              item.error_minutes or 0
-            ),
-            item
-          )
-        )
-      end
-
-      table.insert(lines, "")
-    end
-
-    if has_metadata_items(summary.location_totals, "location") then
-      table.insert(lines, "--- locations quantized ---")
-
-      for _, item in ipairs(summary.location_totals or {}) do
-        table.insert(
-          lines,
-          location_line(
-            string.format(
-              "%s (%+dm)",
-              duration_string(item.duration, format),
-              item.error_minutes or 0
-            ),
-            item
-          )
-        )
-      end
-
-      table.insert(lines, "")
-    end
-  end
-
-  table.insert(lines, "--- totals" .. header_suffix .. " ---")
-
-  if kind == "quantized" then
-    if has_workday_excluded_items(summary.summary_items) then
-      table.insert(
-        lines,
-        string.format(
-          "%s (%+dm) activity",
-          duration_string(summary.activity_total, format),
-          summary.activity_error_minutes or 0
-        )
-      )
-    end
-
-    table.insert(
-      lines,
-      string.format(
-        "%s (%+dm) workday",
-        duration_string(summary.workday_total, format),
-        summary.workday_error_minutes or 0
-      )
-    )
-  else
-    if has_workday_excluded_items(summary.summary_items) then
-      table.insert(
-        lines,
-        string.format("%s activity", duration_string(summary.activity_total, format))
-      )
-    end
-
-    table.insert(lines, string.format("%s workday", duration_string(summary.workday_total, format)))
-  end
+  append_summary_lines(lines, report.summary, "quantized", duration_format, {
+    leading_blank = #lines > 0,
+    summary_header = "--- week summary quantized " .. report.week_label .. " ---",
+    tag_header = "--- week tags quantized " .. report.week_label .. " ---",
+    location_header = "--- week locations quantized " .. report.week_label .. " ---",
+    total_header = "--- week totals quantized " .. report.week_label .. " ---",
+  })
 
   return lines
 end

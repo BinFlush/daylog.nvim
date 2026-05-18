@@ -27,6 +27,9 @@ happen, but they are called out clearly in this changelog.
 - Added optional `journal` configuration and `:WorklogToday` to open today's
   dated `.wkl` file, create parent directories, and initialize missing or empty
   journals with configured defaults and the current time.
+- Added `:WorklogWeek` to open a scratch weekly report from journal-backed
+  daily worklogs by recomputing each day's quantized summary from its latest
+  worklog block and then summing those daily quantized results.
 
 ### Changed
 

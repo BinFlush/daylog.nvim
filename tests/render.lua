@@ -120,6 +120,74 @@ return function(t)
     )
   end)
 
+  t.test("render preserves default quantized headers and sections", function()
+    t.eq(
+      render.summary_lines({
+        summary_items = {
+          {
+            text = "client",
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 65,
+            error_minutes = 5,
+            workday_excluded = false,
+          },
+          {
+            text = "break",
+            tag = "ooo",
+            duration = 30,
+            exact_duration = 25,
+            error_minutes = -5,
+            workday_excluded = true,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 65,
+            error_minutes = 5,
+          },
+          {
+            tag = "ooo",
+            duration = 30,
+            exact_duration = 25,
+            error_minutes = -5,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 90,
+            exact_duration = 90,
+            error_minutes = 0,
+          },
+        },
+        activity_total = 90,
+        workday_total = 60,
+        activity_error_minutes = 0,
+        workday_error_minutes = 5,
+      }, "quantized"),
+      {
+        "",
+        "--- summary quantized ---",
+        "1.00h (+5m) client",
+        "0.50h (-5m) break",
+        "",
+        "--- tags quantized ---",
+        "1.00h (+5m) #ClientA",
+        "0.50h (-5m) #ooo",
+        "",
+        "--- locations quantized ---",
+        "1.50h (+0m) @office",
+        "",
+        "--- totals quantized ---",
+        "1.50h (+0m) activity",
+        "1.00h (+5m) workday",
+      }
+    )
+  end)
+
   t.test("render supports hhmm exact durations", function()
     t.eq(
       render.summary_lines({
@@ -207,6 +275,96 @@ return function(t)
         "",
         "--- totals quantized ---",
         "1:30 (+5m) workday",
+      }
+    )
+  end)
+
+  t.test("render builds a weekly report with daily sections before the weekly total", function()
+    t.eq(
+      render.week_report_lines({
+        week_label = "2026-W21",
+        days = {
+          {
+            date_label = "2026-05-18",
+            summary = {
+              summary_items = {
+                {
+                  text = "plan",
+                  tag = nil,
+                  duration = 60,
+                  exact_duration = 68,
+                  error_minutes = 8,
+                  workday_excluded = false,
+                },
+              },
+              tag_totals = {
+                {
+                  tag = nil,
+                  duration = 60,
+                  exact_duration = 68,
+                  error_minutes = 8,
+                },
+              },
+              location_totals = {
+                {
+                  location = nil,
+                  duration = 60,
+                  exact_duration = 68,
+                  error_minutes = 8,
+                },
+              },
+              activity_total = 60,
+              workday_total = 60,
+              activity_error_minutes = 8,
+              workday_error_minutes = 8,
+            },
+          },
+        },
+        summary = {
+          summary_items = {
+            {
+              text = "plan",
+              tag = nil,
+              duration = 60,
+              exact_duration = 68,
+              error_minutes = 8,
+              workday_excluded = false,
+            },
+          },
+          tag_totals = {
+            {
+              tag = nil,
+              duration = 60,
+              exact_duration = 68,
+              error_minutes = 8,
+            },
+          },
+          location_totals = {
+            {
+              location = nil,
+              duration = 60,
+              exact_duration = 68,
+              error_minutes = 8,
+            },
+          },
+          activity_total = 60,
+          workday_total = 60,
+          activity_error_minutes = 8,
+          workday_error_minutes = 8,
+        },
+      }, "hhmm"),
+      {
+        "--- day summary quantized 2026-05-18 ---",
+        "1:00 (+8m) plan",
+        "",
+        "--- day totals quantized 2026-05-18 ---",
+        "1:00 (+8m) workday",
+        "",
+        "--- week summary quantized 2026-W21 ---",
+        "1:00 (+8m) plan",
+        "",
+        "--- week totals quantized 2026-W21 ---",
+        "1:00 (+8m) workday",
       }
     )
   end)

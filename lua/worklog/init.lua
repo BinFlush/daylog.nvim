@@ -8,7 +8,9 @@ local insert_now = require("worklog.usecases.insert_now")
 local journal = require("worklog.journal")
 local new_worklog = require("worklog.usecases.new_worklog")
 local order_worklogs = require("worklog.usecases.order_worklogs")
+local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
+local week = require("worklog.week")
 
 local M = {}
 
@@ -75,6 +77,38 @@ local function apply_new_worklog(defaults)
 
   apply_result(result)
   return true
+end
+
+local function unique_buffer_name(base_name)
+  if vim.fn.bufexists(base_name) == 0 then
+    return base_name
+  end
+
+  local suffix = 2
+  local candidate = base_name .. "#" .. suffix
+
+  while vim.fn.bufexists(candidate) == 1 do
+    suffix = suffix + 1
+    candidate = base_name .. "#" .. suffix
+  end
+
+  return candidate
+end
+
+local function open_report_buffer(lines, name)
+  vim.cmd("botright new")
+  vim.bo.buftype = "nofile"
+  vim.bo.bufhidden = "wipe"
+  vim.bo.buflisted = false
+  vim.bo.swapfile = false
+  if name then
+    vim.api.nvim_buf_set_name(0, unique_buffer_name(name))
+  end
+  vim.bo.modifiable = true
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+  vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  vim.bo.modified = false
+  vim.bo.modifiable = false
 end
 
 local function can_abandon_current_buffer()
@@ -199,6 +233,31 @@ function M.open_today()
   apply_insert_time(os.date("%H:%M", now))
 end
 
+function M.open_week()
+  local settings = config.get().journal
+  if settings == nil then
+    warn("worklog: journal.root is not configured")
+    return
+  end
+
+  local report, err = week.build_journal_report(settings, os.time(), function(path)
+    if vim.fn.filereadable(path) == 1 then
+      return vim.fn.readfile(path)
+    end
+
+    return nil
+  end)
+  if not report then
+    warn(err)
+    return
+  end
+
+  open_report_buffer(
+    render.week_report_lines(report, config.get().defaults.duration_format),
+    "worklog-week-" .. report.week_label
+  )
+end
+
 function M.setup(options)
   config.setup(options)
   filetype.register()
@@ -213,6 +272,10 @@ function M.setup(options)
 
   ensure_user_command("WorklogToday", function()
     M.open_today()
+  end)
+
+  ensure_user_command("WorklogWeek", function()
+    M.open_week()
   end)
 
   ensure_user_command("WorklogRepeat", function()

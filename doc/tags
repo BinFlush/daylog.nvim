@@ -7,6 +7,7 @@
 :WorklogRepeat	worklog.txt	/*:WorklogRepeat*
 :WorklogSummarize	worklog.txt	/*:WorklogSummarize*
 :WorklogToday	worklog.txt	/*:WorklogToday*
+:WorklogWeek	worklog.txt	/*:WorklogWeek*
 worklog-commands	worklog.txt	/*worklog-commands*
 worklog-compatibility	worklog.txt	/*worklog-compatibility*
 worklog-config	worklog.txt	/*worklog-config*

@@ -284,6 +284,14 @@ local function copy_rows(rows)
   return result
 end
 
+local function apply_error_minutes(items)
+  for _, item in ipairs(items) do
+    item.error_minutes = (item.exact_duration or item.duration) - item.duration
+  end
+
+  return items
+end
+
 local function quantize_rows(rows, bucket_minutes, target_total)
   local result = copy_rows(rows)
   local quantized_total = 0
@@ -417,6 +425,53 @@ end
 
 function M.quantized_summarize_block(block)
   return M.quantized_summarize_entries(block.entries, block.quantize_minutes)
+end
+
+function M.combine_quantized_summaries(summaries)
+  local summary_items = {}
+  local tag_totals = {}
+  local location_totals = {}
+  local activity_total = 0
+  local workday_total = 0
+  local activity_error_minutes = 0
+  local workday_error_minutes = 0
+
+  for _, item in ipairs(summaries or {}) do
+    activity_total = activity_total + item.activity_total
+    workday_total = workday_total + item.workday_total
+    activity_error_minutes = activity_error_minutes + (item.activity_error_minutes or 0)
+    workday_error_minutes = workday_error_minutes + (item.workday_error_minutes or 0)
+
+    for _, row in ipairs(item.summary_items or {}) do
+      table.insert(summary_items, row)
+    end
+
+    for _, row in ipairs(item.tag_totals or {}) do
+      table.insert(tag_totals, row)
+    end
+
+    for _, row in ipairs(item.location_totals or {}) do
+      table.insert(location_totals, row)
+    end
+  end
+
+  return finalize_summary_order({
+    summary_items = apply_error_minutes(
+      project_rows(
+        summary_items,
+        { "text", "tag", "workday_excluded" },
+        { "text", "tag", "workday_excluded" }
+      )
+    ),
+    tag_totals = apply_error_minutes(project_rows(tag_totals, { "tag" }, { "tag" })),
+    location_totals = apply_error_minutes(
+      project_rows(location_totals, { "location" }, { "location" })
+    ),
+    activity_total = activity_total,
+    workday_total = workday_total,
+    activity_error_minutes = activity_error_minutes,
+    workday_error_minutes = workday_error_minutes,
+  })
 end
 
 return M

@@ -57,4 +57,33 @@ return function(t)
       "/tmp/worklog/2026/21/2026-05-18.wkl"
     )
   end)
+
+  t.test("journal derives monday to sunday for the current iso week", function()
+    local dates = journal.iso_week_dates(os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 9,
+      min = 0,
+      sec = 0,
+    }))
+
+    t.eq(#dates, 7)
+    t.eq(journal.date_label(dates[1]), "2026-05-18")
+    t.eq(journal.date_label(dates[7]), "2026-05-24")
+  end)
+
+  t.test("journal week label uses iso week year", function()
+    t.eq(
+      journal.week_label(os.time({
+        year = 2021,
+        month = 1,
+        day = 1,
+        hour = 12,
+        min = 0,
+        sec = 0,
+      })),
+      "2020-W53"
+    )
+  end)
 end

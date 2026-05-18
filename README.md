@@ -79,6 +79,7 @@ duration=hhmm  render summary durations as hours:minutes
 | --- | --- |
 | `:WorklogNew` | Create a new worklog block using configured defaults |
 | `:WorklogToday` | Open today's journal file and initialize it if needed |
+| `:WorklogWeek` | Open this week's journal report |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
 | `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
 | `:WorklogCheck` | Validate the current buffer without modifying it |
@@ -146,6 +147,12 @@ With the example above, `:WorklogToday` opens:
 If the file is missing or empty, `:WorklogToday` creates the first worklog block
 using your configured defaults and inserts the current time.
 
+`:WorklogWeek` uses the same journal settings to scan the current ISO week from
+Monday through Sunday. It recomputes each included day's quantized summary from
+the latest worklog block in that file, shows those daily summaries in a scratch
+buffer, then appends one weekly total built from the already-quantized daily
+results.
+
 `journal.directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees
 better than `%Y/%V` around new year boundaries.
 
@@ -167,6 +174,7 @@ you like, for example:
 ```lua
 vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>", { desc = "Worklog insert time" })
 vim.keymap.set("n", "<leader>wt", "<cmd>WorklogToday<cr>", { desc = "Worklog open today" })
+vim.keymap.set("n", "<leader>wk", "<cmd>WorklogWeek<cr>", { desc = "Worklog week report" })
 vim.keymap.set("n", "<leader>wr", "<cmd>WorklogRepeat<cr>", { desc = "Worklog repeat activity" })
 vim.keymap.set("n", "<leader>ww", "<cmd>WorklogCopy<cr>", { desc = "Worklog copy block" })
 vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>", { desc = "Worklog order blocks" })

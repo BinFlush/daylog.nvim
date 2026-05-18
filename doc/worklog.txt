@@ -218,6 +218,21 @@ Open today's journal file from `require('worklog').setup({ journal = ... })`.
   using configured defaults, then inserts the current time.
 - If the file already has content, it is opened without modification.
 
+                                                         *:WorklogWeek*
+:WorklogWeek
+
+Open a scratch report for the current ISO week from
+`require('worklog').setup({ journal = ... })`.
+
+- The week runs Monday through Sunday.
+- Missing or empty day files are skipped.
+- Each included day is recomputed from that file's latest worklog block.
+- Existing rendered summaries are ignored.
+- The report shows each included day's quantized summary first, then one weekly
+  quantized summary built by summing those daily quantized results.
+- Non-empty invalid journal files abort the report instead of producing partial
+  totals.
+
                                                          *:WorklogInsert*
 :WorklogInsert
 
@@ -312,7 +327,7 @@ Configure `worklog.nvim` with:
 
 `journal` is optional:
 
-- `root` is the base directory used by |:WorklogToday|.
+- `root` is the base directory used by |:WorklogToday| and |:WorklogWeek|.
 - `directory` is an optional `strftime` template under that root.
 - The filename is always `YYYY-MM-DD.wkl`.
 
@@ -350,6 +365,12 @@ opens:
 
 `directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees better
 than `%Y/%V` around new year boundaries.
+
+|:WorklogWeek| uses the same journal settings to scan the current ISO week from
+Monday through Sunday. It recomputes each included day's quantized summary from
+the latest worklog block in that file, shows those daily sections in a scratch
+buffer, then appends one weekly summary built from the already-quantized daily
+results.
 
 ==============================================================================
 SUMMARIES                                                  *worklog-summaries*
