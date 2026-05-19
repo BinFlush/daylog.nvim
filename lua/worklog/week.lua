@@ -1,8 +1,8 @@
 local analyze = require("worklog.analyze")
+local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
 local journal = require("worklog.journal")
 local summary = require("worklog.summary")
-local support = require("worklog.usecases.support")
 
 local M = {}
 
@@ -18,18 +18,6 @@ local function prefixed_file_error(path, message)
   return string.format("worklog: %s: %s", path, strip_worklog_prefix(message))
 end
 
-local function diagnostic_error(diagnostic)
-  if diagnostic.code == "invalid_entry" then
-    return support.invalid_entry_error(diagnostic)
-  end
-
-  if diagnostic.code == "unordered_timestamps" then
-    return support.unordered_error(diagnostic)
-  end
-
-  return "worklog: " .. diagnostic.message
-end
-
 local function analyze_day(day)
   if empty_lines(day.lines) then
     return nil, nil
@@ -38,10 +26,10 @@ local function analyze_day(day)
   local analysis = analyze.analyze(document.parse(day.lines))
 
   if #analysis.diagnostics > 0 then
-    return nil, prefixed_file_error(day.path, diagnostic_error(analysis.diagnostics[1]))
+    return nil, prefixed_file_error(day.path, diagnostics.message(analysis.diagnostics[1]))
   end
 
-  local err = support.structural_or_missing_worklog_error(analysis)
+  local err = diagnostics.structural_or_missing_worklog_error(analysis)
   if err then
     return nil, prefixed_file_error(day.path, err)
   end

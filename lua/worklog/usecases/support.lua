@@ -1,46 +1,23 @@
 local analyze = require("worklog.analyze")
 local body = require("worklog.body")
 local context = require("worklog.context")
+local diagnostics = require("worklog.diagnostics")
 local entry = require("worklog.entry")
 
 local M = {}
-
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a "
-  .. "worklog header such as --- worklog --- or "
-  .. "--- worklog #ClientA @office quantize=30 ---"
 
 -- Shared use-case helpers.
 --
 -- The use-case layer works from fully analyzed worklog context and returns edit
 -- scripts plus cursor actions. These helpers centralize context lookup,
--- validation, and error formatting so individual command modules can stay small
+-- validation, and edit-building so individual command modules can stay small
 -- and focused on one operation each.
-
-local function invalid_entry_error(diagnostic)
-  return string.format(
-    "worklog: invalid worklog entry at line %d: %s",
-    diagnostic.row,
-    diagnostic.message
-  )
-end
-
-local function unordered_error(diagnostic)
-  return string.format(
-    "worklog: unordered timestamps near lines %d and %d; fix manually or run :WorklogOrder",
-    diagnostic.row,
-    diagnostic.row2
-  )
-end
 
 function M.validate_context(ctx)
   local diagnostic = analyze.find_block_diagnostic(ctx.analysis, ctx.block)
 
-  if diagnostic and diagnostic.code == "invalid_entry" then
-    return nil, invalid_entry_error(diagnostic)
-  end
-
-  if diagnostic and diagnostic.code == "unordered_timestamps" then
-    return nil, unordered_error(diagnostic)
+  if diagnostic then
+    return nil, diagnostics.message(diagnostic)
   end
 
   return ctx
@@ -92,27 +69,6 @@ function M.append_edit(lines, appended_lines)
       },
     },
   }
-end
-
-function M.structural_or_missing_worklog_error(analysis)
-  local structural_error = analyze.structural_error(analysis)
-  if structural_error then
-    return structural_error
-  end
-
-  if #analysis.worklog_blocks == 0 then
-    return NO_WORKLOG_ERROR
-  end
-
-  return nil
-end
-
-function M.invalid_entry_error(diagnostic)
-  return invalid_entry_error(diagnostic)
-end
-
-function M.unordered_error(diagnostic)
-  return unordered_error(diagnostic)
 end
 
 return M

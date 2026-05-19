@@ -94,6 +94,8 @@ workday total = sum(intervals where workday_excluded = false)
 ```text
 document.lua   -> syntax-preserving parser
 analyze.lua    -> semantic analyzer
+diagnostics.lua -> shared diagnostic messages
+journal.lua    -> pure journal date/path helpers
 entry.lua      -> single-entry parser/formatter
 body.lua       -> body reconstruction
 summary.lua    -> reporting and quantization
@@ -410,6 +412,7 @@ It should:
 - register user commands
 - read buffer lines
 - read cursor row and current time where needed
+- expand configured journal paths before calling pure journal helpers
 - call usecases
 - apply edit scripts
 - show warnings

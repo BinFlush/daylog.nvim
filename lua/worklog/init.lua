@@ -103,6 +103,18 @@ local function journal_lines(path)
   return nil
 end
 
+local function expanded_journal_settings()
+  local settings = config.get().journal
+  if settings == nil then
+    return nil
+  end
+
+  return {
+    root = vim.fn.expand(settings.root),
+    directory = settings.directory,
+  }
+end
+
 local function parse_positive_integer(value)
   if type(value) ~= "string" or value:match("^%d+$") == nil then
     return nil, "worklog: days count must be a positive integer"
@@ -215,7 +227,7 @@ function M.new_worklog()
 end
 
 function M.open_today()
-  local settings = config.get().journal
+  local settings = expanded_journal_settings()
   if settings == nil then
     warn("worklog: journal.root is not configured")
     return
@@ -255,7 +267,7 @@ function M.open_today()
 end
 
 function M.open_week()
-  local settings = config.get().journal
+  local settings = expanded_journal_settings()
   if settings == nil then
     warn("worklog: journal.root is not configured")
     return
@@ -274,7 +286,7 @@ function M.open_week()
 end
 
 function M.open_days(count)
-  local settings = config.get().journal
+  local settings = expanded_journal_settings()
   if settings == nil then
     warn("worklog: journal.root is not configured")
     return

@@ -1,4 +1,5 @@
 local analyze = require("worklog.analyze")
+local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
 
 local M = {}
@@ -8,10 +9,6 @@ local M = {}
 -- Commands ask this module for the active worklog or the worklog under the
 -- cursor. The returned context keeps only the semantic analysis, selected
 -- block, and the block's sticky header metadata.
-
-local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a "
-  .. "worklog header such as --- worklog --- or "
-  .. "--- worklog #ClientA @office quantize=30 ---"
 
 local function build_context(analysis, block)
   if not block then
@@ -45,7 +42,7 @@ function M.get_active_worklog_context(lines)
 
   local block = analyze.get_active_worklog(analysis)
   if not block then
-    return nil, NO_WORKLOG_ERROR
+    return nil, diagnostics.NO_WORKLOG_ERROR
   end
 
   return build_context(analysis, block)
@@ -58,7 +55,7 @@ function M.get_worklog_context_at_row(lines, row)
   end
 
   if #analysis.worklog_blocks == 0 then
-    return nil, NO_WORKLOG_ERROR
+    return nil, diagnostics.NO_WORKLOG_ERROR
   end
 
   local block = analyze.get_worklog_at_row(analysis, row)

@@ -1,8 +1,8 @@
 local analyze = require("worklog.analyze")
 local body = require("worklog.body")
+local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
 local entry = require("worklog.entry")
-local support = require("worklog.usecases.support")
 
 local M = {}
 
@@ -12,7 +12,7 @@ local M = {}
 
 function M.run(lines)
   local analysis = analyze.analyze(document.parse(lines))
-  local err = support.structural_or_missing_worklog_error(analysis)
+  local err = diagnostics.structural_or_missing_worklog_error(analysis)
   if err then
     return nil, err
   end
@@ -24,7 +24,7 @@ function M.run(lines)
     local diagnostic = analyze.find_block_diagnostic(analysis, block)
 
     if diagnostic and diagnostic.code == "invalid_entry" then
-      return nil, support.invalid_entry_error(diagnostic)
+      return nil, diagnostics.invalid_entry_error(diagnostic)
     end
 
     if diagnostic and diagnostic.code == "unordered_timestamps" then

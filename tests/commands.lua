@@ -80,6 +80,23 @@ return function(t)
     return path
   end
 
+  local function with_temp_home_root(fn)
+    local relative_root = "~/" .. vim.fn.fnamemodify(vim.fn.tempname(), ":t")
+    local expanded_root = vim.fn.expand(relative_root)
+
+    vim.fn.delete(expanded_root, "rf")
+
+    local ok, err = xpcall(function()
+      fn(relative_root, expanded_root)
+    end, debug.traceback)
+
+    vim.fn.delete(expanded_root, "rf")
+
+    if not ok then
+      error(err, 0)
+    end
+  end
+
   worklog.setup()
 
   t.test("summarize blocks on unordered worklog", function()
@@ -172,6 +189,38 @@ return function(t)
         "08:45 ",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
+    end)
+  end)
+
+  t.test("today expands a home-relative journal root before opening", function()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+
+    with_temp_home_root(function(relative_root, expanded_root)
+      with_worklog_setup({
+        journal = {
+          root = relative_root,
+          directory = "%Y",
+        },
+      }, function()
+        vim.cmd("enew!")
+        vim.bo.modified = false
+
+        with_mocked_time(now, function()
+          vim.cmd("WorklogToday")
+        end)
+
+        t.eq(
+          vim.api.nvim_buf_get_name(0),
+          expanded_root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+        )
+      end)
     end)
   end)
 
@@ -435,6 +484,52 @@ return function(t)
       })
 
       vim.cmd("silent! only!")
+    end)
+  end)
+
+  t.test("week expands a home-relative journal root before building reports", function()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local monday = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    with_temp_home_root(function(relative_root, expanded_root)
+      write_journal_file(expanded_root, "%Y/%V", monday, {
+        "--- worklog ---",
+        "08:00 plan",
+        "09:00 done",
+      })
+
+      with_worklog_setup({
+        journal = {
+          root = relative_root,
+          directory = "%Y/%V",
+        },
+      }, function()
+        vim.cmd("silent! only!")
+        t.reset({ "notes" })
+
+        with_mocked_time(now, function()
+          vim.cmd("WorklogWeek")
+        end)
+
+        t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21")
+        t.eq(t.get_lines()[1], "--- day summary quantized 2026-05-18 ---")
+
+        vim.cmd("silent! only!")
+      end)
     end)
   end)
 

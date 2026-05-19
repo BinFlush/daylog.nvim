@@ -58,6 +58,25 @@ return function(t)
     )
   end)
 
+  t.test("journal keeps home-relative roots literal", function()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+
+    t.eq(
+      journal.today_path({
+        root = "~/timereg",
+        directory = "%Y/%V",
+      }, now),
+      "~/timereg/2026/21/2026-05-18.wkl"
+    )
+  end)
+
   t.test("journal derives monday to sunday for the current iso week", function()
     local dates = journal.iso_week_dates(os.time({
       year = 2026,

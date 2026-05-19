@@ -21,12 +21,8 @@ local function trim_directory_slashes(value)
   return trimmed:gsub("^/+", "")
 end
 
-local function expanded_root(root)
-  return trim_trailing_slashes(vim.fn.expand(root))
-end
-
 function M.directory_path(journal, now)
-  local path = expanded_root(journal.root)
+  local path = trim_trailing_slashes(journal.root)
   local directory = trim_directory_slashes(os.date(journal.directory, now))
 
   if directory == "" then
