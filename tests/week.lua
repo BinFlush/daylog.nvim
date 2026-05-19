@@ -21,10 +21,9 @@ return function(t)
           "08:20 done",
         },
       },
-    }, "2026-W21")
+    })
 
     t.eq(report, {
-      week_label = "2026-W21",
       days = {
         {
           date_label = "2026-05-18",
@@ -134,7 +133,7 @@ return function(t)
     })
   end)
 
-  t.test("week report skips missing and empty files", function()
+  t.test("build_report skips missing and empty files", function()
     local report = week.build_report({
       {
         date_label = "2026-05-18",
@@ -155,7 +154,7 @@ return function(t)
           "09:00 done",
         },
       },
-    }, "2026-W21")
+    })
 
     t.eq(#report.days, 1)
     t.eq(report.days[1].date_label, "2026-05-20")
@@ -163,7 +162,7 @@ return function(t)
     t.eq(report.summary.workday_total, 60)
   end)
 
-  t.test("week report aborts on invalid files and includes the file path", function()
+  t.test("build_report aborts on invalid files and includes the file path", function()
     local report, err = week.build_report({
       {
         date_label = "2026-05-18",
@@ -174,7 +173,7 @@ return function(t)
           "08:00 plan",
         },
       },
-    }, "2026-W21")
+    })
 
     t.eq(report, nil)
     t.eq(
@@ -183,7 +182,14 @@ return function(t)
     )
   end)
 
-  t.test("week report derives monday to sunday journal paths through one helper", function()
+  t.test("build_report reports the generalized no-data error", function()
+    local report, err = week.build_report({})
+
+    t.eq(report, nil)
+    t.eq(err, "worklog: no journal worklogs found")
+  end)
+
+  t.test("build_week_report derives monday to sunday journal paths and label", function()
     local seen_paths = {}
     local now = os.time({
       year = 2026,
@@ -194,7 +200,7 @@ return function(t)
       sec = 0,
     })
 
-    local report = week.build_journal_report(
+    local report = week.build_week_report(
       {
         root = "/tmp/timereg",
         directory = "%Y/%V",
@@ -224,8 +230,51 @@ return function(t)
       "/tmp/timereg/2026/21/2026-05-23.wkl",
       "/tmp/timereg/2026/21/2026-05-24.wkl",
     })
-    t.eq(report.week_label, "2026-W21")
+    t.eq(report.period_label, "2026-W21")
     t.eq(#report.days, 1)
     t.eq(report.days[1].date_label, "2026-05-18")
+  end)
+
+  t.test("days report derives trailing journal paths through one helper", function()
+    local seen_paths = {}
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    local report = week.build_days_report(
+      {
+        root = "/tmp/timereg",
+        directory = "%Y/%V",
+      },
+      now,
+      3,
+      function(path)
+        table.insert(seen_paths, path)
+
+        if path == "/tmp/timereg/2026/21/2026-05-22.wkl" then
+          return {
+            "--- worklog ---",
+            "08:00 plan",
+            "09:00 done",
+          }
+        end
+
+        return nil
+      end
+    )
+
+    t.eq(seen_paths, {
+      "/tmp/timereg/2026/21/2026-05-20.wkl",
+      "/tmp/timereg/2026/21/2026-05-21.wkl",
+      "/tmp/timereg/2026/21/2026-05-22.wkl",
+    })
+    t.eq(report.period_label, "2026-05-20..2026-05-22")
+    t.eq(#report.days, 1)
+    t.eq(report.days[1].date_label, "2026-05-22")
   end)
 end

@@ -233,6 +233,22 @@ Open a scratch report for the current ISO week from
 - Non-empty invalid journal files abort the report instead of producing partial
   totals.
 
+                                                         *:WorklogDays*
+:WorklogDays {count}
+
+Open a scratch report for the last N journal dates from
+`require('worklog').setup({ journal = ... })`.
+
+- `{count}` must be a positive integer.
+- The range includes today and scans oldest to newest.
+- Missing or empty day files are skipped.
+- Each included day is recomputed from that file's latest worklog block.
+- Existing rendered summaries are ignored.
+- The report shows each included day's quantized summary first, then one range
+  summary built by summing those daily quantized results.
+- Non-empty invalid journal files abort the report instead of producing partial
+  totals.
+
                                                          *:WorklogInsert*
 :WorklogInsert
 
@@ -327,7 +343,8 @@ Configure `worklog.nvim` with:
 
 `journal` is optional:
 
-- `root` is the base directory used by |:WorklogToday| and |:WorklogWeek|.
+- `root` is the base directory used by |:WorklogToday|, |:WorklogDays|, and
+  |:WorklogWeek|.
 - `directory` is an optional `strftime` template under that root.
 - The filename is always `YYYY-MM-DD.wkl`.
 
@@ -366,11 +383,12 @@ opens:
 `directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees better
 than `%Y/%V` around new year boundaries.
 
-|:WorklogWeek| uses the same journal settings to scan the current ISO week from
-Monday through Sunday. It recomputes each included day's quantized summary from
-the latest worklog block in that file, shows those daily sections in a scratch
-buffer, then appends one weekly summary built from the already-quantized daily
-results.
+|:WorklogDays| uses the same journal settings to scan the last N dates,
+including today, from oldest to newest. |:WorklogWeek| scans the current ISO
+week from Monday through Sunday. Both commands recompute each included day's
+quantized summary from the latest worklog block in that file, show those daily
+sections in a scratch buffer, then append one aggregate summary built from the
+already-quantized daily results.
 
 ==============================================================================
 SUMMARIES                                                  *worklog-summaries*

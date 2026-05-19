@@ -54,9 +54,8 @@ local function analyze_day(day)
     nil
 end
 
-function M.build_report(days, week_label)
+function M.build_report(days)
   local report = {
-    week_label = week_label,
     days = {},
   }
   local day_summaries = {}
@@ -74,17 +73,17 @@ function M.build_report(days, week_label)
   end
 
   if #report.days == 0 then
-    return nil, "worklog: no journal worklogs found for week " .. week_label
+    return nil, "worklog: no journal worklogs found"
   end
 
   report.summary = summary.combine_quantized_summaries(day_summaries)
   return report
 end
 
-function M.build_journal_report(settings, now, read_lines)
+local function build_days(settings, dates, read_lines)
   local days = {}
 
-  for _, date in ipairs(journal.iso_week_dates(now)) do
+  for _, date in ipairs(dates) do
     local path = journal.path_for_date(settings, date)
 
     table.insert(days, {
@@ -94,7 +93,32 @@ function M.build_journal_report(settings, now, read_lines)
     })
   end
 
-  return M.build_report(days, journal.week_label(now))
+  return days
+end
+
+function M.build_journal_report(settings, dates, read_lines)
+  return M.build_report(build_days(settings, dates, read_lines))
+end
+
+function M.build_week_report(settings, now, read_lines)
+  local report, err = M.build_journal_report(settings, journal.iso_week_dates(now), read_lines)
+  if not report then
+    return nil, err
+  end
+
+  report.period_label = journal.week_label(now)
+  return report
+end
+
+function M.build_days_report(settings, now, count, read_lines)
+  local dates = journal.trailing_dates(now, count)
+  local report, err = M.build_journal_report(settings, dates, read_lines)
+  if not report then
+    return nil, err
+  end
+
+  report.period_label = journal.date_range_label(dates[1], dates[#dates])
+  return report
 end
 
 return M

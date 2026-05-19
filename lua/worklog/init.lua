@@ -22,12 +22,12 @@ local function info(message)
   vim.notify(message, vim.log.levels.INFO)
 end
 
-local function ensure_user_command(name, callback)
+local function ensure_user_command(name, callback, options)
   if vim.fn.exists(":" .. name) == 2 then
     return
   end
 
-  vim.api.nvim_create_user_command(name, callback, {})
+  vim.api.nvim_create_user_command(name, callback, options or {})
 end
 
 ---@return string[]
@@ -93,6 +93,27 @@ local function unique_buffer_name(base_name)
   end
 
   return candidate
+end
+
+local function journal_lines(path)
+  if vim.fn.filereadable(path) == 1 then
+    return vim.fn.readfile(path)
+  end
+
+  return nil
+end
+
+local function parse_positive_integer(value)
+  if type(value) ~= "string" or value:match("^%d+$") == nil then
+    return nil, "worklog: days count must be a positive integer"
+  end
+
+  local number = tonumber(value)
+  if number == nil or number <= 0 then
+    return nil, "worklog: days count must be a positive integer"
+  end
+
+  return number
 end
 
 local function open_report_buffer(lines, name)
@@ -240,13 +261,7 @@ function M.open_week()
     return
   end
 
-  local report, err = week.build_journal_report(settings, os.time(), function(path)
-    if vim.fn.filereadable(path) == 1 then
-      return vim.fn.readfile(path)
-    end
-
-    return nil
-  end)
+  local report, err = week.build_week_report(settings, os.time(), journal_lines)
   if not report then
     warn(err)
     return
@@ -254,7 +269,26 @@ function M.open_week()
 
   open_report_buffer(
     render.week_report_lines(report, config.get().defaults.duration_format),
-    "worklog-week-" .. report.week_label
+    "worklog-week-" .. report.period_label
+  )
+end
+
+function M.open_days(count)
+  local settings = config.get().journal
+  if settings == nil then
+    warn("worklog: journal.root is not configured")
+    return
+  end
+
+  local report, err = week.build_days_report(settings, os.time(), count, journal_lines)
+  if not report then
+    warn(err)
+    return
+  end
+
+  open_report_buffer(
+    render.days_report_lines(report, config.get().defaults.duration_format),
+    "worklog-days-" .. report.period_label
   )
 end
 
@@ -277,6 +311,18 @@ function M.setup(options)
   ensure_user_command("WorklogWeek", function()
     M.open_week()
   end)
+
+  ensure_user_command("WorklogDays", function(args)
+    local count, err = parse_positive_integer(args.args)
+    if not count then
+      warn(err)
+      return
+    end
+
+    M.open_days(count)
+  end, {
+    nargs = 1,
+  })
 
   ensure_user_command("WorklogRepeat", function()
     M.repeat_current()

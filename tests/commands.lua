@@ -468,7 +468,248 @@ return function(t)
         t.eq(t.get_lines(), { "scratch" })
         t.eq(messages, {
           {
-            message = "worklog: no journal worklogs found for week 2026-W21",
+            message = "worklog: no journal worklogs found",
+            level = vim.log.levels.WARN,
+          },
+        })
+      end)
+    end)
+  end)
+
+  t.test("days validates the requested count", function()
+    with_worklog_setup({}, function()
+      t.reset({ "scratch" })
+
+      local ok, err = pcall(vim.cmd, "WorklogDays")
+      t.ok(not ok)
+      t.ok(tostring(err):match("E471") ~= nil)
+
+      for _, command in ipairs({
+        "WorklogDays nope",
+        "WorklogDays 0",
+        "WorklogDays -1",
+        "WorklogDays 1.5",
+      }) do
+        with_captured_notify(function(messages)
+          vim.cmd(command)
+
+          t.eq(messages, {
+            {
+              message = "worklog: days count must be a positive integer",
+              level = vim.log.levels.WARN,
+            },
+          })
+        end)
+
+        t.eq(t.get_lines(), { "scratch" })
+      end
+    end)
+  end)
+
+  t.test("days opens a scratch report for the last n journal dates", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local wednesday = os.time({
+      year = 2026,
+      month = 5,
+      day = 20,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local thursday = os.time({
+      year = 2026,
+      month = 5,
+      day = 21,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local friday = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    write_journal_file(root, "%Y/%V", wednesday, {
+      "--- worklog #ClientA @office quantize=30 ---",
+      "08:00 plan",
+      "08:20 implementation @home",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "stale",
+    })
+    write_journal_file(root, "%Y/%V", thursday, {})
+    write_journal_file(root, "%Y/%V", friday, {
+      "--- worklog #internal @home quantize=60 ---",
+      "10:00 retro",
+      "10:40 done",
+      "",
+      "--- summary quantized ---",
+      "stale",
+    })
+
+    with_worklog_setup({
+      defaults = {
+        duration_format = "hhmm",
+      },
+      journal = {
+        root = root,
+        directory = "%Y/%V",
+      },
+    }, function()
+      vim.cmd("silent! only!")
+      t.reset({ "notes" })
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogDays 4")
+      end)
+
+      t.eq(
+        vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
+        "worklog-days-2026-05-19..2026-05-22"
+      )
+      t.eq(t.get_lines(), {
+        "--- day summary quantized 2026-05-20 ---",
+        "0:30 (+10m) implementation",
+        "0:30 (-10m) plan",
+        "",
+        "--- day tags quantized 2026-05-20 ---",
+        "1:00 (+0m) #ClientA",
+        "",
+        "--- day locations quantized 2026-05-20 ---",
+        "0:30 (+10m) @home",
+        "0:30 (-10m) @office",
+        "",
+        "--- day totals quantized 2026-05-20 ---",
+        "1:00 (+0m) workday",
+        "",
+        "--- day summary quantized 2026-05-22 ---",
+        "1:00 (-20m) retro",
+        "",
+        "--- day tags quantized 2026-05-22 ---",
+        "1:00 (-20m) #internal",
+        "",
+        "--- day locations quantized 2026-05-22 ---",
+        "1:00 (-20m) @home",
+        "",
+        "--- day totals quantized 2026-05-22 ---",
+        "1:00 (-20m) workday",
+        "",
+        "--- range summary quantized 2026-05-19..2026-05-22 ---",
+        "1:00 (-20m) retro",
+        "0:30 (+10m) implementation",
+        "0:30 (-10m) plan",
+        "",
+        "--- range tags quantized 2026-05-19..2026-05-22 ---",
+        "1:00 (+0m) #ClientA",
+        "1:00 (-20m) #internal",
+        "",
+        "--- range locations quantized 2026-05-19..2026-05-22 ---",
+        "1:30 (-10m) @home",
+        "0:30 (-10m) @office",
+        "",
+        "--- range totals quantized 2026-05-19..2026-05-22 ---",
+        "2:00 (-20m) workday",
+      })
+
+      vim.cmd("silent! only!")
+    end)
+  end)
+
+  t.test("days warns and leaves the current buffer unchanged when no daily files exist", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y/%V",
+      },
+    }, function()
+      vim.cmd("silent! only!")
+      t.reset({ "scratch" })
+
+      with_captured_notify(function(messages)
+        with_mocked_time(now, function()
+          vim.cmd("WorklogDays 3")
+        end)
+
+        t.eq(#vim.api.nvim_tabpage_list_wins(0), 1)
+        t.eq(vim.api.nvim_buf_get_name(0), "")
+        t.eq(t.get_lines(), { "scratch" })
+        t.eq(messages, {
+          {
+            message = "worklog: no journal worklogs found",
+            level = vim.log.levels.WARN,
+          },
+        })
+      end)
+    end)
+  end)
+
+  t.test("days aborts on invalid existing files and includes the file path", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local thursday = os.time({
+      year = 2026,
+      month = 5,
+      day = 21,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local bad_path = write_journal_file(root, "%Y/%V", thursday, {
+      "--- worklog ---",
+      "09:00 done",
+      "08:00 plan",
+    })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y/%V",
+      },
+    }, function()
+      t.reset({ "scratch" })
+
+      with_captured_notify(function(messages)
+        with_mocked_time(now, function()
+          vim.cmd("WorklogDays 3")
+        end)
+
+        t.eq(vim.api.nvim_buf_get_name(0), "")
+        t.eq(t.get_lines(), { "scratch" })
+        t.eq(messages, {
+          {
+            message = "worklog: "
+              .. bad_path
+              .. ": unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
             level = vim.log.levels.WARN,
           },
         })

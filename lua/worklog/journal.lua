@@ -48,6 +48,10 @@ function M.week_label(now)
   return os.date("%G-W%V", now)
 end
 
+function M.date_range_label(first, last)
+  return M.date_label(first) .. ".." .. M.date_label(last)
+end
+
 function M.path_for_date(journal, now)
   return M.directory_path(journal, now) .. "/" .. M.filename(now)
 end
@@ -75,6 +79,27 @@ function M.iso_week_dates(now)
         year = monday.year,
         month = monday.month,
         day = monday.day + offset,
+        hour = 12,
+        min = 0,
+        sec = 0,
+      })
+    )
+  end
+
+  return dates
+end
+
+function M.trailing_dates(now, count)
+  local anchor = midday_date(now)
+  local dates = {}
+
+  for offset = count - 1, 0, -1 do
+    table.insert(
+      dates,
+      os.time({
+        year = anchor.year,
+        month = anchor.month,
+        day = anchor.day - offset,
         hour = 12,
         min = 0,
         sec = 0,

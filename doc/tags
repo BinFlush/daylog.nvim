@@ -1,5 +1,6 @@
 :WorklogCheck	worklog.txt	/*:WorklogCheck*
 :WorklogCopy	worklog.txt	/*:WorklogCopy*
+:WorklogDays	worklog.txt	/*:WorklogDays*
 :WorklogInsert	worklog.txt	/*:WorklogInsert*
 :WorklogNew	worklog.txt	/*:WorklogNew*
 :WorklogOrder	worklog.txt	/*:WorklogOrder*

@@ -325,10 +325,34 @@ function M.week_report_lines(report, duration_format)
 
   append_summary_lines(lines, report.summary, "quantized", duration_format, {
     leading_blank = #lines > 0,
-    summary_header = "--- week summary quantized " .. report.week_label .. " ---",
-    tag_header = "--- week tags quantized " .. report.week_label .. " ---",
-    location_header = "--- week locations quantized " .. report.week_label .. " ---",
-    total_header = "--- week totals quantized " .. report.week_label .. " ---",
+    summary_header = "--- week summary quantized " .. report.period_label .. " ---",
+    tag_header = "--- week tags quantized " .. report.period_label .. " ---",
+    location_header = "--- week locations quantized " .. report.period_label .. " ---",
+    total_header = "--- week totals quantized " .. report.period_label .. " ---",
+  })
+
+  return lines
+end
+
+function M.days_report_lines(report, duration_format)
+  local lines = {}
+
+  for index, day in ipairs(report.days) do
+    append_summary_lines(lines, day.summary, "quantized", duration_format, {
+      leading_blank = index > 1,
+      summary_header = "--- day summary quantized " .. day.date_label .. " ---",
+      tag_header = "--- day tags quantized " .. day.date_label .. " ---",
+      location_header = "--- day locations quantized " .. day.date_label .. " ---",
+      total_header = "--- day totals quantized " .. day.date_label .. " ---",
+    })
+  end
+
+  append_summary_lines(lines, report.summary, "quantized", duration_format, {
+    leading_blank = #lines > 0,
+    summary_header = "--- range summary quantized " .. report.period_label .. " ---",
+    tag_header = "--- range tags quantized " .. report.period_label .. " ---",
+    location_header = "--- range locations quantized " .. report.period_label .. " ---",
+    total_header = "--- range totals quantized " .. report.period_label .. " ---",
   })
 
   return lines

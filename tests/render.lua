@@ -282,7 +282,7 @@ return function(t)
   t.test("render builds a weekly report with daily sections before the weekly total", function()
     t.eq(
       render.week_report_lines({
-        week_label = "2026-W21",
+        period_label = "2026-W21",
         days = {
           {
             date_label = "2026-05-18",
@@ -364,6 +364,96 @@ return function(t)
         "1:00 (+8m) plan",
         "",
         "--- week totals quantized 2026-W21 ---",
+        "1:00 (+8m) workday",
+      }
+    )
+  end)
+
+  t.test("render builds a days report with range headers", function()
+    t.eq(
+      render.days_report_lines({
+        period_label = "2026-05-20..2026-05-22",
+        days = {
+          {
+            date_label = "2026-05-22",
+            summary = {
+              summary_items = {
+                {
+                  text = "plan",
+                  tag = nil,
+                  duration = 60,
+                  exact_duration = 68,
+                  error_minutes = 8,
+                  workday_excluded = false,
+                },
+              },
+              tag_totals = {
+                {
+                  tag = nil,
+                  duration = 60,
+                  exact_duration = 68,
+                  error_minutes = 8,
+                },
+              },
+              location_totals = {
+                {
+                  location = nil,
+                  duration = 60,
+                  exact_duration = 68,
+                  error_minutes = 8,
+                },
+              },
+              activity_total = 60,
+              workday_total = 60,
+              activity_error_minutes = 8,
+              workday_error_minutes = 8,
+            },
+          },
+        },
+        summary = {
+          summary_items = {
+            {
+              text = "plan",
+              tag = nil,
+              duration = 60,
+              exact_duration = 68,
+              error_minutes = 8,
+              workday_excluded = false,
+            },
+          },
+          tag_totals = {
+            {
+              tag = nil,
+              duration = 60,
+              exact_duration = 68,
+              error_minutes = 8,
+            },
+          },
+          location_totals = {
+            {
+              location = nil,
+              duration = 60,
+              exact_duration = 68,
+              error_minutes = 8,
+            },
+          },
+          activity_total = 60,
+          workday_total = 60,
+          activity_error_minutes = 8,
+          workday_error_minutes = 8,
+        },
+      }, "hhmm"),
+      {
+        "--- day summary quantized 2026-05-22 ---",
+        "1:00 (+8m) plan",
+        "",
+        "--- day totals quantized 2026-05-22 ---",
+        "1:00 (+8m) workday",
+        "",
+        "--- range summary quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+8m) plan",
+        "",
+        "--- range totals quantized 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) workday",
       }
     )

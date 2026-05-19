@@ -30,6 +30,9 @@ happen, but they are called out clearly in this changelog.
 - Added `:WorklogWeek` to open a scratch weekly report from journal-backed
   daily worklogs by recomputing each day's quantized summary from its latest
   worklog block and then summing those daily quantized results.
+- Added `:WorklogDays {count}` to open a scratch range report for the last N
+  journal dates using the same daily-first quantization and strict validation
+  rules as `:WorklogWeek`.
 
 ### Changed
 

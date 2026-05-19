@@ -86,4 +86,23 @@ return function(t)
       "2020-W53"
     )
   end)
+
+  t.test("journal derives trailing dates oldest to newest including today", function()
+    local dates = journal.trailing_dates(
+      os.time({
+        year = 2026,
+        month = 5,
+        day = 22,
+        hour = 12,
+        min = 0,
+        sec = 0,
+      }),
+      3
+    )
+
+    t.eq(#dates, 3)
+    t.eq(journal.date_label(dates[1]), "2026-05-20")
+    t.eq(journal.date_label(dates[2]), "2026-05-21")
+    t.eq(journal.date_label(dates[3]), "2026-05-22")
+  end)
 end
