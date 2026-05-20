@@ -27,6 +27,9 @@ happen, but they are called out clearly in this changelog.
 - Added trailing `!L` entry syntax for intervals that were logged externally.
   The flag is preserved by source rewrites, stays non-sticky, and formats after
   trailing tag and location tokens.
+- Added logged-aware summaries and reports. Main summary rows now split by
+  logged state, render logged rows with trailing `!L`, and add logged versus
+  unlogged totals for workday-eligible intervals.
 - Added optional `journal` configuration and `:WorklogToday` to open today's
   dated `.wkl` file, create parent directories, and initialize missing or empty
   journals with configured defaults and the current time.

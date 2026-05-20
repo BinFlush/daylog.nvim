@@ -107,8 +107,10 @@ Rules:
 - If no duration option is present, summaries default to decimal hours such as
   `1.50h`.
 
-`!L` is currently preserved by source rewrites such as copy and order, but
-rendered summaries and reports do not distinguish logged intervals yet.
+`!L` is preserved by source rewrites such as copy and order. Summaries and
+reports split main rows by logged state, render logged rows with trailing `!L`,
+and add a logged section for workday-eligible logged versus unlogged totals when
+logged work was marked. Tag and location totals stay grouped normally.
 
 ==============================================================================
 STICKY METADATA                                      *worklog-sticky-metadata*

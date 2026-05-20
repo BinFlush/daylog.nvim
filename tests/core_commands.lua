@@ -394,7 +394,7 @@ return function(t)
     })
   end)
 
-  t.test("summaries ignore !L until logged reporting support is added", function()
+  t.test("summaries split logged and unlogged work on the same activity", function()
     t.reset({
       "--- worklog ---",
       "08:00 implementation !L",
@@ -411,7 +411,12 @@ return function(t)
       "10:00 done",
       "",
       "--- summary exact ---",
-      "2.00h implementation",
+      "1.00h implementation !L",
+      "1.00h implementation",
+      "",
+      "--- logged exact ---",
+      "1.00h logged",
+      "1.00h unlogged",
       "",
       "--- totals exact ---",
       "2.00h workday",
@@ -635,6 +640,35 @@ return function(t)
       "",
       "--- totals quantized ---",
       "0.50h (+0m) workday",
+    })
+  end)
+
+  t.test("quantized summaries split logged and unlogged work on the same activity", function()
+    t.reset({
+      "--- worklog quantize=30 ---",
+      "08:00 implementation !L",
+      "08:20 implementation",
+      "08:40 done",
+    })
+
+    vim.cmd("WorklogQuantSum")
+
+    t.eq(t.get_lines(), {
+      "--- worklog quantize=30 ---",
+      "08:00 implementation !L",
+      "08:20 implementation",
+      "08:40 done",
+      "",
+      "--- summary quantized ---",
+      "0.50h (-10m) implementation !L",
+      "0.00h (+20m) implementation",
+      "",
+      "--- logged quantized ---",
+      "0.50h (-10m) logged",
+      "0.00h (+20m) unlogged",
+      "",
+      "--- totals quantized ---",
+      "0.50h (+10m) workday",
     })
   end)
 

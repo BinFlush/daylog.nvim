@@ -133,6 +133,86 @@ return function(t)
     })
   end)
 
+  t.test("week report preserves logged separation through daily recomputation", function()
+    local report = week.build_report({
+      {
+        date_label = "2026-05-18",
+        path = "/tmp/2026-05-18.wkl",
+        lines = {
+          "--- worklog #ClientA quantize=30 ---",
+          "08:00 plan !L",
+          "08:20 plan",
+          "08:40 done",
+        },
+      },
+      {
+        date_label = "2026-05-19",
+        path = "/tmp/2026-05-19.wkl",
+        lines = {
+          "--- worklog #ClientA quantize=30 ---",
+          "08:00 plan !L",
+          "08:20 done",
+        },
+      },
+    })
+
+    t.eq(report.summary, {
+      summary_items = {
+        {
+          text = "plan",
+          tag = "ClientA",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+          workday_excluded = false,
+          logged = true,
+        },
+        {
+          text = "plan",
+          tag = "ClientA",
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+          workday_excluded = false,
+        },
+      },
+      tag_totals = {
+        {
+          tag = "ClientA",
+          duration = 60,
+          exact_duration = 60,
+          error_minutes = 0,
+        },
+      },
+      location_totals = {
+        {
+          location = nil,
+          duration = 60,
+          exact_duration = 60,
+          error_minutes = 0,
+        },
+      },
+      logged_totals = {
+        {
+          logged = true,
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+        },
+        {
+          logged = false,
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+        },
+      },
+      activity_total = 60,
+      workday_total = 60,
+      activity_error_minutes = 0,
+      workday_error_minutes = 0,
+    })
+  end)
+
   t.test("build_report skips missing and empty files", function()
     local report = week.build_report({
       {

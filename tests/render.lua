@@ -279,6 +279,156 @@ return function(t)
     )
   end)
 
+  t.test("render exact summaries append !L on main rows and show a logged section", function()
+    t.eq(
+      render.summary_lines({
+        summary_items = {
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 60,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 60,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 120,
+            exact_duration = 120,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 120,
+            exact_duration = 120,
+          },
+        },
+        logged_totals = {
+          {
+            logged = true,
+            duration = 60,
+            exact_duration = 60,
+          },
+          {
+            logged = false,
+            duration = 60,
+            exact_duration = 60,
+          },
+        },
+        activity_total = 120,
+        workday_total = 120,
+      }, "exact"),
+      {
+        "",
+        "--- summary exact ---",
+        "1.00h implementation !L",
+        "1.00h implementation",
+        "",
+        "--- tags exact ---",
+        "2.00h #ClientA",
+        "",
+        "--- locations exact ---",
+        "2.00h @office",
+        "",
+        "--- logged exact ---",
+        "1.00h logged",
+        "1.00h unlogged",
+        "",
+        "--- totals exact ---",
+        "2.00h workday",
+      }
+    )
+  end)
+
+  t.test("render quantized summaries append !L on main rows and show logged deltas", function()
+    t.eq(
+      render.summary_lines({
+        summary_items = {
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 40,
+            error_minutes = -20,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 60,
+            exact_duration = 40,
+            error_minutes = -20,
+          },
+        },
+        logged_totals = {
+          {
+            logged = true,
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+          },
+          {
+            logged = false,
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+          },
+        },
+        activity_total = 60,
+        workday_total = 60,
+        activity_error_minutes = -20,
+        workday_error_minutes = -20,
+      }, "quantized"),
+      {
+        "",
+        "--- summary quantized ---",
+        "0.50h (-10m) implementation !L",
+        "0.50h (-10m) implementation",
+        "",
+        "--- tags quantized ---",
+        "1.00h (-20m) #ClientA",
+        "",
+        "--- locations quantized ---",
+        "1.00h (-20m) @office",
+        "",
+        "--- logged quantized ---",
+        "0.50h (-10m) logged",
+        "0.50h (-10m) unlogged",
+        "",
+        "--- totals quantized ---",
+        "1.00h (-20m) workday",
+      }
+    )
+  end)
+
   t.test("render builds a weekly report with daily sections before the weekly total", function()
     t.eq(
       render.week_report_lines({
@@ -447,6 +597,92 @@ return function(t)
         "",
         "--- week totals quantized 2026-W21 ---",
         "1:00 (+8m) workday",
+      }
+    )
+  end)
+
+  t.test("render weekly reports use logged headers when logged totals are present", function()
+    t.eq(
+      render.week_report_lines({
+        period_label = "2026-W21",
+        days = {
+          {
+            date_label = "2026-05-18",
+            summary = {
+              summary_items = {
+                {
+                  text = "plan",
+                  tag = nil,
+                  duration = 60,
+                  exact_duration = 60,
+                  error_minutes = 0,
+                  workday_excluded = false,
+                  logged = true,
+                },
+              },
+              tag_totals = {},
+              location_totals = {},
+              logged_totals = {
+                {
+                  logged = true,
+                  duration = 60,
+                  exact_duration = 60,
+                  error_minutes = 0,
+                },
+              },
+              activity_total = 60,
+              workday_total = 60,
+              activity_error_minutes = 0,
+              workday_error_minutes = 0,
+            },
+          },
+        },
+        summary = {
+          summary_items = {
+            {
+              text = "plan",
+              tag = nil,
+              duration = 60,
+              exact_duration = 60,
+              error_minutes = 0,
+              workday_excluded = false,
+              logged = true,
+            },
+          },
+          tag_totals = {},
+          location_totals = {},
+          logged_totals = {
+            {
+              logged = true,
+              duration = 60,
+              exact_duration = 60,
+              error_minutes = 0,
+            },
+          },
+          activity_total = 60,
+          workday_total = 60,
+          activity_error_minutes = 0,
+          workday_error_minutes = 0,
+        },
+      }, "hhmm"),
+      {
+        "--- day summary quantized 2026-05-18 ---",
+        "1:00 (+0m) plan !L",
+        "",
+        "--- day logged quantized 2026-05-18 ---",
+        "1:00 (+0m) logged",
+        "",
+        "--- day totals quantized 2026-05-18 ---",
+        "1:00 (+0m) workday",
+        "",
+        "--- week summary quantized 2026-W21 ---",
+        "1:00 (+0m) plan !L",
+        "",
+        "--- week logged quantized 2026-W21 ---",
+        "1:00 (+0m) logged",
+        "",
+        "--- week totals quantized 2026-W21 ---",
+        "1:00 (+0m) workday",
       }
     )
   end)

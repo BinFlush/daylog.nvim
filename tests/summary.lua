@@ -150,6 +150,80 @@ return function(t)
     })
   end)
 
+  t.test(
+    "summary splits logged main rows and counts logged totals from workday intervals",
+    function()
+      local block = block_from_lines({
+        "--- worklog #ClientA @office ---",
+        "08:00 implementation !L",
+        "09:00 implementation",
+        "10:00 break #ooo !L",
+        "10:30 done",
+      })
+
+      t.eq(summary.summarize_block(block), {
+        summary_items = {
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 60,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 60,
+            workday_excluded = false,
+          },
+          {
+            text = "break",
+            tag = "ooo",
+            duration = 30,
+            exact_duration = 30,
+            workday_excluded = true,
+            logged = true,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 120,
+            exact_duration = 120,
+          },
+          {
+            tag = "ooo",
+            duration = 30,
+            exact_duration = 30,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 150,
+            exact_duration = 150,
+          },
+        },
+        logged_totals = {
+          {
+            logged = true,
+            duration = 60,
+            exact_duration = 60,
+          },
+          {
+            logged = false,
+            duration = 60,
+            exact_duration = 60,
+          },
+        },
+        activity_total = 150,
+        workday_total = 120,
+      })
+    end
+  )
+
   t.test("quantized summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
       "--- worklog @office quantize=30 ---",
@@ -273,6 +347,180 @@ return function(t)
       workday_error_minutes = 0,
     })
   end)
+
+  t.test("quantized summary splits logged rows without splitting tag or location totals", function()
+    local block = block_from_lines({
+      "--- worklog #ClientA @office quantize=30 ---",
+      "08:00 implementation !L",
+      "08:20 implementation",
+      "08:40 break #ooo !L",
+      "09:00 done",
+    })
+
+    t.eq(summary.quantized_summarize_block(block), {
+      summary_items = {
+        {
+          text = "implementation",
+          tag = "ClientA",
+          duration = 30,
+          exact_duration = 20,
+          error_minutes = -10,
+          workday_excluded = false,
+          logged = true,
+        },
+        {
+          text = "implementation",
+          tag = "ClientA",
+          duration = 30,
+          exact_duration = 20,
+          error_minutes = -10,
+          workday_excluded = false,
+        },
+        {
+          text = "break",
+          tag = "ooo",
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+          workday_excluded = true,
+          logged = true,
+        },
+      },
+      tag_totals = {
+        {
+          tag = "ClientA",
+          duration = 60,
+          exact_duration = 40,
+          error_minutes = -20,
+        },
+        {
+          tag = "ooo",
+          duration = 0,
+          exact_duration = 20,
+          error_minutes = 20,
+        },
+      },
+      location_totals = {
+        {
+          location = "office",
+          duration = 60,
+          exact_duration = 60,
+          error_minutes = 0,
+        },
+      },
+      logged_totals = {
+        {
+          logged = true,
+          duration = 30,
+          exact_duration = 20,
+          error_minutes = -10,
+        },
+        {
+          logged = false,
+          duration = 30,
+          exact_duration = 20,
+          error_minutes = -10,
+        },
+      },
+      activity_total = 60,
+      workday_total = 60,
+      activity_error_minutes = 0,
+      workday_error_minutes = -20,
+    })
+  end)
+
+  t.test(
+    "quantized logged totals follow visible main summary rows instead of independent bucket rounding",
+    function()
+      local block = block_from_lines({
+        "--- worklog #ClientA quantize=30 ---",
+        "08:00 implementation !L",
+        "08:20 implementation",
+        "08:40 done",
+      })
+
+      t.eq(summary.quantized_summarize_block(block), {
+        summary_items = {
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 0,
+            exact_duration = 20,
+            error_minutes = 20,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 40,
+            error_minutes = 10,
+          },
+        },
+        location_totals = {
+          {
+            location = nil,
+            duration = 30,
+            exact_duration = 40,
+            error_minutes = 10,
+          },
+        },
+        logged_totals = {
+          {
+            logged = true,
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+          },
+          {
+            logged = false,
+            duration = 0,
+            exact_duration = 20,
+            error_minutes = 20,
+          },
+        },
+        activity_total = 30,
+        workday_total = 30,
+        activity_error_minutes = 10,
+        workday_error_minutes = 10,
+      })
+    end
+  )
+
+  t.test(
+    "logged totals render logged before unlogged even when unlogged duration is larger",
+    function()
+      local block = block_from_lines({
+        "--- worklog #ClientA quantize=30 ---",
+        "08:00 implementation !L",
+        "08:10 implementation",
+        "09:00 done",
+      })
+
+      local result = summary.quantized_summarize_block(block)
+
+      -- Unlogged exact = 50, logged exact = 10; after quantization unlogged gets the
+      -- larger quantized bucket.  Logged must still appear before unlogged.
+      t.ok(result.logged_totals ~= nil, "logged_totals should be present")
+      t.ok(#result.logged_totals == 2, "should have two logged_total rows")
+      t.eq(result.logged_totals[1].logged, true)
+      t.eq(result.logged_totals[2].logged, false)
+      t.ok(
+        result.logged_totals[2].duration >= result.logged_totals[1].duration,
+        "unlogged duration should be >= logged duration in this worklog"
+      )
+    end
+  )
 
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
@@ -571,6 +819,347 @@ return function(t)
       }
     )
   end)
+
+  t.test("combined quantized summaries preserve logged main-row separation and totals", function()
+    t.eq(
+      summary.combine_quantized_summaries({
+        {
+          summary_items = {
+            {
+              text = "plan",
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+              workday_excluded = false,
+              logged = true,
+            },
+          },
+          tag_totals = {
+            {
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          location_totals = {
+            {
+              location = "office",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          logged_totals = {
+            {
+              logged = true,
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          activity_total = 30,
+          workday_total = 30,
+          activity_error_minutes = -10,
+          workday_error_minutes = -10,
+        },
+        {
+          summary_items = {
+            {
+              text = "plan",
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+              workday_excluded = false,
+            },
+          },
+          tag_totals = {
+            {
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          location_totals = {
+            {
+              location = "office",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          logged_totals = {
+            {
+              logged = false,
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+            },
+          },
+          activity_total = 30,
+          workday_total = 30,
+          activity_error_minutes = -10,
+          workday_error_minutes = -10,
+        },
+      }),
+      {
+        summary_items = {
+          {
+            text = "plan",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "plan",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 40,
+            error_minutes = -20,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 60,
+            exact_duration = 40,
+            error_minutes = -20,
+          },
+        },
+        logged_totals = {
+          {
+            logged = true,
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+          },
+          {
+            logged = false,
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+          },
+        },
+        activity_total = 60,
+        workday_total = 60,
+        activity_error_minutes = -20,
+        workday_error_minutes = -20,
+      }
+    )
+  end)
+
+  t.test("combined quantized summaries derive logged totals from combined summary items", function()
+    t.eq(
+      summary.combine_quantized_summaries({
+        {
+          summary_items = {
+            {
+              text = "implementation",
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 20,
+              error_minutes = -10,
+              workday_excluded = false,
+              logged = true,
+            },
+            {
+              text = "implementation",
+              tag = "ClientA",
+              duration = 0,
+              exact_duration = 20,
+              error_minutes = 20,
+              workday_excluded = false,
+            },
+          },
+          tag_totals = {
+            {
+              tag = "ClientA",
+              duration = 30,
+              exact_duration = 40,
+              error_minutes = 10,
+            },
+          },
+          location_totals = {
+            {
+              location = "office",
+              duration = 30,
+              exact_duration = 40,
+              error_minutes = 10,
+            },
+          },
+          logged_totals = {
+            {
+              logged = true,
+              duration = 999,
+              exact_duration = 999,
+              error_minutes = 0,
+            },
+          },
+          activity_total = 30,
+          workday_total = 30,
+          activity_error_minutes = 10,
+          workday_error_minutes = 10,
+        },
+      }),
+      {
+        summary_items = {
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 0,
+            exact_duration = 20,
+            error_minutes = 20,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          {
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 40,
+            error_minutes = 10,
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 30,
+            exact_duration = 40,
+            error_minutes = 10,
+          },
+        },
+        logged_totals = {
+          {
+            logged = true,
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+          },
+          {
+            logged = false,
+            duration = 0,
+            exact_duration = 20,
+            error_minutes = 20,
+          },
+        },
+        activity_total = 30,
+        workday_total = 30,
+        activity_error_minutes = 10,
+        workday_error_minutes = 10,
+      }
+    )
+  end)
+
+  t.test(
+    "combined quantized logged totals follow combined visible summary rows instead of re-quantizing",
+    function()
+      -- Each day: impl !L = 20 exact, impl = 20 exact, bucket = 30.
+      -- Tie on remainder; first-seen (logged=true) gets the single extra bucket.
+      -- Per-day result: logged = 30, unlogged = 0.
+      --
+      -- Combined visible rows: logged = 60, unlogged = 0.
+      --
+      -- If logged and unlogged exact totals were independently re-quantized after
+      -- combining (logged exact = 40 → target 30, unlogged exact = 40 → target 30),
+      -- the result would be logged = 30, unlogged = 30 — diverging from the visible
+      -- combined rows.  The invariant requires logged = 60, unlogged = 0.
+      local day = {
+        summary_items = {
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 30,
+            exact_duration = 20,
+            error_minutes = -10,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 0,
+            exact_duration = 20,
+            error_minutes = 20,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          { tag = "ClientA", duration = 30, exact_duration = 40, error_minutes = 10 },
+        },
+        location_totals = {
+          { location = nil, duration = 30, exact_duration = 40, error_minutes = 10 },
+        },
+        logged_totals = {
+          { logged = true, duration = 30, exact_duration = 20, error_minutes = -10 },
+          { logged = false, duration = 0, exact_duration = 20, error_minutes = 20 },
+        },
+        activity_total = 30,
+        workday_total = 30,
+        activity_error_minutes = 10,
+        workday_error_minutes = 10,
+      }
+
+      t.eq(summary.combine_quantized_summaries({ day, day }), {
+        summary_items = {
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 60,
+            exact_duration = 40,
+            error_minutes = -20,
+            workday_excluded = false,
+            logged = true,
+          },
+          {
+            text = "implementation",
+            tag = "ClientA",
+            duration = 0,
+            exact_duration = 40,
+            error_minutes = 40,
+            workday_excluded = false,
+          },
+        },
+        tag_totals = {
+          { tag = "ClientA", duration = 60, exact_duration = 80, error_minutes = 20 },
+        },
+        location_totals = {
+          { location = nil, duration = 60, exact_duration = 80, error_minutes = 20 },
+        },
+        logged_totals = {
+          { logged = true, duration = 60, exact_duration = 40, error_minutes = -20 },
+          { logged = false, duration = 0, exact_duration = 40, error_minutes = 40 },
+        },
+        activity_total = 60,
+        workday_total = 60,
+        activity_error_minutes = 20,
+        workday_error_minutes = 20,
+      })
+    end
+  )
 
   t.test("summary ignores location for main item identity and keeps totals unchanged", function()
     local block = block_from_lines({

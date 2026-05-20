@@ -27,6 +27,10 @@ local function summary_item_label(item, show_tag)
     table.insert(parts, "#" .. item.tag)
   end
 
+  if item.logged then
+    table.insert(parts, "!L")
+  end
+
   return table.concat(parts, " ")
 end
 
@@ -62,6 +66,18 @@ end
 
 local function location_line(prefix, item)
   return string.format("%s %s", prefix, location_text(item))
+end
+
+local function logged_text(item)
+  if item.logged then
+    return "logged"
+  end
+
+  return "unlogged"
+end
+
+local function logged_line(prefix, item)
+  return string.format("%s %s", prefix, logged_text(item))
 end
 
 local function extend_lines(target, source)
@@ -119,6 +135,7 @@ local function section_headers(kind, options)
     summary = options.summary_header or ("--- summary" .. header_suffix .. " ---"),
     tag = options.tag_header or ("--- tags" .. header_suffix .. " ---"),
     location = options.location_header or ("--- locations" .. header_suffix .. " ---"),
+    logged = options.logged_header or ("--- logged" .. header_suffix .. " ---"),
     total = options.total_header or ("--- totals" .. header_suffix .. " ---"),
     leading_blank = options.leading_blank ~= false,
   }
@@ -179,6 +196,16 @@ local function append_summary_lines(lines, summary, kind, duration_format, optio
 
       table.insert(lines, "")
     end
+
+    if summary.logged_totals and #summary.logged_totals > 0 then
+      table.insert(lines, headers.logged)
+
+      for _, item in ipairs(summary.logged_totals) do
+        table.insert(lines, logged_line(duration_string(item.duration, format), item))
+      end
+
+      table.insert(lines, "")
+    end
   elseif kind == "quantized" then
     if has_metadata_items(summary.tag_totals, "tag") then
       table.insert(lines, headers.tag)
@@ -207,6 +234,26 @@ local function append_summary_lines(lines, summary, kind, duration_format, optio
         table.insert(
           lines,
           location_line(
+            string.format(
+              "%s (%+dm)",
+              duration_string(item.duration, format),
+              item.error_minutes or 0
+            ),
+            item
+          )
+        )
+      end
+
+      table.insert(lines, "")
+    end
+
+    if summary.logged_totals and #summary.logged_totals > 0 then
+      table.insert(lines, headers.logged)
+
+      for _, item in ipairs(summary.logged_totals) do
+        table.insert(
+          lines,
+          logged_line(
             string.format(
               "%s (%+dm)",
               duration_string(item.duration, format),
@@ -321,6 +368,7 @@ function M.week_report_lines(report, duration_format, options)
         summary_header = "--- day summary quantized " .. day.date_label .. " ---",
         tag_header = "--- day tags quantized " .. day.date_label .. " ---",
         location_header = "--- day locations quantized " .. day.date_label .. " ---",
+        logged_header = "--- day logged quantized " .. day.date_label .. " ---",
         total_header = "--- day totals quantized " .. day.date_label .. " ---",
       })
     end
@@ -331,6 +379,7 @@ function M.week_report_lines(report, duration_format, options)
     summary_header = "--- week summary quantized " .. report.period_label .. " ---",
     tag_header = "--- week tags quantized " .. report.period_label .. " ---",
     location_header = "--- week locations quantized " .. report.period_label .. " ---",
+    logged_header = "--- week logged quantized " .. report.period_label .. " ---",
     total_header = "--- week totals quantized " .. report.period_label .. " ---",
   })
 
@@ -348,6 +397,7 @@ function M.days_report_lines(report, duration_format, options)
         summary_header = "--- day summary quantized " .. day.date_label .. " ---",
         tag_header = "--- day tags quantized " .. day.date_label .. " ---",
         location_header = "--- day locations quantized " .. day.date_label .. " ---",
+        logged_header = "--- day logged quantized " .. day.date_label .. " ---",
         total_header = "--- day totals quantized " .. day.date_label .. " ---",
       })
     end
@@ -358,6 +408,7 @@ function M.days_report_lines(report, duration_format, options)
     summary_header = "--- range summary quantized " .. report.period_label .. " ---",
     tag_header = "--- range tags quantized " .. report.period_label .. " ---",
     location_header = "--- range locations quantized " .. report.period_label .. " ---",
+    logged_header = "--- range logged quantized " .. report.period_label .. " ---",
     total_header = "--- range totals quantized " .. report.period_label .. " ---",
   })
 

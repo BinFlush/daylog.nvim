@@ -75,8 +75,10 @@ duration=hhmm  render summary durations as hours:minutes
 ```
 
 `!L` is source syntax on timestamped entries. It is currently preserved by
-source rewrites such as copy and order, but rendered summaries and reports do
-not distinguish logged intervals yet.
+source rewrites such as copy and order. Summaries and reports split main rows by
+logged state, render logged rows with trailing `!L`, and add a logged section
+for workday-eligible logged versus unlogged totals when logged work was marked.
+Tag and location totals stay grouped normally.
 
 ## Commands
 

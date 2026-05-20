@@ -97,6 +97,7 @@ local function build_intervals(entries)
       tag = current.tag,
       location = current.location,
       workday_excluded = current.workday_excluded,
+      logged = current.logged and true or nil,
     })
   end
 
@@ -109,22 +110,24 @@ end
 local function build_fine_grained_rows(intervals)
   return project_rows(
     intervals,
-    { "text", "tag", "location", "workday_excluded" },
-    { "text", "tag", "location", "workday_excluded" }
+    { "text", "tag", "location", "workday_excluded", "logged" },
+    { "text", "tag", "location", "workday_excluded", "logged" }
   )
 end
 
 local function summarize_items(rows)
   return project_rows(
     rows,
-    { "text", "tag", "workday_excluded" },
-    { "text", "tag", "workday_excluded" }
+    { "text", "tag", "workday_excluded", "logged" },
+    { "text", "tag", "workday_excluded", "logged" }
   )
 end
 
 local function summarize_metadata(rows, field)
   return project_rows(rows, { field }, { field })
 end
+
+local logged_totals_from_exact_items
 
 -- Project one row set into every exact reporting section.
 -- Main summary items fold location away, while tag and location totals keep
@@ -141,13 +144,20 @@ local function build_summary_from_rows(rows)
     end
   end
 
-  return {
+  local summary = {
     summary_items = summarize_items(rows),
     tag_totals = summarize_metadata(rows, "tag"),
     location_totals = summarize_metadata(rows, "location"),
     activity_total = activity_total,
     workday_total = workday_total,
   }
+
+  local logged_totals = logged_totals_from_exact_items(summary.summary_items, false)
+  if logged_totals then
+    summary.logged_totals = logged_totals
+  end
+
+  return summary
 end
 
 local function sort_by_duration(items)
@@ -292,6 +302,95 @@ local function apply_error_minutes(items)
   return items
 end
 
+logged_totals_from_exact_items = function(items, include_error_minutes)
+  local workday_items = {}
+  local has_logged = false
+
+  for _, item in ipairs(items or {}) do
+    if not item.workday_excluded then
+      local logged = item.logged == true
+      has_logged = has_logged or logged
+
+      table.insert(workday_items, {
+        logged = logged,
+        duration = item.duration,
+        exact_duration = item.exact_duration or item.duration,
+      })
+    end
+  end
+
+  if not has_logged then
+    return nil
+  end
+
+  local totals_by_logged = {}
+  for _, row in ipairs(project_rows(workday_items, { "logged" }, { "logged" })) do
+    totals_by_logged[row.logged] = row
+  end
+
+  -- Fixed semantic order: logged always before unlogged.
+  local totals = {}
+  if totals_by_logged[true] then
+    table.insert(totals, totals_by_logged[true])
+  end
+  if totals_by_logged[false] then
+    table.insert(totals, totals_by_logged[false])
+  end
+
+  if include_error_minutes then
+    return apply_error_minutes(totals)
+  end
+
+  return totals
+end
+
+-- Derive logged totals by projecting workday-eligible summary items by logged state.
+-- Items must already carry quantized durations and error_minutes (i.e. they come from
+-- project_quantized_items or an apply_error_minutes pass).  Duration, exact_duration,
+-- and error_minutes are summed directly so the result equals the sum of the visible
+-- quantized main summary rows by logged state, preserving the remainder distribution
+-- from the shared quantization pass.
+local function logged_totals_from_quantized_items(items)
+  local buckets = {}
+  local has_logged = false
+
+  for _, item in ipairs(items or {}) do
+    if not item.workday_excluded then
+      local logged = item.logged == true
+      has_logged = has_logged or logged
+
+      local bucket = buckets[logged]
+      if not bucket then
+        bucket = {
+          logged = logged,
+          duration = 0,
+          exact_duration = 0,
+          error_minutes = 0,
+        }
+        buckets[logged] = bucket
+      end
+
+      bucket.duration = bucket.duration + item.duration
+      bucket.exact_duration = bucket.exact_duration + (item.exact_duration or 0)
+      bucket.error_minutes = bucket.error_minutes + (item.error_minutes or 0)
+    end
+  end
+
+  if not has_logged then
+    return nil
+  end
+
+  -- Fixed semantic order: logged always before unlogged.
+  local result = {}
+  if buckets[true] then
+    table.insert(result, buckets[true])
+  end
+  if buckets[false] then
+    table.insert(result, buckets[false])
+  end
+  return result
+end
+
 local function quantize_rows(rows, bucket_minutes, target_total)
   local result = copy_rows(rows)
   local quantized_total = 0
@@ -399,8 +498,8 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
     summary_items = project_quantized_items(
       exact_summary.summary_items,
       quantized_summary.summary_items,
-      { "text", "tag", "workday_excluded" },
-      { "text", "tag", "workday_excluded" }
+      { "text", "tag", "workday_excluded", "logged" },
+      { "text", "tag", "workday_excluded", "logged" }
     ),
     tag_totals = project_quantized_items(
       exact_summary.tag_totals,
@@ -419,6 +518,11 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
     activity_error_minutes = exact_summary.activity_total - quantized_summary.activity_total,
     workday_error_minutes = exact_summary.workday_total - quantized_summary.workday_total,
   }
+
+  local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
+  if logged_totals then
+    summary.logged_totals = logged_totals
+  end
 
   return finalize_summary_order(summary)
 end
@@ -455,12 +559,12 @@ function M.combine_quantized_summaries(summaries)
     end
   end
 
-  return finalize_summary_order({
+  local summary = {
     summary_items = apply_error_minutes(
       project_rows(
         summary_items,
-        { "text", "tag", "workday_excluded" },
-        { "text", "tag", "workday_excluded" }
+        { "text", "tag", "workday_excluded", "logged" },
+        { "text", "tag", "workday_excluded", "logged" }
       )
     ),
     tag_totals = apply_error_minutes(project_rows(tag_totals, { "tag" }, { "tag" })),
@@ -471,7 +575,14 @@ function M.combine_quantized_summaries(summaries)
     workday_total = workday_total,
     activity_error_minutes = activity_error_minutes,
     workday_error_minutes = workday_error_minutes,
-  })
+  }
+
+  local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
+  if logged_totals then
+    summary.logged_totals = logged_totals
+  end
+
+  return finalize_summary_order(summary)
 end
 
 return M
