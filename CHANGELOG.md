@@ -33,6 +33,9 @@ happen, but they are called out clearly in this changelog.
 - Added `:WorklogDays {count}` to open a scratch range report for the last N
   journal dates using the same daily-first quantization and strict validation
   rules as `:WorklogWeek`.
+- Added `:WorklogWeek!` and `:WorklogDays! {count}` to open compact journal
+  reports that omit the per-day review sections and show only the aggregate
+  weekly or range summary.
 
 ### Changed
 

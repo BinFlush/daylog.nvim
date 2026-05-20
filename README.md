@@ -79,8 +79,8 @@ duration=hhmm  render summary durations as hours:minutes
 | --- | --- |
 | `:WorklogNew` | Create a new worklog block using configured defaults |
 | `:WorklogToday` | Open today's journal file and initialize it if needed |
-| `:WorklogDays {count}` | Open the last N journal days report |
-| `:WorklogWeek` | Open this week's journal report |
+| `:WorklogDays[!] {count}` | Open the last N journal days report; `!` shows only the aggregate range summary |
+| `:WorklogWeek[!]` | Open this week's journal report; `!` shows only the aggregate weekly summary |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
 | `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
 | `:WorklogCheck` | Validate the current buffer without modifying it |
@@ -154,6 +154,9 @@ week from Monday through Sunday. Both commands recompute each included day's
 quantized summary from the latest worklog block in that file, show those daily
 summaries in a scratch buffer, then append one aggregate total built from the
 already-quantized daily results.
+
+Adding `!` to either command omits the daily review sections and shows only the
+aggregate weekly or range summary in the scratch buffer.
 
 `journal.directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees
 better than `%Y/%V` around new year boundaries.

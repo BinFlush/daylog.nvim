@@ -218,8 +218,8 @@ Open today's journal file from `require('worklog').setup({ journal = ... })`.
   using configured defaults, then inserts the current time.
 - If the file already has content, it is opened without modification.
 
-                                                         *:WorklogWeek*
-:WorklogWeek
+                                                        *:WorklogWeek*
+:WorklogWeek[!]
 
 Open a scratch report for the current ISO week from
 `require('worklog').setup({ journal = ... })`.
@@ -230,11 +230,13 @@ Open a scratch report for the current ISO week from
 - Existing rendered summaries are ignored.
 - The report shows each included day's quantized summary first, then one weekly
   quantized summary built by summing those daily quantized results.
+- With `!`, the scratch buffer omits the per-day review sections and shows only
+  the weekly aggregate summary.
 - Non-empty invalid journal files abort the report instead of producing partial
   totals.
 
                                                          *:WorklogDays*
-:WorklogDays {count}
+:WorklogDays[!] {count}
 
 Open a scratch report for the last N journal dates from
 `require('worklog').setup({ journal = ... })`.
@@ -246,6 +248,8 @@ Open a scratch report for the last N journal dates from
 - Existing rendered summaries are ignored.
 - The report shows each included day's quantized summary first, then one range
   summary built by summing those daily quantized results.
+- With `!`, the scratch buffer omits the per-day review sections and shows only
+  the range aggregate summary.
 - Non-empty invalid journal files abort the report instead of producing partial
   totals.
 

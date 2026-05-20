@@ -369,6 +369,88 @@ return function(t)
     )
   end)
 
+  t.test("render can omit day sections for a weekly aggregate-only report", function()
+    t.eq(
+      render.week_report_lines(
+        {
+          period_label = "2026-W21",
+          days = {
+            {
+              date_label = "2026-05-18",
+              summary = {
+                summary_items = {
+                  {
+                    text = "stale day",
+                    tag = nil,
+                    duration = 15,
+                    exact_duration = 20,
+                    error_minutes = 5,
+                    workday_excluded = false,
+                  },
+                },
+                tag_totals = {},
+                location_totals = {},
+                activity_total = 15,
+                workday_total = 15,
+                activity_error_minutes = 5,
+                workday_error_minutes = 5,
+              },
+            },
+          },
+          summary = {
+            summary_items = {
+              {
+                text = "plan",
+                tag = "ClientA",
+                duration = 60,
+                exact_duration = 68,
+                error_minutes = 8,
+                workday_excluded = false,
+              },
+            },
+            tag_totals = {
+              {
+                tag = "ClientA",
+                duration = 60,
+                exact_duration = 68,
+                error_minutes = 8,
+              },
+            },
+            location_totals = {
+              {
+                location = "office",
+                duration = 60,
+                exact_duration = 68,
+                error_minutes = 8,
+              },
+            },
+            activity_total = 60,
+            workday_total = 60,
+            activity_error_minutes = 8,
+            workday_error_minutes = 8,
+          },
+        },
+        "hhmm",
+        {
+          aggregate_only = true,
+        }
+      ),
+      {
+        "--- week summary quantized 2026-W21 ---",
+        "1:00 (+8m) plan",
+        "",
+        "--- week tags quantized 2026-W21 ---",
+        "1:00 (+8m) #ClientA",
+        "",
+        "--- week locations quantized 2026-W21 ---",
+        "1:00 (+8m) @office",
+        "",
+        "--- week totals quantized 2026-W21 ---",
+        "1:00 (+8m) workday",
+      }
+    )
+  end)
+
   t.test("render builds a days report with range headers", function()
     t.eq(
       render.days_report_lines({
@@ -452,6 +534,88 @@ return function(t)
         "",
         "--- range summary quantized 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) plan",
+        "",
+        "--- range totals quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+8m) workday",
+      }
+    )
+  end)
+
+  t.test("render can omit day sections for an aggregate-only days report", function()
+    t.eq(
+      render.days_report_lines(
+        {
+          period_label = "2026-05-20..2026-05-22",
+          days = {
+            {
+              date_label = "2026-05-22",
+              summary = {
+                summary_items = {
+                  {
+                    text = "stale day",
+                    tag = nil,
+                    duration = 15,
+                    exact_duration = 20,
+                    error_minutes = 5,
+                    workday_excluded = false,
+                  },
+                },
+                tag_totals = {},
+                location_totals = {},
+                activity_total = 15,
+                workday_total = 15,
+                activity_error_minutes = 5,
+                workday_error_minutes = 5,
+              },
+            },
+          },
+          summary = {
+            summary_items = {
+              {
+                text = "retro",
+                tag = "internal",
+                duration = 60,
+                exact_duration = 68,
+                error_minutes = 8,
+                workday_excluded = false,
+              },
+            },
+            tag_totals = {
+              {
+                tag = "internal",
+                duration = 60,
+                exact_duration = 68,
+                error_minutes = 8,
+              },
+            },
+            location_totals = {
+              {
+                location = "home",
+                duration = 60,
+                exact_duration = 68,
+                error_minutes = 8,
+              },
+            },
+            activity_total = 60,
+            workday_total = 60,
+            activity_error_minutes = 8,
+            workday_error_minutes = 8,
+          },
+        },
+        "hhmm",
+        {
+          aggregate_only = true,
+        }
+      ),
+      {
+        "--- range summary quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+8m) retro",
+        "",
+        "--- range tags quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+8m) #internal",
+        "",
+        "--- range locations quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+8m) @home",
         "",
         "--- range totals quantized 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) workday",

@@ -266,7 +266,7 @@ function M.open_today()
   apply_insert_time(os.date("%H:%M", now))
 end
 
-function M.open_week()
+function M.open_week(aggregate_only)
   local settings = expanded_journal_settings()
   if settings == nil then
     warn("worklog: journal.root is not configured")
@@ -280,12 +280,14 @@ function M.open_week()
   end
 
   open_report_buffer(
-    render.week_report_lines(report, config.get().defaults.duration_format),
-    "worklog-week-" .. report.period_label
+    render.week_report_lines(report, config.get().defaults.duration_format, {
+      aggregate_only = aggregate_only,
+    }),
+    (aggregate_only and "worklog-week-summary-" or "worklog-week-") .. report.period_label
   )
 end
 
-function M.open_days(count)
+function M.open_days(count, aggregate_only)
   local settings = expanded_journal_settings()
   if settings == nil then
     warn("worklog: journal.root is not configured")
@@ -299,8 +301,10 @@ function M.open_days(count)
   end
 
   open_report_buffer(
-    render.days_report_lines(report, config.get().defaults.duration_format),
-    "worklog-days-" .. report.period_label
+    render.days_report_lines(report, config.get().defaults.duration_format, {
+      aggregate_only = aggregate_only,
+    }),
+    (aggregate_only and "worklog-days-summary-" or "worklog-days-") .. report.period_label
   )
 end
 
@@ -320,9 +324,11 @@ function M.setup(options)
     M.open_today()
   end)
 
-  ensure_user_command("WorklogWeek", function()
-    M.open_week()
-  end)
+  ensure_user_command("WorklogWeek", function(args)
+    M.open_week(args.bang)
+  end, {
+    bang = true,
+  })
 
   ensure_user_command("WorklogDays", function(args)
     local count, err = parse_positive_integer(args.args)
@@ -331,8 +337,9 @@ function M.setup(options)
       return
     end
 
-    M.open_days(count)
+    M.open_days(count, args.bang)
   end, {
+    bang = true,
     nargs = 1,
   })
 

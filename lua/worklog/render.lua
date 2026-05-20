@@ -310,17 +310,20 @@ function M.summary_lines(summary, kind, duration_format, options)
   return lines
 end
 
-function M.week_report_lines(report, duration_format)
+function M.week_report_lines(report, duration_format, options)
   local lines = {}
+  options = options or {}
 
-  for index, day in ipairs(report.days) do
-    append_summary_lines(lines, day.summary, "quantized", duration_format, {
-      leading_blank = index > 1,
-      summary_header = "--- day summary quantized " .. day.date_label .. " ---",
-      tag_header = "--- day tags quantized " .. day.date_label .. " ---",
-      location_header = "--- day locations quantized " .. day.date_label .. " ---",
-      total_header = "--- day totals quantized " .. day.date_label .. " ---",
-    })
+  if not options.aggregate_only then
+    for index, day in ipairs(report.days) do
+      append_summary_lines(lines, day.summary, "quantized", duration_format, {
+        leading_blank = index > 1,
+        summary_header = "--- day summary quantized " .. day.date_label .. " ---",
+        tag_header = "--- day tags quantized " .. day.date_label .. " ---",
+        location_header = "--- day locations quantized " .. day.date_label .. " ---",
+        total_header = "--- day totals quantized " .. day.date_label .. " ---",
+      })
+    end
   end
 
   append_summary_lines(lines, report.summary, "quantized", duration_format, {
@@ -334,17 +337,20 @@ function M.week_report_lines(report, duration_format)
   return lines
 end
 
-function M.days_report_lines(report, duration_format)
+function M.days_report_lines(report, duration_format, options)
   local lines = {}
+  options = options or {}
 
-  for index, day in ipairs(report.days) do
-    append_summary_lines(lines, day.summary, "quantized", duration_format, {
-      leading_blank = index > 1,
-      summary_header = "--- day summary quantized " .. day.date_label .. " ---",
-      tag_header = "--- day tags quantized " .. day.date_label .. " ---",
-      location_header = "--- day locations quantized " .. day.date_label .. " ---",
-      total_header = "--- day totals quantized " .. day.date_label .. " ---",
-    })
+  if not options.aggregate_only then
+    for index, day in ipairs(report.days) do
+      append_summary_lines(lines, day.summary, "quantized", duration_format, {
+        leading_blank = index > 1,
+        summary_header = "--- day summary quantized " .. day.date_label .. " ---",
+        tag_header = "--- day tags quantized " .. day.date_label .. " ---",
+        location_header = "--- day locations quantized " .. day.date_label .. " ---",
+        total_header = "--- day totals quantized " .. day.date_label .. " ---",
+      })
+    end
   end
 
   append_summary_lines(lines, report.summary, "quantized", duration_format, {

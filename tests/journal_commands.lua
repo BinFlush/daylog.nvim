@@ -379,6 +379,66 @@ return function(t)
     end)
   end)
 
+  t.test("week bang opens only the weekly aggregate scratch report", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local monday = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    write_journal_file(root, "%Y/%V", monday, {
+      "--- worklog #ClientA @office quantize=30 ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      defaults = {
+        duration_format = "hhmm",
+      },
+      journal = {
+        root = root,
+        directory = "%Y/%V",
+      },
+    }, function()
+      vim.cmd("silent! only!")
+      t.reset({ "notes" })
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogWeek!")
+      end)
+
+      t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-summary-2026-W21")
+      t.eq(t.get_lines(), {
+        "--- week summary quantized 2026-W21 ---",
+        "1:00 (+0m) plan",
+        "",
+        "--- week tags quantized 2026-W21 ---",
+        "1:00 (+0m) #ClientA",
+        "",
+        "--- week locations quantized 2026-W21 ---",
+        "1:00 (+0m) @office",
+        "",
+        "--- week totals quantized 2026-W21 ---",
+        "1:00 (+0m) workday",
+      })
+
+      vim.cmd("silent! only!")
+    end)
+  end)
+
   t.test("week expands a home-relative journal root before building reports", function()
     local now = os.time({
       year = 2026,
@@ -609,6 +669,69 @@ return function(t)
         "",
         "--- range totals quantized 2026-05-19..2026-05-22 ---",
         "2:00 (-20m) workday",
+      })
+
+      vim.cmd("silent! only!")
+    end)
+  end)
+
+  t.test("days bang opens only the range aggregate scratch report", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local friday = os.time({
+      year = 2026,
+      month = 5,
+      day = 22,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    write_journal_file(root, "%Y/%V", friday, {
+      "--- worklog #internal @home quantize=60 ---",
+      "10:00 retro",
+      "11:00 done",
+    })
+
+    with_worklog_setup({
+      defaults = {
+        duration_format = "hhmm",
+      },
+      journal = {
+        root = root,
+        directory = "%Y/%V",
+      },
+    }, function()
+      vim.cmd("silent! only!")
+      t.reset({ "notes" })
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogDays! 3")
+      end)
+
+      t.eq(
+        vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
+        "worklog-days-summary-2026-05-20..2026-05-22"
+      )
+      t.eq(t.get_lines(), {
+        "--- range summary quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+0m) retro",
+        "",
+        "--- range tags quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+0m) #internal",
+        "",
+        "--- range locations quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+0m) @home",
+        "",
+        "--- range totals quantized 2026-05-20..2026-05-22 ---",
+        "1:00 (+0m) workday",
       })
 
       vim.cmd("silent! only!")
