@@ -6,6 +6,7 @@ local check = require("worklog.usecases.check")
 local config = require("worklog.config")
 local insert_now = require("worklog.usecases.insert_now")
 local journal = require("worklog.journal")
+local log_current = require("worklog.usecases.log_current")
 local new_worklog = require("worklog.usecases.new_worklog")
 local order_worklogs = require("worklog.usecases.order_worklogs")
 local render = require("worklog.render")
@@ -239,6 +240,18 @@ function M.check()
   info(result.message)
 end
 
+function M.log_current()
+  local lines = buffer_lines()
+  local row = cursor_row()
+  local result, err = log_current.run(lines, row)
+  if not result then
+    warn(err)
+    return
+  end
+
+  apply_result(result)
+end
+
 function M.new_worklog()
   apply_new_worklog(config.get().defaults)
 end
@@ -396,6 +409,10 @@ function M.setup(options)
 
   ensure_user_command("WorklogCheck", function()
     M.check()
+  end)
+
+  ensure_user_command("WorklogLog", function()
+    M.log_current()
   end)
 end
 

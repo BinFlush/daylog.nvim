@@ -4,6 +4,7 @@ return function(t)
   local append_summary = require("worklog.usecases.append_summary")
   local check = require("worklog.usecases.check")
   local insert_now = require("worklog.usecases.insert_now")
+  local log_current = require("worklog.usecases.log_current")
   local new_worklog = require("worklog.usecases.new_worklog")
   local order_worklogs = require("worklog.usecases.order_worklogs")
   local repeat_current = require("worklog.usecases.repeat_current")
@@ -515,4 +516,303 @@ return function(t)
       },
     })
   end)
+
+  t.test("log_current marks the source entry behind an exact summary row", function()
+    local result = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+    }, 6)
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 2,
+          lines = { "08:00 implementation !L" },
+        },
+      },
+    })
+  end)
+
+  t.test("log_current marks the source entry behind a quantized summary row", function()
+    local result = log_current.run({
+      "--- worklog quantize=30 ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary quantized ---",
+      "1.00h (+0m) implementation",
+    }, 6)
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 2,
+          lines = { "08:00 implementation !L" },
+        },
+      },
+    })
+  end)
+
+  t.test("log_current marks every source entry contributing to one summary row", function()
+    local result = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 meeting",
+      "10:00 implementation",
+      "11:00 done",
+      "",
+      "--- summary exact ---",
+      "2.00h implementation",
+      "1.00h meeting",
+    }, 8)
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 2,
+          lines = { "08:00 implementation !L" },
+        },
+        {
+          start_index = 3,
+          end_index = 4,
+          lines = { "10:00 implementation !L" },
+        },
+      },
+    })
+  end)
+
+  t.test("log_current leaves notes under entries untouched", function()
+    local result = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "note text",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+    }, 7)
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 2,
+          lines = { "08:00 implementation !L" },
+        },
+      },
+    })
+  end)
+
+  t.test("log_current canonicalizes metadata order around the appended !L", function()
+    local result = log_current.run({
+      "--- worklog ---",
+      "08:00 plan #ClientA @office",
+      "09:00 done #- @-",
+      "",
+      "--- summary exact ---",
+      "1.00h plan",
+    }, 6)
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 2,
+          lines = { "08:00 plan #ClientA @office !L" },
+        },
+      },
+    })
+  end)
+
+  t.test("log_current refuses when the cursor is inside the worklog body", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+    }, 2)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test("log_current refuses tag-total rows inside the summary block", function()
+    local result, err = log_current.run({
+      "--- worklog #ClientA ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+      "",
+      "--- tags exact ---",
+      "1.00h #ClientA",
+    }, 9)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test("log_current refuses total rows", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+      "",
+      "--- totals exact ---",
+      "1.00h workday",
+    }, 9)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test("log_current refuses already logged summary rows", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation !L",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation !L",
+    }, 6)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row is already logged")
+  end)
+
+  t.test("log_current refuses #ooo summary rows", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 break #ooo",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h break",
+    }, 6)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: refusing to mark out-of-office time as logged")
+  end)
+
+  t.test("log_current refuses stale summary rows that no longer match the source", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+    }, 6)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test("log_current refuses when the active worklog has diagnostics", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "09:00 done",
+      "08:00 plan",
+      "",
+      "--- summary exact ---",
+      "1.00h plan",
+    }, 6)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder")
+  end)
+
+  t.test(
+    "log_current refuses summary blocks owned by a non-active worklog even when content would match",
+    function()
+      -- The cursor row's text matches what the active worklog's recomputed
+      -- summary would render, so the content match alone could not save us;
+      -- only the ownership check (block.start_row < active.start_row) keeps
+      -- the plugin from logging row 9 in the active worklog.
+      local result, err = log_current.run({
+        "--- worklog ---",
+        "08:00 implementation",
+        "09:00 done",
+        "",
+        "--- summary exact ---",
+        "1.00h implementation",
+        "",
+        "--- worklog ---",
+        "10:00 implementation",
+        "11:00 done",
+      }, 6)
+
+      t.eq(result, nil)
+      t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    end
+  )
+
+  t.test("log_current refuses summary-like text in an unrelated generic block", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- notes ---",
+      "1.00h implementation",
+    }, 6)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test("log_current refuses labeled summary-like headers after the active worklog", function()
+    -- Headers like `--- summary exact 2026-W21 ---` are produced for weekly
+    -- and range reports in scratch buffers; if pasted into source they must
+    -- not be treated as the active worklog's summary section.
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary exact 2026-W21 ---",
+      "1.00h implementation",
+    }, 6)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test(
+    "log_current refuses summary-shaped block headers placed before the active worklog",
+    function()
+      local result, err = log_current.run({
+        "--- summary exact ---",
+        "1.00h implementation",
+        "",
+        "--- worklog ---",
+        "08:00 implementation",
+        "09:00 done",
+      }, 2)
+
+      -- The leading block is rejected by the structural parser because the
+      -- first line is not a worklog header. This proves :WorklogLog cannot be
+      -- coerced into logging the active worklog through a pre-active "summary"
+      -- block.
+      t.eq(result, nil)
+      t.eq(
+        err,
+        "worklog: first line must be a worklog header such as "
+          .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+      )
+    end
+  )
 end

@@ -80,6 +80,12 @@ logged state, render logged rows with trailing `!L`, and add a logged section
 for workday-eligible logged versus unlogged totals when logged work was marked.
 Tag and location totals stay grouped normally.
 
+`:WorklogLog` marks the unlogged main summary row under the cursor as logged by
+recomputing the active worklog summary and applying `!L` to the contributing
+source entries. It works on both exact and quantized summaries for the active
+worklog. It refuses already logged rows, `#ooo` rows, and summary rows that no
+longer match the recomputed summary.
+
 ## Commands
 
 | Command | Effect |
@@ -95,6 +101,7 @@ Tag and location totals stay grouped normally.
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
 | `:WorklogSummarize` | Append an exact summary |
 | `:WorklogQuantSum` | Append a rounded summary |
+| `:WorklogLog` | Mark the unlogged main summary row under the cursor by adding `!L` to the contributing source entries |
 
 The active worklog is the latest `--- worklog ... ---` block in the file.
 
@@ -198,6 +205,7 @@ vim.keymap.set("n", "<leader>ww", "<cmd>WorklogCopy<cr>", { desc = "Worklog copy
 vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>", { desc = "Worklog order blocks" })
 vim.keymap.set("n", "<leader>ws", "<cmd>WorklogSummarize<cr>", { desc = "Worklog summarize exact" })
 vim.keymap.set("n", "<leader>wq", "<cmd>WorklogQuantSum<cr>", { desc = "Worklog summarize quantized" })
+vim.keymap.set("n", "<leader>wl", "<cmd>WorklogLog<cr>", { desc = "Worklog mark summary row as logged" })
 ```
 
 ## Documentation

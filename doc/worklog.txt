@@ -332,6 +332,21 @@ omitted, the default is 15 minutes.
 
 Durations render according to `duration=decimal|hhmm` on that worklog block.
 
+                                                        *:WorklogLog*
+:WorklogLog
+
+Mark the unlogged main summary row under the cursor as logged.
+
+- The cursor must be on a main summary row inside an appended exact or
+  quantized summary section of the active worklog.
+- The active worklog summary is recomputed from source; the rendered row acts
+  only as a selector.
+- The matched summary item's source intervals receive a trailing `!L`.
+- Tag, location, logged, and total rows are not eligible.
+- Already logged rows and `#ooo` rows are refused.
+- Summary rows that no longer match the recomputed summary are refused; run
+  |:WorklogSummarize| or |:WorklogQuantSum| again to refresh them.
+
 ==============================================================================
 CONFIGURATION                                                  *worklog-config*
 

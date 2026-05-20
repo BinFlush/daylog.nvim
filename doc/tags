@@ -2,6 +2,7 @@
 :WorklogCopy	worklog.txt	/*:WorklogCopy*
 :WorklogDays	worklog.txt	/*:WorklogDays*
 :WorklogInsert	worklog.txt	/*:WorklogInsert*
+:WorklogLog	worklog.txt	/*:WorklogLog*
 :WorklogNew	worklog.txt	/*:WorklogNew*
 :WorklogOrder	worklog.txt	/*:WorklogOrder*
 :WorklogQuantSum	worklog.txt	/*:WorklogQuantSum*

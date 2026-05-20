@@ -849,4 +849,73 @@ return function(t)
       "09:00 done #-",
     })
   end)
+
+  t.test("worklog log marks the source entry behind an exact summary row", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+    })
+    t.set_cursor(6, 0)
+
+    vim.cmd("WorklogLog")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 implementation !L",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation",
+    })
+  end)
+
+  t.test("worklog log marks the source entry behind a quantized summary row", function()
+    t.reset({
+      "--- worklog quantize=30 ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary quantized ---",
+      "1.00h (+0m) implementation",
+    })
+    t.set_cursor(6, 0)
+
+    vim.cmd("WorklogLog")
+
+    t.eq(t.get_lines(), {
+      "--- worklog quantize=30 ---",
+      "08:00 implementation !L",
+      "09:00 done",
+      "",
+      "--- summary quantized ---",
+      "1.00h (+0m) implementation",
+    })
+  end)
+
+  t.test("worklog log leaves the buffer unchanged when refusing", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 implementation !L",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation !L",
+    })
+    t.set_cursor(6, 0)
+
+    vim.cmd("WorklogLog")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 implementation !L",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "1.00h implementation !L",
+    })
+  end)
 end

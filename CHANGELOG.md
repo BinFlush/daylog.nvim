@@ -30,6 +30,10 @@ happen, but they are called out clearly in this changelog.
 - Added logged-aware summaries and reports. Main summary rows now split by
   logged state, render logged rows with trailing `!L`, and add logged versus
   unlogged totals for workday-eligible intervals.
+- Added `:WorklogLog` to mark the unlogged main summary row under the cursor
+  by recomputing the active worklog summary and applying `!L` to the
+  contributing source entries. Refuses already logged rows, `#ooo` rows, and
+  stale summary rows that no longer match the recomputed summary.
 - Added optional `journal` configuration and `:WorklogToday` to open today's
   dated `.wkl` file, create parent directories, and initialize missing or empty
   journals with configured defaults and the current time.
