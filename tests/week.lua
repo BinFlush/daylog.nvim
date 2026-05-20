@@ -37,6 +37,7 @@ return function(t)
                 exact_duration = 20,
                 error_minutes = -10,
                 workday_excluded = false,
+                source_entry_rows = { 2 },
               },
             },
             tag_totals = {
@@ -73,6 +74,7 @@ return function(t)
                 exact_duration = 20,
                 error_minutes = 20,
                 workday_excluded = false,
+                source_entry_rows = { 2 },
               },
             },
             tag_totals = {

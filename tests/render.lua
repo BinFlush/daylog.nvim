@@ -1,6 +1,28 @@
 return function(t)
   local render = require("worklog.render")
 
+  local function find_layout_row(layout, predicate)
+    for _, row in ipairs(layout) do
+      if predicate(row) then
+        return row
+      end
+    end
+
+    return nil
+  end
+
+  local function collect_layout_rows(layout, predicate)
+    local matches = {}
+
+    for _, row in ipairs(layout) do
+      if predicate(row) then
+        table.insert(matches, row)
+      end
+    end
+
+    return matches
+  end
+
   t.test("render omits location on main summary rows and shows tags only for conflicts", function()
     t.eq(
       render.summary_lines({
@@ -857,5 +879,181 @@ return function(t)
         "1:00 (+8m) workday",
       }
     )
+  end)
+
+  t.test("summary_layout returns structured rows whose lines match summary_lines", function()
+    local summary = {
+      summary_items = {
+        {
+          text = "implementation",
+          tag = "ClientA",
+          duration = 60,
+          exact_duration = 60,
+          workday_excluded = false,
+          logged = true,
+          source_entry_rows = { 2 },
+        },
+        {
+          text = "implementation",
+          tag = "ClientA",
+          duration = 60,
+          exact_duration = 60,
+          workday_excluded = false,
+          source_entry_rows = { 3 },
+        },
+      },
+      tag_totals = {
+        {
+          tag = "ClientA",
+          duration = 120,
+          exact_duration = 120,
+        },
+      },
+      location_totals = {
+        {
+          location = "office",
+          duration = 120,
+          exact_duration = 120,
+        },
+      },
+      logged_totals = {
+        {
+          logged = true,
+          duration = 60,
+          exact_duration = 60,
+        },
+        {
+          logged = false,
+          duration = 60,
+          exact_duration = 60,
+        },
+      },
+      activity_total = 120,
+      workday_total = 120,
+    }
+
+    local layout = render.summary_layout(summary, "exact")
+    local lines_from_layout = {}
+
+    for _, row in ipairs(layout) do
+      table.insert(lines_from_layout, row.line)
+    end
+
+    t.eq(lines_from_layout, render.summary_lines(summary, "exact"))
+  end)
+
+  t.test("summary_layout marks summary rows with kind summary_item and exposes the item", function()
+    local first_item = {
+      text = "implementation",
+      tag = "ClientA",
+      duration = 60,
+      exact_duration = 60,
+      workday_excluded = false,
+      logged = true,
+      source_entry_rows = { 2 },
+    }
+    local second_item = {
+      text = "implementation",
+      tag = "ClientA",
+      duration = 60,
+      exact_duration = 60,
+      workday_excluded = false,
+      source_entry_rows = { 3 },
+    }
+
+    local layout = render.summary_layout({
+      summary_items = { first_item, second_item },
+      tag_totals = {},
+      location_totals = {},
+      activity_total = 120,
+      workday_total = 120,
+    }, "exact")
+
+    local summary_rows = collect_layout_rows(layout, function(row)
+      return row.kind == "summary_item"
+    end)
+
+    t.eq(#summary_rows, 2)
+    t.eq(summary_rows[1].section, "summary")
+    t.eq(summary_rows[1].item, first_item)
+    t.eq(summary_rows[1].line, "1.00h implementation !L")
+    t.eq(summary_rows[2].item, second_item)
+    t.eq(summary_rows[2].line, "1.00h implementation")
+  end)
+
+  t.test("summary_layout uses distinct kinds for tag, location, logged, and total rows", function()
+    local layout = render.summary_layout({
+      summary_items = {
+        {
+          text = "plan",
+          tag = "ClientA",
+          duration = 60,
+          exact_duration = 60,
+          workday_excluded = false,
+          logged = true,
+          source_entry_rows = { 2 },
+        },
+      },
+      tag_totals = {
+        { tag = "ClientA", duration = 60, exact_duration = 60 },
+      },
+      location_totals = {
+        { location = "office", duration = 60, exact_duration = 60 },
+      },
+      logged_totals = {
+        { logged = true, duration = 60, exact_duration = 60 },
+      },
+      activity_total = 60,
+      workday_total = 60,
+    }, "exact")
+
+    local function find_by_line(line)
+      return find_layout_row(layout, function(row)
+        return row.line == line
+      end)
+    end
+
+    t.eq(find_by_line("1.00h #ClientA").kind, "tag_total")
+    t.eq(find_by_line("1.00h @office").kind, "location_total")
+    t.eq(find_by_line("1.00h logged").kind, "logged_total")
+    t.eq(find_by_line("1.00h workday").kind, "total")
+
+    for _, row in ipairs(layout) do
+      if row.kind == "summary_item" then
+        t.eq(row.section, "summary")
+      else
+        t.ok(row.kind ~= "summary_item", "non-summary row leaked summary_item kind")
+      end
+    end
+  end)
+
+  t.test("summary_layout marks quantized summary rows as summary_item", function()
+    local item = {
+      text = "plan",
+      tag = "ClientA",
+      duration = 30,
+      exact_duration = 20,
+      error_minutes = -10,
+      workday_excluded = false,
+      source_entry_rows = { 2 },
+    }
+
+    local layout = render.summary_layout({
+      summary_items = { item },
+      tag_totals = {},
+      location_totals = {},
+      activity_total = 30,
+      workday_total = 30,
+      activity_error_minutes = 10,
+      workday_error_minutes = 10,
+    }, "quantized")
+
+    local summary_row = find_layout_row(layout, function(row)
+      return row.kind == "summary_item"
+    end)
+
+    t.eq(summary_row.item, item)
+    t.eq(summary_row.line, "0.50h (-10m) plan")
+    t.eq(summary_row.section, "summary")
   end)
 end

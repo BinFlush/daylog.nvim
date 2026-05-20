@@ -46,6 +46,7 @@ return function(t)
           duration = 30,
           exact_duration = 30,
           workday_excluded = false,
+          source_entry_rows = { 2 },
         },
         {
           text = "call",
@@ -53,6 +54,7 @@ return function(t)
           duration = 30,
           exact_duration = 30,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
         {
           text = "break",
@@ -60,6 +62,7 @@ return function(t)
           duration = 15,
           exact_duration = 15,
           workday_excluded = true,
+          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -112,6 +115,7 @@ return function(t)
           duration = 60,
           exact_duration = 60,
           workday_excluded = true,
+          source_entry_rows = { 2 },
         },
         {
           text = "resume",
@@ -119,6 +123,7 @@ return function(t)
           duration = 60,
           exact_duration = 60,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
       },
       tag_totals = {
@@ -170,6 +175,7 @@ return function(t)
             exact_duration = 60,
             workday_excluded = false,
             logged = true,
+            source_entry_rows = { 2 },
           },
           {
             text = "implementation",
@@ -177,6 +183,7 @@ return function(t)
             duration = 60,
             exact_duration = 60,
             workday_excluded = false,
+            source_entry_rows = { 3 },
           },
           {
             text = "break",
@@ -185,6 +192,7 @@ return function(t)
             exact_duration = 30,
             workday_excluded = true,
             logged = true,
+            source_entry_rows = { 4 },
           },
         },
         tag_totals = {
@@ -241,6 +249,7 @@ return function(t)
           exact_duration = 18,
           error_minutes = -12,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
         {
           text = "plan",
@@ -249,6 +258,7 @@ return function(t)
           exact_duration = 12,
           error_minutes = 12,
           workday_excluded = false,
+          source_entry_rows = { 2 },
         },
       },
       tag_totals = {
@@ -303,6 +313,7 @@ return function(t)
           exact_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
         {
           text = "plan",
@@ -311,6 +322,7 @@ return function(t)
           exact_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
+          source_entry_rows = { 2 },
         },
       },
       tag_totals = {
@@ -367,6 +379,7 @@ return function(t)
           error_minutes = -10,
           workday_excluded = false,
           logged = true,
+          source_entry_rows = { 2 },
         },
         {
           text = "implementation",
@@ -375,6 +388,7 @@ return function(t)
           exact_duration = 20,
           error_minutes = -10,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
         {
           text = "break",
@@ -384,6 +398,7 @@ return function(t)
           error_minutes = 20,
           workday_excluded = true,
           logged = true,
+          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -449,6 +464,7 @@ return function(t)
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
+            source_entry_rows = { 2 },
           },
           {
             text = "implementation",
@@ -457,6 +473,7 @@ return function(t)
             exact_duration = 20,
             error_minutes = 20,
             workday_excluded = false,
+            source_entry_rows = { 3 },
           },
         },
         tag_totals = {
@@ -543,6 +560,7 @@ return function(t)
           exact_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
+          source_entry_rows = { 7 },
         },
         {
           text = "plan",
@@ -551,6 +569,7 @@ return function(t)
           exact_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
+          source_entry_rows = { 6 },
         },
       },
       tag_totals = {
@@ -608,6 +627,7 @@ return function(t)
           exact_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
+          source_entry_rows = { 2 },
         },
         {
           text = "beta",
@@ -616,6 +636,7 @@ return function(t)
           exact_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
         {
           text = "gamma",
@@ -624,6 +645,7 @@ return function(t)
           exact_duration = 17,
           error_minutes = 17,
           workday_excluded = false,
+          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -686,6 +708,7 @@ return function(t)
           exact_duration = 34,
           error_minutes = 4,
           workday_excluded = false,
+          source_entry_rows = { 2, 3 },
         },
       },
       tag_totals = {
@@ -1180,6 +1203,7 @@ return function(t)
           duration = 240,
           exact_duration = 240,
           workday_excluded = false,
+          source_entry_rows = { 2, 4 },
         },
         {
           text = "client followup",
@@ -1187,6 +1211,7 @@ return function(t)
           duration = 180,
           exact_duration = 180,
           workday_excluded = false,
+          source_entry_rows = { 6 },
         },
         {
           text = "implementation",
@@ -1194,6 +1219,7 @@ return function(t)
           duration = 60,
           exact_duration = 60,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
         {
           text = "internal meeting",
@@ -1201,6 +1227,7 @@ return function(t)
           duration = 60,
           exact_duration = 60,
           workday_excluded = false,
+          source_entry_rows = { 5 },
         },
       },
       tag_totals = {
@@ -1255,6 +1282,7 @@ return function(t)
           duration = 120,
           exact_duration = 120,
           workday_excluded = false,
+          source_entry_rows = { 4 },
         },
         {
           text = "meeting",
@@ -1262,6 +1290,7 @@ return function(t)
           duration = 60,
           exact_duration = 60,
           workday_excluded = false,
+          source_entry_rows = { 2 },
         },
         {
           text = "implementation",
@@ -1269,6 +1298,7 @@ return function(t)
           duration = 180,
           exact_duration = 180,
           workday_excluded = false,
+          source_entry_rows = { 3 },
         },
       })
     end
@@ -1289,6 +1319,7 @@ return function(t)
         duration = 60,
         exact_duration = 60,
         workday_excluded = false,
+        source_entry_rows = { 2 },
       },
       {
         text = "beta",
@@ -1296,6 +1327,7 @@ return function(t)
         duration = 60,
         exact_duration = 60,
         workday_excluded = false,
+        source_entry_rows = { 3 },
       },
     })
   end)
@@ -1316,6 +1348,7 @@ return function(t)
         duration = 60,
         exact_duration = 60,
         workday_excluded = false,
+        source_entry_rows = { 2 },
       },
       {
         text = "meeting",
@@ -1323,6 +1356,7 @@ return function(t)
         duration = 60,
         exact_duration = 60,
         workday_excluded = false,
+        source_entry_rows = { 4 },
       },
       {
         text = "other",
@@ -1330,6 +1364,7 @@ return function(t)
         duration = 60,
         exact_duration = 60,
         workday_excluded = false,
+        source_entry_rows = { 3 },
       },
     })
   end)
@@ -1349,6 +1384,7 @@ return function(t)
         duration = 60,
         exact_duration = 60,
         workday_excluded = false,
+        source_entry_rows = { 2 },
       },
       {
         text = "alpha",
@@ -1356,7 +1392,79 @@ return function(t)
         duration = 60,
         exact_duration = 60,
         workday_excluded = false,
+        source_entry_rows = { 3 },
       },
     })
+  end)
+
+  t.test("summary provenance points back to the entry rows that fed each item", function()
+    local block = block_from_lines({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 meeting",
+      "10:00 implementation",
+      "11:00 done",
+    })
+
+    local items = summary.summarize_block(block).summary_items
+
+    t.eq(items[1].text, "implementation")
+    t.eq(items[1].source_entry_rows, { 2, 4 })
+    t.eq(items[2].text, "meeting")
+    t.eq(items[2].source_entry_rows, { 3 })
+  end)
+
+  t.test("summary provenance keeps logged and unlogged source rows separate", function()
+    local block = block_from_lines({
+      "--- worklog #ClientA ---",
+      "08:00 implementation !L",
+      "09:00 implementation",
+      "10:00 implementation !L",
+      "11:00 done",
+    })
+
+    local items = summary.summarize_block(block).summary_items
+
+    t.eq(items[1].logged, true)
+    t.eq(items[1].source_entry_rows, { 2, 4 })
+    t.eq(items[2].logged, nil)
+    t.eq(items[2].source_entry_rows, { 3 })
+  end)
+
+  t.test("summary provenance records #ooo source rows on workday-excluded items", function()
+    local block = block_from_lines({
+      "--- worklog ---",
+      "08:00 break #ooo",
+      "09:00 plan",
+      "10:00 break #ooo",
+      "10:30 done",
+    })
+
+    local items = summary.summarize_block(block).summary_items
+    local break_item
+
+    for _, item in ipairs(items) do
+      if item.text == "break" then
+        break_item = item
+      end
+    end
+
+    t.eq(break_item.workday_excluded, true)
+    t.eq(break_item.source_entry_rows, { 2, 4 })
+  end)
+
+  t.test("quantized summary preserves source_entry_rows on visible main rows", function()
+    local block = block_from_lines({
+      "--- worklog #ClientA quantize=30 ---",
+      "08:00 planning @office",
+      "08:17 planning @home",
+      "08:34 done",
+    })
+
+    local items = summary.quantized_summarize_block(block).summary_items
+
+    t.eq(#items, 1)
+    t.eq(items[1].text, "planning")
+    t.eq(items[1].source_entry_rows, { 2, 3 })
   end)
 end

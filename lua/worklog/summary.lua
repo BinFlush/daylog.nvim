@@ -54,7 +54,11 @@ end
 -- `key_fields` decides which row fields define identity, while `fields` decides
 -- which descriptive labels survive into the projected row.
 -- Durations are always accumulated, and first-seen group order is preserved.
-local function project_rows(rows, key_fields, fields)
+-- When `accumulate_source_entry_rows` is true, every row's `source_entry_rows`
+-- (or single `source_entry_row`) is concatenated into the bucket in stable
+-- source order so main summary items can carry provenance back to the
+-- contributing entries.
+local function project_rows(rows, key_fields, fields, accumulate_source_entry_rows)
   local buckets = {}
   local order = {}
 
@@ -71,12 +75,26 @@ local function project_rows(rows, key_fields, fields)
         bucket[field] = row[field]
       end
 
+      if accumulate_source_entry_rows then
+        bucket.source_entry_rows = {}
+      end
+
       put_nested(buckets, row, key_fields, bucket)
       table.insert(order, bucket)
     end
 
     bucket.duration = bucket.duration + row.duration
     bucket.exact_duration = bucket.exact_duration + (row.exact_duration or row.duration)
+
+    if accumulate_source_entry_rows then
+      if row.source_entry_rows then
+        for _, source_row in ipairs(row.source_entry_rows) do
+          table.insert(bucket.source_entry_rows, source_row)
+        end
+      elseif row.source_entry_row then
+        table.insert(bucket.source_entry_rows, row.source_entry_row)
+      end
+    end
   end
 
   return order
@@ -98,6 +116,7 @@ local function build_intervals(entries)
       location = current.location,
       workday_excluded = current.workday_excluded,
       logged = current.logged and true or nil,
+      source_entry_row = current.row,
     })
   end
 
@@ -107,19 +126,26 @@ end
 -- Fine-grained rows are the quantization base.
 -- They preserve location so tag/location totals can be projected from the
 -- same quantized rows, even though main summary rows do not render location.
+-- Provenance accumulates here so each fine-grained row carries the source
+-- entry rows of every interval that fed into it.
 local function build_fine_grained_rows(intervals)
   return project_rows(
     intervals,
     { "text", "tag", "location", "workday_excluded", "logged" },
-    { "text", "tag", "location", "workday_excluded", "logged" }
+    { "text", "tag", "location", "workday_excluded", "logged" },
+    true
   )
 end
 
+-- Main summary items fold across locations, concatenating provenance from
+-- every fine-grained row that shares the same (text, tag, workday_excluded,
+-- logged) identity.
 local function summarize_items(rows)
   return project_rows(
     rows,
     { "text", "tag", "workday_excluded", "logged" },
-    { "text", "tag", "workday_excluded", "logged" }
+    { "text", "tag", "workday_excluded", "logged" },
+    true
   )
 end
 
@@ -447,6 +473,8 @@ end
 -- Reapply quantized durations onto exact ordered sections.
 -- Exact rows define the visible labels and exact totals, while the quantized
 -- rows provide the displayed duration after one shared quantization pass.
+-- Provenance, when present on the exact item, flows into the quantized
+-- projection so visible quantized rows can still be traced back to source.
 local function project_quantized_items(exact_items, quantized_items, key_fields, fields)
   local result = {}
   local quantized_index = items_by_fields(quantized_items, key_fields)
@@ -464,6 +492,11 @@ local function project_quantized_items(exact_items, quantized_items, key_fields,
     projected.duration = quantized_item and quantized_item.duration or 0
     projected.exact_duration = item.exact_duration
     projected.error_minutes = item.duration - (quantized_item and quantized_item.duration or 0)
+
+    if item.source_entry_rows then
+      projected.source_entry_rows = item.source_entry_rows
+    end
+
     table.insert(result, projected)
   end
 

@@ -141,164 +141,148 @@ local function section_headers(kind, options)
   }
 end
 
-local function append_summary_lines(lines, summary, kind, duration_format, options)
+local function summary_item_line(item, kind, format, show_tag)
+  if kind == "quantized" then
+    return summary_line(
+      string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
+      item,
+      show_tag
+    )
+  end
+
+  return summary_line(duration_string(item.duration, format), item, show_tag)
+end
+
+local function metadata_line(item, kind, format, line_builder)
+  if kind == "quantized" then
+    return line_builder(
+      string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
+      item
+    )
+  end
+
+  return line_builder(duration_string(item.duration, format), item)
+end
+
+-- Build a structured summary layout that records both rendered text and the
+-- role each row plays.  Future commands can take a rendered summary row,
+-- recompute the same layout, and recover the underlying summary item via the
+-- `item` field.  `summary_lines` projects this layout to lines so user-facing
+-- output stays in lockstep with the layout.
+local function build_summary_layout(summary, kind, duration_format, options)
+  local layout = {}
   local headers = section_headers(kind, options)
   local conflicts = text_tag_conflicts(summary.summary_items)
   local format = duration_format or "decimal"
 
   if headers.leading_blank then
-    table.insert(lines, "")
+    table.insert(layout, { kind = "blank", line = "" })
   end
 
-  table.insert(lines, headers.summary)
+  table.insert(layout, { kind = "header", section = "summary", line = headers.summary })
 
   for _, item in ipairs(summary.summary_items) do
-    if kind == "quantized" then
-      table.insert(
-        lines,
-        summary_line(
-          string.format(
-            "%s (%+dm)",
-            duration_string(item.duration, format),
-            item.error_minutes or 0
-          ),
-          item,
-          conflicts[item.text]
-        )
-      )
-    else
-      table.insert(
-        lines,
-        summary_line(duration_string(item.duration, format), item, conflicts[item.text])
-      )
-    end
+    table.insert(layout, {
+      kind = "summary_item",
+      section = "summary",
+      line = summary_item_line(item, kind, format, conflicts[item.text]),
+      item = item,
+    })
   end
 
-  table.insert(lines, "")
+  table.insert(layout, { kind = "blank", line = "" })
 
-  if kind == "exact" then
-    if has_metadata_items(summary.tag_totals, "tag") then
-      table.insert(lines, headers.tag)
+  if has_metadata_items(summary.tag_totals, "tag") then
+    table.insert(layout, { kind = "header", section = "tag", line = headers.tag })
 
-      for _, item in ipairs(summary.tag_totals or {}) do
-        table.insert(lines, tag_line(duration_string(item.duration, format), item))
-      end
-
-      table.insert(lines, "")
+    for _, item in ipairs(summary.tag_totals or {}) do
+      table.insert(layout, {
+        kind = "tag_total",
+        section = "tag",
+        line = metadata_line(item, kind, format, tag_line),
+        item = item,
+      })
     end
 
-    if has_metadata_items(summary.location_totals, "location") then
-      table.insert(lines, headers.location)
-
-      for _, item in ipairs(summary.location_totals or {}) do
-        table.insert(lines, location_line(duration_string(item.duration, format), item))
-      end
-
-      table.insert(lines, "")
-    end
-
-    if summary.logged_totals and #summary.logged_totals > 0 then
-      table.insert(lines, headers.logged)
-
-      for _, item in ipairs(summary.logged_totals) do
-        table.insert(lines, logged_line(duration_string(item.duration, format), item))
-      end
-
-      table.insert(lines, "")
-    end
-  elseif kind == "quantized" then
-    if has_metadata_items(summary.tag_totals, "tag") then
-      table.insert(lines, headers.tag)
-
-      for _, item in ipairs(summary.tag_totals or {}) do
-        table.insert(
-          lines,
-          tag_line(
-            string.format(
-              "%s (%+dm)",
-              duration_string(item.duration, format),
-              item.error_minutes or 0
-            ),
-            item
-          )
-        )
-      end
-
-      table.insert(lines, "")
-    end
-
-    if has_metadata_items(summary.location_totals, "location") then
-      table.insert(lines, headers.location)
-
-      for _, item in ipairs(summary.location_totals or {}) do
-        table.insert(
-          lines,
-          location_line(
-            string.format(
-              "%s (%+dm)",
-              duration_string(item.duration, format),
-              item.error_minutes or 0
-            ),
-            item
-          )
-        )
-      end
-
-      table.insert(lines, "")
-    end
-
-    if summary.logged_totals and #summary.logged_totals > 0 then
-      table.insert(lines, headers.logged)
-
-      for _, item in ipairs(summary.logged_totals) do
-        table.insert(
-          lines,
-          logged_line(
-            string.format(
-              "%s (%+dm)",
-              duration_string(item.duration, format),
-              item.error_minutes or 0
-            ),
-            item
-          )
-        )
-      end
-
-      table.insert(lines, "")
-    end
+    table.insert(layout, { kind = "blank", line = "" })
   end
 
-  table.insert(lines, headers.total)
+  if has_metadata_items(summary.location_totals, "location") then
+    table.insert(layout, { kind = "header", section = "location", line = headers.location })
+
+    for _, item in ipairs(summary.location_totals or {}) do
+      table.insert(layout, {
+        kind = "location_total",
+        section = "location",
+        line = metadata_line(item, kind, format, location_line),
+        item = item,
+      })
+    end
+
+    table.insert(layout, { kind = "blank", line = "" })
+  end
+
+  if summary.logged_totals and #summary.logged_totals > 0 then
+    table.insert(layout, { kind = "header", section = "logged", line = headers.logged })
+
+    for _, item in ipairs(summary.logged_totals) do
+      table.insert(layout, {
+        kind = "logged_total",
+        section = "logged",
+        line = metadata_line(item, kind, format, logged_line),
+        item = item,
+      })
+    end
+
+    table.insert(layout, { kind = "blank", line = "" })
+  end
+
+  table.insert(layout, { kind = "header", section = "total", line = headers.total })
 
   if kind == "quantized" then
     if has_workday_excluded_items(summary.summary_items) then
-      table.insert(
-        lines,
-        string.format(
+      table.insert(layout, {
+        kind = "total",
+        section = "total",
+        line = string.format(
           "%s (%+dm) activity",
           duration_string(summary.activity_total, format),
           summary.activity_error_minutes or 0
-        )
-      )
+        ),
+      })
     end
 
-    table.insert(
-      lines,
-      string.format(
+    table.insert(layout, {
+      kind = "total",
+      section = "total",
+      line = string.format(
         "%s (%+dm) workday",
         duration_string(summary.workday_total, format),
         summary.workday_error_minutes or 0
-      )
-    )
+      ),
+    })
   else
     if has_workday_excluded_items(summary.summary_items) then
-      table.insert(
-        lines,
-        string.format("%s activity", duration_string(summary.activity_total, format))
-      )
+      table.insert(layout, {
+        kind = "total",
+        section = "total",
+        line = string.format("%s activity", duration_string(summary.activity_total, format)),
+      })
     end
 
-    table.insert(lines, string.format("%s workday", duration_string(summary.workday_total, format)))
+    table.insert(layout, {
+      kind = "total",
+      section = "total",
+      line = string.format("%s workday", duration_string(summary.workday_total, format)),
+    })
+  end
+
+  return layout
+end
+
+local function append_summary_lines(lines, summary, kind, duration_format, options)
+  for _, row in ipairs(build_summary_layout(summary, kind, duration_format, options)) do
+    table.insert(lines, row.line)
   end
 end
 
@@ -355,6 +339,10 @@ function M.summary_lines(summary, kind, duration_format, options)
   local lines = {}
   append_summary_lines(lines, summary, kind, duration_format, options)
   return lines
+end
+
+function M.summary_layout(summary, kind, duration_format, options)
+  return build_summary_layout(summary, kind, duration_format, options)
 end
 
 function M.week_report_lines(report, duration_format, options)
