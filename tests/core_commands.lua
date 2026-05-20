@@ -394,6 +394,30 @@ return function(t)
     })
   end)
 
+  t.test("summaries ignore !L until logged reporting support is added", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 implementation !L",
+      "09:00 implementation",
+      "10:00 done",
+    })
+
+    vim.cmd("WorklogSummarize")
+
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 implementation !L",
+      "09:00 implementation",
+      "10:00 done",
+      "",
+      "--- summary exact ---",
+      "2.00h implementation",
+      "",
+      "--- totals exact ---",
+      "2.00h workday",
+    })
+  end)
+
   t.test(
     "summaries keep same-text different-tag rows adjacent and sort by combined duration",
     function()

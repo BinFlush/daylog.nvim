@@ -20,6 +20,7 @@ local function semantic_entry(entry)
     tag = entry.tag,
     location = entry.location,
     workday_excluded = entry.workday_excluded,
+    logged = entry.logged,
   }
 end
 
@@ -48,6 +49,10 @@ function M.format(entry, current_tag, current_location)
     else
       table.insert(parts, "@" .. entry.location)
     end
+  end
+
+  if entry.logged then
+    table.insert(parts, "!L")
   end
 
   return table.concat(parts, " ")

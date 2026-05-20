@@ -54,6 +54,19 @@ return function(t)
     })
   end)
 
+  t.test("body normalized lines preserve !L and canonicalize it after metadata", function()
+    local block = block_from_lines({
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 first !L #sales",
+      "09:00 done !L",
+    })
+
+    t.eq(body.normalized_lines(block, entry.format), {
+      "08:00 first #sales !L",
+      "09:00 done !L",
+    })
+  end)
+
   t.test("body sorted lines reorder items and re-emit sticky metadata changes", function()
     local block = block_from_lines({
       "--- worklog #ProjectOrion @office ---",

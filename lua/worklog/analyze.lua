@@ -52,6 +52,7 @@ local function semantic_entry_from_node(node, current_tag, current_location)
     tag = tag,
     location = location,
     workday_excluded = tag == "ooo",
+    logged = node.logged == true,
   }
 end
 
@@ -84,6 +85,7 @@ local function analyze_entry_items(block, diagnostics)
         tag = entry.tag,
         location = entry.location,
         workday_excluded = entry.workday_excluded,
+        logged = entry.logged,
       }
       table.insert(entry_items, current)
       table.insert(entries, entry)

@@ -67,11 +67,16 @@ Useful syntax:
 #ClientA       reporting tag
 @office        work location
 #ooo           out of office; counts as activity, not workday
+!L             interval starting here was logged externally
 #-             clear current tag
 @-             clear current location
 quantize=30    round summaries to 30-minute buckets
 duration=hhmm  render summary durations as hours:minutes
 ```
+
+`!L` is source syntax on timestamped entries. It is currently preserved by
+source rewrites such as copy and order, but rendered summaries and reports do
+not distinguish logged intervals yet.
 
 ## Commands
 
@@ -227,6 +232,8 @@ rendering.
 - The project aims to preserve existing valid `.wkl` files where practical.
 - Unknown or unsupported header options are reported as diagnostics instead of
   being silently ignored.
+- New trailing entry syntax such as `!L` may be treated as plain text or
+  rejected by older versions.
 - Patch releases may change derived results when they fix miscomputed
   behavior; those changes are documented.
 - Compatibility applies to worklog blocks and their semantics. Generated

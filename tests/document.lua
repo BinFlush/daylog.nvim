@@ -79,6 +79,30 @@ return function(t)
     })
   end)
 
+  t.test("document parse recognizes trailing !L in flexible metadata order", function()
+    t.eq(document.parse_line("08:21 negotiate with goose !L #sales @client"), {
+      kind = "entry",
+      row = 1,
+      raw = "08:21 negotiate with goose !L #sales @client",
+      minutes = 501,
+      text = "negotiate with goose",
+      explicit_tag = "sales",
+      explicit_location = "client",
+      logged = true,
+    })
+
+    t.eq(document.parse_line("08:21 negotiate with goose @client !L #sales"), {
+      kind = "entry",
+      row = 1,
+      raw = "08:21 negotiate with goose @client !L #sales",
+      minutes = 501,
+      text = "negotiate with goose",
+      explicit_tag = "sales",
+      explicit_location = "client",
+      logged = true,
+    })
+  end)
+
   t.test("document parse keeps worklog header metadata and options", function()
     t.eq(document.parse_line("--- worklog #ProjectOrion @office quantize=30 nope ---"), {
       kind = "worklog_header",
@@ -187,6 +211,18 @@ return function(t)
     })
   end)
 
+  t.test("document parse keeps inline !L in text unless it is trailing metadata", function()
+    t.eq(document.parse_line("08:04 discuss !L marker syntax"), {
+      kind = "entry",
+      row = 1,
+      raw = "08:04 discuss !L marker syntax",
+      minutes = 484,
+      text = "discuss !L marker syntax",
+      explicit_tag = nil,
+      explicit_location = nil,
+    })
+  end)
+
   t.test("document parse recognizes clear tokens in headers and entries", function()
     t.eq(document.parse_line("--- worklog #- @- quantize=30 ---"), {
       kind = "worklog_header",
@@ -226,6 +262,24 @@ return function(t)
       explicit_tag_clear = true,
       explicit_location = nil,
       explicit_location_clear = true,
+    })
+  end)
+
+  t.test("document parse rejects duplicate trailing !L and keeps !L invalid in headers", function()
+    t.eq(document.parse_line("08:04 plan !L #sales !L"), {
+      kind = "invalid_entry",
+      row = 1,
+      raw = "08:04 plan !L #sales !L",
+      message = "duplicate trailing !L markers are not allowed",
+    })
+
+    t.eq(document.parse_line("--- worklog !L ---"), {
+      kind = "worklog_header",
+      row = 1,
+      raw = "--- worklog !L ---",
+      metadata_tokens = {},
+      option_tokens = {},
+      invalid_tokens = { "!L" },
     })
   end)
 

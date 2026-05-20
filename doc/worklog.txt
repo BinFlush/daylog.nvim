@@ -99,12 +99,16 @@ Rules:
 - A final closing line such as `17:00 done` closes the previous interval.
 - Non-timestamped lines under an entry are notes.
 - Notes move with their timestamped entry when copied or ordered.
+- `!L` marks the interval started by that entry as already logged externally.
 - `quantize=<minutes>` sets the quantization bucket for that worklog block.
 - If no quantize option is present, quantization defaults to 15 minutes.
 - `duration=decimal|hhmm` sets how summaries render durations for that worklog
   block.
 - If no duration option is present, summaries default to decimal hours such as
   `1.50h`.
+
+`!L` is currently preserved by source rewrites such as copy and order, but
+rendered summaries and reports do not distinguish logged intervals yet.
 
 ==============================================================================
 STICKY METADATA                                      *worklog-sticky-metadata*

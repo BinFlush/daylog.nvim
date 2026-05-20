@@ -24,6 +24,9 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- Added trailing `!L` entry syntax for intervals that were logged externally.
+  The flag is preserved by source rewrites, stays non-sticky, and formats after
+  trailing tag and location tokens.
 - Added optional `journal` configuration and `:WorklogToday` to open today's
   dated `.wkl` file, create parent directories, and initialize missing or empty
   journals with configured defaults and the current time.

@@ -31,6 +31,16 @@ return function(t)
     t.eq(parsed.workday_excluded, false)
   end)
 
+  t.test("entry parse keeps trailing !L without making it sticky", function()
+    local parsed = entry.parse("08:04 bake strudel !L #sales @client", "ProjectOrion", "office")
+    t.eq(parsed.tag, "sales")
+    t.eq(parsed.location, "client")
+    t.eq(parsed.logged, true)
+
+    parsed = entry.parse("08:04 bake strudel", "ProjectOrion", "office")
+    t.eq(parsed.logged, false)
+  end)
+
   t.test("entry parse keeps inline hashtags in text", function()
     local parsed = entry.parse("08:04 fix #123 issue #sales @office", "ProjectOrion", "home")
     t.eq(parsed.text, "fix #123 issue")
@@ -90,12 +100,26 @@ return function(t)
       "08:00 break #ooo"
     )
     t.eq(
-      entry.format(
-        { minutes = 480, text = "reset", tag = nil, location = nil, workday_excluded = false },
-        "ProjectOrion",
-        "office"
-      ),
-      "08:00 reset #- @-"
+      entry.format({
+        minutes = 480,
+        text = "third",
+        tag = "sales",
+        location = "client",
+        workday_excluded = false,
+        logged = true,
+      }, "ProjectOrion", "office"),
+      "08:00 third #sales @client !L"
+    )
+    t.eq(
+      entry.format({
+        minutes = 480,
+        text = "reset",
+        tag = nil,
+        location = nil,
+        workday_excluded = false,
+        logged = true,
+      }, "ProjectOrion", "office"),
+      "08:00 reset #- @- !L"
     )
   end)
 end

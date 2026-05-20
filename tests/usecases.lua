@@ -276,6 +276,29 @@ return function(t)
     })
   end)
 
+  t.test("append_copy preserves !L and canonicalizes it after metadata", function()
+    local result = append_copy.run({
+      "--- worklog #ClientA @office ---",
+      "08:00 plan !L @client",
+      "09:00 done",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = {
+            "",
+            "--- worklog #ClientA @office ---",
+            "08:00 plan @client !L",
+            "09:00 done",
+          },
+        },
+      },
+    })
+  end)
+
   t.test("append_copy preserves explicit duration format on the header", function()
     local result = append_copy.run({
       "--- worklog #sales @client duration=hhmm ---",
@@ -375,6 +398,24 @@ return function(t)
     })
   end)
 
+  t.test("repeat_current usecase does not propagate !L", function()
+    local result = repeat_current.run({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning !L",
+      "09:00 done",
+    }, 2, "08:30")
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 2,
+          end_index = 2,
+          lines = { "08:30 planning" },
+        },
+      },
+    })
+  end)
+
   t.test("repeat_current usecase rejects invalid injected current time", function()
     local result, err = repeat_current.run({
       "--- worklog ---",
@@ -427,6 +468,27 @@ return function(t)
           lines = {
             "08:00 plan #sales",
             "09:00 done #-",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("order_worklogs usecase preserves !L", function()
+    local result = order_worklogs.run({
+      "--- worklog #sales ---",
+      "09:00 done",
+      "08:00 plan !L",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 3,
+          lines = {
+            "08:00 plan !L",
+            "09:00 done",
           },
         },
       },
