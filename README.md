@@ -78,7 +78,7 @@ duration=hhmm  render summary durations as hours:minutes
 | Command | Effect |
 | --- | --- |
 | `:WorklogNew` | Create a new worklog block using configured defaults |
-| `:WorklogToday` | Open today's journal file and initialize it if needed |
+| `:WorklogToday [offset]` | Open a journal file relative to today; nonzero offsets initialize missing or empty files without inserting the current time |
 | `:WorklogDays[!] {count}` | Open the last N journal days report; `!` shows only the aggregate range summary |
 | `:WorklogWeek[!]` | Open this week's journal report; `!` shows only the aggregate weekly summary |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
@@ -147,6 +147,11 @@ With the example above, `:WorklogToday` opens:
 
 If the file is missing or empty, `:WorklogToday` creates the first worklog block
 using your configured defaults and inserts the current time.
+
+`:WorklogToday [offset]` also accepts a signed day count from today: `-1` for
+yesterday, `0` for today, `+1` or `1` for tomorrow, and so on. Nonzero offsets
+still initialize missing or empty files with the configured worklog header, but
+they do not insert the current clock time.
 
 `:WorklogDays {count}` uses the same journal settings to scan the last N dates,
 including today, from oldest to newest. `:WorklogWeek` scans the current ISO

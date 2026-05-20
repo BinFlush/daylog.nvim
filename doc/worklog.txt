@@ -208,14 +208,18 @@ Create a new worklog block at the end of the buffer.
   including `duration_format`.
 
                                                         *:WorklogToday*
-:WorklogToday
+:WorklogToday [offset]
 
-Open today's journal file from `require('worklog').setup({ journal = ... })`.
+Open a journal file relative to today from
+`require('worklog').setup({ journal = ... })`.
 
+- `[offset]` is an optional signed day count from today.
 - The path is `{root}/{strftime(directory)}/YYYY-MM-DD.wkl`.
 - Parent directories are created when needed.
 - If the file is missing or empty, the command creates the first worklog block
   using configured defaults, then inserts the current time.
+- Nonzero offsets still initialize missing or empty files, but they stop after
+  inserting the configured worklog header.
 - If the file already has content, it is opened without modification.
 
                                                         *:WorklogWeek*

@@ -36,6 +36,9 @@ happen, but they are called out clearly in this changelog.
 - Added `:WorklogWeek!` and `:WorklogDays! {count}` to open compact journal
   reports that omit the per-day review sections and show only the aggregate
   weekly or range summary.
+- Added optional signed day offsets to `:WorklogToday [offset]`. `0` keeps the
+  current behavior, while nonzero offsets open nearby dated journal files and
+  initialize missing or empty files with only the configured worklog header.
 
 ### Changed
 

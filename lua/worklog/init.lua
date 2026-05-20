@@ -128,6 +128,23 @@ local function parse_positive_integer(value)
   return number
 end
 
+local function parse_day_offset(value)
+  if value == nil or value == "" then
+    return 0
+  end
+
+  if type(value) ~= "string" or value:match("^[+-]?%d+$") == nil then
+    return nil, "worklog: day offset must be an integer"
+  end
+
+  local number = tonumber(value)
+  if number == nil then
+    return nil, "worklog: day offset must be an integer"
+  end
+
+  return number
+end
+
 local function open_report_buffer(lines, name)
   vim.cmd("botright new")
   vim.bo.buftype = "nofile"
@@ -226,7 +243,7 @@ function M.new_worklog()
   apply_new_worklog(config.get().defaults)
 end
 
-function M.open_today()
+function M.open_today(day_offset)
   local settings = expanded_journal_settings()
   if settings == nil then
     warn("worklog: journal.root is not configured")
@@ -239,7 +256,9 @@ function M.open_today()
   end
 
   local now = os.time()
-  local path = journal.today_path(settings, now)
+  local offset = day_offset or 0
+  local target_date = journal.offset_date(now, offset)
+  local path = journal.path_for_date(settings, target_date)
   local directory = vim.fn.fnamemodify(path, ":h")
 
   if vim.fn.isdirectory(directory) == 0 and vim.fn.mkdir(directory, "p") == 0 then
@@ -260,6 +279,10 @@ function M.open_today()
   end
 
   if not apply_new_worklog(config.get().defaults) then
+    return
+  end
+
+  if offset ~= 0 then
     return
   end
 
@@ -320,9 +343,17 @@ function M.setup(options)
     M.insert_now()
   end)
 
-  ensure_user_command("WorklogToday", function()
-    M.open_today()
-  end)
+  ensure_user_command("WorklogToday", function(args)
+    local offset, err = parse_day_offset(args.args)
+    if offset == nil then
+      warn(err)
+      return
+    end
+
+    M.open_today(offset)
+  end, {
+    nargs = "?",
+  })
 
   ensure_user_command("WorklogWeek", function(args)
     M.open_week(args.bang)

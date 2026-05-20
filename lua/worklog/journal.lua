@@ -56,6 +56,20 @@ function M.today_path(journal, now)
   return M.path_for_date(journal, now)
 end
 
+function M.offset_date(now, offset_days)
+  local anchor = midday_date(now)
+  local offset = offset_days or 0
+
+  return os.time({
+    year = anchor.year,
+    month = anchor.month,
+    day = anchor.day + offset,
+    hour = 12,
+    min = 0,
+    sec = 0,
+  })
+end
+
 function M.iso_week_dates(now)
   local anchor = midday_date(now)
   local monday = {

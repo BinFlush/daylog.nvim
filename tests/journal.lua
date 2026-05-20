@@ -77,6 +77,21 @@ return function(t)
     )
   end)
 
+  t.test("journal offsets dates relative to a midday anchor", function()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+
+    t.eq(journal.date_label(journal.offset_date(now, -1)), "2026-05-17")
+    t.eq(journal.date_label(journal.offset_date(now, 0)), "2026-05-18")
+    t.eq(journal.date_label(journal.offset_date(now, 1)), "2026-05-19")
+  end)
+
   t.test("journal derives monday to sunday for the current iso week", function()
     local dates = journal.iso_week_dates(os.time({
       year = 2026,
