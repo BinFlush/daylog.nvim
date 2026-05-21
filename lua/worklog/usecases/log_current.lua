@@ -6,7 +6,8 @@ local support = require("worklog.usecases.support")
 local M = {}
 
 -- Build the edit script for marking the main summary row under the cursor as
--- externally logged.
+-- externally logged, then replacing the existing rendered summary group with a
+-- freshly computed one so the buffer is immediately consistent.
 --
 -- The rendered summary row acts as a selector only: the active worklog is
 -- analyzed from source, the matching summary is recomputed, and the source
@@ -25,6 +26,16 @@ local M = {}
 --      requires the cursor line to match exactly one `summary_item` row.
 --      This is the final staleness guard: a user-typed summary section that
 --      drifted from the current source state will not match and is refused.
+--
+-- After a successful match the function:
+--   a. Builds source-entry edits (add !L to contributing entries).
+--   b. Detects the full summary group range by scanning forward through
+--      consecutive recognized subsection blocks of the same kind.
+--   c. Applies the source-entry mutations in memory, re-analyzes, recomputes,
+--      and renders a replacement for the whole group.
+--   d. Returns the refresh edit first (higher rows), source edits after
+--      (lower rows), so the buffer application loop can apply them in order
+--      without index drift.
 
 local STALE_OR_NOT_SUMMARY =
   "worklog: summary row does not match the active worklog; regenerate the summary"
@@ -36,6 +47,26 @@ local INCONSISTENT_SOURCE = "worklog: logged marking is inconsistent; regenerate
 local SECTION_KINDS = {
   ["--- summary exact ---"] = "exact",
   ["--- summary quantized ---"] = "quantized",
+}
+
+-- Recognized generated section headers that belong to a single summary group.
+-- Used to determine how far forward to extend the replacement range when the
+-- active summary is refreshed after logging.
+local SUMMARY_SUBSECTIONS = {
+  exact = {
+    ["--- summary exact ---"] = true,
+    ["--- tags exact ---"] = true,
+    ["--- locations exact ---"] = true,
+    ["--- logged exact ---"] = true,
+    ["--- totals exact ---"] = true,
+  },
+  quantized = {
+    ["--- summary quantized ---"] = true,
+    ["--- tags quantized ---"] = true,
+    ["--- locations quantized ---"] = true,
+    ["--- logged quantized ---"] = true,
+    ["--- totals quantized ---"] = true,
+  },
 }
 
 local function block_at_row(analysis, row)
@@ -50,6 +81,7 @@ end
 
 -- Identify the summary kind the cursor sits in, *and* assert that the
 -- containing section belongs to the active worklog's trailing derived output.
+-- Returns the kind string and the cursor's containing block, or nil for both.
 -- See the module header for the ownership reasoning.
 local function classify_cursor_section(analysis, active_block, lines, cursor_row)
   local block = block_at_row(analysis, cursor_row)
@@ -77,7 +109,7 @@ local function classify_cursor_section(analysis, active_block, lines, cursor_row
   -- total subsections render as their own generic blocks with different
   -- headers, and weekly/range report headers carry extra labels such as
   -- dates or week numbers; both fail this exact-match lookup.
-  return SECTION_KINDS[lines[block.start_row]]
+  return SECTION_KINDS[lines[block.start_row]], block
 end
 
 local function compute_summary(block, kind)
@@ -98,6 +130,77 @@ local function find_summary_item_matches(layout, cursor_line)
   end
 
   return matches
+end
+
+-- Scan forward from the cursor's block through consecutive blocks whose
+-- headers are all recognized subsections of the same summary kind.  The first
+-- unrecognized block (another worklog, a different summary group, a notes
+-- block, or end-of-file) stops the scan.  Returns the end_row (exclusive,
+-- 1-indexed) of the last recognized block.
+local function find_summary_group_end_row(analysis, cursor_block, kind, lines)
+  local subsections = SUMMARY_SUBSECTIONS[kind]
+  local last_end_row = cursor_block.end_row
+  local past_cursor = false
+
+  for _, block in ipairs(analysis.blocks) do
+    if block.start_row == cursor_block.start_row then
+      past_cursor = true
+      last_end_row = block.end_row
+    elseif past_cursor then
+      if subsections[lines[block.start_row]] then
+        last_end_row = block.end_row
+      else
+        break
+      end
+    end
+  end
+
+  return last_end_row
+end
+
+-- Apply source-entry edits to an in-memory copy of lines so the updated
+-- source state can be re-analyzed without touching the real buffer.
+local function apply_source_edits_to_lines(lines, edits)
+  local result = {}
+  for i, line in ipairs(lines) do
+    result[i] = line
+  end
+
+  for _, edit in ipairs(edits) do
+    for j, line in ipairs(edit.lines) do
+      result[edit.start_index + j] = line
+    end
+  end
+
+  return result
+end
+
+-- Re-analyze the in-memory copy of lines after source edits, recompute the
+-- summary, and build a replacement edit for the detected summary group range.
+local function build_summary_refresh_edit(
+  lines,
+  source_edits,
+  kind,
+  duration_format,
+  group_start_row,
+  group_end_row
+)
+  local modified = apply_source_edits_to_lines(lines, source_edits)
+
+  local ctx, err = support.get_validated_active(modified)
+  if not ctx then
+    return nil, err
+  end
+
+  local new_summary = compute_summary(ctx.block, kind)
+  local replacement =
+    render.summary_lines(new_summary, kind, duration_format, { leading_blank = false })
+
+  return {
+    start_index = group_start_row - 1,
+    end_index = group_end_row - 1,
+    lines = replacement,
+  }
 end
 
 local function build_log_edits(block, target_rows)
@@ -140,7 +243,7 @@ function M.run(lines, cursor_row)
     return nil, err
   end
 
-  local kind = classify_cursor_section(ctx.analysis, ctx.block, lines, cursor_row)
+  local kind, cursor_block = classify_cursor_section(ctx.analysis, ctx.block, lines, cursor_row)
   if not kind then
     return nil, STALE_OR_NOT_SUMMARY
   end
@@ -192,9 +295,30 @@ function M.run(lines, cursor_row)
     end
   end
 
-  return {
-    edits = build_log_edits(ctx.block, target_rows),
-  }
+  local source_edits = build_log_edits(ctx.block, target_rows)
+  local group_end_row = find_summary_group_end_row(ctx.analysis, cursor_block, kind, lines)
+
+  local refresh_edit, refresh_err = build_summary_refresh_edit(
+    lines,
+    source_edits,
+    kind,
+    ctx.block.duration_format,
+    cursor_block.start_row,
+    group_end_row
+  )
+  if not refresh_edit then
+    return nil, refresh_err
+  end
+
+  -- The refresh edit targets the summary group (higher row indices) and must
+  -- be applied before the source-entry edits (lower row indices) to avoid
+  -- index drift when the rendered group changes size.
+  local all_edits = { refresh_edit }
+  for _, edit in ipairs(source_edits) do
+    table.insert(all_edits, edit)
+  end
+
+  return { edits = all_edits }
 end
 
 return M

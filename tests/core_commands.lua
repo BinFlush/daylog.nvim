@@ -869,7 +869,13 @@ return function(t)
       "09:00 done",
       "",
       "--- summary exact ---",
-      "1.00h implementation",
+      "1.00h implementation !L",
+      "",
+      "--- logged exact ---",
+      "1.00h logged",
+      "",
+      "--- totals exact ---",
+      "1.00h workday",
     })
   end)
 
@@ -892,7 +898,13 @@ return function(t)
       "09:00 done",
       "",
       "--- summary quantized ---",
-      "1.00h (+0m) implementation",
+      "1.00h (+0m) implementation !L",
+      "",
+      "--- logged quantized ---",
+      "1.00h (+0m) logged",
+      "",
+      "--- totals quantized ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -918,4 +930,72 @@ return function(t)
       "1.00h implementation !L",
     })
   end)
+
+  t.test(
+    "worklog log regression: multi-edit summary-refresh applies correctly through the real command path",
+    function()
+      -- Exercises the full :WorklogLog -> apply_result path with the reported
+      -- bug case. The fix returns a summary-group refresh edit (higher rows)
+      -- before source-entry edits (lower rows); this test proves apply_result
+      -- applies them in that order without index drift.
+      t.reset({
+        "--- worklog #someproject @office ---",
+        "08:00 versions",
+        "09:00 stand",
+        "09:20 versions",
+        "10:12 folksy",
+        "    what is he talking about    ",
+        "10:17 Q1 features",
+        "11:01 versions",
+        "",
+        "--- summary quantized ---",
+        "2.00h (-8m) versions",
+        "0.75h (-1m) Q1 features",
+        "0.25h (+5m) stand",
+        "0.00h (+5m) folksy",
+        "",
+        "--- tags quantized ---",
+        "3.00h (+1m) #someproject",
+        "",
+        "--- locations quantized ---",
+        "3.00h (+1m) @office",
+        "",
+        "--- totals quantized ---",
+        "3.00h (+1m) workday",
+      })
+      t.set_cursor(12, 0)
+
+      vim.cmd("WorklogLog")
+
+      t.eq(t.get_lines(), {
+        "--- worklog #someproject @office ---",
+        "08:00 versions",
+        "09:00 stand",
+        "09:20 versions",
+        "10:12 folksy",
+        "    what is he talking about    ",
+        "10:17 Q1 features !L",
+        "11:01 versions",
+        "",
+        "--- summary quantized ---",
+        "2.00h (-8m) versions",
+        "0.75h (-1m) Q1 features !L",
+        "0.25h (+5m) stand",
+        "0.00h (+5m) folksy",
+        "",
+        "--- tags quantized ---",
+        "3.00h (+1m) #someproject",
+        "",
+        "--- locations quantized ---",
+        "3.00h (+1m) @office",
+        "",
+        "--- logged quantized ---",
+        "0.75h (-1m) logged",
+        "2.25h (+2m) unlogged",
+        "",
+        "--- totals quantized ---",
+        "3.00h (+1m) workday",
+      })
+    end
+  )
 end

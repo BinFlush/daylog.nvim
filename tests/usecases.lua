@@ -530,6 +530,20 @@ return function(t)
     t.eq(result, {
       edits = {
         {
+          start_index = 4,
+          end_index = 6,
+          lines = {
+            "--- summary exact ---",
+            "1.00h implementation !L",
+            "",
+            "--- logged exact ---",
+            "1.00h logged",
+            "",
+            "--- totals exact ---",
+            "1.00h workday",
+          },
+        },
+        {
           start_index = 1,
           end_index = 2,
           lines = { "08:00 implementation !L" },
@@ -550,6 +564,20 @@ return function(t)
 
     t.eq(result, {
       edits = {
+        {
+          start_index = 4,
+          end_index = 6,
+          lines = {
+            "--- summary quantized ---",
+            "1.00h (+0m) implementation !L",
+            "",
+            "--- logged quantized ---",
+            "1.00h (+0m) logged",
+            "",
+            "--- totals quantized ---",
+            "1.00h (+0m) workday",
+          },
+        },
         {
           start_index = 1,
           end_index = 2,
@@ -574,6 +602,22 @@ return function(t)
 
     t.eq(result, {
       edits = {
+        {
+          start_index = 6,
+          end_index = 9,
+          lines = {
+            "--- summary exact ---",
+            "2.00h implementation !L",
+            "1.00h meeting",
+            "",
+            "--- logged exact ---",
+            "2.00h logged",
+            "1.00h unlogged",
+            "",
+            "--- totals exact ---",
+            "3.00h workday",
+          },
+        },
         {
           start_index = 1,
           end_index = 2,
@@ -602,6 +646,20 @@ return function(t)
     t.eq(result, {
       edits = {
         {
+          start_index = 5,
+          end_index = 7,
+          lines = {
+            "--- summary exact ---",
+            "1.00h implementation !L",
+            "",
+            "--- logged exact ---",
+            "1.00h logged",
+            "",
+            "--- totals exact ---",
+            "1.00h workday",
+          },
+        },
+        {
           start_index = 1,
           end_index = 2,
           lines = { "08:00 implementation !L" },
@@ -622,6 +680,26 @@ return function(t)
 
     t.eq(result, {
       edits = {
+        {
+          start_index = 4,
+          end_index = 6,
+          lines = {
+            "--- summary exact ---",
+            "1.00h plan !L",
+            "",
+            "--- tags exact ---",
+            "1.00h #ClientA",
+            "",
+            "--- locations exact ---",
+            "1.00h @office",
+            "",
+            "--- logged exact ---",
+            "1.00h logged",
+            "",
+            "--- totals exact ---",
+            "1.00h workday",
+          },
+        },
         {
           start_index = 1,
           end_index = 2,
@@ -813,6 +891,186 @@ return function(t)
         "worklog: first line must be a worklog header such as "
           .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
       )
+    end
+  )
+
+  t.test(
+    "log_current replaces the full existing summary group including all subsections",
+    function()
+      -- Buffer already has tags, locations, and totals sections. After logging,
+      -- all sections are replaced atomically with the freshly rendered group
+      -- that now includes a logged section.
+      local result = log_current.run({
+        "--- worklog #ClientA @office ---",
+        "08:00 planning",
+        "10:00 review",
+        "11:00 done",
+        "",
+        "--- summary exact ---",
+        "2.00h planning",
+        "1.00h review",
+        "",
+        "--- tags exact ---",
+        "3.00h #ClientA",
+        "",
+        "--- locations exact ---",
+        "3.00h @office",
+        "",
+        "--- totals exact ---",
+        "3.00h workday",
+      }, 7)
+
+      t.eq(result, {
+        edits = {
+          {
+            start_index = 5,
+            end_index = 17,
+            lines = {
+              "--- summary exact ---",
+              "2.00h planning !L",
+              "1.00h review",
+              "",
+              "--- tags exact ---",
+              "3.00h #ClientA",
+              "",
+              "--- locations exact ---",
+              "3.00h @office",
+              "",
+              "--- logged exact ---",
+              "2.00h logged",
+              "1.00h unlogged",
+              "",
+              "--- totals exact ---",
+              "3.00h workday",
+            },
+          },
+          {
+            start_index = 1,
+            end_index = 2,
+            lines = { "08:00 planning !L" },
+          },
+        },
+      })
+    end
+  )
+
+  t.test(
+    "log_current regression: quantized summary group with note line and partial logging",
+    function()
+      -- Reported bug: :WorklogLog updated the source entry but left the
+      -- rendered summary stale. After the fix the full group — including the
+      -- newly required logged section — is replaced in one atomic edit.
+      local lines = {
+        "--- worklog #someproject @office ---",
+        "08:00 versions",
+        "09:00 stand",
+        "09:20 versions",
+        "10:12 folksy",
+        "    what is he talking about    ",
+        "10:17 Q1 features",
+        "11:01 versions",
+        "",
+        "--- summary quantized ---",
+        "2.00h (-8m) versions",
+        "0.75h (-1m) Q1 features",
+        "0.25h (+5m) stand",
+        "0.00h (+5m) folksy",
+        "",
+        "--- tags quantized ---",
+        "3.00h (+1m) #someproject",
+        "",
+        "--- locations quantized ---",
+        "3.00h (+1m) @office",
+        "",
+        "--- totals quantized ---",
+        "3.00h (+1m) workday",
+      }
+
+      local result = log_current.run(lines, 12)
+
+      t.eq(result, {
+        edits = {
+          {
+            start_index = 9,
+            end_index = 23,
+            lines = {
+              "--- summary quantized ---",
+              "2.00h (-8m) versions",
+              "0.75h (-1m) Q1 features !L",
+              "0.25h (+5m) stand",
+              "0.00h (+5m) folksy",
+              "",
+              "--- tags quantized ---",
+              "3.00h (+1m) #someproject",
+              "",
+              "--- locations quantized ---",
+              "3.00h (+1m) @office",
+              "",
+              "--- logged quantized ---",
+              "0.75h (-1m) logged",
+              "2.25h (+2m) unlogged",
+              "",
+              "--- totals quantized ---",
+              "3.00h (+1m) workday",
+            },
+          },
+          {
+            start_index = 6,
+            end_index = 7,
+            lines = { "10:17 Q1 features !L" },
+          },
+        },
+      })
+
+      -- Verify applying the edits in order produces the fully consistent buffer.
+      local buf = {}
+      for i, line in ipairs(lines) do
+        buf[i] = line
+      end
+
+      for _, edit in ipairs(result.edits) do
+        local new_buf = {}
+        for i = 1, edit.start_index do
+          new_buf[#new_buf + 1] = buf[i]
+        end
+        for _, line in ipairs(edit.lines) do
+          new_buf[#new_buf + 1] = line
+        end
+        for i = edit.end_index + 1, #buf do
+          new_buf[#new_buf + 1] = buf[i]
+        end
+        buf = new_buf
+      end
+
+      t.eq(buf, {
+        "--- worklog #someproject @office ---",
+        "08:00 versions",
+        "09:00 stand",
+        "09:20 versions",
+        "10:12 folksy",
+        "    what is he talking about    ",
+        "10:17 Q1 features !L",
+        "11:01 versions",
+        "",
+        "--- summary quantized ---",
+        "2.00h (-8m) versions",
+        "0.75h (-1m) Q1 features !L",
+        "0.25h (+5m) stand",
+        "0.00h (+5m) folksy",
+        "",
+        "--- tags quantized ---",
+        "3.00h (+1m) #someproject",
+        "",
+        "--- locations quantized ---",
+        "3.00h (+1m) @office",
+        "",
+        "--- logged quantized ---",
+        "0.75h (-1m) logged",
+        "2.25h (+2m) unlogged",
+        "",
+        "--- totals quantized ---",
+        "3.00h (+1m) workday",
+      })
     end
   )
 end
