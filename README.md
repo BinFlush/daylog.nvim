@@ -197,7 +197,12 @@ you like, for example:
 
 ```lua
 vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>", { desc = "Worklog insert time" })
-vim.keymap.set("n", "<leader>wt", "<cmd>WorklogToday<cr>", { desc = "Worklog open today" })
+vim.keymap.set("n", "<leader>wt", function()
+  vim.cmd("WorklogToday " .. vim.v.count)
+end, { desc = "Worklog open today / +N days" })
+vim.keymap.set("n", "<leader>wT", function()
+  vim.cmd("WorklogToday -" .. vim.v.count1)
+end, { desc = "Worklog open -N days" })
 vim.keymap.set("n", "<leader>wd", "<cmd>WorklogDays 7<cr>", { desc = "Worklog last 7 days" })
 vim.keymap.set("n", "<leader>wk", "<cmd>WorklogWeek<cr>", { desc = "Worklog week report" })
 vim.keymap.set("n", "<leader>wr", "<cmd>WorklogRepeat<cr>", { desc = "Worklog repeat activity" })
@@ -207,6 +212,10 @@ vim.keymap.set("n", "<leader>ws", "<cmd>WorklogSummarize<cr>", { desc = "Worklog
 vim.keymap.set("n", "<leader>wq", "<cmd>WorklogQuantSum<cr>", { desc = "Worklog summarize quantized" })
 vim.keymap.set("n", "<leader>wl", "<cmd>WorklogLog<cr>", { desc = "Worklog mark summary row as logged" })
 ```
+
+`<leader>wt` opens today (inserting the current time on first creation); add a
+count to jump forward, e.g. `3<leader>wt` for three days ahead. `<leader>wT`
+jumps backward, e.g. `2<leader>wT` for two days ago.
 
 ## Documentation
 
