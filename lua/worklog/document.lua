@@ -205,7 +205,10 @@ local function parse_entry(line, row)
   hh = tonumber(hh)
   mm = tonumber(mm)
 
-  if hh > 23 or mm > 59 then
+  -- 24:00 is a valid end-of-day boundary; it lets a worklog close its final
+  -- task at midnight, contiguous with the next day's 00:00.
+  local valid_time = (hh <= 23 and mm <= 59) or (hh == 24 and mm == 0)
+  if not valid_time then
     return {
       kind = "invalid_entry",
       row = row,

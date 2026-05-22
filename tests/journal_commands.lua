@@ -1,6 +1,7 @@
 return function(t)
   local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
   local with_captured_notify = helpers.with_captured_notify
+  local with_mocked_confirm = helpers.with_mocked_confirm
   local with_mocked_time = helpers.with_mocked_time
   local with_temp_home_root = helpers.with_temp_home_root
   local with_worklog_setup = helpers.with_worklog_setup
@@ -1142,6 +1143,258 @@ return function(t)
           },
         })
       end)
+    end)
+  end)
+
+  t.test("insert refuses to stamp the current time into a non-today journal file", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
+    local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
+    local path = write_journal_file(root, "%Y", past, {
+      "--- worklog ---",
+      "08:00 plan",
+    })
+
+    with_worklog_setup({
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(path))
+      t.set_cursor(2, 0)
+
+      with_captured_notify(function(messages)
+        with_mocked_time(now, function()
+          vim.cmd("WorklogInsert")
+        end)
+
+        t.eq(messages, {
+          {
+            message = "worklog: this file is dated 2026-05-19, not today (2026-05-22); "
+              .. "refusing to insert the current time",
+            level = vim.log.levels.WARN,
+          },
+        })
+      end)
+
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+        "08:00 plan",
+      })
+    end)
+  end)
+
+  t.test("insert proceeds on a buffer that is not a journal file", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
+
+    with_worklog_setup({
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      t.reset({
+        "--- worklog ---",
+        "08:00 plan",
+      })
+
+      with_captured_notify(function(messages)
+        with_mocked_time(now, function()
+          vim.cmd("WorklogInsert")
+        end)
+
+        t.eq(messages, {})
+      end)
+
+      local inserted = 0
+      for _, line in ipairs(t.get_lines()) do
+        if line:match("^%d%d:%d%d $") then
+          inserted = inserted + 1
+        end
+      end
+      t.eq(inserted, 1)
+    end)
+  end)
+
+  t.test("insert proceeds normally on today's journal file", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
+    local path = write_journal_file(root, "%Y", now, {
+      "--- worklog ---",
+      "08:00 plan",
+    })
+
+    with_worklog_setup({
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(path))
+      t.set_cursor(2, 0)
+
+      with_captured_notify(function(messages)
+        with_mocked_time(now, function()
+          vim.cmd("WorklogInsert")
+        end)
+
+        t.eq(messages, {})
+      end)
+
+      -- The inserted clock time comes from the real wall clock, so assert shape
+      -- rather than an exact value: one fresh empty timestamp line was added.
+      local lines = t.get_lines()
+      t.eq(#lines, 3)
+      t.eq(lines[1], "--- worklog ---")
+      local inserted = 0
+      for _, line in ipairs(lines) do
+        if line:match("^%d%d:%d%d $") then
+          inserted = inserted + 1
+        end
+      end
+      t.eq(inserted, 1)
+    end)
+  end)
+
+  t.test("insert past midnight carries the running task into today", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "22:30 writing report",
+    })
+    local today_path = root .. "/2026/2026-05-22.wkl"
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_confirm(1, function()
+        with_mocked_time(now, function()
+          vim.cmd("WorklogInsert")
+        end)
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office ---",
+        "00:00 writing report",
+        "00:47 ",
+      })
+      t.eq(vim.fn.readfile(yesterday_path), {
+        "--- worklog #ClientA @office ---",
+        "22:30 writing report",
+        "24:00",
+      })
+    end)
+  end)
+
+  t.test("repeat past midnight carries the running task and repeats the cursor entry", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "20:00 standup",
+      "22:30 writing report",
+    })
+    local today_path = root .. "/2026/2026-05-22.wkl"
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_confirm(1, function()
+        with_mocked_time(now, function()
+          vim.cmd("WorklogRepeat")
+        end)
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office ---",
+        "00:00 writing report",
+        "00:47 standup",
+      })
+      t.eq(vim.fn.readfile(yesterday_path), {
+        "--- worklog #ClientA @office ---",
+        "20:00 standup",
+        "22:30 writing report",
+        "24:00",
+      })
+    end)
+  end)
+
+  t.test("insert past midnight leaves both days untouched when declined", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "22:30 writing report",
+    })
+    local today_path = root .. "/2026/2026-05-22.wkl"
+
+    with_worklog_setup({
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_confirm(2, function()
+        with_mocked_time(now, function()
+          vim.cmd("WorklogInsert")
+        end)
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), yesterday_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office ---",
+        "22:30 writing report",
+      })
+      t.eq(vim.fn.filereadable(today_path), 0)
+    end)
+  end)
+
+  t.test("insert past midnight refuses when today's worklog already exists", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "22:30 writing report",
+    })
+    write_journal_file(root, "%Y", now, {
+      "--- worklog ---",
+      "00:10 already here",
+    })
+
+    with_worklog_setup({
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(2, 0)
+
+      with_captured_notify(function(messages)
+        with_mocked_confirm(1, function()
+          with_mocked_time(now, function()
+            vim.cmd("WorklogInsert")
+          end)
+        end)
+
+        t.eq(messages, {
+          {
+            message = "worklog: today's worklog already exists; open it with :WorklogToday",
+            level = vim.log.levels.WARN,
+          },
+        })
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), yesterday_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office ---",
+        "22:30 writing report",
+      })
     end)
   end)
 end

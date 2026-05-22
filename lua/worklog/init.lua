@@ -2,6 +2,7 @@ local filetype = require("worklog.filetype")
 local append_copy = require("worklog.usecases.append_copy")
 local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
 local append_summary = require("worklog.usecases.append_summary")
+local carryover = require("worklog.usecases.carryover")
 local check = require("worklog.usecases.check")
 local config = require("worklog.config")
 local insert_now = require("worklog.usecases.insert_now")
@@ -166,8 +167,161 @@ local function can_abandon_current_buffer()
   return not vim.bo.modified or vim.o.hidden or vim.o.autowrite or vim.o.autowriteall
 end
 
+-- Open (creating the directory, file, and header as needed) the journal file
+-- for a date. Returns ok, was_initialized.
+local function open_journal_file(settings, date)
+  local path = journal.path_for_date(settings, date)
+  local directory = vim.fn.fnamemodify(path, ":h")
+
+  if vim.fn.isdirectory(directory) == 0 and vim.fn.mkdir(directory, "p") == 0 then
+    warn("worklog: failed to create journal directory: " .. directory)
+    return false
+  end
+
+  local should_initialize = vim.fn.filereadable(path) == 0 or vim.fn.getfsize(path) == 0
+
+  local ok, err = pcall(vim.cmd, "edit " .. vim.fn.fnameescape(path))
+  if not ok then
+    warn(tostring(err))
+    return false
+  end
+
+  if should_initialize and not apply_new_worklog(config.get().defaults) then
+    return false
+  end
+
+  return true, should_initialize
+end
+
+-- The journal date the current buffer represents, or nil when it is not a
+-- canonical journal file (unnamed buffer, journal unconfigured, or a dated file
+-- outside the configured location).
+local function current_buffer_journal_date(settings)
+  local name = vim.api.nvim_buf_get_name(0)
+  if name == "" then
+    return nil
+  end
+
+  return journal.date_from_path(settings, vim.fn.fnamemodify(name, ":p"))
+end
+
+-- Roll a task that ran across midnight into today: close the previous day at
+-- 24:00, open/create today, continue the activity from 00:00, then apply the
+-- originating command at the current time. Returns true when it took over the
+-- request (carried over, declined, or intentionally refused), false when this
+-- is not a carryover situation and the caller should hard-block instead.
+local function run_carryover(settings, command, now)
+  local lines = buffer_lines()
+
+  local carried = carryover.last_running_entry(lines)
+  if not carried then
+    return false
+  end
+
+  -- Capture the cursor entry before the buffer switches away.
+  local repeated
+  if command == "repeat" then
+    local err
+    repeated, err = carryover.entry_at_row(lines, cursor_row())
+    if not repeated then
+      warn(err)
+      return true
+    end
+  end
+
+  local today_path = journal.path_for_date(settings, now)
+  if vim.fn.filereadable(today_path) == 1 and vim.fn.getfsize(today_path) > 0 then
+    warn("worklog: today's worklog already exists; open it with :WorklogToday")
+    return true
+  end
+
+  local prompt = string.format("Past midnight: carry '%s' over to today's worklog?", carried.text)
+  if vim.fn.confirm(prompt, "&Yes\n&No", 1) ~= 1 then
+    return true
+  end
+
+  local close, close_err = carryover.close_edit(lines)
+  if not close then
+    warn(close_err)
+    return true
+  end
+  apply_result(close)
+
+  if not pcall(vim.cmd, "silent write") then
+    warn("worklog: failed to save the previous day before carrying over")
+    return true
+  end
+
+  if not open_journal_file(settings, now) then
+    return true
+  end
+
+  local seed, seed_err = carryover.seed_edit(buffer_lines(), carried, 0)
+  if not seed then
+    warn(seed_err)
+    return true
+  end
+  apply_result(seed)
+
+  if command == "repeat" then
+    local clock = os.date("*t", now)
+    local seed_repeat, seed_repeat_err =
+      carryover.seed_edit(buffer_lines(), repeated, clock.hour * 60 + clock.min)
+    if not seed_repeat then
+      warn(seed_repeat_err)
+      return true
+    end
+    apply_result(seed_repeat)
+  else
+    apply_insert_time(os.date("%H:%M", now))
+  end
+
+  return true
+end
+
+-- Refuse to stamp the current time into a day that is not today. When the
+-- buffer is not a canonical journal file the guard stays silent so the plugin
+-- keeps working on arbitrary files. Returns true when the request was handled
+-- (blocked or carried over) and the caller should stop.
+local function guard_current_time(command)
+  local settings = expanded_journal_settings()
+  if settings == nil then
+    return false
+  end
+
+  local file_date = current_buffer_journal_date(settings)
+  if file_date == nil then
+    return false
+  end
+
+  local now = os.time()
+  if journal.same_date(file_date, now) then
+    return false
+  end
+
+  if
+    journal.same_date(file_date, journal.offset_date(now, -1))
+    and run_carryover(settings, command, now)
+  then
+    return true
+  end
+
+  warn(
+    string.format(
+      "worklog: this file is dated %s, not today (%s); refusing to insert the current time",
+      journal.date_label(file_date),
+      journal.date_label(now)
+    )
+  )
+  return true
+end
+
 -- Insert the current time at the cursor and enter insert mode.
 function M.insert_now()
+  if guard_current_time("insert") then
+    return
+  end
+
   apply_insert_time(os.date("%H:%M"))
 end
 
@@ -206,6 +360,10 @@ function M.append_copy()
 end
 
 function M.repeat_current()
+  if guard_current_time("repeat") then
+    return
+  end
+
   local lines = buffer_lines()
   local row = cursor_row()
   local result, err = repeat_current.run(lines, row, os.date("%H:%M"))
@@ -271,31 +429,13 @@ function M.open_today(day_offset)
   local now = os.time()
   local offset = day_offset or 0
   local target_date = journal.offset_date(now, offset)
-  local path = journal.path_for_date(settings, target_date)
-  local directory = vim.fn.fnamemodify(path, ":h")
 
-  if vim.fn.isdirectory(directory) == 0 and vim.fn.mkdir(directory, "p") == 0 then
-    warn("worklog: failed to create journal directory: " .. directory)
-    return
-  end
-
-  local should_initialize = vim.fn.filereadable(path) == 0 or vim.fn.getfsize(path) == 0
-
-  local ok, err = pcall(vim.cmd, "edit " .. vim.fn.fnameescape(path))
+  local ok, was_initialized = open_journal_file(settings, target_date)
   if not ok then
-    warn(tostring(err))
     return
   end
 
-  if not should_initialize then
-    return
-  end
-
-  if not apply_new_worklog(config.get().defaults) then
-    return
-  end
-
-  if offset ~= 0 then
+  if offset ~= 0 or not was_initialized then
     return
   end
 

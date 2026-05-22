@@ -834,4 +834,35 @@ return function(t)
       message = "multiple trailing locations are not allowed",
     })
   end)
+
+  t.test("analyze accepts 24:00 as the final closing entry", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog ---",
+      "22:30 writing report",
+      "24:00",
+    }))
+
+    t.eq(analysis.diagnostics, {})
+    t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), nil)
+    t.eq(analysis.worklog_blocks[1].entry_items[2].minutes, 1440)
+  end)
+
+  t.test("analyze reports a 24:00 entry that is not the final entry", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog ---",
+      "08:00 plan",
+      "24:00 overnight",
+      "24:00 done",
+    }))
+
+    local diagnostic = {
+      code = "midnight_not_final",
+      severity = "error",
+      row = 3,
+      message = "24:00 must be the final entry in a worklog block",
+    }
+
+    t.eq(analysis.diagnostics, { diagnostic })
+    t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), diagnostic)
+  end)
 end

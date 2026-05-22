@@ -287,7 +287,7 @@ return function(t)
     local doc = document.parse({
       "08:00 plan #sales #meeting",
       "08:00 plan @office @home",
-      "24:00 no",
+      "24:30 no",
       "08:00x",
     })
 
@@ -307,7 +307,7 @@ return function(t)
       {
         kind = "invalid_entry",
         row = 3,
-        raw = "24:00 no",
+        raw = "24:30 no",
         message = "invalid time",
       },
       {
@@ -316,6 +316,34 @@ return function(t)
         raw = "08:00x",
         message = "expected whitespace after the time",
       },
+    })
+  end)
+
+  t.test("document parse accepts 24:00 as an end-of-day boundary", function()
+    t.eq(document.parse_line("24:00"), {
+      kind = "entry",
+      row = 1,
+      raw = "24:00",
+      minutes = 1440,
+      text = "",
+      explicit_tag = nil,
+      explicit_location = nil,
+    })
+  end)
+
+  t.test("document parse rejects times past 24:00", function()
+    t.eq(document.parse_line("24:01"), {
+      kind = "invalid_entry",
+      row = 1,
+      raw = "24:01",
+      message = "invalid time",
+    })
+
+    t.eq(document.parse_line("25:00"), {
+      kind = "invalid_entry",
+      row = 1,
+      raw = "25:00",
+      message = "invalid time",
     })
   end)
 end

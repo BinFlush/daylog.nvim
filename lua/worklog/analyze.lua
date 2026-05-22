@@ -10,6 +10,7 @@ local INVALID_FIRST_HEADER_MESSAGE =
   "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 local DEFAULT_QUANTIZE_MINUTES = 15
 local DEFAULT_DURATION_FORMAT = "decimal"
+local END_OF_DAY_MINUTES = 24 * 60
 
 local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
@@ -120,6 +121,20 @@ local function analyze_entry_items(block, diagnostics)
     end
   end
 
+  -- 24:00 is only meaningful as the day's closing boundary, so it must be the
+  -- final timestamped entry; anything after it would start work past midnight.
+  for i = 1, #entry_items - 1 do
+    if entry_items[i].minutes == END_OF_DAY_MINUTES then
+      push_diagnostic(diagnostics, {
+        code = "midnight_not_final",
+        severity = "error",
+        row = entry_items[i].row or entry_items[i].start_row,
+        message = "24:00 must be the final entry in a worklog block",
+      })
+      break
+    end
+  end
+
   return entry_items, entries
 end
 
@@ -139,7 +154,9 @@ local function is_structural_diagnostic(diagnostic)
 end
 
 local function is_block_diagnostic(diagnostic)
-  return diagnostic.code == "invalid_entry" or diagnostic.code == "unordered_timestamps"
+  return diagnostic.code == "invalid_entry"
+    or diagnostic.code == "unordered_timestamps"
+    or diagnostic.code == "midnight_not_final"
 end
 
 local function interpret_worklog_header(header, diagnostics)

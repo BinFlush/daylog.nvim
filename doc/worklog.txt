@@ -97,6 +97,9 @@ Rules:
 - A timestamped line starts an interval.
 - The interval ends at the next timestamped line.
 - A final closing line such as `17:00 done` closes the previous interval.
+- `24:00` is valid only as the final timestamped entry of a worklog block,
+  where it closes the last task at midnight (contiguous with the next day's
+  `00:00`). A `24:00` entry followed by another timestamped entry is an error.
 - Non-timestamped lines under an entry are notes.
 - Notes move with their timestamped entry when copied or ordered.
 - `!L` marks the interval started by that entry as already logged externally.
@@ -199,6 +202,9 @@ GOTCHAS                                                      *worklog-gotchas*
 - Main summary rows do not split by location; locations are reported
   separately.
 - The active worklog is the latest `--- worklog ... ---` block in the file.
+- Stamping the current time (|:WorklogInsert|, |:WorklogRepeat|) into a journal
+  file dated for another day is refused; past-midnight work can instead be
+  carried into today's file.
 
 ==============================================================================
 COMMANDS                                                    *worklog-commands*
@@ -273,6 +279,17 @@ Insert the current time into the worklog block under the cursor.
 - Equal timestamps stay grouped together.
 - Insert mode starts on the new line.
 
+When the buffer is a journal file (see |worklog-config|) dated for a day other
+than today, inserting the current time is refused, since stamping "now" into
+another day's worklog is meaningless. The guard stays silent on buffers that
+are not journal files, so the plugin still works on arbitrary `.wkl` files.
+
+As a special case, when the buffer is yesterday's journal file and a task was
+still running at its end, the command offers to carry that task past midnight:
+it closes yesterday at `24:00`, opens (creating if needed) today's journal
+file, continues the running task from `00:00`, then inserts the current time
+there. Decline the prompt to leave both files untouched.
+
                                                         *:WorklogRepeat*
 :WorklogRepeat
 
@@ -282,6 +299,11 @@ Repeat the activity under the cursor at the current time.
 - The entry is inserted in chronological order.
 - Sticky tag and location meaning are preserved.
 - Clear tokens are emitted when needed.
+
+The same date guard and past-midnight carryover as |:WorklogInsert| apply.
+After carrying over, the entry under the cursor is repeated in today's file at
+the current time, while the task that was running at midnight continues from
+`00:00`.
 
                                                         *:WorklogCheck*
 :WorklogCheck

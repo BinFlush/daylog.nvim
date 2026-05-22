@@ -40,6 +40,35 @@ function M.date_label(now)
   return os.date("%Y-%m-%d", now)
 end
 
+function M.same_date(a, b)
+  return M.date_label(a) == M.date_label(b)
+end
+
+-- Parse a journal filename (`YYYY-MM-DD.wkl`) into a midday timestamp.
+-- Returns nil when the name is not a valid dated journal filename. The
+-- round-trip label check rejects out-of-range dates such as 2026-02-30.
+function M.parse_date_label(name)
+  local year, month, day = name:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)%.wkl$")
+  if not year then
+    return nil
+  end
+
+  local timestamp = os.time({
+    year = tonumber(year),
+    month = tonumber(month),
+    day = tonumber(day),
+    hour = 12,
+    min = 0,
+    sec = 0,
+  })
+
+  if M.date_label(timestamp) ~= year .. "-" .. month .. "-" .. day then
+    return nil
+  end
+
+  return timestamp
+end
+
 function M.week_label(now)
   return os.date("%G-W%V", now)
 end
@@ -54,6 +83,29 @@ end
 
 function M.today_path(journal, now)
   return M.path_for_date(journal, now)
+end
+
+local function forward_slashes(value)
+  return (value:gsub("\\", "/"))
+end
+
+-- Resolve the journal date a path represents, or nil when the path is not a
+-- canonical journal file. The path is canonical only when it equals the path
+-- the configuration would generate for the date in its filename, so the
+-- `directory` template is honored and dated files outside the tree are ignored.
+-- Both `/` and `\` separators are accepted so Windows buffer paths resolve too.
+function M.date_from_path(journal, path)
+  local basename = path:match("[^/\\]+$") or path
+  local timestamp = M.parse_date_label(basename)
+  if not timestamp then
+    return nil
+  end
+
+  if forward_slashes(M.path_for_date(journal, timestamp)) ~= forward_slashes(path) then
+    return nil
+  end
+
+  return timestamp
 end
 
 function M.offset_date(now, offset_days)

@@ -2,6 +2,7 @@ return function(t)
   local append_copy = require("worklog.usecases.append_copy")
   local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
   local append_summary = require("worklog.usecases.append_summary")
+  local carryover = require("worklog.usecases.carryover")
   local check = require("worklog.usecases.check")
   local insert_now = require("worklog.usecases.insert_now")
   local log_current = require("worklog.usecases.log_current")
@@ -250,6 +251,18 @@ return function(t)
 
     t.eq(result, nil)
     t.eq(err, "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder")
+  end)
+
+  t.test("check usecase rejects a 24:00 entry that is not the final entry", function()
+    local result, err = check.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "24:00 overnight",
+      "24:00 done",
+    })
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: 24:00 must be the final entry in a worklog block")
   end)
 
   t.test("append_copy preserves clear tokens needed to keep meaning", function()
@@ -1073,4 +1086,92 @@ return function(t)
       })
     end
   )
+
+  t.test("carryover last_running_entry returns the final running activity", function()
+    local activity = carryover.last_running_entry({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning",
+      "22:30 writing report #internal @home",
+    })
+
+    t.eq(activity, {
+      text = "writing report",
+      explicit_tag = "internal",
+      explicit_tag_clear = nil,
+      explicit_location = "home",
+      explicit_location_clear = nil,
+      tag = "internal",
+      location = "home",
+      workday_excluded = false,
+    })
+  end)
+
+  t.test("carryover last_running_entry is nil when the day already closed", function()
+    t.eq(
+      carryover.last_running_entry({
+        "--- worklog #ClientA @office ---",
+        "08:00 planning",
+        "17:00",
+      }),
+      nil
+    )
+  end)
+
+  t.test("carryover entry_at_row returns the activity on the cursor row", function()
+    local activity = carryover.entry_at_row({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning",
+      "10:00 review #internal",
+    }, 2)
+
+    t.eq(activity, {
+      text = "planning",
+      explicit_tag = nil,
+      explicit_tag_clear = nil,
+      explicit_location = nil,
+      explicit_location_clear = nil,
+      tag = "ClientA",
+      location = "office",
+      workday_excluded = false,
+    })
+  end)
+
+  t.test("carryover seed_edit continues the activity at 00:00", function()
+    local activity = carryover.last_running_entry({
+      "--- worklog #ClientA @office ---",
+      "22:30 writing report #internal",
+    })
+
+    local result = carryover.seed_edit({
+      "--- worklog #ClientA @office ---",
+    }, activity, 0)
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 1,
+          lines = { "00:00 writing report #internal" },
+        },
+      },
+    })
+  end)
+
+  t.test("carryover close_edit appends a bare 24:00 boundary", function()
+    local result = carryover.close_edit({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning",
+      "22:30 writing report",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = { "24:00" },
+        },
+      },
+    })
+  end)
 end

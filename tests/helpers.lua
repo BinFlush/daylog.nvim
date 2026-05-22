@@ -37,6 +37,21 @@ function M.with_mocked_time(value, fn)
   end
 end
 
+function M.with_mocked_confirm(choice, fn)
+  local old_confirm = vim.fn.confirm
+
+  vim.fn.confirm = function()
+    return choice
+  end
+
+  local ok, err = xpcall(fn, debug.traceback)
+  vim.fn.confirm = old_confirm
+
+  if not ok then
+    error(err, 0)
+  end
+end
+
 function M.with_worklog_setup(options, fn)
   worklog.setup(options)
 
