@@ -487,7 +487,7 @@ function M.open_week(aggregate_only)
     render.week_report_lines(report, config.get().defaults.duration_format, {
       aggregate_only = aggregate_only,
     }),
-    (aggregate_only and "worklog-week-summary-" or "worklog-week-") .. report.period_label
+    (aggregate_only and "worklog-week-summary-" or "worklog-week-") .. report.period_label .. ".wkl"
   )
 end
 
@@ -508,7 +508,7 @@ function M.open_days(count, aggregate_only)
     render.days_report_lines(report, config.get().defaults.duration_format, {
       aggregate_only = aggregate_only,
     }),
-    (aggregate_only and "worklog-days-summary-" or "worklog-days-") .. report.period_label
+    (aggregate_only and "worklog-days-summary-" or "worklog-days-") .. report.period_label .. ".wkl"
   )
 end
 

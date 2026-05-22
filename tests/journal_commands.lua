@@ -853,7 +853,7 @@ return function(t)
       end)
 
       t.eq(#vim.api.nvim_tabpage_list_wins(0), windows_before + 1)
-      t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21")
+      t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21.wkl")
       t.eq(vim.bo.buftype, "nofile")
       t.eq(vim.bo.bufhidden, "wipe")
       t.ok(not vim.bo.swapfile)
@@ -948,7 +948,10 @@ return function(t)
         vim.cmd("WorklogWeek!")
       end)
 
-      t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-summary-2026-W21")
+      t.eq(
+        vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
+        "worklog-week-summary-2026-W21.wkl"
+      )
       t.eq(t.get_lines(), {
         "--- week summary quantized 2026-W21 ---",
         "1:00 (+0m) plan",
@@ -1005,7 +1008,7 @@ return function(t)
           vim.cmd("WorklogWeek")
         end)
 
-        t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21")
+        t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21.wkl")
         t.eq(t.get_lines()[1], "--- day summary quantized 2026-05-18 ---")
 
         vim.cmd("silent! only!")
@@ -1153,7 +1156,7 @@ return function(t)
 
       t.eq(
         vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
-        "worklog-days-2026-05-19..2026-05-22"
+        "worklog-days-2026-05-19..2026-05-22.wkl"
       )
       t.eq(t.get_lines(), {
         "--- day summary quantized 2026-05-20 ---",
@@ -1246,7 +1249,7 @@ return function(t)
 
       t.eq(
         vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
-        "worklog-days-summary-2026-05-20..2026-05-22"
+        "worklog-days-summary-2026-05-20..2026-05-22.wkl"
       )
       t.eq(t.get_lines(), {
         "--- range summary quantized 2026-05-20..2026-05-22 ---",
