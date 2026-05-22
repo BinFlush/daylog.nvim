@@ -49,8 +49,22 @@ happen, but they are called out clearly in this changelog.
 - Added optional signed day offsets to `:WorklogToday [offset]`. `0` keeps the
   current behavior, while nonzero offsets open nearby dated journal files and
   initialize missing or empty files with only the configured worklog header.
+- Added a `24:00` end-of-day boundary timestamp that closes a worklog block's
+  final task at midnight, contiguous with the next day's `00:00`. It is valid
+  only as the final entry; a `24:00` entry followed by another timestamped entry
+  is reported as a diagnostic.
+- Added past-midnight carryover for `:WorklogInsert` and `:WorklogRepeat`. When
+  the buffer is yesterday's journal file and a task is still running, the command
+  offers to close that day at `24:00`, open (creating if needed) today's journal
+  file, continue the task from `00:00`, then apply the command at the current
+  time.
 
 ### Changed
+
+- `:WorklogInsert` and `:WorklogRepeat` now refuse to stamp the current time
+  into a journal file dated for another day. The guard stays silent on buffers
+  that are not canonical journal files, so the plugin still works on arbitrary
+  `.wkl` files.
 
 ### Fixed
 

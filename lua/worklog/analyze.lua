@@ -153,7 +153,7 @@ local function is_structural_diagnostic(diagnostic)
     or diagnostic.code == "invalid_worklog_header_token"
 end
 
-local function is_block_diagnostic(diagnostic)
+function M.is_block_diagnostic(diagnostic)
   return diagnostic.code == "invalid_entry"
     or diagnostic.code == "unordered_timestamps"
     or diagnostic.code == "midnight_not_final"
@@ -408,7 +408,7 @@ end
 function M.find_block_diagnostic(analysis, block)
   for _, diagnostic in ipairs(analysis.diagnostics) do
     if
-      is_block_diagnostic(diagnostic)
+      M.is_block_diagnostic(diagnostic)
       and diagnostic.row >= block.start_row
       and diagnostic.row < block.end_row
     then

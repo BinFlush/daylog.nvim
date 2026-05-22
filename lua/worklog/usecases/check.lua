@@ -15,11 +15,7 @@ function M.run(lines)
   end
 
   for _, diagnostic in ipairs(analysis.diagnostics) do
-    if
-      diagnostic.code == "invalid_entry"
-      or diagnostic.code == "unordered_timestamps"
-      or diagnostic.code == "midnight_not_final"
-    then
+    if analyze.is_block_diagnostic(diagnostic) then
       return nil, diagnostics.message(diagnostic)
     end
   end
