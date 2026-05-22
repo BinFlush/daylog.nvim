@@ -9,7 +9,14 @@ endif
 "   * Entries and summary rows only treat a TRAILING run of #tag / @location /
 "     !L tokens as metadata. A '#word' earlier in the text is plain text, so
 "     "10:17 #Q1 features" has no tag.
-"   * Indented lines are free-form notes.
+"   * Any non-blank line that is not a header, timestamp, or summary row is a
+"     free-form note, whether indented or at column 0.
+
+" Notes --------------------------------------------------------------------
+" Defined first so all later, more-specific patterns (headers, timestamps,
+" durations) can override it at column 0. contains=NONE keeps the whole line
+" dimmed and stops the trailing-metadata match from firing inside it.
+syntax region WorklogNote start=/^\s*\S/ end=/$/ contains=NONE keepend
 
 " Block headers ------------------------------------------------------------
 " Generated section headers, e.g. --- summary exact --- or --- tags quantized ---
@@ -57,12 +64,6 @@ syntax match WorklogLogged /\s\@<=!L/ contained
 
 " key=value options are only valid in worklog headers.
 syntax match WorklogOption /\s\@<=[[:alnum:]_-]\+=[[:alnum:]_-]*/ contained
-
-" Notes --------------------------------------------------------------------
-" Free-form text the user indents under an entry or summary item. A region with
-" contains=NONE keeps the whole line dimmed, including any stray #/@ tokens, and
-" stops the trailing-metadata match from firing inside it.
-syntax region WorklogNote start=/^\s\+\S/ end=/$/ contains=NONE keepend
 
 highlight default link WorklogHeader      Title
 highlight default link WorklogBlockHeader Comment
