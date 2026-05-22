@@ -130,6 +130,15 @@ local function parse_positive_integer(value)
   return number
 end
 
+-- An optional positive day-step count; an empty argument defaults to 1.
+local function parse_step_count(value)
+  if value == nil or value == "" then
+    return 1
+  end
+
+  return parse_positive_integer(value)
+end
+
 local function parse_day_offset(value)
   if value == nil or value == "" then
     return 0
@@ -442,6 +451,25 @@ function M.open_today(day_offset)
   apply_insert_time(os.date("%H:%M", now))
 end
 
+-- Open the journal file `step` days from the one in the current buffer, falling
+-- back to today when the buffer is not a canonical journal file. Pure
+-- navigation: it never inserts the current time, even when it lands on today.
+function M.open_relative_day(step)
+  local settings = expanded_journal_settings()
+  if settings == nil then
+    warn("worklog: journal.root is not configured")
+    return
+  end
+
+  if not can_abandon_current_buffer() then
+    warn("worklog: current buffer has unsaved changes")
+    return
+  end
+
+  local anchor = current_buffer_journal_date(settings) or os.time()
+  open_journal_file(settings, journal.offset_date(anchor, step))
+end
+
 function M.open_week(aggregate_only)
   local settings = expanded_journal_settings()
   if settings == nil then
@@ -504,6 +532,30 @@ function M.setup(options)
     end
 
     M.open_today(offset)
+  end, {
+    nargs = "?",
+  })
+
+  ensure_user_command("WorklogNextDay", function(args)
+    local count, err = parse_step_count(args.args)
+    if not count then
+      warn(err)
+      return
+    end
+
+    M.open_relative_day(count)
+  end, {
+    nargs = "?",
+  })
+
+  ensure_user_command("WorklogPrevDay", function(args)
+    local count, err = parse_step_count(args.args)
+    if not count then
+      warn(err)
+      return
+    end
+
+    M.open_relative_day(-count)
   end, {
     nargs = "?",
   })

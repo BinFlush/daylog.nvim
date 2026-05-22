@@ -92,6 +92,8 @@ longer match the recomputed summary.
 | --- | --- |
 | `:WorklogNew` | Create a new worklog block using configured defaults |
 | `:WorklogToday [offset]` | Open a journal file relative to today; nonzero offsets initialize missing or empty files without inserting the current time |
+| `:WorklogNextDay [count]` | Step forward `count` days (default 1) relative to the open journal file, falling back to today |
+| `:WorklogPrevDay [count]` | Step backward `count` days (default 1) relative to the open journal file, falling back to today |
 | `:WorklogDays[!] {count}` | Open the last N journal days report; `!` shows only the aggregate range summary |
 | `:WorklogWeek[!]` | Open this week's journal report; `!` shows only the aggregate weekly summary |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
@@ -211,11 +213,23 @@ vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>", { desc = "Worklog ord
 vim.keymap.set("n", "<leader>ws", "<cmd>WorklogSummarize<cr>", { desc = "Worklog summarize exact" })
 vim.keymap.set("n", "<leader>wq", "<cmd>WorklogQuantSum<cr>", { desc = "Worklog summarize quantized" })
 vim.keymap.set("n", "<leader>wl", "<cmd>WorklogLog<cr>", { desc = "Worklog mark summary row as logged" })
+vim.keymap.set("n", "]w", function()
+  vim.cmd("WorklogNextDay " .. vim.v.count1)
+end, { desc = "Worklog next day" })
+vim.keymap.set("n", "[w", function()
+  vim.cmd("WorklogPrevDay " .. vim.v.count1)
+end, { desc = "Worklog previous day" })
 ```
 
 `<leader>wt` opens today (inserting the current time on first creation); add a
 count to jump forward, e.g. `3<leader>wt` for three days ahead. `<leader>wT`
-jumps backward, e.g. `2<leader>wT` for two days ago.
+jumps backward, e.g. `2<leader>wT` for two days ago. These jumps are always
+relative to today.
+
+`]w` and `[w` instead *step* to the next and previous day relative to the journal
+file you are viewing, so repeated presses walk through your days; a count
+multiplies the step, e.g. `3[w` for three days back. When the current buffer is
+not a dated worklog file, they fall back to today.
 
 ## Documentation
 

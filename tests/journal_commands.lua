@@ -575,6 +575,215 @@ return function(t)
     end
   )
 
+  t.test("next day steps forward relative to the open journal file", function()
+    local root = vim.fn.tempname()
+    local opened = os.time({
+      year = 2026,
+      month = 5,
+      day = 10,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local next_day = os.time({
+      year = 2026,
+      month = 5,
+      day = 11,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      local open_path = write_journal_file(root, "%Y", opened, {
+        "--- worklog ---",
+        "08:00 plan",
+      })
+      vim.cmd("edit " .. vim.fn.fnameescape(open_path))
+      vim.bo.modified = false
+
+      vim.cmd("WorklogNextDay")
+
+      t.eq(
+        vim.api.nvim_buf_get_name(0),
+        root .. "/" .. os.date("%Y", next_day) .. "/" .. os.date("%Y-%m-%d", next_day) .. ".wkl"
+      )
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+      })
+      t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
+    end)
+  end)
+
+  t.test("prev day count steps backward relative to the open journal file", function()
+    local root = vim.fn.tempname()
+    local opened = os.time({
+      year = 2026,
+      month = 5,
+      day = 10,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local target = os.time({
+      year = 2026,
+      month = 5,
+      day = 8,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      local open_path = write_journal_file(root, "%Y", opened, {
+        "--- worklog ---",
+      })
+      vim.cmd("edit " .. vim.fn.fnameescape(open_path))
+      vim.bo.modified = false
+
+      vim.cmd("WorklogPrevDay 2")
+
+      t.eq(
+        vim.api.nvim_buf_get_name(0),
+        root .. "/" .. os.date("%Y", target) .. "/" .. os.date("%Y-%m-%d", target) .. ".wkl"
+      )
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+      })
+    end)
+  end)
+
+  t.test("prev day falls back to today when the buffer is not a journal file", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+    local yesterday = os.time({
+      year = 2026,
+      month = 5,
+      day = 17,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogPrevDay")
+      end)
+
+      t.eq(
+        vim.api.nvim_buf_get_name(0),
+        root .. "/" .. os.date("%Y", yesterday) .. "/" .. os.date("%Y-%m-%d", yesterday) .. ".wkl"
+      )
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+      })
+    end)
+  end)
+
+  t.test("stepping onto today does not insert the current time", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+    local yesterday = os.time({
+      year = 2026,
+      month = 5,
+      day = 17,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      local open_path = write_journal_file(root, "%Y", yesterday, {
+        "--- worklog ---",
+      })
+      vim.cmd("edit " .. vim.fn.fnameescape(open_path))
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogNextDay")
+      end)
+
+      t.eq(
+        vim.api.nvim_buf_get_name(0),
+        root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+      )
+      t.eq(t.get_lines(), {
+        "--- worklog ---",
+      })
+    end)
+  end)
+
+  t.test("step commands reject invalid counts and leave the current buffer unchanged", function()
+    local root = vim.fn.tempname()
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      t.reset({ "scratch" })
+
+      for _, command in ipairs({
+        "WorklogNextDay nope",
+        "WorklogPrevDay 0",
+        "WorklogNextDay 1.5",
+        "WorklogPrevDay -1",
+      }) do
+        with_captured_notify(function(messages)
+          vim.cmd(command)
+
+          t.eq(messages, {
+            {
+              message = "worklog: days count must be a positive integer",
+              level = vim.log.levels.WARN,
+            },
+          })
+        end)
+
+        t.eq(vim.api.nvim_buf_get_name(0), "")
+        t.eq(t.get_lines(), { "scratch" })
+      end
+    end)
+  end)
+
   t.test("week opens a scratch report with daily summaries before the weekly total", function()
     local root = vim.fn.tempname()
     local now = os.time({

@@ -234,6 +234,26 @@ Open a journal file relative to today from
   inserting the configured worklog header.
 - If the file already has content, it is opened without modification.
 
+                                                        *:WorklogNextDay*
+:WorklogNextDay [count]
+
+Step forward to the next day's journal file relative to the file in the current
+buffer.
+
+- `[count]` is an optional positive number of days to step (default 1).
+- The anchor is the journal date of the current buffer; when the buffer is not a
+  canonical journal file, it falls back to today.
+- Missing or empty target files are initialized with the configured worklog
+  header.
+- This is navigation only: it never inserts the current time, even when it lands
+  on today. Use |:WorklogToday| for the today-anchored jump that stamps the time.
+
+                                                        *:WorklogPrevDay*
+:WorklogPrevDay [count]
+
+Step backward to the previous day's journal file, relative to the file in the
+current buffer. Behaves like |:WorklogNextDay| in the opposite direction.
+
                                                         *:WorklogWeek*
 :WorklogWeek[!]
 
@@ -394,8 +414,8 @@ Configure `worklog.nvim` with:
 
 `journal` is optional:
 
-- `root` is the base directory used by |:WorklogToday|, |:WorklogDays|, and
-  |:WorklogWeek|.
+- `root` is the base directory used by |:WorklogToday|, |:WorklogNextDay|,
+  |:WorklogPrevDay|, |:WorklogDays|, and |:WorklogWeek|.
 - `directory` is an optional `strftime` template under that root.
 - The filename is always `YYYY-MM-DD.wkl`.
 

@@ -49,6 +49,11 @@ happen, but they are called out clearly in this changelog.
 - Added optional signed day offsets to `:WorklogToday [offset]`. `0` keeps the
   current behavior, while nonzero offsets open nearby dated journal files and
   initialize missing or empty files with only the configured worklog header.
+- Added `:WorklogNextDay [count]` and `:WorklogPrevDay [count]` to step between
+  dated journal files relative to the file in the current buffer (default one
+  day, `count` steps further), falling back to today when the buffer is not a
+  canonical journal file. Unlike `:WorklogToday`, stepping is navigation only and
+  never inserts the current time, so repeated presses walk through days.
 - Added a `24:00` end-of-day boundary timestamp that closes a worklog block's
   final task at midnight, contiguous with the next day's `00:00`. It is valid
   only as the final entry; a `24:00` entry followed by another timestamped entry
