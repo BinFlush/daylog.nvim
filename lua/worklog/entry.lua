@@ -10,21 +10,6 @@ local M = {}
 -- timestamped entry line. It parses one source line into semantic entry data
 -- and formats semantic entries back into canonical source lines.
 
-local function semantic_entry(entry)
-  return {
-    minutes = entry.minutes,
-    text = entry.text,
-    explicit_tag = entry.explicit_tag,
-    explicit_tag_clear = entry.explicit_tag_clear,
-    explicit_location = entry.explicit_location,
-    explicit_location_clear = entry.explicit_location_clear,
-    tag = entry.tag,
-    location = entry.location,
-    workday_excluded = entry.workday_excluded,
-    logged = entry.logged,
-  }
-end
-
 function M.minutes_string(minutes)
   return string.format("%02d:%02d", math.floor(minutes / 60), minutes % 60)
 end
@@ -71,7 +56,7 @@ function M.parse(line, current_tag, current_location)
     return nil
   end
 
-  return semantic_entry(entry)
+  return analyze.copy_fields(entry)
 end
 
 return M

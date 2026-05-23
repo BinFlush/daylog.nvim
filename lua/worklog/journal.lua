@@ -81,10 +81,6 @@ function M.path_for_date(journal, now)
   return M.directory_path(journal, now) .. "/" .. M.filename(now)
 end
 
-function M.today_path(journal, now)
-  return M.path_for_date(journal, now)
-end
-
 local function forward_slashes(value)
   return (value:gsub("\\", "/"))
 end

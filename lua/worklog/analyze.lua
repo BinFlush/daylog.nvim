@@ -16,6 +16,26 @@ local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
 end
 
+-- Copy the semantic-entry field set from any source carrying it (a semantic
+-- entry, entry item, or block item). Structural fields such as row, index, and
+-- attached lines are intentionally left out so callers add only what they need.
+local function copy_fields(src)
+  return {
+    minutes = src.minutes,
+    text = src.text,
+    explicit_tag = src.explicit_tag,
+    explicit_tag_clear = src.explicit_tag_clear,
+    explicit_location = src.explicit_location,
+    explicit_location_clear = src.explicit_location_clear,
+    tag = src.tag,
+    location = src.location,
+    workday_excluded = src.workday_excluded,
+    logged = src.logged,
+  }
+end
+
+M.copy_fields = copy_fields
+
 local function body_nodes(document, block)
   local nodes = {}
 
@@ -71,23 +91,12 @@ local function analyze_entry_items(block, diagnostics)
       current_tag = entry.tag
       current_location = entry.location
 
-      current = {
-        kind = "entry_item",
-        entry = node,
-        nodes = { node },
-        start_row = node.row,
-        end_row = node.row,
-        minutes = entry.minutes,
-        text = entry.text,
-        explicit_tag = entry.explicit_tag,
-        explicit_tag_clear = entry.explicit_tag_clear,
-        explicit_location = entry.explicit_location,
-        explicit_location_clear = entry.explicit_location_clear,
-        tag = entry.tag,
-        location = entry.location,
-        workday_excluded = entry.workday_excluded,
-        logged = entry.logged,
-      }
+      current = copy_fields(entry)
+      current.kind = "entry_item"
+      current.entry = node
+      current.nodes = { node }
+      current.start_row = node.row
+      current.end_row = node.row
       table.insert(entry_items, current)
       table.insert(entries, entry)
     elseif node.kind == "note_line" or node.kind == "blank_line" then
@@ -97,7 +106,7 @@ local function analyze_entry_items(block, diagnostics)
       end
     elseif node.kind == "invalid_entry" then
       push_diagnostic(diagnostics, {
-        code = "invalid_entry",
+        code = syntax.DIAGNOSTIC.INVALID_ENTRY,
         severity = "error",
         row = node.row,
         message = node.message,
@@ -111,7 +120,7 @@ local function analyze_entry_items(block, diagnostics)
   for i = 2, #entry_items do
     if entry_items[i].minutes < entry_items[i - 1].minutes then
       push_diagnostic(diagnostics, {
-        code = "unordered_timestamps",
+        code = syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS,
         severity = "error",
         row = entry_items[i - 1].row or entry_items[i - 1].start_row,
         row2 = entry_items[i].row or entry_items[i].start_row,
@@ -126,7 +135,7 @@ local function analyze_entry_items(block, diagnostics)
   for i = 1, #entry_items - 1 do
     if entry_items[i].minutes == syntax.END_OF_DAY_MINUTES then
       push_diagnostic(diagnostics, {
-        code = "midnight_not_final",
+        code = syntax.DIAGNOSTIC.MIDNIGHT_NOT_FINAL,
         severity = "error",
         row = entry_items[i].row or entry_items[i].start_row,
         message = "24:00 must be the final entry in a worklog block",
@@ -147,16 +156,16 @@ local function is_header(node)
 end
 
 local function is_structural_diagnostic(diagnostic)
-  return diagnostic.code == "invalid_first_header"
-    or diagnostic.code == "invalid_worklog_header_option"
-    or diagnostic.code == "invalid_worklog_header_metadata"
-    or diagnostic.code == "invalid_worklog_header_token"
+  return diagnostic.code == syntax.DIAGNOSTIC.INVALID_FIRST_HEADER
+    or diagnostic.code == syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION
+    or diagnostic.code == syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA
+    or diagnostic.code == syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN
 end
 
 function M.is_block_diagnostic(diagnostic)
-  return diagnostic.code == "invalid_entry"
-    or diagnostic.code == "unordered_timestamps"
-    or diagnostic.code == "midnight_not_final"
+  return diagnostic.code == syntax.DIAGNOSTIC.INVALID_ENTRY
+    or diagnostic.code == syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS
+    or diagnostic.code == syntax.DIAGNOSTIC.MIDNIGHT_NOT_FINAL
 end
 
 local function interpret_worklog_header(header, diagnostics)
@@ -175,7 +184,7 @@ local function interpret_worklog_header(header, diagnostics)
     if token.kind == "tag" then
       if result.has_tag then
         push_diagnostic(diagnostics, {
-          code = "invalid_worklog_header_metadata",
+          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
           severity = "error",
           row = header.row,
           message = "multiple worklog header tags are not allowed",
@@ -187,7 +196,7 @@ local function interpret_worklog_header(header, diagnostics)
     elseif token.kind == "location" then
       if result.has_location then
         push_diagnostic(diagnostics, {
-          code = "invalid_worklog_header_metadata",
+          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
           severity = "error",
           row = header.row,
           message = "multiple worklog header locations are not allowed",
@@ -203,7 +212,7 @@ local function interpret_worklog_header(header, diagnostics)
     if token.key == syntax.OPTION_QUANTIZE then
       if result.declared_quantize then
         push_diagnostic(diagnostics, {
-          code = "invalid_worklog_header_option",
+          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
           severity = "error",
           row = header.row,
           message = "duplicate worklog header option: quantize",
@@ -218,7 +227,7 @@ local function interpret_worklog_header(header, diagnostics)
           or quantize_minutes ~= math.floor(quantize_minutes)
         then
           push_diagnostic(diagnostics, {
-            code = "invalid_worklog_header_option",
+            code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
             severity = "error",
             row = header.row,
             message = "worklog header option quantize must be a positive integer",
@@ -230,7 +239,7 @@ local function interpret_worklog_header(header, diagnostics)
     elseif token.key == syntax.OPTION_DURATION then
       if result.declared_duration then
         push_diagnostic(diagnostics, {
-          code = "invalid_worklog_header_option",
+          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
           severity = "error",
           row = header.row,
           message = "duplicate worklog header option: duration",
@@ -240,7 +249,7 @@ local function interpret_worklog_header(header, diagnostics)
 
         if not syntax.DURATION_FORMATS[token.value] then
           push_diagnostic(diagnostics, {
-            code = "invalid_worklog_header_option",
+            code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
             severity = "error",
             row = header.row,
             message = "worklog header option duration must be decimal or hhmm",
@@ -261,7 +270,7 @@ local function interpret_worklog_header(header, diagnostics)
 
   for _, token in ipairs(header.invalid_tokens or {}) do
     push_diagnostic(diagnostics, {
-      code = "invalid_worklog_header_token",
+      code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN,
       severity = "error",
       row = header.row,
       message = "worklog header tokens must be #tag, @location, or key=value: " .. token,
@@ -281,30 +290,6 @@ function M.entry_from_node(node, current_tag, current_location)
   end
 
   return semantic_entry_from_node(node, current_tag, current_location)
-end
-
-function M.entries_from_nodes(nodes, current_tag, current_location)
-  local entries = {}
-  local tag = current_tag
-  local location = current_location
-
-  for _, node in ipairs(nodes) do
-    if node.kind == "invalid_entry" then
-      return nil, {
-        row = node.row,
-        message = node.message,
-      }
-    end
-
-    local entry = M.entry_from_node(node, tag, location)
-    if entry then
-      table.insert(entries, entry)
-      tag = entry.tag
-      location = entry.location
-    end
-  end
-
-  return entries
 end
 
 function M.structural_error(analysis)
@@ -343,7 +328,7 @@ function M.analyze(document)
 
     if first.row ~= 1 or not is_worklog_header(first) then
       push_diagnostic(diagnostics, {
-        code = "invalid_first_header",
+        code = syntax.DIAGNOSTIC.INVALID_FIRST_HEADER,
         severity = "error",
         row = first.row,
         message = INVALID_FIRST_HEADER_MESSAGE,

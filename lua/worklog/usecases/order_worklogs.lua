@@ -3,6 +3,7 @@ local body = require("worklog.body")
 local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
 local entry = require("worklog.entry")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -23,11 +24,11 @@ function M.run(lines)
     local block = analysis.worklog_blocks[i]
     local diagnostic = analyze.find_block_diagnostic(analysis, block)
 
-    if diagnostic and diagnostic.code == "invalid_entry" then
+    if diagnostic and diagnostic.code == syntax.DIAGNOSTIC.INVALID_ENTRY then
       return nil, diagnostics.invalid_entry_error(diagnostic)
     end
 
-    if diagnostic and diagnostic.code == "unordered_timestamps" then
+    if diagnostic and diagnostic.code == syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS then
       table.insert(edits, {
         start_index = block.body_start_row - 1,
         end_index = block.end_row - 1,

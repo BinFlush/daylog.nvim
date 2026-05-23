@@ -1,4 +1,5 @@
 local analyze = require("worklog.analyze")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -25,11 +26,11 @@ function M.unordered_error(diagnostic)
 end
 
 function M.message(diagnostic)
-  if diagnostic.code == "invalid_entry" then
+  if diagnostic.code == syntax.DIAGNOSTIC.INVALID_ENTRY then
     return M.invalid_entry_error(diagnostic)
   end
 
-  if diagnostic.code == "unordered_timestamps" then
+  if diagnostic.code == syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS then
     return M.unordered_error(diagnostic)
   end
 

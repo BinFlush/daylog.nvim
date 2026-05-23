@@ -346,62 +346,55 @@ function M.summary_layout(summary, kind, duration_format, options)
   return build_summary_layout(summary, kind, duration_format, options)
 end
 
-function M.week_report_lines(report, duration_format, options)
+-- Build the labeled section headers for one report section. `prefix` selects the
+-- scope (day, week, range) and `label` is the date or period appended to each.
+local function report_headers(prefix, label, leading_blank)
+  return {
+    leading_blank = leading_blank,
+    summary_header = string.format("--- %s summary quantized %s ---", prefix, label),
+    tag_header = string.format("--- %s tags quantized %s ---", prefix, label),
+    location_header = string.format("--- %s locations quantized %s ---", prefix, label),
+    logged_header = string.format("--- %s logged quantized %s ---", prefix, label),
+    total_header = string.format("--- %s totals quantized %s ---", prefix, label),
+  }
+end
+
+-- Render the per-day sections (unless aggregate-only) followed by the aggregate
+-- section. `aggregate_prefix` is the only thing that differs between a week
+-- report (`week`) and a trailing-days report (`range`).
+local function period_report_lines(report, duration_format, options, aggregate_prefix)
   local lines = {}
   options = options or {}
 
   if not options.aggregate_only then
     for index, day in ipairs(report.days) do
-      append_summary_lines(lines, day.summary, "quantized", duration_format, {
-        leading_blank = index > 1,
-        summary_header = "--- day summary quantized " .. day.date_label .. " ---",
-        tag_header = "--- day tags quantized " .. day.date_label .. " ---",
-        location_header = "--- day locations quantized " .. day.date_label .. " ---",
-        logged_header = "--- day logged quantized " .. day.date_label .. " ---",
-        total_header = "--- day totals quantized " .. day.date_label .. " ---",
-      })
+      append_summary_lines(
+        lines,
+        day.summary,
+        "quantized",
+        duration_format,
+        report_headers("day", day.date_label, index > 1)
+      )
     end
   end
 
-  append_summary_lines(lines, report.summary, "quantized", duration_format, {
-    leading_blank = #lines > 0,
-    summary_header = "--- week summary quantized " .. report.period_label .. " ---",
-    tag_header = "--- week tags quantized " .. report.period_label .. " ---",
-    location_header = "--- week locations quantized " .. report.period_label .. " ---",
-    logged_header = "--- week logged quantized " .. report.period_label .. " ---",
-    total_header = "--- week totals quantized " .. report.period_label .. " ---",
-  })
+  append_summary_lines(
+    lines,
+    report.summary,
+    "quantized",
+    duration_format,
+    report_headers(aggregate_prefix, report.period_label, #lines > 0)
+  )
 
   return lines
 end
 
+function M.week_report_lines(report, duration_format, options)
+  return period_report_lines(report, duration_format, options, "week")
+end
+
 function M.days_report_lines(report, duration_format, options)
-  local lines = {}
-  options = options or {}
-
-  if not options.aggregate_only then
-    for index, day in ipairs(report.days) do
-      append_summary_lines(lines, day.summary, "quantized", duration_format, {
-        leading_blank = index > 1,
-        summary_header = "--- day summary quantized " .. day.date_label .. " ---",
-        tag_header = "--- day tags quantized " .. day.date_label .. " ---",
-        location_header = "--- day locations quantized " .. day.date_label .. " ---",
-        logged_header = "--- day logged quantized " .. day.date_label .. " ---",
-        total_header = "--- day totals quantized " .. day.date_label .. " ---",
-      })
-    end
-  end
-
-  append_summary_lines(lines, report.summary, "quantized", duration_format, {
-    leading_blank = #lines > 0,
-    summary_header = "--- range summary quantized " .. report.period_label .. " ---",
-    tag_header = "--- range tags quantized " .. report.period_label .. " ---",
-    location_header = "--- range locations quantized " .. report.period_label .. " ---",
-    logged_header = "--- range logged quantized " .. report.period_label .. " ---",
-    total_header = "--- range totals quantized " .. report.period_label .. " ---",
-  })
-
-  return lines
+  return period_report_lines(report, duration_format, options, "range")
 end
 
 return M

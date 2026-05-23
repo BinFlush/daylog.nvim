@@ -220,38 +220,6 @@ local function sort_by_duration(items)
   return items
 end
 
-local function sort_text_groups_by_duration(groups)
-  local indexed = {}
-
-  for i, group in ipairs(groups) do
-    table.insert(indexed, {
-      index = i,
-      group = group,
-    })
-  end
-
-  table.sort(indexed, function(a, b)
-    if a.group.duration == b.group.duration then
-      local a_exact = a.group.exact_duration or a.group.duration
-      local b_exact = b.group.exact_duration or b.group.duration
-
-      if a_exact ~= b_exact then
-        return a_exact > b_exact
-      end
-
-      return a.index < b.index
-    end
-
-    return a.group.duration > b.group.duration
-  end)
-
-  for i, indexed_group in ipairs(indexed) do
-    groups[i] = indexed_group.group
-  end
-
-  return groups
-end
-
 local function sort_summary_items(items)
   local groups_by_text = {}
   local groups = {}
@@ -280,7 +248,7 @@ local function sort_summary_items(items)
     sort_by_duration(group.items)
   end
 
-  sort_text_groups_by_duration(groups)
+  sort_by_duration(groups)
 
   for _, group in ipairs(groups) do
     for _, item in ipairs(group.items) do
@@ -330,6 +298,21 @@ local function apply_error_minutes(items)
   return items
 end
 
+-- Emit logged totals in fixed semantic order: logged always before unlogged.
+-- `by_logged` is keyed by the boolean logged state.
+local function ordered_logged_totals(by_logged)
+  local totals = {}
+
+  if by_logged[true] then
+    table.insert(totals, by_logged[true])
+  end
+  if by_logged[false] then
+    table.insert(totals, by_logged[false])
+  end
+
+  return totals
+end
+
 logged_totals_from_exact_items = function(items, include_error_minutes)
   local workday_items = {}
   local has_logged = false
@@ -356,14 +339,7 @@ logged_totals_from_exact_items = function(items, include_error_minutes)
     totals_by_logged[row.logged] = row
   end
 
-  -- Fixed semantic order: logged always before unlogged.
-  local totals = {}
-  if totals_by_logged[true] then
-    table.insert(totals, totals_by_logged[true])
-  end
-  if totals_by_logged[false] then
-    table.insert(totals, totals_by_logged[false])
-  end
+  local totals = ordered_logged_totals(totals_by_logged)
 
   if include_error_minutes then
     return apply_error_minutes(totals)
@@ -408,15 +384,7 @@ local function logged_totals_from_quantized_items(items)
     return nil
   end
 
-  -- Fixed semantic order: logged always before unlogged.
-  local result = {}
-  if buckets[true] then
-    table.insert(result, buckets[true])
-  end
-  if buckets[false] then
-    table.insert(result, buckets[false])
-  end
-  return result
+  return ordered_logged_totals(buckets)
 end
 
 local function quantize_rows(rows, bucket_minutes, target_total)

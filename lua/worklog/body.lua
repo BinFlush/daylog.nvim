@@ -1,3 +1,5 @@
+local analyze = require("worklog.analyze")
+
 local M = {}
 
 -- Worklog body reconstruction helpers.
@@ -44,21 +46,11 @@ local function rewrite_body(block)
   end
 
   for index, item in ipairs(block.entry_items) do
-    table.insert(items, {
-      minutes = item.minutes,
-      text = item.text,
-      explicit_tag = item.explicit_tag,
-      explicit_tag_clear = item.explicit_tag_clear,
-      explicit_location = item.explicit_location,
-      explicit_location_clear = item.explicit_location_clear,
-      tag = item.tag,
-      location = item.location,
-      workday_excluded = item.workday_excluded,
-      logged = item.logged,
-      row = item.start_row,
-      index = index,
-      lines = trim_trailing_empty_lines(lines_from_nodes(item.nodes)),
-    })
+    local copy = analyze.copy_fields(item)
+    copy.row = item.start_row
+    copy.index = index
+    copy.lines = trim_trailing_empty_lines(lines_from_nodes(item.nodes))
+    table.insert(items, copy)
   end
 
   return {
@@ -99,21 +91,11 @@ local function sorted_items(items)
       table.insert(lines, line)
     end
 
-    table.insert(result, {
-      minutes = item.minutes,
-      text = item.text,
-      explicit_tag = item.explicit_tag,
-      explicit_tag_clear = item.explicit_tag_clear,
-      explicit_location = item.explicit_location,
-      explicit_location_clear = item.explicit_location_clear,
-      tag = item.tag,
-      location = item.location,
-      workday_excluded = item.workday_excluded,
-      logged = item.logged,
-      row = item.row,
-      index = item.index,
-      lines = lines,
-    })
+    local copy = analyze.copy_fields(item)
+    copy.row = item.row
+    copy.index = item.index
+    copy.lines = lines
+    table.insert(result, copy)
   end
 
   table.sort(result, function(a, b)

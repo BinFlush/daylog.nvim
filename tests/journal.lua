@@ -12,7 +12,7 @@ return function(t)
     })
 
     t.eq(
-      journal.today_path({
+      journal.path_for_date({
         root = "/tmp/timereg",
         directory = "%Y/%V",
       }, now),
@@ -31,7 +31,7 @@ return function(t)
     })
 
     t.eq(
-      journal.today_path({
+      journal.path_for_date({
         root = "/tmp/worklog",
         directory = "",
       }, now),
@@ -50,7 +50,7 @@ return function(t)
     })
 
     t.eq(
-      journal.today_path({
+      journal.path_for_date({
         root = "/tmp/worklog/",
         directory = "/%Y/%V/",
       }, now),
@@ -69,7 +69,7 @@ return function(t)
     })
 
     t.eq(
-      journal.today_path({
+      journal.path_for_date({
         root = "~/timereg",
         directory = "%Y/%V",
       }, now),
