@@ -98,7 +98,9 @@ diagnostics.lua -> shared diagnostic messages
 journal.lua    -> pure journal date/path helpers
 entry.lua      -> single-entry parser/formatter
 body.lua       -> body reconstruction
-summary.lua    -> reporting and quantization
+summary.lua    -> reporting domain (intervals, sections, sorting, logged totals)
+projection.lua -> generic row grouping/projection engine
+quantize.lua   -> largest-remainder rounding arithmetic
 render.lua     -> output rendering
 usecases/      -> pure command operations
 init.lua       -> Neovim shell
