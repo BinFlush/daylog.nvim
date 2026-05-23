@@ -29,6 +29,27 @@ M.DIAGNOSTIC = {
   INVALID_WORKLOG_HEADER_TOKEN = "invalid_worklog_header_token",
 }
 
+-- Diagnostic categories. Structural diagnostics describe a malformed document
+-- shape (bad first header, bad header options); block diagnostics describe a
+-- problem within one worklog block's entries.
+M.DIAGNOSTIC_CATEGORY = {
+  STRUCTURAL = "structural",
+  BLOCK = "block",
+}
+
+-- Single source of truth mapping each code to its category, colocated with the
+-- code definitions so a new code's category cannot be forgotten. analyze.lua
+-- stamps this onto every diagnostic at production time.
+M.DIAGNOSTIC_CATEGORY_BY_CODE = {
+  [M.DIAGNOSTIC.INVALID_ENTRY] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.UNORDERED_TIMESTAMPS] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.MIDNIGHT_NOT_FINAL] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.INVALID_FIRST_HEADER] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
+  [M.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
+  [M.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
+  [M.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
+}
+
 function M.section_header(section, kind)
   return "--- " .. section .. " " .. kind .. " ---"
 end

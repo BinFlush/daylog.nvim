@@ -270,18 +270,21 @@ return function(t)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_first_header",
+        category = "structural",
         severity = "error",
         row = 1,
         message = INVALID_FIRST_HEADER_MESSAGE,
       },
       {
         code = "invalid_entry",
+        category = "block",
         severity = "error",
         row = 6,
         message = "multiple trailing tags are not allowed",
       },
       {
         code = "unordered_timestamps",
+        category = "block",
         severity = "error",
         row = 4,
         row2 = 5,
@@ -303,36 +306,42 @@ return function(t)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_worklog_header_metadata",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "multiple worklog header tags are not allowed",
       },
       {
         code = "invalid_worklog_header_metadata",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "multiple worklog header locations are not allowed",
       },
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "worklog header option quantize must be a positive integer",
       },
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "worklog header option duration must be decimal or hhmm",
       },
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "unknown worklog header option: unknown",
       },
       {
         code = "invalid_worklog_header_token",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "worklog header tokens must be #tag, @location, or key=value: nope",
@@ -364,24 +373,28 @@ return function(t)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_worklog_header_metadata",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "multiple worklog header tags are not allowed",
       },
       {
         code = "invalid_worklog_header_metadata",
+        category = "structural",
         severity = "error",
         row = 4,
         message = "multiple worklog header tags are not allowed",
       },
       {
         code = "invalid_worklog_header_metadata",
+        category = "structural",
         severity = "error",
         row = 7,
         message = "multiple worklog header locations are not allowed",
       },
       {
         code = "invalid_worklog_header_metadata",
+        category = "structural",
         severity = "error",
         row = 10,
         message = "multiple worklog header locations are not allowed",
@@ -399,12 +412,14 @@ return function(t)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "duplicate worklog header option: quantize",
       },
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 1,
         message = "duplicate worklog header option: duration",
@@ -430,24 +445,28 @@ return function(t)
     t.eq(analysis.diagnostics, {
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 4,
         message = "worklog header option quantize must be a positive integer",
       },
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 4,
         message = "worklog header option duration must be decimal or hhmm",
       },
       {
         code = "invalid_worklog_header_option",
+        category = "structural",
         severity = "error",
         row = 4,
         message = "unknown worklog header option: unknown",
       },
       {
         code = "invalid_worklog_header_token",
+        category = "structural",
         severity = "error",
         row = 4,
         message = "worklog header tokens must be #tag, @location, or key=value: nope",
@@ -829,6 +848,7 @@ return function(t)
     t.eq(analyze.structural_error(analysis), INVALID_FIRST_HEADER_MESSAGE)
     t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), {
       code = "invalid_entry",
+      category = "block",
       severity = "error",
       row = 6,
       message = "multiple trailing locations are not allowed",
@@ -857,6 +877,7 @@ return function(t)
 
     local diagnostic = {
       code = "midnight_not_final",
+      category = "block",
       severity = "error",
       row = 3,
       message = "24:00 must be the final entry in a worklog block",

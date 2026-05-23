@@ -13,6 +13,7 @@ local INVALID_FIRST_HEADER_MESSAGE =
 local DEFAULT_DURATION_FORMAT = syntax.DURATION_DECIMAL
 
 local function push_diagnostic(diagnostics, diagnostic)
+  diagnostic.category = syntax.DIAGNOSTIC_CATEGORY_BY_CODE[diagnostic.code]
   table.insert(diagnostics, diagnostic)
 end
 
@@ -155,19 +156,6 @@ local function is_header(node)
   return node.kind == "worklog_header" or node.kind == "block_header"
 end
 
-local function is_structural_diagnostic(diagnostic)
-  return diagnostic.code == syntax.DIAGNOSTIC.INVALID_FIRST_HEADER
-    or diagnostic.code == syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION
-    or diagnostic.code == syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA
-    or diagnostic.code == syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN
-end
-
-function M.is_block_diagnostic(diagnostic)
-  return diagnostic.code == syntax.DIAGNOSTIC.INVALID_ENTRY
-    or diagnostic.code == syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS
-    or diagnostic.code == syntax.DIAGNOSTIC.MIDNIGHT_NOT_FINAL
-end
-
 local function interpret_worklog_header(header, diagnostics)
   local result = {
     tag = nil,
@@ -294,7 +282,7 @@ end
 
 function M.structural_error(analysis)
   for _, diagnostic in ipairs(analysis.diagnostics) do
-    if is_structural_diagnostic(diagnostic) then
+    if diagnostic.category == syntax.DIAGNOSTIC_CATEGORY.STRUCTURAL then
       return diagnostic.message
     end
   end
@@ -393,7 +381,7 @@ end
 function M.find_block_diagnostic(analysis, block)
   for _, diagnostic in ipairs(analysis.diagnostics) do
     if
-      M.is_block_diagnostic(diagnostic)
+      diagnostic.category == syntax.DIAGNOSTIC_CATEGORY.BLOCK
       and diagnostic.row >= block.start_row
       and diagnostic.row < block.end_row
     then

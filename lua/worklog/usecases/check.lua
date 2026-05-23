@@ -1,6 +1,7 @@
 local analyze = require("worklog.analyze")
 local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -15,7 +16,7 @@ function M.run(lines)
   end
 
   for _, diagnostic in ipairs(analysis.diagnostics) do
-    if analyze.is_block_diagnostic(diagnostic) then
+    if diagnostic.category == syntax.DIAGNOSTIC_CATEGORY.BLOCK then
       return nil, diagnostics.message(diagnostic)
     end
   end
