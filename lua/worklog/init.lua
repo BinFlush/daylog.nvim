@@ -56,6 +56,19 @@ local function apply_result(result)
   end
 end
 
+-- Run a use case over the current buffer and apply its edit script, warning on
+-- failure. Extra arguments are forwarded to the use case after the buffer lines.
+local function run_buffer_usecase(run, ...)
+  local result, err = run(buffer_lines(), ...)
+  if not result then
+    warn(err)
+    return false
+  end
+
+  apply_result(result)
+  return true
+end
+
 local function apply_insert_time(time)
   local lines = buffer_lines()
   local row = cursor_row()
@@ -336,36 +349,15 @@ end
 
 -- Append a summary and totals block based on the active worklog.
 function M.append_summary()
-  local lines = buffer_lines()
-  local result, err = append_summary.run(lines)
-  if not result then
-    warn(err)
-    return
-  end
-
-  apply_result(result)
+  run_buffer_usecase(append_summary.run)
 end
 
 function M.append_quantized_summary()
-  local lines = buffer_lines()
-  local result, err = append_quantized_summary.run(lines)
-  if not result then
-    warn(err)
-    return
-  end
-
-  apply_result(result)
+  run_buffer_usecase(append_quantized_summary.run)
 end
 
 function M.append_copy()
-  local lines = buffer_lines()
-  local result, err = append_copy.run(lines)
-  if not result then
-    warn(err)
-    return
-  end
-
-  apply_result(result)
+  run_buffer_usecase(append_copy.run)
 end
 
 function M.repeat_current()
@@ -373,26 +365,11 @@ function M.repeat_current()
     return
   end
 
-  local lines = buffer_lines()
-  local row = cursor_row()
-  local result, err = repeat_current.run(lines, row, os.date("%H:%M"))
-  if not result then
-    warn(err)
-    return
-  end
-
-  apply_result(result)
+  run_buffer_usecase(repeat_current.run, cursor_row(), os.date("%H:%M"))
 end
 
 function M.order_worklogs()
-  local lines = buffer_lines()
-  local result, err = order_worklogs.run(lines)
-  if not result then
-    warn(err)
-    return
-  end
-
-  apply_result(result)
+  run_buffer_usecase(order_worklogs.run)
 end
 
 function M.check()
@@ -408,15 +385,7 @@ function M.check()
 end
 
 function M.log_current()
-  local lines = buffer_lines()
-  local row = cursor_row()
-  local result, err = log_current.run(lines, row)
-  if not result then
-    warn(err)
-    return
-  end
-
-  apply_result(result)
+  run_buffer_usecase(log_current.run, cursor_row())
 end
 
 function M.new_worklog()
