@@ -47,7 +47,7 @@ end
 function M.parse(line, current_tag, current_location)
   local node = document.parse_line(line)
 
-  if node.kind == "invalid_entry" then
+  if node.kind == syntax.NODE_KIND.INVALID_ENTRY then
     return false, node.message
   end
 

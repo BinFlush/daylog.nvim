@@ -17,6 +17,51 @@ M.DURATION_FORMATS = { [M.DURATION_DECIMAL] = true, [M.DURATION_HHMM] = true }
 M.DEFAULT_QUANTIZE_MINUTES = 15
 M.END_OF_DAY_MINUTES = 24 * 60
 
+-- Syntax node kinds produced by document.lua and consumed by analyze.lua and
+-- entry.lua. Shared so producer and consumers cannot drift on a bare string.
+M.NODE_KIND = {
+  WORKLOG_HEADER = "worklog_header",
+  BLOCK_HEADER = "block_header",
+  ENTRY = "entry",
+  INVALID_ENTRY = "invalid_entry",
+  BLANK_LINE = "blank_line",
+  NOTE_LINE = "note_line",
+  DOCUMENT = "document",
+  ENTRY_ITEM = "entry_item",
+  ANALYSIS = "analysis",
+}
+
+-- Block kinds produced by analyze.lua. A worklog block carries timestamped
+-- entries; a generic block is any other header-delimited section.
+M.BLOCK_KIND = {
+  WORKLOG = "worklog_block",
+  GENERIC = "generic_block",
+}
+
+-- Metadata token kinds produced by document.lua's token parsers and consumed
+-- when interpreting entry and header metadata.
+M.TOKEN_KIND = {
+  TAG = "tag",
+  LOCATION = "location",
+  LOGGED = "logged",
+}
+
+-- Report kinds selecting exact versus quantized summary computation and rendering.
+M.REPORT_KIND = {
+  EXACT = "exact",
+  QUANTIZED = "quantized",
+}
+
+-- Generated section-header words fed to section_header(). Shared so render.lua
+-- (which produces the headers) and usecases that match them (log_current) agree.
+M.SECTION = {
+  SUMMARY = "summary",
+  TAGS = "tags",
+  LOCATIONS = "locations",
+  LOGGED = "logged",
+  TOTALS = "totals",
+}
+
 -- Diagnostic codes shared by the analyzer (producer and classifier) and the
 -- diagnostics module (message formatting), so the two never drift apart.
 M.DIAGNOSTIC = {

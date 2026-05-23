@@ -2,6 +2,19 @@ local syntax = require("worklog.syntax")
 
 local M = {}
 
+-- Layout row kinds for the structured summary layout. `summary_item` is read by
+-- usecases (e.g. log_current) to recover the underlying item, so it is exported.
+local LAYOUT_KIND = {
+  BLANK = "blank",
+  HEADER = "header",
+  SUMMARY_ITEM = "summary_item",
+  TAG_TOTAL = "tag_total",
+  LOCATION_TOTAL = "location_total",
+  LOGGED_TOTAL = "logged_total",
+  TOTAL = "total",
+}
+M.LAYOUT_KIND = LAYOUT_KIND
+
 local function decimal_hours_string(minutes)
   return string.format("%.2fh", minutes / 60)
 end
@@ -133,17 +146,17 @@ local function section_headers(kind, options)
   options = options or {}
 
   return {
-    summary = options.summary_header or syntax.section_header("summary", kind),
-    tag = options.tag_header or syntax.section_header("tags", kind),
-    location = options.location_header or syntax.section_header("locations", kind),
-    logged = options.logged_header or syntax.section_header("logged", kind),
-    total = options.total_header or syntax.section_header("totals", kind),
+    summary = options.summary_header or syntax.section_header(syntax.SECTION.SUMMARY, kind),
+    tag = options.tag_header or syntax.section_header(syntax.SECTION.TAGS, kind),
+    location = options.location_header or syntax.section_header(syntax.SECTION.LOCATIONS, kind),
+    logged = options.logged_header or syntax.section_header(syntax.SECTION.LOGGED, kind),
+    total = options.total_header or syntax.section_header(syntax.SECTION.TOTALS, kind),
     leading_blank = options.leading_blank ~= false,
   }
 end
 
 local function summary_item_line(item, kind, format, show_tag)
-  if kind == "quantized" then
+  if kind == syntax.REPORT_KIND.QUANTIZED then
     return summary_line(
       string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
       item,
@@ -155,7 +168,7 @@ local function summary_item_line(item, kind, format, show_tag)
 end
 
 local function metadata_line(item, kind, format, line_builder)
-  if kind == "quantized" then
+  if kind == syntax.REPORT_KIND.QUANTIZED then
     return line_builder(
       string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
       item
@@ -177,73 +190,76 @@ local function build_summary_layout(summary, kind, duration_format, options)
   local format = duration_format or syntax.DURATION_DECIMAL
 
   if headers.leading_blank then
-    table.insert(layout, { kind = "blank", line = "" })
+    table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
   end
 
-  table.insert(layout, { kind = "header", section = "summary", line = headers.summary })
+  table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "summary", line = headers.summary })
 
   for _, item in ipairs(summary.summary_items) do
     table.insert(layout, {
-      kind = "summary_item",
+      kind = LAYOUT_KIND.SUMMARY_ITEM,
       section = "summary",
       line = summary_item_line(item, kind, format, conflicts[item.text]),
       item = item,
     })
   end
 
-  table.insert(layout, { kind = "blank", line = "" })
+  table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
 
   if has_metadata_items(summary.tag_totals, "tag") then
-    table.insert(layout, { kind = "header", section = "tag", line = headers.tag })
+    table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "tag", line = headers.tag })
 
     for _, item in ipairs(summary.tag_totals or {}) do
       table.insert(layout, {
-        kind = "tag_total",
+        kind = LAYOUT_KIND.TAG_TOTAL,
         section = "tag",
         line = metadata_line(item, kind, format, tag_line),
         item = item,
       })
     end
 
-    table.insert(layout, { kind = "blank", line = "" })
+    table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
   end
 
   if has_metadata_items(summary.location_totals, "location") then
-    table.insert(layout, { kind = "header", section = "location", line = headers.location })
+    table.insert(
+      layout,
+      { kind = LAYOUT_KIND.HEADER, section = "location", line = headers.location }
+    )
 
     for _, item in ipairs(summary.location_totals or {}) do
       table.insert(layout, {
-        kind = "location_total",
+        kind = LAYOUT_KIND.LOCATION_TOTAL,
         section = "location",
         line = metadata_line(item, kind, format, location_line),
         item = item,
       })
     end
 
-    table.insert(layout, { kind = "blank", line = "" })
+    table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
   end
 
   if summary.logged_totals and #summary.logged_totals > 0 then
-    table.insert(layout, { kind = "header", section = "logged", line = headers.logged })
+    table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "logged", line = headers.logged })
 
     for _, item in ipairs(summary.logged_totals) do
       table.insert(layout, {
-        kind = "logged_total",
+        kind = LAYOUT_KIND.LOGGED_TOTAL,
         section = "logged",
         line = metadata_line(item, kind, format, logged_line),
         item = item,
       })
     end
 
-    table.insert(layout, { kind = "blank", line = "" })
+    table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
   end
 
-  table.insert(layout, { kind = "header", section = "total", line = headers.total })
+  table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "total", line = headers.total })
 
-  if kind == "quantized" then
+  if kind == syntax.REPORT_KIND.QUANTIZED then
     if has_workday_excluded_items(summary.summary_items) then
       table.insert(layout, {
-        kind = "total",
+        kind = LAYOUT_KIND.TOTAL,
         section = "total",
         line = string.format(
           "%s (%+dm) activity",
@@ -254,7 +270,7 @@ local function build_summary_layout(summary, kind, duration_format, options)
     end
 
     table.insert(layout, {
-      kind = "total",
+      kind = LAYOUT_KIND.TOTAL,
       section = "total",
       line = string.format(
         "%s (%+dm) workday",
@@ -265,14 +281,14 @@ local function build_summary_layout(summary, kind, duration_format, options)
   else
     if has_workday_excluded_items(summary.summary_items) then
       table.insert(layout, {
-        kind = "total",
+        kind = LAYOUT_KIND.TOTAL,
         section = "total",
         line = string.format("%s activity", duration_string(summary.activity_total, format)),
       })
     end
 
     table.insert(layout, {
-      kind = "total",
+      kind = LAYOUT_KIND.TOTAL,
       section = "total",
       line = string.format("%s workday", duration_string(summary.workday_total, format)),
     })
@@ -371,7 +387,7 @@ local function period_report_lines(report, duration_format, options, aggregate_p
       append_summary_lines(
         lines,
         day.summary,
-        "quantized",
+        syntax.REPORT_KIND.QUANTIZED,
         duration_format,
         report_headers("day", day.date_label, index > 1)
       )
@@ -381,7 +397,7 @@ local function period_report_lines(report, duration_format, options, aggregate_p
   append_summary_lines(
     lines,
     report.summary,
-    "quantized",
+    syntax.REPORT_KIND.QUANTIZED,
     duration_format,
     report_headers(aggregate_prefix, report.period_label, #lines > 0)
   )

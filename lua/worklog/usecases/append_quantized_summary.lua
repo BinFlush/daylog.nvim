@@ -1,6 +1,7 @@
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local support = require("worklog.usecases.support")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -14,7 +15,7 @@ function M.run(lines)
 
   local rendered = render.summary_lines(
     summary.quantized_summarize_block(ctx.block),
-    "quantized",
+    syntax.REPORT_KIND.QUANTIZED,
     ctx.block.duration_format
   )
   return support.append_edit(lines, rendered)

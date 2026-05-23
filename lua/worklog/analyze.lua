@@ -86,26 +86,26 @@ local function analyze_entry_items(block, diagnostics)
   local current_location = block.header_location
 
   for _, node in ipairs(block.body_nodes) do
-    if node.kind == "entry" then
+    if node.kind == syntax.NODE_KIND.ENTRY then
       local entry = semantic_entry_from_node(node, current_tag, current_location)
 
       current_tag = entry.tag
       current_location = entry.location
 
       current = copy_fields(entry)
-      current.kind = "entry_item"
+      current.kind = syntax.NODE_KIND.ENTRY_ITEM
       current.entry = node
       current.nodes = { node }
       current.start_row = node.row
       current.end_row = node.row
       table.insert(entry_items, current)
       table.insert(entries, entry)
-    elseif node.kind == "note_line" or node.kind == "blank_line" then
+    elseif node.kind == syntax.NODE_KIND.NOTE_LINE or node.kind == syntax.NODE_KIND.BLANK_LINE then
       if current then
         table.insert(current.nodes, node)
         current.end_row = node.row
       end
-    elseif node.kind == "invalid_entry" then
+    elseif node.kind == syntax.NODE_KIND.INVALID_ENTRY then
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.INVALID_ENTRY,
         severity = "error",
@@ -149,11 +149,11 @@ local function analyze_entry_items(block, diagnostics)
 end
 
 local function is_worklog_header(node)
-  return node.kind == "worklog_header"
+  return node.kind == syntax.NODE_KIND.WORKLOG_HEADER
 end
 
 local function is_header(node)
-  return node.kind == "worklog_header" or node.kind == "block_header"
+  return node.kind == syntax.NODE_KIND.WORKLOG_HEADER or node.kind == syntax.NODE_KIND.BLOCK_HEADER
 end
 
 local function interpret_worklog_header(header, diagnostics)
@@ -169,7 +169,7 @@ local function interpret_worklog_header(header, diagnostics)
   }
 
   for _, token in ipairs(header.metadata_tokens or {}) do
-    if token.kind == "tag" then
+    if token.kind == syntax.TOKEN_KIND.TAG then
       if result.has_tag then
         push_diagnostic(diagnostics, {
           code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
@@ -181,7 +181,7 @@ local function interpret_worklog_header(header, diagnostics)
         result.has_tag = true
         result.tag = token.value
       end
-    elseif token.kind == "location" then
+    elseif token.kind == syntax.TOKEN_KIND.LOCATION then
       if result.has_location then
         push_diagnostic(diagnostics, {
           code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
@@ -269,7 +269,7 @@ local function interpret_worklog_header(header, diagnostics)
 end
 
 function M.is_worklog(block)
-  return block.kind == "worklog_block"
+  return block.kind == syntax.BLOCK_KIND.WORKLOG
 end
 
 function M.entry_from_node(node, current_tag, current_location)
@@ -328,7 +328,7 @@ function M.analyze(document)
     local next_header = header_nodes[i + 1]
     local interpreted_header = interpreted_headers[i] or {}
     local block = {
-      kind = is_worklog_header(header) and "worklog_block" or "generic_block",
+      kind = is_worklog_header(header) and syntax.BLOCK_KIND.WORKLOG or syntax.BLOCK_KIND.GENERIC,
       header = header,
       start_row = header.row,
       body_start_row = header.row + 1,
@@ -356,7 +356,7 @@ function M.analyze(document)
   end
 
   return {
-    kind = "analysis",
+    kind = syntax.NODE_KIND.ANALYSIS,
     document = document,
     diagnostics = diagnostics,
     blocks = blocks,

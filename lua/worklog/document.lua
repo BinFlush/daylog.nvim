@@ -16,21 +16,21 @@ end
 
 local function parse_metadata_token(token)
   if token == syntax.TAG_CLEAR_TOKEN then
-    return "tag", nil, true
+    return syntax.TOKEN_KIND.TAG, nil, true
   end
 
   if token == syntax.LOCATION_CLEAR_TOKEN then
-    return "location", nil, true
+    return syntax.TOKEN_KIND.LOCATION, nil, true
   end
 
   local tag = token:match("^#([%w_%-]+)$")
   if tag then
-    return "tag", tag, false
+    return syntax.TOKEN_KIND.TAG, tag, false
   end
 
   local location = token:match("^@([%w_%-]+)$")
   if location then
-    return "location", location, false
+    return syntax.TOKEN_KIND.LOCATION, location, false
   end
 
   return nil, nil, false
@@ -43,7 +43,7 @@ local function parse_entry_control_token(token)
   end
 
   if token == syntax.LOGGED_TOKEN then
-    return "logged", true, false
+    return syntax.TOKEN_KIND.LOGGED, true, false
   end
 
   return nil, nil, false
@@ -125,7 +125,7 @@ local function parse_entry_metadata(text)
   for i = split_index + 1, #tokens do
     local kind, value, clear = parse_entry_control_token(tokens[i])
 
-    if kind == "tag" then
+    if kind == syntax.TOKEN_KIND.TAG then
       if has_tag then
         return nil, "multiple trailing tags are not allowed"
       end
@@ -133,7 +133,7 @@ local function parse_entry_metadata(text)
       has_tag = true
       result.explicit_tag = value
       result.explicit_tag_clear = clear or nil
-    elseif kind == "location" then
+    elseif kind == syntax.TOKEN_KIND.LOCATION then
       if has_location then
         return nil, "multiple trailing locations are not allowed"
       end
@@ -141,7 +141,7 @@ local function parse_entry_metadata(text)
       has_location = true
       result.explicit_location = value
       result.explicit_location_clear = clear or nil
-    elseif kind == "logged" then
+    elseif kind == syntax.TOKEN_KIND.LOGGED then
       if has_logged then
         return nil, "duplicate trailing !L markers are not allowed"
       end
@@ -167,7 +167,7 @@ local function parse_header(line, row)
     local options = parse_worklog_tokens(options_text)
 
     return {
-      kind = "worklog_header",
+      kind = syntax.NODE_KIND.WORKLOG_HEADER,
       row = row,
       raw = line,
       metadata_tokens = options.metadata_tokens,
@@ -179,7 +179,7 @@ local function parse_header(line, row)
   local text = line:match("^%-%-%- (.+) %-%-%-$")
   if text then
     return {
-      kind = "block_header",
+      kind = syntax.NODE_KIND.BLOCK_HEADER,
       row = row,
       raw = line,
       text = text,
@@ -197,7 +197,7 @@ local function parse_entry(line, row)
 
   if rest ~= "" and not rest:match("^%s") then
     return {
-      kind = "invalid_entry",
+      kind = syntax.NODE_KIND.INVALID_ENTRY,
       row = row,
       raw = line,
       message = "expected whitespace after the time",
@@ -212,7 +212,7 @@ local function parse_entry(line, row)
   local valid_time = (hh <= 23 and mm <= 59) or (hh == 24 and mm == 0)
   if not valid_time then
     return {
-      kind = "invalid_entry",
+      kind = syntax.NODE_KIND.INVALID_ENTRY,
       row = row,
       raw = line,
       message = "invalid time",
@@ -223,7 +223,7 @@ local function parse_entry(line, row)
   local metadata, err = parse_entry_metadata(text)
   if err then
     return {
-      kind = "invalid_entry",
+      kind = syntax.NODE_KIND.INVALID_ENTRY,
       row = row,
       raw = line,
       message = err,
@@ -231,7 +231,7 @@ local function parse_entry(line, row)
   end
 
   return {
-    kind = "entry",
+    kind = syntax.NODE_KIND.ENTRY,
     row = row,
     raw = line,
     minutes = hh * 60 + mm,
@@ -257,14 +257,14 @@ local function parse_line(line, row)
 
   if line == "" then
     return {
-      kind = "blank_line",
+      kind = syntax.NODE_KIND.BLANK_LINE,
       row = row,
       raw = line,
     }
   end
 
   return {
-    kind = "note_line",
+    kind = syntax.NODE_KIND.NOTE_LINE,
     row = row,
     raw = line,
     text = line,
@@ -286,7 +286,7 @@ function M.parse(lines)
   end
 
   return {
-    kind = "document",
+    kind = syntax.NODE_KIND.DOCUMENT,
     row_count = #lines,
     nodes = nodes,
   }

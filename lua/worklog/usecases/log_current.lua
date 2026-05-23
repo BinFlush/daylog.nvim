@@ -45,27 +45,27 @@ local REFUSE_OOO = "worklog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "worklog: logged marking is inconsistent; regenerate the summary"
 
 local SECTION_KINDS = {
-  [syntax.section_header("summary", "exact")] = "exact",
-  [syntax.section_header("summary", "quantized")] = "quantized",
+  [syntax.section_header(syntax.SECTION.SUMMARY, syntax.REPORT_KIND.EXACT)] = syntax.REPORT_KIND.EXACT,
+  [syntax.section_header(syntax.SECTION.SUMMARY, syntax.REPORT_KIND.QUANTIZED)] = syntax.REPORT_KIND.QUANTIZED,
 }
 
 -- Recognized generated section headers that belong to a single summary group.
 -- Used to determine how far forward to extend the replacement range when the
 -- active summary is refreshed after logging.
 local SUMMARY_SUBSECTIONS = {
-  exact = {
-    [syntax.section_header("summary", "exact")] = true,
-    [syntax.section_header("tags", "exact")] = true,
-    [syntax.section_header("locations", "exact")] = true,
-    [syntax.section_header("logged", "exact")] = true,
-    [syntax.section_header("totals", "exact")] = true,
+  [syntax.REPORT_KIND.EXACT] = {
+    [syntax.section_header(syntax.SECTION.SUMMARY, syntax.REPORT_KIND.EXACT)] = true,
+    [syntax.section_header(syntax.SECTION.TAGS, syntax.REPORT_KIND.EXACT)] = true,
+    [syntax.section_header(syntax.SECTION.LOCATIONS, syntax.REPORT_KIND.EXACT)] = true,
+    [syntax.section_header(syntax.SECTION.LOGGED, syntax.REPORT_KIND.EXACT)] = true,
+    [syntax.section_header(syntax.SECTION.TOTALS, syntax.REPORT_KIND.EXACT)] = true,
   },
-  quantized = {
-    [syntax.section_header("summary", "quantized")] = true,
-    [syntax.section_header("tags", "quantized")] = true,
-    [syntax.section_header("locations", "quantized")] = true,
-    [syntax.section_header("logged", "quantized")] = true,
-    [syntax.section_header("totals", "quantized")] = true,
+  [syntax.REPORT_KIND.QUANTIZED] = {
+    [syntax.section_header(syntax.SECTION.SUMMARY, syntax.REPORT_KIND.QUANTIZED)] = true,
+    [syntax.section_header(syntax.SECTION.TAGS, syntax.REPORT_KIND.QUANTIZED)] = true,
+    [syntax.section_header(syntax.SECTION.LOCATIONS, syntax.REPORT_KIND.QUANTIZED)] = true,
+    [syntax.section_header(syntax.SECTION.LOGGED, syntax.REPORT_KIND.QUANTIZED)] = true,
+    [syntax.section_header(syntax.SECTION.TOTALS, syntax.REPORT_KIND.QUANTIZED)] = true,
   },
 }
 
@@ -88,7 +88,7 @@ local function classify_cursor_section(analysis, active_block, lines, cursor_row
 
   -- The cursor must sit inside a generic (non-worklog) block. The worklog
   -- body itself never contains summary rows.
-  if not block or block.kind == "worklog_block" then
+  if not block or block.kind == syntax.BLOCK_KIND.WORKLOG then
     return nil
   end
 
@@ -113,7 +113,7 @@ local function classify_cursor_section(analysis, active_block, lines, cursor_row
 end
 
 local function compute_summary(block, kind)
-  if kind == "exact" then
+  if kind == syntax.REPORT_KIND.EXACT then
     return summary.summarize_block(block)
   end
 
@@ -124,7 +124,7 @@ local function find_summary_item_matches(layout, cursor_line)
   local matches = {}
 
   for _, row in ipairs(layout) do
-    if row.kind == "summary_item" and row.line == cursor_line then
+    if row.kind == render.LAYOUT_KIND.SUMMARY_ITEM and row.line == cursor_line then
       table.insert(matches, row)
     end
   end
