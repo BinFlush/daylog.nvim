@@ -770,8 +770,8 @@ return function(t)
     t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
   end)
 
-  t.test("log_current refuses already logged summary rows", function()
-    local result, err = log_current.run({
+  t.test("log_current unmarks an already logged summary row", function()
+    local result = log_current.run({
       "--- worklog ---",
       "08:00 implementation !L",
       "09:00 done",
@@ -780,8 +780,26 @@ return function(t)
       "1.00h implementation !L",
     }, 6)
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: summary row is already logged")
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 4,
+          end_index = 6,
+          lines = {
+            "--- summary exact ---",
+            "1.00h implementation",
+            "",
+            "--- totals exact ---",
+            "1.00h workday",
+          },
+        },
+        {
+          start_index = 1,
+          end_index = 2,
+          lines = { "08:00 implementation" },
+        },
+      },
+    })
   end)
 
   t.test("log_current refuses #ooo summary rows", function()

@@ -908,7 +908,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog log leaves the buffer unchanged when refusing", function()
+  t.test("worklog log unmarks an already logged summary row", function()
     t.reset({
       "--- worklog ---",
       "08:00 implementation !L",
@@ -923,11 +923,14 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- worklog ---",
-      "08:00 implementation !L",
+      "08:00 implementation",
       "09:00 done",
       "",
       "--- summary exact ---",
-      "1.00h implementation !L",
+      "1.00h implementation",
+      "",
+      "--- totals exact ---",
+      "1.00h workday",
     })
   end)
 

@@ -40,7 +40,6 @@ local M = {}
 local STALE_OR_NOT_SUMMARY =
   "worklog: summary row does not match the active worklog; regenerate the summary"
 local AMBIGUOUS = "worklog: summary row matches multiple rows; regenerate the summary"
-local ALREADY_LOGGED = "worklog: summary row is already logged"
 local REFUSE_OOO = "worklog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "worklog: logged marking is inconsistent; regenerate the summary"
 
@@ -203,7 +202,7 @@ local function build_summary_refresh_edit(
   }
 end
 
-local function build_log_edits(block, target_rows)
+local function build_log_edits(block, target_rows, target_logged)
   local edits = {}
   local current_tag = block.header_tag
   local current_location = block.header_location
@@ -216,7 +215,7 @@ local function build_log_edits(block, target_rows)
         tag = item.tag,
         location = item.location,
         workday_excluded = item.workday_excluded,
-        logged = true,
+        logged = target_logged,
       }, current_tag, current_location)
 
       table.insert(edits, {
@@ -271,11 +270,9 @@ function M.run(lines, cursor_row)
 
   local item = matches[1].item
 
-  if item.logged then
-    return nil, ALREADY_LOGGED
-  end
+  local target_logged = not item.logged
 
-  if item.workday_excluded then
+  if target_logged and item.workday_excluded then
     return nil, REFUSE_OOO
   end
 
@@ -290,12 +287,14 @@ function M.run(lines, cursor_row)
   end
 
   for _, entry_item in ipairs(ctx.block.entry_items) do
-    if target_rows[entry_item.start_row] and entry_item.logged then
+    if
+      target_rows[entry_item.start_row] and (entry_item.logged == true) ~= (item.logged == true)
+    then
       return nil, INCONSISTENT_SOURCE
     end
   end
 
-  local source_edits = build_log_edits(ctx.block, target_rows)
+  local source_edits = build_log_edits(ctx.block, target_rows, target_logged)
   local group_end_row = find_summary_group_end_row(ctx.analysis, cursor_block, kind, lines)
 
   local refresh_edit, refresh_err = build_summary_refresh_edit(
