@@ -80,11 +80,12 @@ logged state, render logged rows with trailing `!L`, and add a logged section
 for workday-eligible logged versus unlogged totals when logged work was marked.
 Tag and location totals stay grouped normally.
 
-`:WorklogLog` marks the unlogged main summary row under the cursor as logged by
-recomputing the active worklog summary and applying `!L` to the contributing
-source entries. It works on both exact and quantized summaries for the active
-worklog. It refuses already logged rows, `#ooo` rows, and summary rows that no
-longer match the recomputed summary.
+`:WorklogLog` toggles the logged state of the main summary row under the cursor
+by recomputing the active worklog summary and adding or removing a trailing `!L`
+on the contributing source entries: an unlogged row becomes logged, and a logged
+row becomes unlogged. It works on both exact and quantized summaries for the
+active worklog. It refuses `#ooo` rows, which cannot be logged, and summary rows
+that no longer match the recomputed summary.
 
 ## Commands
 
@@ -103,7 +104,7 @@ longer match the recomputed summary.
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
 | `:WorklogSummarize` | Append an exact summary |
 | `:WorklogQuantSum` | Append a rounded summary |
-| `:WorklogLog` | Mark the unlogged main summary row under the cursor by adding `!L` to the contributing source entries |
+| `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
 
 The active worklog is the latest `--- worklog ... ---` block in the file.
 
