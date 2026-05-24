@@ -4,6 +4,14 @@ local M = {}
 
 local current = {
   defaults = {},
+  auto_summary = "off",
+}
+
+local AUTO_SUMMARY_MODES = {
+  off = true,
+  change = true,
+  idle = true,
+  save = true,
 }
 
 local function is_metadata_value(value)
@@ -87,10 +95,25 @@ local function normalize_journal(journal)
   }
 end
 
+-- Automatic summary refresh trigger: `off` (manual only), `change` (debounced as
+-- you type), `idle` (on pause / leaving insert), or `save`. `false` aliases `off`.
+local function normalize_auto_summary(value)
+  if value == nil or value == false or value == "off" then
+    return "off"
+  end
+
+  if type(value) ~= "string" or not AUTO_SUMMARY_MODES[value] then
+    error("worklog: auto_summary must be one of off, change, idle, save")
+  end
+
+  return value
+end
+
 local function normalize_config(options)
   if options == nil then
     return {
       defaults = {},
+      auto_summary = "off",
     }
   end
 
@@ -100,6 +123,7 @@ local function normalize_config(options)
 
   local result = {
     defaults = normalize_defaults(options.defaults),
+    auto_summary = normalize_auto_summary(options.auto_summary),
   }
 
   local journal = normalize_journal(options.journal)

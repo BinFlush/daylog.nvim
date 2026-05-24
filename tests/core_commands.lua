@@ -21,6 +21,37 @@ return function(t)
     })
   end)
 
+  t.test("WorklogRefresh rebuilds a stale summary and is a no-op when current", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 plan",
+      "10:00 done",
+      "",
+      "--- summary exact ---",
+      "0.50h plan",
+      "",
+      "--- totals exact ---",
+      "0.50h workday",
+    })
+
+    vim.cmd("WorklogRefresh")
+    t.eq(t.get_lines(), {
+      "--- worklog ---",
+      "08:00 plan",
+      "10:00 done",
+      "",
+      "--- summary exact ---",
+      "2.00h plan",
+      "",
+      "--- totals exact ---",
+      "2.00h workday",
+    })
+
+    -- Running again leaves the now-current summary untouched.
+    vim.cmd("WorklogRefresh")
+    t.eq(t.get_lines()[6], "2.00h plan")
+  end)
+
   t.test("equal timestamps are allowed in summarize", function()
     t.reset({
       "--- worklog #ProjectOrion @office ---",

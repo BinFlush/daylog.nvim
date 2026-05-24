@@ -8,6 +8,7 @@ local journal = require("worklog.journal")
 local log_current = require("worklog.usecases.log_current")
 local new_worklog = require("worklog.usecases.new_worklog")
 local order_worklogs = require("worklog.usecases.order_worklogs")
+local refresh_summaries = require("worklog.usecases.refresh_summaries")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
 local summarize = require("worklog.usecases.summarize")
@@ -67,6 +68,41 @@ local function run_buffer_usecase(run, ...)
 
   apply_result(result)
   return true
+end
+
+-- Guards against the refresh edits re-triggering the auto-refresh autocmds.
+local refreshing = false
+
+-- Rebuild every worklog's existing summary to match its entries. A no-op when
+-- all summaries are already current. `join` merges the edit into the previous
+-- undo block, used by the autocmd-driven refreshes so one keystroke stays one
+-- undo step.
+local function apply_refresh(join)
+  if refreshing then
+    return
+  end
+
+  local result = refresh_summaries.run(buffer_lines())
+  if not result.edits or #result.edits == 0 then
+    return
+  end
+
+  refreshing = true
+  pcall(function()
+    if join then
+      pcall(vim.cmd, "undojoin")
+    end
+
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    apply_result(result)
+
+    -- Restore the cursor, clamped to the possibly-resized buffer.
+    local line_count = vim.api.nvim_buf_line_count(0)
+    local row = math.min(cursor[1], line_count)
+    local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
+    vim.api.nvim_win_set_cursor(0, { row, math.min(cursor[2], #line) })
+  end)
+  refreshing = false
 end
 
 local function apply_insert_time(time)
@@ -388,6 +424,11 @@ function M.log_current()
   run_buffer_usecase(log_current.run, cursor_row())
 end
 
+-- Rebuild every existing summary in the current buffer to match its entries.
+function M.refresh()
+  apply_refresh(false)
+end
+
 function M.new_worklog()
   apply_new_worklog(config.get().defaults)
 end
@@ -479,6 +520,59 @@ function M.open_days(count, aggregate_only)
     }),
     (aggregate_only and "worklog-days-summary-" or "worklog-days-") .. report.period_label .. ".wkl"
   )
+end
+
+-- Wire the autocmds that drive automatic summary refresh for the configured
+-- mode. `off` installs nothing (manual :WorklogRefresh still works).
+local function setup_auto_summary(mode)
+  if mode == "off" then
+    return
+  end
+
+  local group = vim.api.nvim_create_augroup("WorklogAutoSummary", { clear = true })
+
+  local function on_worklog_buffer(opts, action)
+    if vim.bo[opts.buf].filetype == "worklog" then
+      action()
+    end
+  end
+
+  if mode == "save" then
+    vim.api.nvim_create_autocmd("BufWritePre", {
+      group = group,
+      callback = function(opts)
+        on_worklog_buffer(opts, function()
+          apply_refresh(true)
+        end)
+      end,
+    })
+  elseif mode == "idle" then
+    vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "InsertLeave" }, {
+      group = group,
+      callback = function(opts)
+        on_worklog_buffer(opts, function()
+          apply_refresh(true)
+        end)
+      end,
+    })
+  elseif mode == "change" then
+    local generation = 0
+    vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+      group = group,
+      callback = function(opts)
+        on_worklog_buffer(opts, function()
+          generation = generation + 1
+          local scheduled = generation
+          -- Debounce: only the last change in a burst refreshes.
+          vim.defer_fn(function()
+            if scheduled == generation then
+              apply_refresh(true)
+            end
+          end, 200)
+        end)
+      end,
+    })
+  end
 end
 
 function M.setup(options)
@@ -575,6 +669,12 @@ function M.setup(options)
   ensure_user_command("WorklogLog", function()
     M.log_current()
   end)
+
+  ensure_user_command("WorklogRefresh", function()
+    M.refresh()
+  end)
+
+  setup_auto_summary(config.get().auto_summary)
 end
 
 return M

@@ -34,6 +34,11 @@ happen, but they are called out clearly in this changelog.
   the cursor: it marks (or unmarks) the contributing source entries with `!L`
   and rebuilds the worklog's single summary. Refuses `#ooo` rows and stale
   summary rows that no longer match the recomputed summary.
+- Added `:WorklogRefresh` and the `auto_summary` setup option to keep summaries
+  in sync with their entries. Refresh rebuilds every existing summary in the
+  buffer (every worklog, not just the active one) and never creates or removes
+  one. `auto_summary` runs it automatically: `off` (default), `change`, `idle`,
+  or `save`.
 - Added optional `journal` configuration and `:WorklogToday` to open today's
   dated `.wkl` file, create parent directories, and initialize missing or empty
   journals with configured defaults and the current time.

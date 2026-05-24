@@ -74,11 +74,12 @@ return function(t)
       "11:00 done",
     })
 
-    -- The first worklog's summary stops at the second worklog header (row 11),
-    -- and the active (second) worklog has no summary of its own.
+    -- The first worklog's summary stops after its totals line (row 9), trimming
+    -- the blank separator before the second worklog; the active (second) worklog
+    -- has no summary of its own.
     t.eq(summary_block.find(analysis, analysis.worklog_blocks[1]), {
       start_row = 5,
-      end_row = 11,
+      end_row = 10,
       kind = "exact",
     })
     t.eq(summary_block.find(analysis, analysis.worklog_blocks[2]), nil)

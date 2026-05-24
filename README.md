@@ -105,8 +105,31 @@ be logged, and summary rows that no longer match the recomputed summary.
 | `:WorklogSummarize` | Set the worklog's summary to an exact summary (replacing any existing one) |
 | `:WorklogQuantSum` | Set the worklog's summary to a rounded summary (replacing any existing one) |
 | `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
+| `:WorklogRefresh` | Rebuild every existing summary in the buffer to match its entries |
 
 The active worklog is the latest `--- worklog ... ---` block in the file.
+
+## Live summaries
+
+`:WorklogRefresh` rebuilds every summary already present in the buffer so it
+matches its worklog's entries. Unlike `:WorklogSummarize` / `:WorklogQuantSum`
+(which act on the active worklog), refresh updates **every** worklog that has a
+summary, in its existing kind. It never creates or removes a summary — you opt a
+worklog in by summarizing it once — and it leaves a worklog alone while it is
+mid-edit and invalid.
+
+To run it automatically, set `auto_summary` in `setup()`:
+
+| `auto_summary` | When summaries refresh |
+| --- | --- |
+| `"off"` (default) | Never automatically; use `:WorklogRefresh` |
+| `"change"` | Shortly after edits settle (debounced) |
+| `"idle"` | When you pause or leave insert mode |
+| `"save"` | On write (`:w`) |
+
+```lua
+require("worklog").setup({ auto_summary = "idle" })
+```
 
 ## Limitations and syntax gotchas
 
@@ -143,13 +166,16 @@ return {
         root = "~/timereg",
         directory = "%Y/%V",
       },
+      auto_summary = "idle",
     })
   end,
 }
 ```
 
-All default fields are optional: `tag`, `location`, `quantize_minutes`, and
-`duration_format`.
+Every option is optional. The default fields are `tag`, `location`,
+`quantize_minutes`, and `duration_format`. `auto_summary` (`"off"` by default,
+or `"change"` / `"idle"` / `"save"`) controls when summaries refresh
+automatically — see [Live summaries](#live-summaries).
 
 Journal settings are optional too:
 
@@ -215,6 +241,7 @@ vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>", { desc = "Worklog ord
 vim.keymap.set("n", "<leader>ws", "<cmd>WorklogSummarize<cr>", { desc = "Worklog summarize exact" })
 vim.keymap.set("n", "<leader>wq", "<cmd>WorklogQuantSum<cr>", { desc = "Worklog summarize quantized" })
 vim.keymap.set("n", "<leader>wl", "<cmd>WorklogLog<cr>", { desc = "Worklog mark summary row as logged" })
+vim.keymap.set("n", "<leader>wR", "<cmd>WorklogRefresh<cr>", { desc = "Worklog refresh summaries" })
 vim.keymap.set("n", "]w", function()
   vim.cmd("WorklogNextDay " .. vim.v.count1)
 end, { desc = "Worklog next day" })

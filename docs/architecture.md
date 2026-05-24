@@ -118,10 +118,14 @@ it. Annotations belong on entries (which are canonical and survive copy/order),
 not in the summary.
 
 Keeping authored content out of the summary is what makes it robust to
-regeneration and sets up the intended direction of a summary that can update
-live as the worklog is edited. The reporting core (`summary.lua`, `render.lua`)
-stays pure so the journal reports (`:WorklogWeek` / `:WorklogDays`) share it
-unchanged.
+regeneration. The `refresh_summaries` usecase exploits this: it rebuilds *every*
+worklog's existing summary to match its entries (not just the active worklog),
+skipping invalid worklogs and emitting no edit where a summary is already
+current. `:WorklogRefresh` and the optional `auto_summary` autocmds in `init.lua`
+are thin shells over it — the trigger (`off` / `change` / `idle` / `save`) is
+configurable, and the shell adds only undo-join, a re-entrancy guard, and cursor
+preservation. The reporting core (`summary.lua`, `render.lua`) stays pure so the
+journal reports (`:WorklogWeek` / `:WorklogDays`) share it unchanged.
 
 ## `document.lua`
 

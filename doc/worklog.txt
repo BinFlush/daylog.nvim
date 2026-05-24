@@ -398,6 +398,19 @@ Toggle the logged state of the main summary row under the cursor.
 - Summary rows that no longer match the recomputed summary are refused; run
   |:WorklogSummarize| or |:WorklogQuantSum| again to refresh them.
 
+                                                        *:WorklogRefresh*
+:WorklogRefresh
+
+Rebuild every existing summary in the buffer so it matches its worklog's
+entries.
+
+- Updates every worklog that already has a summary, in its existing kind (not
+  just the active worklog).
+- Never creates or removes a summary; a worklog with no summary is left alone.
+- Skips a worklog that is currently invalid, and is a no-op for summaries that
+  are already up to date.
+- Can be run automatically via the `auto_summary` option (see below).
+
 ==============================================================================
 CONFIGURATION                                                  *worklog-config*
 
@@ -415,6 +428,7 @@ Configure `worklog.nvim` with:
       root = '~/timereg',
       directory = '%Y/%V',
     },
+    auto_summary = 'idle',
   })
 <
 
@@ -469,6 +483,19 @@ week from Monday through Sunday. Both commands recompute each included day's
 quantized summary from the latest worklog block in that file, show those daily
 sections in a scratch buffer, then append one aggregate summary built from the
 already-quantized daily results.
+
+                                                        *worklog-auto-summary*
+`auto_summary` controls when existing summaries refresh automatically (see
+|:WorklogRefresh|). It is optional and defaults to `off`:
+
+- `off` (or `false`) - never automatically; run |:WorklogRefresh| yourself.
+- `change` - shortly after edits settle (debounced).
+- `idle` - when you pause or leave insert mode.
+- `save` - on write (`:w`).
+
+>
+  require('worklog').setup({ auto_summary = 'idle' })
+<
 
 ==============================================================================
 SUMMARIES                                                  *worklog-summaries*

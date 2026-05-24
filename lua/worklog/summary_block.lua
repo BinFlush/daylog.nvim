@@ -65,6 +65,18 @@ function M.find(analysis, worklog_block)
         end
       end
 
+      -- Trim trailing blank lines (e.g. the separator before the next worklog)
+      -- so the region covers only the generated summary content; the rendered
+      -- summary never ends with a blank line.
+      local nodes = analysis.document.nodes
+      while
+        end_row - 1 > block.start_row
+        and nodes[end_row - 1]
+        and nodes[end_row - 1].kind == syntax.NODE_KIND.BLANK_LINE
+      do
+        end_row = end_row - 1
+      end
+
       return {
         start_row = block.start_row,
         end_row = end_row,

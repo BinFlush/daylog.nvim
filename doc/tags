@@ -8,10 +8,12 @@
 :WorklogOrder	worklog.txt	/*:WorklogOrder*
 :WorklogPrevDay	worklog.txt	/*:WorklogPrevDay*
 :WorklogQuantSum	worklog.txt	/*:WorklogQuantSum*
+:WorklogRefresh	worklog.txt	/*:WorklogRefresh*
 :WorklogRepeat	worklog.txt	/*:WorklogRepeat*
 :WorklogSummarize	worklog.txt	/*:WorklogSummarize*
 :WorklogToday	worklog.txt	/*:WorklogToday*
 :WorklogWeek	worklog.txt	/*:WorklogWeek*
+worklog-auto-summary	worklog.txt	/*worklog-auto-summary*
 worklog-commands	worklog.txt	/*worklog-commands*
 worklog-compatibility	worklog.txt	/*worklog-compatibility*
 worklog-config	worklog.txt	/*worklog-config*

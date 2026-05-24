@@ -103,6 +103,7 @@ function M.check()
   check_command("WorklogQuantSum")
   check_command("WorklogCheck")
   check_command("WorklogLog")
+  check_command("WorklogRefresh")
 
   start("Filetype")
   if vim.filetype.match({ filename = "example.wkl" }) == "worklog" then

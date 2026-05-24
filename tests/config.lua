@@ -26,11 +26,13 @@ return function(t)
         root = "~/timereg",
         directory = "%Y/%V",
       },
+      auto_summary = "off",
     })
 
     config.setup()
     t.eq(config.get(), {
       defaults = {},
+      auto_summary = "off",
     })
   end)
 
@@ -118,7 +120,25 @@ return function(t)
         root = "~/timereg",
         directory = "",
       },
+      auto_summary = "off",
     })
+
+    config.setup()
+  end)
+
+  t.test("config setup normalizes and validates auto_summary", function()
+    config.setup({ auto_summary = "idle" })
+    t.eq(config.get().auto_summary, "idle")
+
+    config.setup({ auto_summary = false })
+    t.eq(config.get().auto_summary, "off")
+
+    config.setup()
+    t.eq(config.get().auto_summary, "off")
+
+    local ok, err = pcall(config.setup, { auto_summary = "live" })
+    t.ok(not ok)
+    t.ok(tostring(err):match("auto_summary must be one of off, change, idle, save") ~= nil)
 
     config.setup()
   end)
