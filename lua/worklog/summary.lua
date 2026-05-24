@@ -89,7 +89,7 @@ local function build_summary_from_rows(rows)
     workday_total = workday_total,
   }
 
-  local logged_totals = logged_totals_from_exact_items(summary.summary_items, false)
+  local logged_totals = logged_totals_from_exact_items(summary.summary_items)
   if logged_totals then
     summary.logged_totals = logged_totals
   end
@@ -194,7 +194,7 @@ local function ordered_logged_totals(by_logged)
   return totals
 end
 
-logged_totals_from_exact_items = function(items, include_error_minutes)
+logged_totals_from_exact_items = function(items)
   local workday_items = {}
   local has_logged = false
 
@@ -220,13 +220,7 @@ logged_totals_from_exact_items = function(items, include_error_minutes)
     totals_by_logged[row.logged] = row
   end
 
-  local totals = ordered_logged_totals(totals_by_logged)
-
-  if include_error_minutes then
-    return quantize.apply_error_minutes(totals)
-  end
-
-  return totals
+  return ordered_logged_totals(totals_by_logged)
 end
 
 -- Derive logged totals by projecting workday-eligible summary items by logged state.
