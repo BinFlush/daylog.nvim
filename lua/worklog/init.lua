@@ -1,7 +1,5 @@
 local filetype = require("worklog.filetype")
 local append_copy = require("worklog.usecases.append_copy")
-local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
-local append_summary = require("worklog.usecases.append_summary")
 local carryover = require("worklog.usecases.carryover")
 local check = require("worklog.usecases.check")
 local config = require("worklog.config")
@@ -12,6 +10,8 @@ local new_worklog = require("worklog.usecases.new_worklog")
 local order_worklogs = require("worklog.usecases.order_worklogs")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
+local summarize = require("worklog.usecases.summarize")
+local syntax = require("worklog.syntax")
 local week = require("worklog.week")
 
 local M = {}
@@ -347,13 +347,13 @@ function M.insert_now()
   apply_insert_time(os.date("%H:%M"))
 end
 
--- Append a summary and totals block based on the active worklog.
+-- Set the active worklog's single summary (replacing any existing one).
 function M.append_summary()
-  run_buffer_usecase(append_summary.run)
+  run_buffer_usecase(summarize.run, syntax.REPORT_KIND.EXACT)
 end
 
 function M.append_quantized_summary()
-  run_buffer_usecase(append_quantized_summary.run)
+  run_buffer_usecase(summarize.run, syntax.REPORT_KIND.QUANTIZED)
 end
 
 function M.append_copy()

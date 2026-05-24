@@ -1,40 +1,47 @@
 return function(t)
   local append_copy = require("worklog.usecases.append_copy")
-  local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
-  local append_summary = require("worklog.usecases.append_summary")
   local order_worklogs = require("worklog.usecases.order_worklogs")
+  local summarize = require("worklog.usecases.summarize")
+
+  local function summarize_exact(lines)
+    return summarize.run(lines, "exact")
+  end
+
+  local function summarize_quantized(lines)
+    return summarize.run(lines, "quantized")
+  end
 
   local root = vim.fn.getcwd()
   local base_dir = root .. "/tests/compat/v0.1.0"
   local fixtures = {
     {
       name = "basic",
-      run = append_summary.run,
+      run = summarize_exact,
       expected_suffix = ".summary",
     },
     {
       name = "sticky_metadata",
-      run = append_summary.run,
+      run = summarize_exact,
       expected_suffix = ".summary",
     },
     {
       name = "out_of_office",
-      run = append_summary.run,
+      run = summarize_exact,
       expected_suffix = ".summary",
     },
     {
       name = "quantized",
-      run = append_quantized_summary.run,
+      run = summarize_quantized,
       expected_suffix = ".summary",
     },
     {
       name = "summary_conflicting_tags",
-      run = append_summary.run,
+      run = summarize_exact,
       expected_suffix = ".summary",
     },
     {
       name = "quantized_out_of_office",
-      run = append_quantized_summary.run,
+      run = summarize_quantized,
       expected_suffix = ".summary",
     },
     {

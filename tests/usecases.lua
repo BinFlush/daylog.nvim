@@ -1,7 +1,5 @@
 return function(t)
   local append_copy = require("worklog.usecases.append_copy")
-  local append_quantized_summary = require("worklog.usecases.append_quantized_summary")
-  local append_summary = require("worklog.usecases.append_summary")
   local carryover = require("worklog.usecases.carryover")
   local check = require("worklog.usecases.check")
   local insert_now = require("worklog.usecases.insert_now")
@@ -9,6 +7,15 @@ return function(t)
   local new_worklog = require("worklog.usecases.new_worklog")
   local order_worklogs = require("worklog.usecases.order_worklogs")
   local repeat_current = require("worklog.usecases.repeat_current")
+  local summarize = require("worklog.usecases.summarize")
+
+  local function summarize_exact(lines)
+    return summarize.run(lines, "exact")
+  end
+
+  local function summarize_quantized(lines)
+    return summarize.run(lines, "quantized")
+  end
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
     .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
@@ -95,8 +102,8 @@ return function(t)
     t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
-  t.test("append_summary usecase returns appended summary lines", function()
-    local result = append_summary.run({
+  t.test("summarize appends a summary when none exists", function()
+    local result = summarize_exact({
       "--- worklog @office ---",
       "08:00 plan",
       "08:30 call #sales @client",
@@ -130,8 +137,8 @@ return function(t)
     })
   end)
 
-  t.test("append_summary omits placeholder-only metadata sections and activity total", function()
-    local result = append_summary.run({
+  t.test("summarize omits placeholder-only metadata sections and activity total", function()
+    local result = summarize_exact({
       "--- worklog ---",
       "08:00 plan",
       "09:00 done",
@@ -155,8 +162,8 @@ return function(t)
     })
   end)
 
-  t.test("append_summary uses the worklog duration format", function()
-    local result = append_summary.run({
+  t.test("summarize uses the worklog duration format", function()
+    local result = summarize_exact({
       "--- worklog duration=hhmm ---",
       "08:00 plan",
       "09:30 done",
@@ -180,8 +187,8 @@ return function(t)
     })
   end)
 
-  t.test("append_quantized_summary uses the worklog duration format", function()
-    local result = append_quantized_summary.run({
+  t.test("summarize quantized uses the worklog duration format", function()
+    local result = summarize_quantized({
       "--- worklog quantize=30 duration=hhmm ---",
       "08:00 plan",
       "08:34 done",
@@ -199,6 +206,65 @@ return function(t)
             "",
             "--- totals quantized ---",
             "0:30 (+4m) workday",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("summarize replaces an existing summary in place", function()
+    local result = summarize_exact({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+      "",
+      "--- summary exact ---",
+      "stale content",
+      "--- totals exact ---",
+      "stale total",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 4,
+          end_index = 8,
+          lines = {
+            "--- summary exact ---",
+            "1.00h plan",
+            "",
+            "--- totals exact ---",
+            "1.00h workday",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("summarize switches an existing summary to the other kind", function()
+    local result = summarize_quantized({
+      "--- worklog quantize=30 ---",
+      "08:00 plan",
+      "08:34 done",
+      "",
+      "--- summary exact ---",
+      "0.57h plan",
+      "",
+      "--- totals exact ---",
+      "0.57h workday",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 4,
+          end_index = 9,
+          lines = {
+            "--- summary quantized ---",
+            "0.50h (+4m) plan",
+            "",
+            "--- totals quantized ---",
+            "0.50h (+4m) workday",
           },
         },
       },

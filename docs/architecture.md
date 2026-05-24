@@ -101,10 +101,27 @@ body.lua       -> body reconstruction
 summary.lua    -> reporting domain (intervals, sections, sorting, logged totals)
 projection.lua -> generic row grouping/projection engine
 quantize.lua   -> largest-remainder rounding arithmetic
+summary_block.lua -> locate a worklog's single generated summary region
 render.lua     -> output rendering
 usecases/      -> pure command operations
 init.lua       -> Neovim shell
 ```
+
+## Summary model
+
+A worklog has at most one summary, either exact or quantized. The summary is a
+**pure projection** of the worklog's entries: it stores no authored content and
+is always safe to rebuild from source. `:WorklogSummarize` / `:WorklogQuantSum`
+create or replace that single summary (via `summary_block.lua` + the `summarize`
+usecase); `:WorklogLog` marks the contributing source entries `!L` and rebuilds
+it. Annotations belong on entries (which are canonical and survive copy/order),
+not in the summary.
+
+Keeping authored content out of the summary is what makes it robust to
+regeneration and sets up the intended direction of a summary that can update
+live as the worklog is edited. The reporting core (`summary.lua`, `render.lua`)
+stays pure so the journal reports (`:WorklogWeek` / `:WorklogDays`) share it
+unchanged.
 
 ## `document.lua`
 

@@ -357,7 +357,10 @@ Rewrite all worklog blocks in chronological order.
                                                         *:WorklogSummarize*
 :WorklogSummarize
 
-Append an exact summary for the active worklog.
+Set the active worklog's summary to an exact summary.
+
+A worklog has at most one summary. If one already exists (exact or quantized) it
+is replaced in place; otherwise the summary is appended.
 
 The summary includes item totals and overall totals. Tag and location totals are
 included when they contain meaningful buckets.
@@ -367,7 +370,11 @@ Durations render according to `duration=decimal|hhmm` on that worklog block.
                                                         *:WorklogQuantSum*
 :WorklogQuantSum
 
-Append a rounded summary for the active worklog.
+Set the active worklog's summary to a rounded summary.
+
+Like |:WorklogSummarize|, this maintains a single summary per worklog, replacing
+any existing one (running it over an exact summary switches that summary to
+quantized).
 
 The bucket size is read from `quantize=<minutes>` on that worklog block. If
 omitted, the default is 15 minutes.

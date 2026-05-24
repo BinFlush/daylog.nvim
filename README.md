@@ -23,7 +23,7 @@ Write timestamped entries as the day happens:
 12:02 done
 ```
 
-Running `:WorklogQuantSum` appends a rounded summary:
+Running `:WorklogQuantSum` adds a rounded summary:
 
 ```text
 --- summary quantized ---
@@ -83,9 +83,9 @@ Tag and location totals stay grouped normally.
 `:WorklogLog` toggles the logged state of the main summary row under the cursor
 by recomputing the active worklog summary and adding or removing a trailing `!L`
 on the contributing source entries: an unlogged row becomes logged, and a logged
-row becomes unlogged. It works on both exact and quantized summaries for the
-active worklog. It refuses `#ooo` rows, which cannot be logged, and summary rows
-that no longer match the recomputed summary.
+row becomes unlogged, then the worklog's single summary is rebuilt. It works
+whether that summary is exact or quantized. It refuses `#ooo` rows, which cannot
+be logged, and summary rows that no longer match the recomputed summary.
 
 ## Commands
 
@@ -102,8 +102,8 @@ that no longer match the recomputed summary.
 | `:WorklogCheck` | Validate the current buffer without modifying it |
 | `:WorklogCopy` | Append a normalized editable copy |
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
-| `:WorklogSummarize` | Append an exact summary |
-| `:WorklogQuantSum` | Append a rounded summary |
+| `:WorklogSummarize` | Set the worklog's summary to an exact summary (replacing any existing one) |
+| `:WorklogQuantSum` | Set the worklog's summary to a rounded summary (replacing any existing one) |
 | `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
 
 The active worklog is the latest `--- worklog ... ---` block in the file.
@@ -117,6 +117,7 @@ The active worklog is the latest `--- worklog ... ---` block in the file.
 - Only trailing metadata tokens are parsed as metadata; multiple trailing tags or locations are invalid.
 - `#ooo` counts as activity but is excluded from workday totals.
 - Main summary rows do not split by location; locations are reported separately.
+- Each worklog has at most one summary (exact or quantized); re-running `:WorklogSummarize` or `:WorklogQuantSum` replaces it. The summary is regenerable derived output and owns the tail of its worklog — keep notes on entries, not in the summary.
 - The active worklog is the latest worklog block in the file.
 
 ## Requirements
