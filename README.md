@@ -213,7 +213,6 @@ require("worklog").setup({ auto_summary = "idle" })
 - `#ooo` counts as activity but is excluded from workday totals.
 - Main summary rows do not split by location; locations are reported separately.
 - Each worklog has at most one summary (exact or quantized); re-running `:WorklogSummarize` or `:WorklogQuantSum` replaces it. The summary is regenerable derived output and owns the tail of its worklog. Keep notes on entries, not in the summary.
-- The active worklog is the latest worklog block in the file.
 
 ## Requirements
 
