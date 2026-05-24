@@ -11,7 +11,8 @@ out-of-office time, exact totals, and rounded reporting totals.
 
 ## Basic example
 
-Write timestamped entries as the day happens:
+Write timestamped entries as the day happens. Each entry runs until the next
+timestamp; the final `done` line simply closes the last interval.
 
 ```text
 --- worklog ---
@@ -36,9 +37,98 @@ Running `:WorklogQuantSum` adds a rounded summary:
 ```
 
 Identical work items are automatically summed. Quantized summaries round to
-15-minute buckets by default.
+15-minute buckets by default. The `(+Nm)` beside a row is the rounding
+difference from the exact time — `+` when rounded down, `-` when rounded up. Here
+the exact day is 3h52m, so the rounded 3.75h total shows `(+7m)`.
 
-## Structured worklogs
+## A typical day
+
+This is the everyday loop. Each step maps a command to the question "what do I
+do right now?".
+
+**1. Install and point it at a journal folder.** With `lazy.nvim`:
+
+```lua
+{
+  "BinFlush/worklog.nvim",
+  config = function()
+    require("worklog").setup({
+      journal = { root = "~/worklog" }, -- where your dated files live
+      auto_summary = "idle",            -- keep the summary up to date for you
+    })
+  end,
+}
+```
+
+Restart Neovim and run `:Lazy sync`. See [Install](#install) for every option
+and suggested keymaps.
+
+**2. Start the day — `:WorklogToday`.** Opens (and creates) today's dated file.
+On a fresh day it adds the header, stamps the current time, and drops you into
+insert mode. Type what you are starting on:
+
+```text
+--- worklog ---
+09:00 planning
+```
+
+**3. Switch tasks — `:WorklogInsert`.** When you move on to something else, run
+it to stamp the current time on a new line, then type the new task. Every line
+means "from this time, I was doing this":
+
+```text
+09:00 planning
+10:30 fixing the login bug
+```
+
+You never type durations — the gap between two lines is how long the first task
+took.
+
+**4. Pick up a task you already have — `:WorklogRepeat`.** Put the cursor on an
+earlier entry and run it. It copies that activity to the current time, so
+recurring work (a standup, email, a client) is one keystroke instead of
+retyping:
+
+```text
+10:30 fixing the login bug
+11:15 planning              <- :WorklogRepeat on the "09:00 planning" line
+```
+
+**5. Stop the clock.** The last timestamp only closes the task before it, so end
+the day with `:WorklogInsert` and type `done`:
+
+```text
+11:15 planning
+12:00 done
+```
+
+**6. See your totals — `:WorklogSummarize` or `:WorklogQuantSum`.** Both add up
+time per task. `Summarize` is exact; `QuantSum` rounds to tidy buckets for
+reporting. With `auto_summary` set, the summary already exists from step 2 and
+updates as you type, so you rarely run these by hand:
+
+```text
+--- summary exact ---
+2.25h planning
+0.75h fixing the login bug
+
+--- totals exact ---
+3.00h workday
+```
+
+**7. Mark what you have logged elsewhere — `:WorklogLog`.** Once you have entered
+a chunk of time into your company's system, put the cursor on that summary row
+and run it. It marks the underlying time with `!L` so you can see what is already
+logged and not enter it twice. Run it again to unmark.
+
+**8. Review the week — `:WorklogWeek`.** Opens a read-only report totalling every
+day this week. `:WorklogDays 7` does the last seven days; add `!` (e.g.
+`:WorklogWeek!`) for just the grand totals.
+
+In short: **open today, `Insert` / `Repeat` as you work, glance at the live
+summary, `Log` rows as you report them, and `Week` to review.**
+
+## Tags, locations, and reporting metadata
 
 You can add reporting tags, locations, and a custom quantization bucket:
 
@@ -74,18 +164,14 @@ quantize=30    round summaries to 30-minute buckets
 duration=hhmm  render summary durations as hours:minutes
 ```
 
-`!L` is source syntax on timestamped entries. It is currently preserved by
-source rewrites such as copy and order. Summaries and reports split main rows by
-logged state, render logged rows with trailing `!L`, and add a logged section
-for workday-eligible logged versus unlogged totals when logged work was marked.
-Tag and location totals stay grouped normally.
+`!L` marks an interval as logged elsewhere. Summaries split logged from unlogged
+work and add a logged total; the flag is preserved by source rewrites like copy
+and order.
 
-`:WorklogLog` toggles the logged state of the main summary row under the cursor
-by recomputing the active worklog summary and adding or removing a trailing `!L`
-on the contributing source entries: an unlogged row becomes logged, and a logged
-row becomes unlogged, then the worklog's single summary is rebuilt. It works
-whether that summary is exact or quantized. It refuses `#ooo` rows, which cannot
-be logged, and summary rows that no longer match the recomputed summary.
+`:WorklogLog` toggles whether a summary row has been logged elsewhere. It adds or
+removes `!L` on the source entries that contributed to that row, then rebuilds
+the summary. It works for exact and quantized summaries; `#ooo` rows cannot be
+logged. See `:help :WorklogLog` for the full behavior.
 
 ## Commands
 
@@ -190,14 +276,11 @@ With the example above, `:WorklogToday` opens:
 ```
 
 If the file is missing or empty, `:WorklogToday` creates the first worklog block
-using your configured defaults, inserts the current time, and appends a quantized
-summary so the day is tracked from the start (it updates live when `auto_summary`
-is enabled). Nonzero offsets get the header and summary, but no current time.
-
-`:WorklogToday [offset]` also accepts a signed day count from today: `-1` for
-yesterday, `0` for today, `+1` or `1` for tomorrow, and so on. Nonzero offsets
-still initialize missing or empty files with the configured worklog header, but
-they do not insert the current clock time.
+from your defaults, inserts the current time, and appends a quantized summary so
+the day is tracked from the start (live when `auto_summary` is enabled). An
+optional signed offset opens another day relative to today (`-1` yesterday, `+1`
+tomorrow, and so on); those nonzero offsets still create the header and summary
+but skip the current time. Existing files open unchanged.
 
 `:WorklogDays {count}` uses the same journal settings to scan the last N dates,
 including today, from oldest to newest. `:WorklogWeek` scans the current ISO
