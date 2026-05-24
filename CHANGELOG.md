@@ -24,6 +24,14 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## 0.3.0 - 2026-05-24
+
+### Added
+
 - Added trailing `!L` entry syntax for intervals that were logged externally.
   The flag is preserved by source rewrites, stays non-sticky, and formats after
   trailing tag and location tokens.
