@@ -454,11 +454,18 @@ function M.open_today(day_offset)
     return
   end
 
-  if offset ~= 0 or not was_initialized then
+  if not was_initialized then
     return
   end
 
-  apply_insert_time(os.date("%H:%M", now))
+  -- A freshly created journal file gets the current time (today only) and a
+  -- quantized summary, so it tracks the day from the start (live when
+  -- auto_summary is enabled).
+  if offset == 0 then
+    apply_insert_time(os.date("%H:%M", now))
+  end
+
+  M.append_quantized_summary()
 end
 
 -- Open the journal file `step` days from the one in the current buffer, falling

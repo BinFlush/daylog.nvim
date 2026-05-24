@@ -229,9 +229,10 @@ Open a journal file relative to today from
 - The path is `{root}/{strftime(directory)}/YYYY-MM-DD.wkl`.
 - Parent directories are created when needed.
 - If the file is missing or empty, the command creates the first worklog block
-  using configured defaults, then inserts the current time.
-- Nonzero offsets still initialize missing or empty files, but they stop after
-  inserting the configured worklog header.
+  using configured defaults, inserts the current time, and appends a quantized
+  summary (which tracks the day live when `auto_summary` is enabled).
+- Nonzero offsets still initialize missing or empty files with the worklog header
+  and summary, but they do not insert the current time.
 - If the file already has content, it is opened without modification.
 
                                                         *:WorklogNextDay*

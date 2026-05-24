@@ -190,7 +190,9 @@ With the example above, `:WorklogToday` opens:
 ```
 
 If the file is missing or empty, `:WorklogToday` creates the first worklog block
-using your configured defaults and inserts the current time.
+using your configured defaults, inserts the current time, and appends a quantized
+summary so the day is tracked from the start (it updates live when `auto_summary`
+is enabled). Nonzero offsets get the header and summary, but no current time.
 
 `:WorklogToday [offset]` also accepts a signed day count from today: `-1` for
 yesterday, `0` for today, `+1` or `1` for tomorrow, and so on. Nonzero offsets

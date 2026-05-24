@@ -80,6 +80,11 @@ return function(t)
       t.eq(t.get_lines(), {
         "--- worklog #ClientA @office quantize=30 duration=hhmm ---",
         "08:45 ",
+        "",
+        "--- summary quantized ---",
+        "",
+        "--- totals quantized ---",
+        "0:00 (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
     end)
@@ -116,6 +121,11 @@ return function(t)
       t.eq(t.get_lines(), {
         "--- worklog ---",
         "08:45 ",
+        "",
+        "--- summary quantized ---",
+        "",
+        "--- totals quantized ---",
+        "0.00h (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
     end)
@@ -159,6 +169,11 @@ return function(t)
       )
       t.eq(t.get_lines(), {
         "--- worklog ---",
+        "",
+        "--- summary quantized ---",
+        "",
+        "--- totals quantized ---",
+        "0.00h (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
     end)
@@ -202,6 +217,11 @@ return function(t)
       )
       t.eq(t.get_lines(), {
         "--- worklog ---",
+        "",
+        "--- summary quantized ---",
+        "",
+        "--- totals quantized ---",
+        "0.00h (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
     end)
@@ -272,6 +292,11 @@ return function(t)
       t.eq(t.get_lines(), {
         "--- worklog ---",
         "08:45 ",
+        "",
+        "--- summary quantized ---",
+        "",
+        "--- totals quantized ---",
+        "0.00h (+0m) workday",
       })
     end)
   end)
@@ -321,6 +346,11 @@ return function(t)
         t.eq(vim.api.nvim_buf_get_name(0), expected_path)
         t.eq(t.get_lines(), {
           "--- worklog #ClientA ---",
+          "",
+          "--- summary quantized ---",
+          "",
+          "--- totals quantized ---",
+          "0.00h (+0m) workday",
         })
         t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
       end)
