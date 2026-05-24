@@ -24,6 +24,14 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## 0.4.0 - 2026-05-24
+
+### Added
+
 - An invalid worklog (out-of-order timestamps, an invalid entry, or a
   missing/broken header) is now reported as a buffer diagnostic instead of
   stalling its summary silently, whether or not it has a summary. The diagnostic
@@ -40,6 +48,10 @@ happen, but they are called out clearly in this changelog.
   modified buffer. Only `:WorklogToday 0` still creates and stamps today.
 
 ### Fixed
+
+- Syntax highlighting now mirrors the parser: out-of-range times, repeated entry
+  metadata, and invalid or duplicate worklog header options are no longer
+  highlighted as valid.
 
 ## 0.3.0 - 2026-05-24
 
