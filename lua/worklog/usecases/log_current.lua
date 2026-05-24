@@ -2,6 +2,7 @@ local entry = require("worklog.entry")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local support = require("worklog.usecases.support")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -44,8 +45,8 @@ local REFUSE_OOO = "worklog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "worklog: logged marking is inconsistent; regenerate the summary"
 
 local SECTION_KINDS = {
-  ["--- summary exact ---"] = "exact",
-  ["--- summary quantized ---"] = "quantized",
+  [syntax.section_header("summary", "exact")] = "exact",
+  [syntax.section_header("summary", "quantized")] = "quantized",
 }
 
 -- Recognized generated section headers that belong to a single summary group.
@@ -53,18 +54,18 @@ local SECTION_KINDS = {
 -- active summary is refreshed after logging.
 local SUMMARY_SUBSECTIONS = {
   exact = {
-    ["--- summary exact ---"] = true,
-    ["--- tags exact ---"] = true,
-    ["--- locations exact ---"] = true,
-    ["--- logged exact ---"] = true,
-    ["--- totals exact ---"] = true,
+    [syntax.section_header("summary", "exact")] = true,
+    [syntax.section_header("tags", "exact")] = true,
+    [syntax.section_header("locations", "exact")] = true,
+    [syntax.section_header("logged", "exact")] = true,
+    [syntax.section_header("totals", "exact")] = true,
   },
   quantized = {
-    ["--- summary quantized ---"] = true,
-    ["--- tags quantized ---"] = true,
-    ["--- locations quantized ---"] = true,
-    ["--- logged quantized ---"] = true,
-    ["--- totals quantized ---"] = true,
+    [syntax.section_header("summary", "quantized")] = true,
+    [syntax.section_header("tags", "quantized")] = true,
+    [syntax.section_header("locations", "quantized")] = true,
+    [syntax.section_header("logged", "quantized")] = true,
+    [syntax.section_header("totals", "quantized")] = true,
   },
 }
 

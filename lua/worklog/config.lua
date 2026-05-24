@@ -1,3 +1,5 @@
+local syntax = require("worklog.syntax")
+
 local M = {}
 
 local current = {
@@ -9,7 +11,7 @@ local function is_metadata_value(value)
 end
 
 local function is_duration_format(value)
-  return value == "decimal" or value == "hhmm"
+  return syntax.DURATION_FORMATS[value] == true
 end
 
 local function normalize_defaults(defaults)

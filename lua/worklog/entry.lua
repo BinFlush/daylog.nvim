@@ -1,5 +1,6 @@
 local analyze = require("worklog.analyze")
 local document = require("worklog.document")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -37,7 +38,7 @@ function M.format(entry, current_tag, current_location)
 
   if entry.tag ~= current_tag then
     if entry.tag == nil then
-      table.insert(parts, "#-")
+      table.insert(parts, syntax.TAG_CLEAR_TOKEN)
     else
       table.insert(parts, "#" .. entry.tag)
     end
@@ -45,14 +46,14 @@ function M.format(entry, current_tag, current_location)
 
   if entry.location ~= current_location then
     if entry.location == nil then
-      table.insert(parts, "@-")
+      table.insert(parts, syntax.LOCATION_CLEAR_TOKEN)
     else
       table.insert(parts, "@" .. entry.location)
     end
   end
 
   if entry.logged then
-    table.insert(parts, "!L")
+    table.insert(parts, syntax.LOGGED_TOKEN)
   end
 
   return table.concat(parts, " ")

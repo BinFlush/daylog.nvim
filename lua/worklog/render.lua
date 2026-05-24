@@ -1,3 +1,5 @@
+local syntax = require("worklog.syntax")
+
 local M = {}
 
 local function decimal_hours_string(minutes)
@@ -9,7 +11,7 @@ local function hhmm_string(minutes)
 end
 
 local function duration_string(minutes, duration_format)
-  if duration_format == "hhmm" then
+  if duration_format == syntax.DURATION_HHMM then
     return hhmm_string(minutes)
   end
 
@@ -28,7 +30,7 @@ local function summary_item_label(item, show_tag)
   end
 
   if item.logged then
-    table.insert(parts, "!L")
+    table.insert(parts, syntax.LOGGED_TOKEN)
   end
 
   return table.concat(parts, " ")
@@ -128,15 +130,14 @@ local function has_workday_excluded_items(items)
 end
 
 local function section_headers(kind, options)
-  local header_suffix = kind == "quantized" and " quantized" or " exact"
   options = options or {}
 
   return {
-    summary = options.summary_header or ("--- summary" .. header_suffix .. " ---"),
-    tag = options.tag_header or ("--- tags" .. header_suffix .. " ---"),
-    location = options.location_header or ("--- locations" .. header_suffix .. " ---"),
-    logged = options.logged_header or ("--- logged" .. header_suffix .. " ---"),
-    total = options.total_header or ("--- totals" .. header_suffix .. " ---"),
+    summary = options.summary_header or syntax.section_header("summary", kind),
+    tag = options.tag_header or syntax.section_header("tags", kind),
+    location = options.location_header or syntax.section_header("locations", kind),
+    logged = options.logged_header or syntax.section_header("logged", kind),
+    total = options.total_header or syntax.section_header("totals", kind),
     leading_blank = options.leading_blank ~= false,
   }
 end
@@ -173,7 +174,7 @@ local function build_summary_layout(summary, kind, duration_format, options)
   local layout = {}
   local headers = section_headers(kind, options)
   local conflicts = text_tag_conflicts(summary.summary_items)
-  local format = duration_format or "decimal"
+  local format = duration_format or syntax.DURATION_DECIMAL
 
   if headers.leading_blank then
     table.insert(layout, { kind = "blank", line = "" })
@@ -303,11 +304,11 @@ function M.worklog_header_line(
   end
 
   if header_quantize_minutes then
-    table.insert(header, "quantize=" .. tostring(header_quantize_minutes))
+    table.insert(header, syntax.OPTION_QUANTIZE .. "=" .. tostring(header_quantize_minutes))
   end
 
   if header_duration_format then
-    table.insert(header, "duration=" .. header_duration_format)
+    table.insert(header, syntax.OPTION_DURATION .. "=" .. header_duration_format)
   end
 
   return table.concat(header, " ") .. " ---"

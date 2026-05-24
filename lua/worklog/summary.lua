@@ -1,3 +1,5 @@
+local syntax = require("worklog.syntax")
+
 local M = {}
 
 -- Semantic reporting for worklog blocks.
@@ -520,7 +522,7 @@ end
 -- base. `#ooo` rows participate in the same pass, but are excluded from the
 -- final workday total.
 function M.quantized_summarize_entries(entries, quantize_minutes)
-  local bucket_minutes = quantize_minutes or 15
+  local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
   local exact_rows = build_fine_grained_rows(build_intervals(entries))
   local exact_summary = build_summary_from_rows(exact_rows)
   local target_total = round_to_nearest_bucket(exact_summary.activity_total, bucket_minutes)

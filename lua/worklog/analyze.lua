@@ -1,3 +1,5 @@
+local syntax = require("worklog.syntax")
+
 local M = {}
 
 -- Semantic analyzer for parsed worklog documents.
@@ -8,9 +10,7 @@ local M = {}
 
 local INVALID_FIRST_HEADER_MESSAGE =
   "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
-local DEFAULT_QUANTIZE_MINUTES = 15
-local DEFAULT_DURATION_FORMAT = "decimal"
-local END_OF_DAY_MINUTES = 24 * 60
+local DEFAULT_DURATION_FORMAT = syntax.DURATION_DECIMAL
 
 local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
@@ -52,7 +52,7 @@ local function semantic_entry_from_node(node, current_tag, current_location)
     explicit_location_clear = node.explicit_location_clear,
     tag = tag,
     location = location,
-    workday_excluded = tag == "ooo",
+    workday_excluded = tag == syntax.OUT_OF_OFFICE_TAG,
     logged = node.logged == true,
   }
 end
@@ -124,7 +124,7 @@ local function analyze_entry_items(block, diagnostics)
   -- 24:00 is only meaningful as the day's closing boundary, so it must be the
   -- final timestamped entry; anything after it would start work past midnight.
   for i = 1, #entry_items - 1 do
-    if entry_items[i].minutes == END_OF_DAY_MINUTES then
+    if entry_items[i].minutes == syntax.END_OF_DAY_MINUTES then
       push_diagnostic(diagnostics, {
         code = "midnight_not_final",
         severity = "error",
@@ -200,7 +200,7 @@ local function interpret_worklog_header(header, diagnostics)
   end
 
   for _, token in ipairs(header.option_tokens or {}) do
-    if token.key == "quantize" then
+    if token.key == syntax.OPTION_QUANTIZE then
       if result.declared_quantize then
         push_diagnostic(diagnostics, {
           code = "invalid_worklog_header_option",
@@ -227,7 +227,7 @@ local function interpret_worklog_header(header, diagnostics)
           result.quantize_minutes = quantize_minutes
         end
       end
-    elseif token.key == "duration" then
+    elseif token.key == syntax.OPTION_DURATION then
       if result.declared_duration then
         push_diagnostic(diagnostics, {
           code = "invalid_worklog_header_option",
@@ -238,7 +238,7 @@ local function interpret_worklog_header(header, diagnostics)
       else
         result.declared_duration = true
 
-        if token.value ~= "decimal" and token.value ~= "hhmm" then
+        if not syntax.DURATION_FORMATS[token.value] then
           push_diagnostic(diagnostics, {
             code = "invalid_worklog_header_option",
             severity = "error",
@@ -365,7 +365,7 @@ function M.analyze(document)
       header_quantize_minutes = interpreted_header.quantize_minutes,
       header_duration_format = interpreted_header.duration_format,
       quantize_minutes = is_worklog_header(header)
-          and (interpreted_header.quantize_minutes or DEFAULT_QUANTIZE_MINUTES)
+          and (interpreted_header.quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES)
         or nil,
       duration_format = is_worklog_header(header)
           and (interpreted_header.duration_format or DEFAULT_DURATION_FORMAT)

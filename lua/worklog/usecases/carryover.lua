@@ -1,5 +1,6 @@
 local entry = require("worklog.entry")
 local support = require("worklog.usecases.support")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -101,14 +102,14 @@ function M.close_edit(lines)
     return nil, err
   end
 
-  local minutes = 24 * 60
+  local minutes = syntax.END_OF_DAY_MINUTES
   local state = support.get_insert_state(ctx.block, minutes)
 
   return M.seed_edit(lines, {
     text = "",
     tag = state.tag,
     location = state.location,
-    workday_excluded = state.tag == "ooo",
+    workday_excluded = state.tag == syntax.OUT_OF_OFFICE_TAG,
   }, minutes)
 end
 

@@ -1,3 +1,5 @@
+local syntax = require("worklog.syntax")
+
 local M = {}
 
 -- Syntax-preserving document parser.
@@ -13,11 +15,11 @@ local function normalize_text(text)
 end
 
 local function parse_metadata_token(token)
-  if token == "#-" then
+  if token == syntax.TAG_CLEAR_TOKEN then
     return "tag", nil, true
   end
 
-  if token == "@-" then
+  if token == syntax.LOCATION_CLEAR_TOKEN then
     return "location", nil, true
   end
 
@@ -40,7 +42,7 @@ local function parse_entry_control_token(token)
     return kind, value, clear
   end
 
-  if token == "!L" then
+  if token == syntax.LOGGED_TOKEN then
     return "logged", true, false
   end
 
