@@ -32,6 +32,9 @@ return function(t)
       "1.75h (+2m) planning",
       "a free-form note",
       "10:17 #Q1 features",
+      "24:00 done",
+      "99:99 nonsense",
+      "12:34xyz",
     })
 
     -- Worklog header and its contained metadata/option tokens.
@@ -67,5 +70,174 @@ return function(t)
     -- tag, mirroring the parser's trailing-only metadata rule.
     t.eq(group_at(9, 1), "WorklogTimestamp")
     t.ok(group_at(9, col_of(9, "#Q1")) ~= "WorklogTag", "mid-text #Q1 must not highlight as a tag")
+
+    -- 24:00 is a valid end-of-day boundary and still highlights as a timestamp.
+    t.eq(group_at(10, 1), "WorklogTimestamp")
+
+    -- Out-of-range times mirror the parser's rejection: 99:99 is not a
+    -- timestamp, so it falls through to a free-form note.
+    t.ok(
+      group_at(11, 1) ~= "WorklogTimestamp",
+      "out-of-range 99:99 must not highlight as a timestamp"
+    )
+
+    -- A time glued to non-whitespace is not an entry for the parser, so it must
+    -- not highlight as a timestamp either.
+    t.ok(group_at(12, 1) ~= "WorklogTimestamp", "12:34xyz must not highlight as a timestamp")
+  end)
+
+  t.test(
+    "trailing metadata tolerates trailing whitespace, any order, and rejects text after",
+    function()
+      load_worklog_syntax({
+        "08:00 task #tag ",
+        "09:00 task @home #tag  ",
+        "10:00 task #tag note",
+      })
+
+      -- A trailing space after metadata still highlights; the parser ignores it.
+      t.eq(group_at(1, col_of(1, "#tag")), "WorklogTag")
+
+      -- Tag and location in either order, with trailing spaces, both highlight.
+      t.eq(group_at(2, col_of(2, "@home")), "WorklogLocation")
+      t.eq(group_at(2, col_of(2, "#tag")), "WorklogTag")
+
+      -- Metadata followed by ordinary text is plain text, mirroring the parser.
+      t.ok(
+        group_at(3, col_of(3, "#tag")) ~= "WorklogTag",
+        "a tag before trailing text must not highlight"
+      )
+    end
+  )
+
+  t.test("a trailing run with a repeated kind highlights nothing, like the parser", function()
+    load_worklog_syntax({
+      "08:00 task #a #b",
+      "09:00 task @a @b",
+      "10:00 task #a !L #b",
+      "11:00 task !L @b #a",
+    })
+
+    -- Two tags: the parser rejects the entry, so neither tag highlights.
+    t.ok(group_at(1, col_of(1, "#a")) ~= "WorklogTag", "first of two tags must not highlight")
+    t.ok(group_at(1, col_of(1, "#b")) ~= "WorklogTag", "second of two tags must not highlight")
+
+    -- Two locations: likewise neither highlights.
+    t.ok(
+      group_at(2, col_of(2, "@a")) ~= "WorklogLocation",
+      "first of two locations must not highlight"
+    )
+    t.ok(
+      group_at(2, col_of(2, "@b")) ~= "WorklogLocation",
+      "second of two locations must not highlight"
+    )
+
+    -- A repeated kind anywhere in the run invalidates the whole run.
+    t.ok(
+      group_at(3, col_of(3, "#a")) ~= "WorklogTag",
+      "a repeated tag around !L must not highlight"
+    )
+
+    -- One of each, in any order, is valid and all three highlight.
+    t.eq(group_at(4, col_of(4, "!L")), "WorklogLogged")
+    t.eq(group_at(4, col_of(4, "@b")), "WorklogLocation")
+    t.eq(group_at(4, col_of(4, "#a")), "WorklogTag")
+  end)
+
+  t.test("a header with a repeated tag or location is not a worklog header", function()
+    load_worklog_syntax({
+      "--- worklog #a #b ---",
+      "--- worklog @a @b ---",
+      "--- worklog #a @b quantize=30 ---",
+      "--- worklog @b #a ---",
+    })
+
+    -- Duplicate tag: the whole header falls back to a generic block header and the
+    -- metadata is not highlighted, mirroring the parser rejecting the header.
+    t.eq(group_at(1, 1), "WorklogBlockHeader")
+    t.ok(group_at(1, col_of(1, "#a")) ~= "WorklogTag", "a duplicate header tag must not highlight")
+
+    -- Duplicate location: likewise.
+    t.eq(group_at(2, 1), "WorklogBlockHeader")
+    t.ok(
+      group_at(2, col_of(2, "@a")) ~= "WorklogLocation",
+      "a duplicate header location must not highlight"
+    )
+
+    -- One tag and one location (any order, intermixed with options) stays valid.
+    t.eq(group_at(3, 1), "WorklogHeader")
+    t.eq(group_at(3, col_of(3, "#a")), "WorklogTag")
+    t.eq(group_at(3, col_of(3, "@b")), "WorklogLocation")
+    t.eq(group_at(3, col_of(3, "quantize=30")), "WorklogOption")
+    t.eq(group_at(4, 1), "WorklogHeader")
+    t.eq(group_at(4, col_of(4, "#a")), "WorklogTag")
+    t.eq(group_at(4, col_of(4, "@b")), "WorklogLocation")
+  end)
+
+  t.test("only valid header options highlight; the parser's rejects fall back", function()
+    load_worklog_syntax({
+      "--- worklog quantize=30 ---", -- 1 valid quantize
+      "--- worklog duration=decimal ---", -- 2 valid duration
+      "--- worklog duration=hhmm ---", -- 3 valid duration
+      "--- worklog quantize=01 ---", -- 4 leading zero, value > 0 (parser accepts)
+      "--- worklog #a @b quantize=5 duration=hhmm ---", -- 5 all four, any order
+      "--- worklog quantize=abc ---", -- 6 non-numeric value
+      "--- worklog quantize=0 ---", -- 7 not positive
+      "--- worklog quantize=1.5 ---", -- 8 not an integer
+      "--- worklog duration=foo ---", -- 9 value not decimal/hhmm
+      "--- worklog foo=bar ---", -- 10 unknown option
+      "--- worklog quantize=15 quantize=30 ---", -- 11 duplicate option
+      "--- worklog hello ---", -- 12 junk token
+    })
+
+    -- Valid options highlight as options inside a worklog header.
+    t.eq(group_at(1, 1), "WorklogHeader")
+    t.eq(group_at(1, col_of(1, "quantize=30")), "WorklogOption")
+    t.eq(group_at(2, col_of(2, "duration=decimal")), "WorklogOption")
+    t.eq(group_at(3, col_of(3, "duration=hhmm")), "WorklogOption")
+    t.eq(group_at(4, col_of(4, "quantize=01")), "WorklogOption")
+    t.eq(group_at(5, 1), "WorklogHeader")
+    t.eq(group_at(5, col_of(5, "#a")), "WorklogTag")
+    t.eq(group_at(5, col_of(5, "@b")), "WorklogLocation")
+    t.eq(group_at(5, col_of(5, "quantize=5")), "WorklogOption")
+    t.eq(group_at(5, col_of(5, "duration=hhmm")), "WorklogOption")
+
+    -- Anything the parser rejects makes the line a plain block header, and the
+    -- offending token is not highlighted as an option.
+    local rejects = {
+      { 6, "quantize=abc" },
+      { 7, "quantize=0" },
+      { 8, "quantize=1.5" },
+      { 9, "duration=foo" },
+      { 10, "foo=bar" },
+      { 11, "quantize=15" },
+      { 12, "hello" },
+    }
+    for _, case in ipairs(rejects) do
+      local lnum, token = case[1], case[2]
+      t.eq(group_at(lnum, 1), "WorklogBlockHeader")
+      t.ok(
+        group_at(lnum, col_of(lnum, token)) ~= "WorklogOption",
+        string.format("%q on line %d must not highlight as an option", token, lnum)
+      )
+    end
+  end)
+
+  t.test("a line with an invalid timestamp does not highlight trailing metadata", function()
+    load_worklog_syntax({
+      "25:00 task #tag", -- out-of-range time: not an entry for the parser
+      "12:34xyz #tag", -- time glued to text: not an entry either
+    })
+
+    -- The whole line is a free-form note, so the trailing #tag is not metadata.
+    t.ok(group_at(1, 1) ~= "WorklogTimestamp", "25:00 is not a timestamp")
+    t.ok(
+      group_at(1, col_of(1, "#tag")) ~= "WorklogTag",
+      "#tag on an invalid entry must not highlight"
+    )
+    t.ok(
+      group_at(2, col_of(2, "#tag")) ~= "WorklogTag",
+      "#tag after a glued time must not highlight"
+    )
   end)
 end
