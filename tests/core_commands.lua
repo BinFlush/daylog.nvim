@@ -52,6 +52,67 @@ return function(t)
     t.eq(t.get_lines()[6], "2.00h plan")
   end)
 
+  local function has_unordered_diagnostic()
+    for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
+      if diagnostic.message:match("unordered timestamps") then
+        return true
+      end
+    end
+
+    return false
+  end
+
+  t.test("WorklogRefresh reports an out-of-order worklog as a diagnostic", function()
+    t.reset({
+      "--- worklog ---",
+      "09:00 later",
+      "08:00 earlier",
+      "10:00 done",
+      "",
+      "--- summary exact ---",
+      "0.50h later",
+      "",
+      "--- totals exact ---",
+      "0.50h workday",
+    })
+    local before = t.get_lines()
+
+    vim.cmd("WorklogRefresh")
+    t.ok(has_unordered_diagnostic(), "expected an unordered-timestamps diagnostic")
+
+    -- The invalid worklog's summary is left untouched rather than churned.
+    t.eq(t.get_lines(), before)
+  end)
+
+  t.test("WorklogRefresh reports an out-of-order worklog with no summary", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 input 1",
+      "07:10 input 2",
+    })
+
+    vim.cmd("WorklogRefresh")
+    t.ok(has_unordered_diagnostic(), "expected a diagnostic even without a summary")
+  end)
+
+  t.test("WorklogOrder clears the out-of-order diagnostic", function()
+    t.reset({
+      "--- worklog ---",
+      "09:00 later",
+      "08:00 earlier",
+      "10:00 done",
+    })
+
+    vim.cmd("WorklogRefresh")
+    t.ok(has_unordered_diagnostic(), "expected a diagnostic before fixing")
+
+    -- Fixing via :WorklogOrder must clear the diagnostic on its own: a command
+    -- edit does not fire the auto-refresh autocmds, so the command refreshes the
+    -- diagnostics itself.
+    vim.cmd("WorklogOrder")
+    t.ok(not has_unordered_diagnostic(), "WorklogOrder should clear the diagnostic")
+  end)
+
   t.test("equal timestamps are allowed in summarize", function()
     t.reset({
       "--- worklog #ProjectOrion @office ---",
@@ -391,6 +452,30 @@ return function(t)
     })
     t.eq(vim.api.nvim_win_get_cursor(0), { 2, 3 })
   end)
+
+  t.test(
+    "WorklogCheck publishes diagnostics for an invalid buffer and clears them when valid",
+    function()
+      t.reset({
+        "--- worklog ---",
+        "09:00 later",
+        "08:00 earlier",
+        "10:00 done",
+      })
+
+      vim.cmd("WorklogCheck")
+      t.ok(has_unordered_diagnostic(), "WorklogCheck should publish a diagnostic for the problem")
+
+      -- A valid buffer publishes none.
+      t.reset({
+        "--- worklog ---",
+        "08:00 plan",
+        "09:00 done",
+      })
+      vim.cmd("WorklogCheck")
+      t.eq(vim.diagnostic.get(0), {})
+    end
+  )
 
   t.test("summaries show untagged and no location buckets without header metadata", function()
     t.reset({

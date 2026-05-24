@@ -333,8 +333,8 @@ the current time, while the task that was running at midnight continues from
 Validate the current buffer without modifying it.
 
 - The full buffer is analyzed, not just the active worklog.
-- The first relevant diagnostic is reported as a warning.
-- If no diagnostics are found, the command reports `worklog: ok`.
+- Every problem is published as a buffer diagnostic; a one-line summary
+  (`worklog: ok` or a problem count) is shown as a message.
 
                                                         *:WorklogCopy*
 :WorklogCopy
@@ -409,8 +409,9 @@ entries.
 - Updates every worklog that already has a summary, in its existing kind (not
   just the active worklog).
 - Never creates or removes a summary; a worklog with no summary is left alone.
-- Skips a worklog that is currently invalid, and is a no-op for summaries that
-  are already up to date.
+- Skips a worklog that is currently invalid rather than churn it, and reports
+  the problem (for example out-of-order timestamps) as a buffer diagnostic.
+- Is a no-op for summaries that are already up to date.
 - Can be run automatically via the `auto_summary` option (see below).
 
 ==============================================================================
@@ -498,6 +499,10 @@ already-quantized daily results.
 >
   require('worklog').setup({ auto_summary = 'idle' })
 <
+
+When a worklog is invalid (for example its timestamps are out of order), it is
+not refreshed and the problem is reported as a buffer diagnostic that clears once
+you fix it.
 
 ==============================================================================
 SUMMARIES                                                  *worklog-summaries*

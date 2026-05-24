@@ -24,6 +24,13 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- An invalid worklog (out-of-order timestamps, an invalid entry, or a
+  missing/broken header) is now reported as a buffer diagnostic instead of
+  stalling its summary silently, whether or not it has a summary. The diagnostic
+  clears as soon as the worklog is valid again, however it was fixed.
+- `:WorklogCheck` now publishes every problem as a buffer diagnostic and shows a
+  one-line summary, instead of reporting only the first problem.
+
 ### Changed
 
 - Day navigation no longer creates or initializes files. `:WorklogNextDay` /

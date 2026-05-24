@@ -15,6 +15,7 @@ return function(t)
     })
 
     t.eq(result, {
+      warnings = {},
       edits = {
         {
           start_index = 4,
@@ -44,7 +45,7 @@ return function(t)
       "1.00h workday",
     })
 
-    t.eq(result, { edits = {} })
+    t.eq(result, { edits = {}, warnings = {} })
   end)
 
   t.test("refresh updates only the changed worklog among several", function()
@@ -71,6 +72,7 @@ return function(t)
     })
 
     t.eq(result, {
+      warnings = {},
       edits = {
         {
           start_index = 14,
@@ -101,6 +103,7 @@ return function(t)
     })
 
     t.eq(result, {
+      warnings = {},
       edits = {
         {
           start_index = 4,
@@ -124,10 +127,10 @@ return function(t)
       "09:00 done",
     })
 
-    t.eq(result, { edits = {} })
+    t.eq(result, { edits = {}, warnings = {} })
   end)
 
-  t.test("refresh skips an invalid worklog rather than churn", function()
+  t.test("refresh warns instead of churning an invalid worklog with a summary", function()
     local result = refresh_summaries.run({
       "--- worklog ---",
       "09:00 later",
@@ -141,18 +144,84 @@ return function(t)
       "0.50h workday",
     })
 
-    t.eq(result, { edits = {} })
+    t.eq(result, {
+      edits = {},
+      warnings = {
+        {
+          row = 2,
+          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
+        },
+      },
+    })
   end)
 
-  t.test("refresh leaves a structurally broken document alone", function()
+  t.test("refresh warns about an invalid worklog even with no summary", function()
     local result = refresh_summaries.run({
-      "--- summary exact ---",
-      "1.00h x",
       "--- worklog ---",
-      "08:00 plan",
-      "09:00 done",
+      "09:00 later",
+      "08:00 earlier",
+      "10:00 done",
     })
 
-    t.eq(result, { edits = {} })
+    t.eq(result, {
+      edits = {},
+      warnings = {
+        {
+          row = 2,
+          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
+        },
+      },
+    })
+  end)
+
+  t.test("refresh warns about timestamps with no worklog header at all", function()
+    local result = refresh_summaries.run({
+      "08:00 a",
+      "07:00 b",
+    })
+
+    t.eq(result, {
+      edits = {},
+      warnings = {
+        {
+          row = 1,
+          message = "worklog: no worklog block found; first line must be a worklog header "
+            .. "such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---",
+        },
+      },
+    })
+  end)
+
+  t.test("refresh does not warn about a blank, header-less buffer", function()
+    t.eq(refresh_summaries.run({}), { edits = {}, warnings = {} })
+    t.eq(refresh_summaries.run({ "", "" }), { edits = {}, warnings = {} })
+    t.eq(refresh_summaries.run({ "just some prose" }), { edits = {}, warnings = {} })
+  end)
+
+  t.test("refresh warns but does not edit a structurally broken document", function()
+    -- A blank first line pushes the header off row 1: the document is structurally
+    -- broken, so nothing is rewritten, but the out-of-order entries below still
+    -- warn rather than going silent.
+    local result = refresh_summaries.run({
+      "",
+      "--- worklog ---",
+      "09:00 later",
+      "08:00 earlier",
+    })
+
+    t.eq(result, {
+      edits = {},
+      warnings = {
+        {
+          row = 2,
+          message = "worklog: first line must be a worklog header such as --- worklog --- or "
+            .. "--- worklog #ClientA @office quantize=30 ---",
+        },
+        {
+          row = 3,
+          message = "worklog: unordered timestamps near lines 3 and 4; fix manually or run :WorklogOrder",
+        },
+      },
+    })
   end)
 end

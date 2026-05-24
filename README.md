@@ -187,8 +187,9 @@ The active worklog is the latest `--- worklog ... ---` block in the file.
 matches its worklog's entries. Unlike `:WorklogSummarize` / `:WorklogQuantSum`
 (which act on the active worklog), refresh updates **every** worklog that has a
 summary, in its existing kind. It never creates or removes a summary. You opt a
-worklog in by summarizing it once, and it leaves a worklog alone while it is
-mid-edit and invalid.
+worklog in by summarizing it once. While a worklog is invalid (for example its
+timestamps are out of order) its summary is left alone rather than churned, and
+refresh reports the problem as a buffer diagnostic that clears once you fix it.
 
 To run it automatically, set `auto_summary` in `setup()`:
 

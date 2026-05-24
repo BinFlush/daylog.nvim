@@ -94,12 +94,24 @@ summary.
 Keeping authored content out of the summary is what makes regeneration safe. The
 `refresh_summaries` usecase exploits this: it rebuilds *every* worklog's existing
 summary to match its entries (not just the active one), skipping invalid worklogs
-and emitting no edit where a summary is already current. `:WorklogRefresh` and the
-optional `auto_summary` autocmds in `init.lua` are thin shells over it — the
-trigger (`off` / `change` / `idle` / `save`) is configurable, and the shell adds
-only undo-join, a re-entrancy guard, and cursor preservation. The reporting core
-(`summary.lua`, `render.lua`) stays pure so the journal reports (`:WorklogWeek` /
-`:WorklogDays`) share it unchanged.
+and emitting no edit where a summary is already current. Alongside the edits it
+returns `warnings` (each `{ row, message }`) for every problem the analyzer can
+see — a broken or absent header, out-of-order timestamps, an invalid entry —
+whether or not the worklog has a summary, and even for a structurally broken
+document (which produces no edits).
+
+`:WorklogRefresh` and the optional `auto_summary` autocmds in `init.lua` are thin
+shells over it — the trigger (`off` / `change` / `idle` / `save`) is configurable,
+and the shell adds only undo-join, a re-entrancy guard, and cursor preservation.
+The warnings are published as buffer diagnostics (a `vim.diagnostic` namespace),
+which is what makes them clear when fixed however the fix happened: each refresh
+replaces the namespace's diagnostics, so a now-valid worklog publishes an empty
+set. Because programmatic edits do not fire the change autocmds, the
+buffer-editing commands republish diagnostics after applying (so `:WorklogOrder`
+clears its own warning). Diagnostics also render inline in any mode, so there is
+no insert-mode timing to manage. The reporting core (`summary.lua`, `render.lua`)
+stays pure so the journal reports (`:WorklogWeek` / `:WorklogDays`) share it
+unchanged.
 
 ## Parsing and semantics
 

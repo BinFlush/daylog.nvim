@@ -18,6 +18,8 @@ return function(t)
   end
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
     .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+  local NO_WORKLOG_BLOCK_MESSAGE = "worklog: no worklog block found; first line must be a "
+    .. "worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
   t.test("new_worklog usecase creates the initial header in an empty buffer", function()
     local result = new_worklog.run({ "" })
@@ -279,12 +281,26 @@ return function(t)
     })
 
     t.eq(result, {
-      message = "worklog: ok",
+      ok = true,
+      warnings = {},
+      summary = "worklog: ok",
     })
   end)
 
-  t.test("check usecase returns the structural error first", function()
-    local result, err = check.run({
+  t.test("check usecase reports no worklog block", function()
+    local result = check.run({
+      "just some prose",
+    })
+
+    t.eq(result, {
+      ok = false,
+      warnings = {},
+      summary = NO_WORKLOG_BLOCK_MESSAGE,
+    })
+  end)
+
+  t.test("check usecase reports the structural error", function()
+    local result = check.run({
       "--- summary exact ---",
       "1.00h workday",
       "--- worklog ---",
@@ -292,43 +308,59 @@ return function(t)
       "09:00 done",
     })
 
-    t.eq(result, nil)
-    t.eq(err, INVALID_FIRST_HEADER_MESSAGE)
+    t.eq(result.ok, false)
+    t.eq(result.summary, "worklog: 1 problem; see diagnostics")
+    t.eq(result.warnings, {
+      { row = 1, message = INVALID_FIRST_HEADER_MESSAGE },
+    })
   end)
 
-  t.test("check usecase returns invalid entry errors", function()
-    local result, err = check.run({
+  t.test("check usecase reports invalid entry errors", function()
+    local result = check.run({
       "--- worklog ---",
       "08:00 plan #sales #meeting",
       "09:00 done",
     })
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: invalid worklog entry at line 2: multiple trailing tags are not allowed")
+    t.eq(result.ok, false)
+    t.eq(result.summary, "worklog: 1 problem; see diagnostics")
+    t.eq(result.warnings, {
+      {
+        row = 2,
+        message = "worklog: invalid worklog entry at line 2: multiple trailing tags are not allowed",
+      },
+    })
   end)
 
-  t.test("check usecase returns unordered timestamp errors", function()
-    local result, err = check.run({
+  t.test("check usecase reports unordered timestamp errors", function()
+    local result = check.run({
       "--- worklog ---",
       "09:00 later",
       "08:00 earlier",
       "10:00 done",
     })
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder")
+    t.eq(result.ok, false)
+    t.eq(result.warnings, {
+      {
+        row = 2,
+        message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
+      },
+    })
   end)
 
-  t.test("check usecase rejects a 24:00 entry that is not the final entry", function()
-    local result, err = check.run({
+  t.test("check usecase reports a 24:00 entry that is not the final entry", function()
+    local result = check.run({
       "--- worklog ---",
       "08:00 plan",
       "24:00 overnight",
       "24:00 done",
     })
 
-    t.eq(result, nil)
-    t.eq(err, "worklog: 24:00 must be the final entry in a worklog block")
+    t.eq(result.ok, false)
+    t.eq(result.warnings, {
+      { row = 3, message = "worklog: 24:00 must be the final entry in a worklog block" },
+    })
   end)
 
   t.test("append_copy preserves clear tokens needed to keep meaning", function()

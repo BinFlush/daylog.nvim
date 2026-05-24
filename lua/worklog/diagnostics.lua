@@ -34,7 +34,54 @@ function M.message(diagnostic)
     return M.unordered_error(diagnostic)
   end
 
+  -- Some diagnostic messages already carry the "worklog:" prefix; do not add a
+  -- second one.
+  if diagnostic.message:match("^worklog:") then
+    return diagnostic.message
+  end
+
   return "worklog: " .. diagnostic.message
+end
+
+-- True when the parsed document has any timestamped entry (valid or not). Lets us
+-- flag a missing worklog header only when there is clearly worklog content, not
+-- in an empty or prose-only buffer.
+local function has_entry_node(parsed)
+  for _, node in ipairs(parsed.nodes) do
+    if node.kind == syntax.NODE_KIND.ENTRY or node.kind == syntax.NODE_KIND.INVALID_ENTRY then
+      return true
+    end
+  end
+
+  return false
+end
+
+-- Every problem that prevents a clean summary, as { row, message } entries:
+-- whole-document structure (a bad first header, bad header options), one problem
+-- per worklog block (out-of-order timestamps, an invalid entry, 24:00 not final),
+-- and timestamped lines with no worklog header at all. Shared by the live refresh
+-- and :WorklogCheck so they always agree.
+function M.collect(analysis)
+  local warnings = {}
+
+  for _, diagnostic in ipairs(analysis.diagnostics) do
+    if diagnostic.category == syntax.DIAGNOSTIC_CATEGORY.STRUCTURAL then
+      table.insert(warnings, { row = diagnostic.row, message = M.message(diagnostic) })
+    end
+  end
+
+  for _, block in ipairs(analysis.worklog_blocks) do
+    local diagnostic = analyze.find_block_diagnostic(analysis, block)
+    if diagnostic then
+      table.insert(warnings, { row = diagnostic.row, message = M.message(diagnostic) })
+    end
+  end
+
+  if #analysis.worklog_blocks == 0 and has_entry_node(analysis.document) then
+    table.insert(warnings, { row = 1, message = NO_WORKLOG_ERROR })
+  end
+
+  return warnings
 end
 
 function M.structural_or_missing_worklog_error(analysis)

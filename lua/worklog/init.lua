@@ -43,6 +43,37 @@ local function cursor_row()
   return vim.api.nvim_win_get_cursor(0)[1]
 end
 
+-- Guards the refresh edits from re-triggering the auto-refresh autocmds, and
+-- signals apply_result that apply_refresh will publish diagnostics itself.
+local refreshing = false
+
+local diagnostic_namespace = vim.api.nvim_create_namespace("worklog")
+
+-- Publish the worklog's problems (e.g. out-of-order timestamps) as buffer
+-- diagnostics. They are recomputed and replace the previous set on every refresh,
+-- so they clear themselves as soon as the worklog is valid again -- however it
+-- was fixed -- and render inline in any mode.
+local function publish_diagnostics(warnings)
+  local items = {}
+
+  for _, warning in ipairs(warnings or {}) do
+    table.insert(items, {
+      lnum = math.max((warning.row or 1) - 1, 0),
+      col = 0,
+      severity = vim.diagnostic.severity.WARN,
+      source = "worklog",
+      message = warning.message,
+    })
+  end
+
+  vim.diagnostic.set(diagnostic_namespace, 0, items)
+end
+
+-- Recompute and publish the buffer's worklog diagnostics from its current text.
+local function refresh_diagnostics()
+  publish_diagnostics(refresh_summaries.run(buffer_lines()).warnings)
+end
+
 local function apply_result(result)
   for _, edit in ipairs(result.edits or {}) do
     vim.api.nvim_buf_set_lines(0, edit.start_index, edit.end_index, false, edit.lines)
@@ -54,6 +85,13 @@ local function apply_result(result)
 
   if result.startinsert then
     vim.cmd("startinsert!")
+  end
+
+  -- Keep buffer diagnostics current after any edit. This is the single choke
+  -- point every edit path flows through. apply_refresh already publishes from its
+  -- own analysis (and sets `refreshing` around its edit), so skip while it runs.
+  if not refreshing then
+    refresh_diagnostics()
   end
 end
 
@@ -70,19 +108,18 @@ local function run_buffer_usecase(run, ...)
   return true
 end
 
--- Guards against the refresh edits re-triggering the auto-refresh autocmds.
-local refreshing = false
-
--- Rebuild every worklog's existing summary to match its entries. A no-op when
--- all summaries are already current. `join` merges the edit into the previous
--- undo block, used by the autocmd-driven refreshes so one keystroke stays one
--- undo step.
+-- Rebuild every worklog's existing summary to match its entries, and publish the
+-- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
+-- are already current. `join` merges the edit into the previous undo block, used
+-- by the autocmd-driven refreshes so one keystroke stays one undo step.
 local function apply_refresh(join)
   if refreshing then
     return
   end
 
   local result = refresh_summaries.run(buffer_lines())
+  publish_diagnostics(result.warnings)
+
   if not result.edits or #result.edits == 0 then
     return
   end
@@ -425,15 +462,14 @@ function M.order_worklogs()
 end
 
 function M.check()
-  local lines = buffer_lines()
-  local result, err = check.run(lines)
+  local result = check.run(buffer_lines())
+  publish_diagnostics(result.warnings)
 
-  if not result then
-    warn(err)
-    return
+  if result.ok then
+    info(result.summary)
+  else
+    warn(result.summary)
   end
-
-  info(result.message)
 end
 
 function M.log_current()
@@ -550,13 +586,13 @@ function M.open_days(count, aggregate_only)
 end
 
 -- Wire the autocmds that drive automatic summary refresh for the configured
--- mode. `off` installs nothing (manual :WorklogRefresh still works).
+-- mode. `off` installs nothing (manual :WorklogRefresh still works) but still
+-- clears any autocmds a previous setup() left behind.
 local function setup_auto_summary(mode)
+  local group = vim.api.nvim_create_augroup("WorklogAutoSummary", { clear = true })
   if mode == "off" then
     return
   end
-
-  local group = vim.api.nvim_create_augroup("WorklogAutoSummary", { clear = true })
 
   local function on_worklog_buffer(opts, action)
     if vim.bo[opts.buf].filetype == "worklog" then
@@ -564,24 +600,19 @@ local function setup_auto_summary(mode)
     end
   end
 
+  local function refresh(opts)
+    on_worklog_buffer(opts, function()
+      apply_refresh(true)
+    end)
+  end
+
   if mode == "save" then
-    vim.api.nvim_create_autocmd("BufWritePre", {
-      group = group,
-      callback = function(opts)
-        on_worklog_buffer(opts, function()
-          apply_refresh(true)
-        end)
-      end,
-    })
+    vim.api.nvim_create_autocmd("BufWritePre", { group = group, callback = refresh })
   elseif mode == "idle" then
-    vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "InsertLeave" }, {
-      group = group,
-      callback = function(opts)
-        on_worklog_buffer(opts, function()
-          apply_refresh(true)
-        end)
-      end,
-    })
+    vim.api.nvim_create_autocmd(
+      { "CursorHold", "CursorHoldI", "InsertLeave" },
+      { group = group, callback = refresh }
+    )
   elseif mode == "change" then
     local generation = 0
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
