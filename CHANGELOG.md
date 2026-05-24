@@ -26,6 +26,12 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- Day navigation no longer creates or initializes files. `:WorklogNextDay` /
+  `:WorklogPrevDay` (`[w` / `]w`) and `:WorklogToday` with a nonzero offset now
+  only open the target day — an existing file, or an empty unmodified buffer when
+  none exists — so they never write a header, create a directory, or leave a
+  modified buffer. Only `:WorklogToday 0` still creates and stamps today.
+
 ### Fixed
 
 ## 0.3.0 - 2026-05-24

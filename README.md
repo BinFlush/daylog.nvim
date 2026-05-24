@@ -178,7 +178,7 @@ logged. See `:help :WorklogLog` for the full behavior.
 | Command | Effect |
 | --- | --- |
 | `:WorklogNew` | Create a new worklog block using configured defaults |
-| `:WorklogToday [offset]` | Open a journal file relative to today; nonzero offsets initialize missing or empty files without inserting the current time |
+| `:WorklogToday [offset]` | Open today's journal, creating it on first use; a nonzero offset only navigates to another day (never creates it) |
 | `:WorklogNextDay [count]` | Step forward `count` days (default 1) relative to the open journal file, falling back to today |
 | `:WorklogPrevDay [count]` | Step backward `count` days (default 1) relative to the open journal file, falling back to today |
 | `:WorklogDays[!] {count}` | Open the last N journal days report; `!` shows only the aggregate range summary |
@@ -275,12 +275,13 @@ With the example above, `:WorklogToday` opens:
 ~/timereg/2026/21/2026-05-18.wkl
 ```
 
-If the file is missing or empty, `:WorklogToday` creates the first worklog block
+On first use, `:WorklogToday` creates today's file with the first worklog block
 from your defaults, inserts the current time, and appends a quantized summary so
 the day is tracked from the start (live when `auto_summary` is enabled). An
-optional signed offset opens another day relative to today (`-1` yesterday, `+1`
-tomorrow, and so on); those nonzero offsets still create the header and summary
-but skip the current time. Existing files open unchanged.
+optional signed offset just *navigates* to another day (`-1` yesterday, `+1`
+tomorrow, and so on): it opens that day's file if it exists, or an empty buffer
+if it doesn't — it never creates a file. (To start a past or future day, navigate
+there and run `:WorklogNew`.) Existing files always open unchanged.
 
 `:WorklogDays {count}` uses the same journal settings to scan the last N dates,
 including today, from oldest to newest. `:WorklogWeek` scans the current ISO
@@ -343,7 +344,10 @@ relative to today.
 `]w` and `[w` instead *step* to the next and previous day relative to the journal
 file you are viewing, so repeated presses walk through your days; a count
 multiplies the step, e.g. `3[w` for three days back. When the current buffer is
-not a dated worklog file, they fall back to today.
+not a dated worklog file, they fall back to today. Like `:WorklogToday <offset>`,
+stepping is navigation only: it opens an existing day, or an empty buffer for a
+day with no file yet, and never creates or modifies anything — so a day you only
+glance at leaves no file behind and Neovim still quits cleanly.
 
 ## Documentation
 

@@ -227,13 +227,14 @@ Open a journal file relative to today from
 
 - `[offset]` is an optional signed day count from today.
 - The path is `{root}/{strftime(directory)}/YYYY-MM-DD.wkl`.
-- Parent directories are created when needed.
-- If the file is missing or empty, the command creates the first worklog block
-  using configured defaults, inserts the current time, and appends a quantized
-  summary (which tracks the day live when `auto_summary` is enabled).
-- Nonzero offsets still initialize missing or empty files with the worklog header
-  and summary, but they do not insert the current time.
-- If the file already has content, it is opened without modification.
+- Offset 0 (today) creates the file when missing or empty: it makes the parent
+  directories, writes the first worklog block from configured defaults, inserts
+  the current time, and appends a quantized summary (which tracks the day live
+  when `auto_summary` is enabled).
+- A nonzero offset is navigation only: it opens that day's file if it exists, or
+  an empty unmodified buffer if it does not. It never creates a directory or file
+  and never writes a header. Start a past/future day there with |:WorklogNew|.
+- A file that already has content is opened without modification.
 
                                                         *:WorklogNextDay*
 :WorklogNextDay [count]
@@ -244,10 +245,10 @@ buffer.
 - `[count]` is an optional positive number of days to step (default 1).
 - The anchor is the journal date of the current buffer; when the buffer is not a
   canonical journal file, it falls back to today.
-- Missing or empty target files are initialized with the configured worklog
-  header.
-- This is navigation only: it never inserts the current time, even when it lands
-  on today. Use |:WorklogToday| for the today-anchored jump that stamps the time.
+- Navigation only: it opens the target day's file if it exists, or an empty
+  unmodified buffer if it does not. It never creates a file or writes a header,
+  even when it lands on today, so a day you only glance at leaves nothing behind.
+  Use |:WorklogToday| (offset 0) to create and stamp today.
 
                                                         *:WorklogPrevDay*
 :WorklogPrevDay [count]

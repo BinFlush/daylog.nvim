@@ -163,19 +163,17 @@ return function(t)
         vim.cmd("WorklogToday -1")
       end)
 
-      t.eq(
-        vim.api.nvim_buf_get_name(0),
-        root .. "/" .. os.date("%Y", yesterday) .. "/" .. os.date("%Y-%m-%d", yesterday) .. ".wkl"
-      )
-      t.eq(t.get_lines(), {
-        "--- worklog ---",
-        "",
-        "--- summary quantized ---",
-        "",
-        "--- totals quantized ---",
-        "0.00h (+0m) workday",
-      })
-      t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
+      local path = root
+        .. "/"
+        .. os.date("%Y", yesterday)
+        .. "/"
+        .. os.date("%Y-%m-%d", yesterday)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      -- Navigation only: an empty, unmodified buffer with nothing written to disk.
+      t.eq(t.get_lines(), { "" })
+      t.eq(vim.bo.modified, false)
+      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 
@@ -211,19 +209,17 @@ return function(t)
         vim.cmd("WorklogToday +1")
       end)
 
-      t.eq(
-        vim.api.nvim_buf_get_name(0),
-        root .. "/" .. os.date("%Y", tomorrow) .. "/" .. os.date("%Y-%m-%d", tomorrow) .. ".wkl"
-      )
-      t.eq(t.get_lines(), {
-        "--- worklog ---",
-        "",
-        "--- summary quantized ---",
-        "",
-        "--- totals quantized ---",
-        "0.00h (+0m) workday",
-      })
-      t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
+      local path = root
+        .. "/"
+        .. os.date("%Y", tomorrow)
+        .. "/"
+        .. os.date("%Y-%m-%d", tomorrow)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      -- Navigation only: an empty, unmodified buffer with nothing written to disk.
+      t.eq(t.get_lines(), { "" })
+      t.eq(vim.bo.modified, false)
+      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 
@@ -301,61 +297,52 @@ return function(t)
     end)
   end)
 
-  t.test(
-    "today nonzero offset initializes an existing empty journal file with header only",
-    function()
-      local root = vim.fn.tempname()
-      local now = os.time({
-        year = 2026,
-        month = 5,
-        day = 18,
-        hour = 8,
-        min = 45,
-        sec = 0,
-      })
-      local tomorrow = os.time({
-        year = 2026,
-        month = 5,
-        day = 19,
-        hour = 12,
-        min = 0,
-        sec = 0,
-      })
-      local expected_dir = root .. "/" .. os.date("%Y", tomorrow)
-      local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", tomorrow) .. ".wkl"
+  t.test("today nonzero offset opens an existing empty journal file without writing", function()
+    local root = vim.fn.tempname()
+    local now = os.time({
+      year = 2026,
+      month = 5,
+      day = 18,
+      hour = 8,
+      min = 45,
+      sec = 0,
+    })
+    local tomorrow = os.time({
+      year = 2026,
+      month = 5,
+      day = 19,
+      hour = 12,
+      min = 0,
+      sec = 0,
+    })
+    local expected_dir = root .. "/" .. os.date("%Y", tomorrow)
+    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", tomorrow) .. ".wkl"
 
-      vim.fn.mkdir(expected_dir, "p")
-      vim.fn.writefile({}, expected_path)
+    vim.fn.mkdir(expected_dir, "p")
+    vim.fn.writefile({}, expected_path)
 
-      with_worklog_setup({
-        defaults = {
-          tag = "ClientA",
-        },
-        journal = {
-          root = root,
-          directory = "%Y",
-        },
-      }, function()
-        vim.cmd("enew!")
-        vim.bo.modified = false
+    with_worklog_setup({
+      defaults = {
+        tag = "ClientA",
+      },
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
 
-        with_mocked_time(now, function()
-          vim.cmd("WorklogToday 1")
-        end)
-
-        t.eq(vim.api.nvim_buf_get_name(0), expected_path)
-        t.eq(t.get_lines(), {
-          "--- worklog #ClientA ---",
-          "",
-          "--- summary quantized ---",
-          "",
-          "--- totals quantized ---",
-          "0.00h (+0m) workday",
-        })
-        t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
+      with_mocked_time(now, function()
+        vim.cmd("WorklogToday 1")
       end)
-    end
-  )
+
+      t.eq(vim.api.nvim_buf_get_name(0), expected_path)
+      -- Navigation only: the existing empty file is opened, not written to.
+      t.eq(t.get_lines(), { "" })
+      t.eq(vim.bo.modified, false)
+    end)
+  end)
 
   t.test("today opens an existing journal file without changing it", function()
     local root = vim.fn.tempname()
@@ -639,14 +626,17 @@ return function(t)
 
       vim.cmd("WorklogNextDay")
 
-      t.eq(
-        vim.api.nvim_buf_get_name(0),
-        root .. "/" .. os.date("%Y", next_day) .. "/" .. os.date("%Y-%m-%d", next_day) .. ".wkl"
-      )
-      t.eq(t.get_lines(), {
-        "--- worklog ---",
-      })
-      t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
+      local path = root
+        .. "/"
+        .. os.date("%Y", next_day)
+        .. "/"
+        .. os.date("%Y-%m-%d", next_day)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      -- Navigation only: empty, unmodified, nothing written to disk.
+      t.eq(t.get_lines(), { "" })
+      t.eq(vim.bo.modified, false)
+      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 
@@ -683,13 +673,16 @@ return function(t)
 
       vim.cmd("WorklogPrevDay 2")
 
-      t.eq(
-        vim.api.nvim_buf_get_name(0),
-        root .. "/" .. os.date("%Y", target) .. "/" .. os.date("%Y-%m-%d", target) .. ".wkl"
-      )
-      t.eq(t.get_lines(), {
-        "--- worklog ---",
-      })
+      local path = root
+        .. "/"
+        .. os.date("%Y", target)
+        .. "/"
+        .. os.date("%Y-%m-%d", target)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      t.eq(t.get_lines(), { "" })
+      t.eq(vim.bo.modified, false)
+      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 
@@ -725,13 +718,16 @@ return function(t)
         vim.cmd("WorklogPrevDay")
       end)
 
-      t.eq(
-        vim.api.nvim_buf_get_name(0),
-        root .. "/" .. os.date("%Y", yesterday) .. "/" .. os.date("%Y-%m-%d", yesterday) .. ".wkl"
-      )
-      t.eq(t.get_lines(), {
-        "--- worklog ---",
-      })
+      local path = root
+        .. "/"
+        .. os.date("%Y", yesterday)
+        .. "/"
+        .. os.date("%Y-%m-%d", yesterday)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      t.eq(t.get_lines(), { "" })
+      t.eq(vim.bo.modified, false)
+      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 
@@ -770,13 +766,12 @@ return function(t)
         vim.cmd("WorklogNextDay")
       end)
 
-      t.eq(
-        vim.api.nvim_buf_get_name(0),
-        root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
-      )
-      t.eq(t.get_lines(), {
-        "--- worklog ---",
-      })
+      local path = root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      -- Navigation onto today opens an empty, unmodified buffer (no current time).
+      t.eq(t.get_lines(), { "" })
+      t.eq(vim.bo.modified, false)
+      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 

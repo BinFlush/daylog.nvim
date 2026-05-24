@@ -251,6 +251,22 @@ local function open_journal_file(settings, date)
   return true, should_initialize
 end
 
+-- Open the journal file for a date for navigation only: never create the
+-- directory or file and never write a header. A missing day opens as an empty,
+-- unmodified buffer named for that date, so nothing is written to disk and the
+-- buffer can be abandoned cleanly.
+local function edit_journal_file(settings, date)
+  local path = journal.path_for_date(settings, date)
+
+  local ok, err = pcall(vim.cmd, "edit " .. vim.fn.fnameescape(path))
+  if not ok then
+    warn(tostring(err))
+    return false
+  end
+
+  return true
+end
+
 -- The journal date the current buffer represents, or nil when it is not a
 -- canonical journal file (unnamed buffer, journal unconfigured, or a dated file
 -- outside the configured location).
@@ -449,6 +465,14 @@ function M.open_today(day_offset)
   local offset = day_offset or 0
   local target_date = journal.offset_date(now, offset)
 
+  -- Only opening today creates and stamps a file. Other offsets are navigation:
+  -- open the day if it exists, otherwise an empty unmodified buffer (no file
+  -- created). Start a past/future day there with :WorklogNew.
+  if offset ~= 0 then
+    edit_journal_file(settings, target_date)
+    return
+  end
+
   local ok, was_initialized = open_journal_file(settings, target_date)
   if not ok then
     return
@@ -458,13 +482,9 @@ function M.open_today(day_offset)
     return
   end
 
-  -- A freshly created journal file gets the current time (today only) and a
-  -- quantized summary, so it tracks the day from the start (live when
-  -- auto_summary is enabled).
-  if offset == 0 then
-    apply_insert_time(os.date("%H:%M", now))
-  end
-
+  -- A freshly created today file gets the current time and a quantized summary,
+  -- so it tracks the day from the start (live when auto_summary is enabled).
+  apply_insert_time(os.date("%H:%M", now))
   M.append_quantized_summary()
 end
 
@@ -484,7 +504,7 @@ function M.open_relative_day(step)
   end
 
   local anchor = current_buffer_journal_date(settings) or os.time()
-  open_journal_file(settings, journal.offset_date(anchor, step))
+  edit_journal_file(settings, journal.offset_date(anchor, step))
 end
 
 function M.open_week(aggregate_only)
