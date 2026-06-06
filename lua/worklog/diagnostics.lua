@@ -56,6 +56,8 @@ local function has_entry_node(parsed)
   return false
 end
 
+M.has_entry_node = has_entry_node
+
 -- Every problem that prevents a clean summary, as { row, message } entries:
 -- whole-document structure (a bad first header, bad header options), one problem
 -- per worklog block (out-of-order timestamps, an invalid entry, 24:00 not final),

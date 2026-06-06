@@ -263,7 +263,7 @@ Open a scratch report for the current ISO week from
 `require('worklog').setup({ journal = ... })`.
 
 - The week runs Monday through Sunday.
-- Missing or empty day files are skipped.
+- Missing, empty, or notes-only day files are skipped.
 - Each included day is recomputed from that file's latest worklog block, or from
   an open buffer for it (reflecting unsaved changes).
 - Existing rendered summaries are ignored.
@@ -284,7 +284,7 @@ Open a scratch report for the last N journal dates from
 
 - `{count}` must be a positive integer.
 - The range includes today and scans oldest to newest.
-- Missing or empty day files are skipped.
+- Missing, empty, or notes-only day files are skipped.
 - Each included day is recomputed from that file's latest worklog block, or from
   an open buffer for it (reflecting unsaved changes).
 - Existing rendered summaries are ignored.

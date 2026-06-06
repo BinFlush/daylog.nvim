@@ -349,6 +349,28 @@ return function(t)
     })
   end)
 
+  t.test("check usecase reports an entry outside a worklog block", function()
+    local result = check.run({
+      "--- worklog ---",
+      "08:00 work",
+      "12:00 done",
+      "",
+      "--- totals quantized ---",
+      "4:00 (+0m) workday",
+      "16:00 evening task",
+      "17:00 done",
+    })
+
+    t.eq(result.ok, false)
+    t.eq(result.warnings, {
+      {
+        row = 7,
+        message = "worklog: timestamped entry is outside a worklog block and will not be "
+          .. "counted; move it under a --- worklog --- header",
+      },
+    })
+  end)
+
   t.test("check usecase reports a 24:00 entry that is not the final entry", function()
     local result = check.run({
       "--- worklog ---",

@@ -29,6 +29,12 @@ local function analyze_day(day)
     return nil, prefixed_file_error(day.path, diagnostics.message(analysis.diagnostics[1]))
   end
 
+  -- A non-empty day with no worklog and no timestamped entries (e.g. a "day off"
+  -- note) is skipped like an empty day instead of aborting the whole report.
+  if #analysis.worklog_blocks == 0 and not diagnostics.has_entry_node(analysis.document) then
+    return nil, nil
+  end
+
   local err = diagnostics.structural_or_missing_worklog_error(analysis)
   if err then
     return nil, prefixed_file_error(day.path, err)

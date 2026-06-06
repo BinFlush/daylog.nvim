@@ -27,6 +27,9 @@ happen, but they are called out clearly in this changelog.
 - `:WorklogWeek` and `:WorklogDays` reports refresh while open as their source
   files and buffers change, following `auto_summary` — matching how in-file
   summaries update.
+- A timestamped entry that falls outside a worklog block (for example, added
+  below the summary) is now flagged by `:WorklogCheck` and inline diagnostics
+  instead of being silently dropped from the totals.
 
 ### Changed
 
@@ -43,6 +46,8 @@ happen, but they are called out clearly in this changelog.
   refuses, as it already does for one saved on disk.
 - `:WorklogRepeat` and past-midnight carryover no longer silently change the
   following entry's tag or location when inserting an entry before it.
+- `:WorklogWeek` and `:WorklogDays` skip a day that has notes but no worklog
+  block (e.g. a "day off" note) instead of failing the whole report.
 
 ## 0.4.0 - 2026-05-24
 

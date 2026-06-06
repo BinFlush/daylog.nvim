@@ -354,6 +354,30 @@ return function(t)
     t.eq(analysis.worklog_blocks[1].duration_format, "decimal")
   end)
 
+  t.test("analyze flags timestamped entries outside a worklog block", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog ---",
+      "08:00 work",
+      "12:00 done",
+      "",
+      "--- totals quantized ---",
+      "4:00 (+0m) workday",
+      "16:00 evening task",
+      "17:00 done",
+    }))
+
+    t.eq(analysis.diagnostics, {
+      {
+        code = "orphaned_entry",
+        category = "structural",
+        severity = "error",
+        row = 7,
+        message = "timestamped entry is outside a worklog block and will not be "
+          .. "counted; move it under a --- worklog --- header",
+      },
+    })
+  end)
+
   t.test("analyze reports duplicate header metadata when clear tokens are mixed in", function()
     local analysis = analyze.analyze(document.parse({
       "--- worklog #- #ClientA ---",

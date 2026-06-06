@@ -264,6 +264,49 @@ return function(t)
     )
   end)
 
+  t.test("build_report skips a prose-only day with no worklog", function()
+    local report = week.build_report({
+      {
+        date_label = "2026-05-18",
+        path = "/tmp/2026-05-18.wkl",
+        lines = { "Holiday - no work" },
+      },
+      {
+        date_label = "2026-05-19",
+        path = "/tmp/2026-05-19.wkl",
+        lines = {
+          "--- worklog ---",
+          "08:00 plan",
+          "09:00 done",
+        },
+      },
+    })
+
+    t.eq(#report.days, 1)
+    t.eq(report.days[1].date_label, "2026-05-19")
+    t.eq(report.summary.workday_total, 60)
+  end)
+
+  t.test("build_report aborts on timestamped entries with no worklog header", function()
+    local report, err = week.build_report({
+      {
+        date_label = "2026-05-18",
+        path = "/tmp/2026-05-18.wkl",
+        lines = {
+          "08:00 plan",
+          "09:00 done",
+        },
+      },
+    })
+
+    t.eq(report, nil)
+    t.eq(
+      err,
+      "worklog: /tmp/2026-05-18.wkl: no worklog block found; first line must be a "
+        .. "worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+    )
+  end)
+
   t.test("build_report reports the generalized no-data error", function()
     local report, err = week.build_report({})
 
