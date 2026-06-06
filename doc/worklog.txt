@@ -264,10 +264,13 @@ Open a scratch report for the current ISO week from
 
 - The week runs Monday through Sunday.
 - Missing or empty day files are skipped.
-- Each included day is recomputed from that file's latest worklog block.
+- Each included day is recomputed from that file's latest worklog block, or from
+  an open buffer for it (reflecting unsaved changes).
 - Existing rendered summaries are ignored.
 - The report shows each included day's quantized summary first, then one weekly
   quantized summary built by summing those daily quantized results.
+- While open, the report refreshes as its source files and buffers change,
+  following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
   the weekly aggregate summary.
 - Non-empty invalid journal files abort the report instead of producing partial
@@ -282,10 +285,13 @@ Open a scratch report for the last N journal dates from
 - `{count}` must be a positive integer.
 - The range includes today and scans oldest to newest.
 - Missing or empty day files are skipped.
-- Each included day is recomputed from that file's latest worklog block.
+- Each included day is recomputed from that file's latest worklog block, or from
+  an open buffer for it (reflecting unsaved changes).
 - Existing rendered summaries are ignored.
 - The report shows each included day's quantized summary first, then one range
   summary built by summing those daily quantized results.
+- While open, the report refreshes as its source files and buffers change,
+  following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
   the range aggregate summary.
 - Non-empty invalid journal files abort the report instead of producing partial
@@ -483,9 +489,11 @@ than `%Y/%V` around new year boundaries.
 |:WorklogDays| uses the same journal settings to scan the last N dates,
 including today, from oldest to newest. |:WorklogWeek| scans the current ISO
 week from Monday through Sunday. Both commands recompute each included day's
-quantized summary from the latest worklog block in that file, show those daily
-sections in a scratch buffer, then append one aggregate summary built from the
-already-quantized daily results.
+quantized summary from the latest worklog block in that file (or an open buffer
+for it, including unsaved edits), show those daily sections in a scratch buffer,
+then append one aggregate summary built from the already-quantized daily results.
+While a report is open it refreshes as those sources change, following
+`auto_summary`.
 
                                                         *worklog-auto-summary*
 `auto_summary` controls when existing summaries refresh automatically (see
@@ -495,6 +503,9 @@ already-quantized daily results.
 - `change` - shortly after edits settle (debounced).
 - `idle` - when you pause or leave insert mode.
 - `save` - on write (`:w`).
+
+Open |:WorklogWeek| and |:WorklogDays| reports follow the same setting,
+rebuilding in place as their source days change.
 
 >
   require('worklog').setup({ auto_summary = 'idle' })

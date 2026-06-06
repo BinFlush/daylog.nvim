@@ -596,46 +596,101 @@ function M.open_relative_day(step)
   edit_journal_file(settings, journal.offset_date(anchor, step))
 end
 
-function M.open_week(aggregate_only)
+-- Build the display lines for a report spec, reading each day through
+-- journal_lines so open buffers (saved or not) are reflected. Returns the lines
+-- and the period label, or nil and an error message.
+local function build_report_lines(spec)
   local settings = expanded_journal_settings()
   if settings == nil then
-    warn("worklog: journal.root is not configured")
-    return
+    return nil, "worklog: journal.root is not configured"
   end
 
-  local report, err = week.build_week_report(settings, os.time(), journal_lines)
+  local report, err
+  if spec.kind == "week" then
+    report, err = week.build_week_report(settings, spec.anchor, journal_lines)
+  else
+    report, err = week.build_days_report(settings, spec.anchor, spec.count, journal_lines)
+  end
+
   if not report then
-    warn(err)
+    return nil, err
+  end
+
+  local options = { aggregate_only = spec.aggregate_only }
+  local duration_format = config.get().defaults.duration_format
+  local render_report = spec.kind == "week" and render.week_report_lines or render.days_report_lines
+
+  return render_report(report, duration_format, options), report.period_label
+end
+
+local function report_buffer_name(spec, label)
+  local prefix
+  if spec.kind == "week" then
+    prefix = spec.aggregate_only and "worklog-week-summary-" or "worklog-week-"
+  else
+    prefix = spec.aggregate_only and "worklog-days-summary-" or "worklog-days-"
+  end
+
+  return prefix .. label .. ".wkl"
+end
+
+-- Open a fresh scratch report for a spec and tag the buffer with that spec, so
+-- the auto-summary autocmds can rebuild it in place when a dependent journal
+-- buffer changes. The anchor is pinned at open time, so the report keeps
+-- covering the same period for as long as it stays open.
+local function open_report(spec)
+  local lines, label_or_err = build_report_lines(spec)
+  if not lines then
+    warn(label_or_err)
     return
   end
 
-  open_report_buffer(
-    render.week_report_lines(report, config.get().defaults.duration_format, {
-      aggregate_only = aggregate_only,
-    }),
-    (aggregate_only and "worklog-week-summary-" or "worklog-week-") .. report.period_label .. ".wkl"
-  )
+  open_report_buffer(lines, report_buffer_name(spec, label_or_err))
+  vim.api.nvim_buf_set_var(0, "worklog_report", spec)
+end
+
+-- Rebuild every open report buffer from its stored spec, mirroring how the
+-- in-file summaries refresh. A build failure (e.g. a dependent day is mid-edit
+-- and invalid) leaves the last good report untouched rather than flicker, and
+-- an unchanged report is left alone so the cursor never jumps needlessly.
+local function refresh_report_windows()
+  local refreshed = {}
+
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    local ok, spec = pcall(vim.api.nvim_buf_get_var, buf, "worklog_report")
+
+    if ok and type(spec) == "table" and not refreshed[buf] then
+      refreshed[buf] = true
+      local lines = build_report_lines(spec)
+
+      if lines and not vim.deep_equal(lines, vim.api.nvim_buf_get_lines(buf, 0, -1, false)) then
+        local cursor = vim.api.nvim_win_get_cursor(win)
+        vim.bo[buf].modifiable = true
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+        vim.bo[buf].modified = false
+        vim.bo[buf].modifiable = false
+
+        local line_count = vim.api.nvim_buf_line_count(buf)
+        local row = math.min(cursor[1], line_count)
+        local text = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
+        vim.api.nvim_win_set_cursor(win, { row, math.min(cursor[2], #text) })
+      end
+    end
+  end
+end
+
+function M.open_week(aggregate_only)
+  open_report({ kind = "week", anchor = os.time(), aggregate_only = aggregate_only or false })
 end
 
 function M.open_days(count, aggregate_only)
-  local settings = expanded_journal_settings()
-  if settings == nil then
-    warn("worklog: journal.root is not configured")
-    return
-  end
-
-  local report, err = week.build_days_report(settings, os.time(), count, journal_lines)
-  if not report then
-    warn(err)
-    return
-  end
-
-  open_report_buffer(
-    render.days_report_lines(report, config.get().defaults.duration_format, {
-      aggregate_only = aggregate_only,
-    }),
-    (aggregate_only and "worklog-days-summary-" or "worklog-days-") .. report.period_label .. ".wkl"
-  )
+  open_report({
+    kind = "days",
+    anchor = os.time(),
+    count = count,
+    aggregate_only = aggregate_only or false,
+  })
 end
 
 -- Wire the autocmds that drive automatic summary refresh for the configured
@@ -656,6 +711,7 @@ local function setup_auto_summary(mode)
   local function refresh(opts)
     on_worklog_buffer(opts, function()
       apply_refresh(true)
+      refresh_report_windows()
     end)
   end
 
@@ -678,6 +734,7 @@ local function setup_auto_summary(mode)
           vim.defer_fn(function()
             if scheduled == generation then
               apply_refresh(true)
+              refresh_report_windows()
             end
           end, 200)
         end)

@@ -9,6 +9,15 @@ return function(t)
 
   helpers.setup_worklog()
 
+  local function report_has_workday(buf, prefix)
+    for _, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+      if line:match("^" .. prefix .. " .* workday$") then
+        return true
+      end
+    end
+    return false
+  end
+
   t.test("new creates the initial worklog block in an empty buffer", function()
     t.reset({})
 
@@ -1465,6 +1474,100 @@ return function(t)
           },
         })
       end)
+    end)
+  end)
+
+  t.test("week report refreshes when a dependent journal buffer changes", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })
+    local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
+
+    local monday_path = write_journal_file(root, "%Y/%V", monday, {
+      "--- worklog #ClientA @office quantize=30 ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      auto_summary = "save",
+      defaults = { duration_format = "hhmm" },
+      journal = { root = root, directory = "%Y/%V" },
+    }, function()
+      vim.cmd("silent! only!")
+
+      -- Monday open in its own window so the report split does not replace it.
+      vim.cmd("edit " .. vim.fn.fnameescape(monday_path))
+      local monday_buf = vim.api.nvim_get_current_buf()
+      local monday_win = vim.api.nvim_get_current_win()
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogWeek")
+      end)
+      local report_buf = vim.api.nvim_get_current_buf()
+
+      t.ok(report_has_workday(report_buf, "1:00"), "report should start from Monday's one-hour day")
+
+      -- Extend Monday to two hours in its buffer (unsaved) and signal a save.
+      vim.api.nvim_buf_set_lines(monday_buf, 0, -1, false, {
+        "--- worklog #ClientA @office quantize=30 ---",
+        "08:00 plan",
+        "10:00 done",
+      })
+      vim.api.nvim_set_current_win(monday_win)
+      with_mocked_time(now, function()
+        vim.api.nvim_exec_autocmds("BufWritePre", { buffer = monday_buf })
+      end)
+
+      t.ok(report_has_workday(report_buf, "2:00"), "report should rebuild to the two-hour day")
+      t.ok(not report_has_workday(report_buf, "1:00"), "stale one-hour total should be gone")
+
+      vim.cmd("silent! only!")
+    end)
+  end)
+
+  t.test("days report refreshes when a dependent journal buffer changes", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
+    local day_one = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
+
+    local day_one_path = write_journal_file(root, "%Y", day_one, {
+      "--- worklog #ClientA @office quantize=30 ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      auto_summary = "save",
+      defaults = { duration_format = "hhmm" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("silent! only!")
+
+      vim.cmd("edit " .. vim.fn.fnameescape(day_one_path))
+      local source_buf = vim.api.nvim_get_current_buf()
+      local source_win = vim.api.nvim_get_current_win()
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogDays 2")
+      end)
+      local report_buf = vim.api.nvim_get_current_buf()
+
+      t.ok(report_has_workday(report_buf, "1:00"))
+
+      vim.api.nvim_buf_set_lines(source_buf, 0, -1, false, {
+        "--- worklog #ClientA @office quantize=30 ---",
+        "08:00 plan",
+        "10:00 done",
+      })
+      vim.api.nvim_set_current_win(source_win)
+      with_mocked_time(now, function()
+        vim.api.nvim_exec_autocmds("BufWritePre", { buffer = source_buf })
+      end)
+
+      t.ok(report_has_workday(report_buf, "2:00"))
+      t.ok(not report_has_workday(report_buf, "1:00"))
+
+      vim.cmd("silent! only!")
     end)
   end)
 

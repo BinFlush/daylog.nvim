@@ -24,6 +24,10 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- `:WorklogWeek` and `:WorklogDays` reports refresh while open as their source
+  files and buffers change, following `auto_summary` — matching how in-file
+  summaries update.
+
 ### Changed
 
 ### Fixed
