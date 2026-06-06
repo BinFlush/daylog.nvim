@@ -60,6 +60,11 @@ happen, but they are called out clearly in this changelog.
   defaults, `auto_summary`) and its refresh autocmds — the probe is read-only now.
 - A relative `journal.root` is absolutized, so the time guard and past-midnight
   carryover recognize journal files instead of silently disabling themselves.
+- A `--- worklog ---` header is recognized only when `worklog` is a whole word, so
+  `--- worklogs ---` and `--- worklog#sales ---` read as generic block headers
+  (matching the highlighter) instead of malformed worklog headers.
+- `duration=hhmm` summary rows highlight as durations (single-digit-hour rows and
+  any quantized `(+Nm)` row) instead of as entry timestamps or dimmed notes.
 
 ## 0.4.0 - 2026-05-24
 

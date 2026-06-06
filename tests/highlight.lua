@@ -240,4 +240,26 @@ return function(t)
       "#tag after a glued time must not highlight"
     )
   end)
+
+  t.test("hhmm summary rows highlight as durations, not timestamps or notes", function()
+    load_worklog_syntax({
+      "0:30 (+4m) planning",
+      "16:00 (-20m) workday",
+      "1:30 planning",
+      "08:00 planning",
+    })
+
+    -- Quantized hhmm row: the duration highlights and the (+Nm) error is distinct.
+    t.eq(group_at(1, 1), "WorklogDuration")
+    t.eq(group_at(1, col_of(1, "(+4m)")), "WorklogQuantError")
+
+    -- A two-digit-hour quantized row beats the timestamp match.
+    t.eq(group_at(2, 1), "WorklogDuration")
+
+    -- An exact single-digit-hour duration, which can never be an entry.
+    t.eq(group_at(3, 1), "WorklogDuration")
+
+    -- A zero-padded HH:MM entry still reads as a timestamp, not a duration.
+    t.eq(group_at(4, 1), "WorklogTimestamp")
+  end)
 end

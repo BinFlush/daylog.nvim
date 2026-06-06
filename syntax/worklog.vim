@@ -60,9 +60,16 @@ unlet s:header_token s:header_no_dup
 syntax match WorklogTimestamp /^\%(\%([01]\d\|2[0-3]\):[0-5]\d\|24:00\)\%(\s\|$\)\@=/
 
 " Summary rows -------------------------------------------------------------
-" Generated rows start at column 0 with a decimal duration; quantized rows add
-" a (+Nm) rounding error.
+" Generated rows start at column 0 with a duration; quantized rows add a (+Nm)
+" rounding error. A decimal duration is unambiguous. For hhmm (H:MM) durations a
+" single-digit hour cannot be an entry (entries are zero-padded HH:MM), and any
+" H:MM directly before a (+Nm) error is a quantized summary row, never an entry;
+" both are defined after WorklogTimestamp so they win at the same position. (An
+" exact hhmm row with a two-digit hour, e.g. "16:00 workday", is
+" indistinguishable from an entry line-by-line and still reads as a timestamp.)
 syntax match WorklogDuration /^\d\+\.\d\+h/
+syntax match WorklogDuration /^\d:\d\d\%(\s\|$\)\@=/
+syntax match WorklogDuration /^\d\+:\d\d\ze ([+-]\d\+m)/
 syntax match WorklogQuantError /([+-]\d\+m)/
 
 " Trailing metadata --------------------------------------------------------

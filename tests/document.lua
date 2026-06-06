@@ -67,6 +67,15 @@ return function(t)
     })
   end)
 
+  t.test("document parse requires worklog to be its own word in a header", function()
+    t.eq(document.parse_line("--- worklog ---").kind, "worklog_header")
+    t.eq(document.parse_line("--- worklog #ClientA ---").kind, "worklog_header")
+    t.eq(document.parse_line("--- worklog---").kind, "worklog_header")
+    t.eq(document.parse_line("--- worklogs ---").kind, "block_header")
+    t.eq(document.parse_line("--- worklog#sales ---").kind, "block_header")
+    t.eq(document.parse_line("--- worklogs to review ---").kind, "block_header")
+  end)
+
   t.test("document parse_line parses a single line directly", function()
     t.eq(document.parse_line("08:21 negotiate with goose #sales @client"), {
       kind = "entry",

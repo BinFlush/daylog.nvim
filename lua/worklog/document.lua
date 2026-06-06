@@ -162,7 +162,15 @@ local function parse_entry_metadata(text)
 end
 
 local function parse_header(line, row)
-  local options_text = line:match("^%-%-%- worklog%s*(.-)%s*%-%-%-$")
+  -- "worklog" must be its own word: followed by whitespace (before any options)
+  -- or by the closing dashes directly. This rejects "--- worklogs ---" and
+  -- "--- worklog#sales ---" (they fall through to a generic block header),
+  -- matching the highlighter in syntax/worklog.vim.
+  local options_text = line:match("^%-%-%- worklog%s+(.-)%s*%-%-%-$")
+  if options_text == nil and line:match("^%-%-%- worklog%-%-%-$") then
+    options_text = ""
+  end
+
   if options_text ~= nil then
     local options = parse_worklog_tokens(options_text)
 
