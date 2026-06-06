@@ -49,6 +49,61 @@ function M.get_insert_state(block, minutes)
   return body.state_before(block, minutes)
 end
 
+-- Build the edit that inserts `inserted_line` (whose effective tag/location are
+-- `ins_tag`/`ins_loc`) at `minutes` in `block`. When the inserted entry changes
+-- the sticky tag/location the following entry was silently inheriting, the
+-- follower is rewritten with a compensating token (#tag/@location or #-/@-) so
+-- its effective metadata is preserved. Pinning the immediate follower suffices,
+-- since later entries inherit from it.
+function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc)
+  local insert_index = body.insert_index(block, minutes)
+  local pred = body.state_before(block, minutes)
+
+  local follower
+  for _, item in ipairs(block.entry_items) do
+    if item.minutes > minutes then
+      follower = item
+      break
+    end
+  end
+
+  local lines = { inserted_line }
+  local end_index = insert_index
+
+  if follower then
+    local needs_tag = not follower.explicit_tag
+      and not follower.explicit_tag_clear
+      and ins_tag ~= pred.tag
+    local needs_location = not follower.explicit_location
+      and not follower.explicit_location_clear
+      and ins_loc ~= pred.location
+
+    if needs_tag or needs_location then
+      lines = {
+        inserted_line,
+        entry.format({
+          minutes = follower.minutes,
+          text = follower.text,
+          tag = follower.tag,
+          location = follower.location,
+          logged = follower.logged,
+        }, ins_tag, ins_loc),
+      }
+      end_index = insert_index + 1
+    end
+  end
+
+  return {
+    edits = {
+      {
+        start_index = insert_index,
+        end_index = end_index,
+        lines = lines,
+      },
+    },
+  }
+end
+
 function M.parse_clock_minutes(time)
   local parsed, err = entry.parse(time)
 

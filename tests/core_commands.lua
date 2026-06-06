@@ -1,5 +1,6 @@
 return function(t)
   local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
+  local with_captured_notify = helpers.with_captured_notify
   local with_mocked_date = helpers.with_mocked_date
 
   helpers.setup_worklog()
@@ -322,7 +323,7 @@ return function(t)
       "08:00 first",
       "08:15 break #ooo",
       "08:30 first #ProjectOrion",
-      "09:00 done",
+      "09:00 done #ooo",
     })
   end)
 
@@ -366,7 +367,7 @@ return function(t)
         "08:00 first",
         "08:15 break #ooo @home",
         "08:30 first #- @-",
-        "09:00 done",
+        "09:00 done #ooo @home",
       })
     end
   )
@@ -950,14 +951,23 @@ return function(t)
     })
   end)
 
-  t.test("worklog order emits clear tokens when sorting needs them", function()
+  t.test("worklog order emits clear tokens when sorting needs them and warns", function()
     t.reset({
       "--- worklog ---",
       "09:00 done",
       "08:00 plan #sales",
     })
 
-    vim.cmd("WorklogOrder")
+    with_captured_notify(function(messages)
+      vim.cmd("WorklogOrder")
+
+      t.eq(messages, {
+        {
+          message = "worklog: ordering set the tag/location of order-dependent entries; review: 09:00 done",
+          level = vim.log.levels.WARN,
+        },
+      })
+    end)
 
     t.eq(t.get_lines(), {
       "--- worklog ---",

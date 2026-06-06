@@ -434,7 +434,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current usecase re-emits only the tag change", function()
+  t.test("repeat_current re-emits the tag change and preserves the following entry", function()
     local result = repeat_current.run({
       "--- worklog #ClientA @office ---",
       "08:00 planning",
@@ -446,14 +446,14 @@ return function(t)
       edits = {
         {
           start_index = 3,
-          end_index = 3,
-          lines = { "10:30 planning #ClientA" },
+          end_index = 4,
+          lines = { "10:30 planning #ClientA", "11:00 done #internal" },
         },
       },
     })
   end)
 
-  t.test("repeat_current usecase re-emits only the location change", function()
+  t.test("repeat_current re-emits the location change and preserves the following entry", function()
     local result = repeat_current.run({
       "--- worklog #ClientA @office ---",
       "08:00 planning",
@@ -465,14 +465,14 @@ return function(t)
       edits = {
         {
           start_index = 3,
-          end_index = 3,
-          lines = { "10:30 planning @office" },
+          end_index = 4,
+          lines = { "10:30 planning @office", "11:00 done @home" },
         },
       },
     })
   end)
 
-  t.test("repeat_current usecase emits a tag clear when needed", function()
+  t.test("repeat_current emits a tag clear and preserves the following entry", function()
     local result = repeat_current.run({
       "--- worklog @office ---",
       "08:00 planning",
@@ -484,14 +484,14 @@ return function(t)
       edits = {
         {
           start_index = 3,
-          end_index = 3,
-          lines = { "10:30 planning #-" },
+          end_index = 4,
+          lines = { "10:30 planning #-", "11:00 done #internal" },
         },
       },
     })
   end)
 
-  t.test("repeat_current usecase emits a location clear when needed", function()
+  t.test("repeat_current emits a location clear and preserves the following entry", function()
     local result = repeat_current.run({
       "--- worklog #ClientA ---",
       "08:00 planning",
@@ -503,8 +503,8 @@ return function(t)
       edits = {
         {
           start_index = 3,
-          end_index = 3,
-          lines = { "10:30 planning @-" },
+          end_index = 4,
+          lines = { "10:30 planning @-", "11:00 done @home" },
         },
       },
     })
@@ -539,33 +539,54 @@ return function(t)
     t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
-  t.test(
-    "order_worklogs usecase returns replace edits for representable sticky rewrites",
-    function()
-      local result = order_worklogs.run({
-        "--- worklog #ProjectOrion @office ---",
-        "08:30 later",
-        "08:00 earlier #sales @client",
-        "09:00 done #ProjectOrion @office",
-      })
+  t.test("order_worklogs sorts an unambiguous out-of-order worklog", function()
+    local result = order_worklogs.run({
+      "--- worklog #ClientA ---",
+      "09:00 review",
+      "08:00 setup",
+      "10:00 done",
+    })
 
-      t.eq(result, {
-        edits = {
-          {
-            start_index = 1,
-            end_index = 4,
-            lines = {
-              "08:00 earlier #sales @client",
-              "08:30 later #ProjectOrion @office",
-              "09:00 done",
-            },
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 4,
+          lines = {
+            "08:00 setup",
+            "09:00 review",
+            "10:00 done",
           },
         },
-      })
-    end
-  )
+      },
+    })
+  end)
 
-  t.test("order_worklogs usecase emits a tag clear when sorting needs it", function()
+  t.test("order_worklogs sorts and warns about order-dependent metadata", function()
+    local result = order_worklogs.run({
+      "--- worklog #ProjectOrion @office ---",
+      "08:30 later",
+      "08:00 earlier #sales @client",
+      "09:00 done #ProjectOrion @office",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 4,
+          lines = {
+            "08:00 earlier #sales @client",
+            "08:30 later #ProjectOrion @office",
+            "09:00 done",
+          },
+        },
+      },
+      warnings = { "08:30 later" },
+    })
+  end)
+
+  t.test("order_worklogs sorts, emitting a tag clear, and warns", function()
     local result = order_worklogs.run({
       "--- worklog ---",
       "09:00 done",
@@ -583,6 +604,7 @@ return function(t)
           },
         },
       },
+      warnings = { "09:00 done" },
     })
   end)
 
@@ -607,7 +629,7 @@ return function(t)
     })
   end)
 
-  t.test("order_worklogs usecase emits a location clear when sorting needs it", function()
+  t.test("order_worklogs sorts, emitting a location clear, and warns", function()
     local result = order_worklogs.run({
       "--- worklog #sales ---",
       "09:00 done",
@@ -625,6 +647,7 @@ return function(t)
           },
         },
       },
+      warnings = { "09:00 done" },
     })
   end)
 

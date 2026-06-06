@@ -19,6 +19,7 @@ function M.run(lines)
   end
 
   local edits = {}
+  local warnings = {}
 
   for i = #analysis.worklog_blocks, 1, -1 do
     local block = analysis.worklog_blocks[i]
@@ -29,6 +30,10 @@ function M.run(lines)
     end
 
     if diagnostic and diagnostic.code == syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS then
+      for _, changed in ipairs(body.sort_changes_metadata(block)) do
+        table.insert(warnings, entry.minutes_string(changed.minutes) .. " " .. changed.text)
+      end
+
       table.insert(edits, {
         start_index = block.body_start_row - 1,
         end_index = block.end_row - 1,
@@ -43,9 +48,12 @@ function M.run(lines)
     end
   end
 
-  return {
-    edits = edits,
-  }
+  local result = { edits = edits }
+  if #warnings > 0 then
+    result.warnings = warnings
+  end
+
+  return result
 end
 
 return M

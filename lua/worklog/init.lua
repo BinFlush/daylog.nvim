@@ -511,7 +511,20 @@ function M.repeat_current()
 end
 
 function M.order_worklogs()
-  run_buffer_usecase(order_worklogs.run)
+  local result, err = order_worklogs.run(buffer_lines())
+  if not result then
+    warn(err)
+    return
+  end
+
+  apply_result(result)
+
+  if result.warnings and #result.warnings > 0 then
+    warn(
+      "worklog: ordering set the tag/location of order-dependent entries; review: "
+        .. table.concat(result.warnings, ", ")
+    )
+  end
 end
 
 function M.check()

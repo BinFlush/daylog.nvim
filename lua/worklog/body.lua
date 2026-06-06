@@ -139,6 +139,52 @@ function M.state_before(block, minutes)
   return state
 end
 
+-- The entries whose effective tag or location would change when the block is
+-- sorted by time. Each entry item carries its buffer-order effective metadata;
+-- this re-resolves sticky state in time-sorted order and reports every entry
+-- that differs (as { minutes, text }), so :WorklogOrder can warn that it set
+-- those values from the original order. Empty when sorting is unambiguous.
+function M.sort_changes_metadata(block)
+  local order = {}
+  for index, item in ipairs(block.entry_items) do
+    table.insert(order, { index = index, item = item })
+  end
+
+  table.sort(order, function(a, b)
+    if a.item.minutes == b.item.minutes then
+      return a.index < b.index
+    end
+
+    return a.item.minutes < b.item.minutes
+  end)
+
+  local tag = block.header_tag
+  local location = block.header_location
+  local changed = {}
+
+  for _, entry in ipairs(order) do
+    local item = entry.item
+
+    if item.explicit_tag_clear then
+      tag = nil
+    elseif item.explicit_tag ~= nil then
+      tag = item.explicit_tag
+    end
+
+    if item.explicit_location_clear then
+      location = nil
+    elseif item.explicit_location ~= nil then
+      location = item.explicit_location
+    end
+
+    if tag ~= item.tag or location ~= item.location then
+      table.insert(changed, { minutes = item.minutes, text = item.text })
+    end
+  end
+
+  return changed
+end
+
 -- Body rewrites are intentionally infallible now that explicit #- and @-
 -- tokens make sticky-to-nil transitions representable in canonical output.
 function M.normalized_lines(block, format_entry)

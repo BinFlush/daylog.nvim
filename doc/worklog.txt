@@ -327,6 +327,8 @@ Repeat the activity under the cursor at the current time.
 - The entry is inserted in chronological order.
 - Sticky tag and location meaning are preserved.
 - Clear tokens are emitted when needed.
+- The following entry keeps its tag and location when the inserted entry changes
+  the sticky state.
 
 The same date guard and past-midnight carryover as |:WorklogInsert| apply.
 After carrying over, the entry under the cursor is repeated in today's file at
@@ -361,6 +363,8 @@ Rewrite all worklog blocks in chronological order.
 - Equal timestamps preserve their relative order.
 - Notes move with their entry.
 - Clear tokens are emitted when needed to preserve sticky metadata meaning.
+- A warning lists any entry whose tag or location was set from its original
+  order, so order-dependent meaning is never changed silently.
 
                                                         *:WorklogSummarize*
 :WorklogSummarize

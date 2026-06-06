@@ -81,17 +81,7 @@ function M.seed_edit(lines, activity, minutes)
     logged = false,
   }, state.tag, state.location)
 
-  local insert_index = support.get_insert_index(ctx.block, minutes)
-
-  return {
-    edits = {
-      {
-        start_index = insert_index,
-        end_index = insert_index,
-        lines = { line },
-      },
-    },
-  }
+  return support.insert_entry_edit(ctx.block, minutes, line, activity.tag, activity.location)
 end
 
 -- Append a bare 24:00 entry that closes the active worklog's final task at the

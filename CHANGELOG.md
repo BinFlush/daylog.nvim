@@ -30,6 +30,9 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- `:WorklogOrder` now warns when sorting sets an entry's tag or location from its
+  original order, so order-dependent metadata is never re-attributed silently.
+
 ### Fixed
 
 - `:WorklogToday` reuses an open but unsaved today buffer when reopened after
@@ -38,6 +41,8 @@ happen, but they are called out clearly in this changelog.
   buffers in their summaries, instead of reading only the saved files.
 - Past-midnight carryover recognizes an open but unsaved today worklog and
   refuses, as it already does for one saved on disk.
+- `:WorklogRepeat` and past-midnight carryover no longer silently change the
+  following entry's tag or location when inserting an entry before it.
 
 ## 0.4.0 - 2026-05-24
 
