@@ -411,6 +411,11 @@ local function run_carryover(settings, command, now)
   end
   apply_result(close)
 
+  -- Refresh the previous day's summary so the carried-over 24:00 close is
+  -- reflected on disk regardless of the auto_summary mode (apply_result only
+  -- republishes diagnostics; it does not recompute summaries).
+  apply_refresh(false)
+
   if not pcall(vim.cmd, "silent write") then
     warn("worklog: failed to save the previous day before carrying over")
     return true

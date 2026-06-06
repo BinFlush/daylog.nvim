@@ -48,6 +48,11 @@ happen, but they are called out clearly in this changelog.
   following entry's tag or location when inserting an entry before it.
 - `:WorklogWeek` and `:WorklogDays` skip a day that has notes but no worklog
   block (e.g. a "day off" note) instead of failing the whole report.
+- Past-midnight carryover refreshes the previous day's summary before saving it,
+  so the carried-over 24:00 close is reflected on disk instead of a stale total
+  (it previously refreshed only under `auto_summary = "save"`).
+- Past-midnight carryover no longer appends a second 24:00 (corrupting the file)
+  when the previous day's final entry is already a 24:00 boundary entry.
 
 ## 0.4.0 - 2026-05-24
 

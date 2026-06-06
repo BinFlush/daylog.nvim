@@ -1674,6 +1674,49 @@ return function(t)
     end)
   end)
 
+  t.test("carryover refreshes the previous day's summary before saving it", function()
+    local refresh_summaries = require("worklog.usecases.refresh_summaries")
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "08:00 standup",
+      "10:30 writing report",
+      "",
+      "--- summary quantized ---",
+      "2.50h standup",
+      "",
+      "--- totals quantized ---",
+      "2.50h workday",
+    })
+
+    with_worklog_setup({
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(3, 0)
+
+      with_mocked_confirm(1, function()
+        with_mocked_time(now, function()
+          vim.cmd("WorklogInsert")
+        end)
+      end)
+
+      -- The carried-over 24:00 close was written, and the previous day's summary
+      -- was refreshed to match (no drift) instead of being saved stale.
+      local saved = vim.fn.readfile(yesterday_path)
+      local has_summary = false
+      for _, line in ipairs(saved) do
+        if line:match("^%-%-%- summary") then
+          has_summary = true
+        end
+      end
+      t.ok(has_summary, "previous day kept its summary")
+      t.eq(#(refresh_summaries.run(saved).edits or {}), 0)
+    end)
+  end)
+
   t.test("insert past midnight carries the running task into today", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })

@@ -26,7 +26,8 @@ end
 
 -- The activity in effect at the end of the active worklog, i.e. the final
 -- entry when it still has activity text. Returns nil when nothing was running
--- (no entries, or the day already closed with a bare timestamp).
+-- (no entries, the day already closed with a bare timestamp, or the final entry
+-- is the 24:00 end-of-day boundary).
 function M.last_running_entry(lines)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -35,7 +36,7 @@ function M.last_running_entry(lines)
 
   local items = ctx.block.entry_items
   local last = items[#items]
-  if not last or last.text == "" then
+  if not last or last.text == "" or last.minutes == syntax.END_OF_DAY_MINUTES then
     return nil
   end
 

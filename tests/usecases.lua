@@ -1278,6 +1278,20 @@ return function(t)
     )
   end)
 
+  t.test(
+    "carryover last_running_entry is nil when the final entry is the 24:00 boundary",
+    function()
+      t.eq(
+        carryover.last_running_entry({
+          "--- worklog #ClientA @office ---",
+          "08:00 planning",
+          "24:00 wrapping up",
+        }),
+        nil
+      )
+    end
+  )
+
   t.test("carryover entry_at_row returns the activity on the cursor row", function()
     local activity = carryover.entry_at_row({
       "--- worklog #ClientA @office ---",
