@@ -28,6 +28,13 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- `:WorklogToday` reuses an open but unsaved today buffer when reopened after
+  navigating to another day, instead of appending a duplicate worklog.
+- `:WorklogWeek` and `:WorklogDays` include unsaved edits from open journal
+  buffers in their summaries, instead of reading only the saved files.
+- Past-midnight carryover recognizes an open but unsaved today worklog and
+  refuses, as it already does for one saved on disk.
+
 ## 0.4.0 - 2026-05-24
 
 ### Added

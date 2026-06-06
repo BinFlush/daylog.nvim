@@ -90,6 +90,34 @@ return function(t)
     end)
   end)
 
+  t.test("today reopened after navigating away does not duplicate the seeded worklog", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 18, hour = 8, min = 45, sec = 0 })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        -- Seed today, then leave it unsaved.
+        vim.cmd("WorklogToday")
+        local seeded = t.get_lines()
+
+        -- Navigate away (the unsaved buffer survives because hidden is set) and
+        -- back: reopening today must reuse that buffer, not append a duplicate.
+        vim.cmd("WorklogPrevDay")
+        vim.cmd("WorklogToday")
+
+        t.eq(t.get_lines(), seeded)
+      end)
+    end)
+  end)
+
   t.test("today zero offset behaves like today", function()
     local root = vim.fn.tempname()
     local now = os.time({
@@ -932,6 +960,63 @@ return function(t)
     end)
   end)
 
+  t.test("week report reflects unsaved edits in an open journal buffer", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })
+    local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
+
+    local monday_path = write_journal_file(root, "%Y/%V", monday, {
+      "--- worklog #ClientA @office quantize=30 ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      defaults = {
+        duration_format = "hhmm",
+      },
+      journal = {
+        root = root,
+        directory = "%Y/%V",
+      },
+    }, function()
+      vim.cmd("silent! only!")
+
+      -- Open Monday and extend it to two hours without saving.
+      vim.cmd("edit " .. vim.fn.fnameescape(monday_path))
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "--- worklog #ClientA @office quantize=30 ---",
+        "08:00 plan",
+        "10:00 done",
+      })
+      t.ok(vim.bo.modified)
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogWeek")
+      end)
+
+      local has_two_hours, has_one_hour = false, false
+      for _, line in ipairs(t.get_lines()) do
+        if line:match("^2:00 .* workday$") then
+          has_two_hours = true
+        elseif line:match("^1:00 .* workday$") then
+          has_one_hour = true
+        end
+      end
+      t.ok(has_two_hours, "report should use the buffer's two-hour day")
+      t.ok(not has_one_hour, "disk's one-hour day leaked into the report")
+
+      -- The reporting path must not write the unsaved buffer back to disk.
+      t.eq(vim.fn.readfile(monday_path), {
+        "--- worklog #ClientA @office quantize=30 ---",
+        "08:00 plan",
+        "09:00 done",
+      })
+
+      vim.cmd("silent! only!")
+    end)
+  end)
+
   t.test("week bang opens only the weekly aggregate scratch report", function()
     local root = vim.fn.tempname()
     local now = os.time({
@@ -1632,6 +1717,53 @@ return function(t)
         "--- worklog #ClientA @office ---",
         "22:30 writing report",
       })
+    end)
+  end)
+
+  t.test("insert past midnight refuses when an unsaved today buffer exists", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "22:30 writing report",
+    })
+    local today_path = root .. "/2026/2026-05-22.wkl"
+
+    with_worklog_setup({
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      -- Today exists only as an unsaved buffer, never written to disk.
+      vim.cmd("edit " .. vim.fn.fnameescape(today_path))
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "--- worklog ---",
+        "00:10 already here",
+      })
+
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(2, 0)
+
+      with_captured_notify(function(messages)
+        with_mocked_confirm(1, function()
+          with_mocked_time(now, function()
+            vim.cmd("WorklogInsert")
+          end)
+        end)
+
+        t.eq(messages, {
+          {
+            message = "worklog: today's worklog already exists; open it with :WorklogToday",
+            level = vim.log.levels.WARN,
+          },
+        })
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), yesterday_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office ---",
+        "22:30 writing report",
+      })
+      t.eq(vim.fn.filereadable(today_path), 0)
     end)
   end)
 end

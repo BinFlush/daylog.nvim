@@ -38,6 +38,17 @@ local function buffer_lines()
   return vim.api.nvim_buf_get_lines(0, 0, -1, false)
 end
 
+-- Whether a line list holds no worklog content: empty or a single blank line.
+-- Mirrors new_worklog's empty_buffer and week's empty_lines so every layer
+-- agrees on what "empty" means.
+local function lines_are_empty(lines)
+  return #lines == 0 or (#lines == 1 and lines[1] == "")
+end
+
+local function buffer_is_empty()
+  return lines_are_empty(buffer_lines())
+end
+
 ---@return integer
 local function cursor_row()
   return vim.api.nvim_win_get_cursor(0)[1]
@@ -183,12 +194,50 @@ local function unique_buffer_name(base_name)
   return candidate
 end
 
+-- A loaded, file-backed buffer whose name resolves to `path`, or nil. Report
+-- buffers (buftype "nofile", e.g. "worklog-week-2026-W21.wkl") are skipped so
+-- they can never shadow a real journal file.
+local function loaded_buffer_for_path(path)
+  local target = vim.fn.fnamemodify(path, ":p")
+
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buftype == "" then
+      local name = vim.api.nvim_buf_get_name(buf)
+      if name ~= "" and vim.fn.fnamemodify(name, ":p") == target then
+        return buf
+      end
+    end
+  end
+
+  return nil
+end
+
+-- Read a journal day's lines for reporting. Prefer a loaded buffer for the path
+-- so reports reflect unsaved edits; otherwise fall back to the file on disk.
+-- Returns nil when neither is available, which the report pipeline treats as an
+-- empty day.
 local function journal_lines(path)
+  local buf = loaded_buffer_for_path(path)
+  if buf then
+    return vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  end
+
   if vim.fn.filereadable(path) == 1 then
     return vim.fn.readfile(path)
   end
 
   return nil
+end
+
+-- True when a journal day already holds worklog content, considering a loaded
+-- (possibly unsaved) buffer before falling back to the file on disk.
+local function journal_path_has_content(path)
+  local buf = loaded_buffer_for_path(path)
+  if buf then
+    return not lines_are_empty(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end
+
+  return vim.fn.filereadable(path) == 1 and vim.fn.getfsize(path) > 0
 end
 
 local function expanded_journal_settings()
@@ -273,13 +322,17 @@ local function open_journal_file(settings, date)
     return false
   end
 
-  local should_initialize = vim.fn.filereadable(path) == 0 or vim.fn.getfsize(path) == 0
-
   local ok, err = pcall(vim.cmd, "edit " .. vim.fn.fnameescape(path))
   if not ok then
     warn(tostring(err))
     return false
   end
+
+  -- Decide from the live buffer, not disk: :edit reuses an existing unsaved
+  -- buffer (today seeded but never written, then navigated away and back),
+  -- whose content must not be re-seeded. A freshly opened missing/empty file is
+  -- an empty buffer and gets the initial header.
+  local should_initialize = buffer_is_empty()
 
   if should_initialize and not apply_new_worklog(config.get().defaults) then
     return false
@@ -341,7 +394,7 @@ local function run_carryover(settings, command, now)
   end
 
   local today_path = journal.path_for_date(settings, now)
-  if vim.fn.filereadable(today_path) == 1 and vim.fn.getfsize(today_path) > 0 then
+  if journal_path_has_content(today_path) then
     warn("worklog: today's worklog already exists; open it with :WorklogToday")
     return true
   end
