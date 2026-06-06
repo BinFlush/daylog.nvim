@@ -296,6 +296,26 @@ return function(t)
     t.eq(analysis.worklog_blocks[1].quantize_minutes, 60)
   end)
 
+  t.test("analyze rejects quantize values tonumber would accept but are not integers", function()
+    for _, value in ipairs({ "inf", "0x10", "1e2", "5.0", "+5" }) do
+      local analysis = analyze.analyze(document.parse({
+        "--- worklog quantize=" .. value .. " ---",
+        "08:00 work",
+        "09:00 done",
+      }))
+
+      t.eq(analysis.diagnostics, {
+        {
+          code = "invalid_worklog_header_option",
+          category = "structural",
+          severity = "error",
+          row = 1,
+          message = "worklog header option quantize must be a positive integer",
+        },
+      })
+    end
+  end)
+
   t.test("analyze reports invalid worklog header metadata and options", function()
     local analysis = analyze.analyze(document.parse({
       "--- worklog #ProjectOrion #sales @office @home quantize=0 duration=clock nope unknown=bar ---",

@@ -1571,6 +1571,59 @@ return function(t)
     end)
   end)
 
+  t.test("the date guard recognizes a relative journal root", function()
+    -- A relative journal.root must be absolutized so the buffer's date is
+    -- recognized; otherwise the time guard silently disables itself.
+    local tmp = vim.fn.tempname()
+    vim.fn.mkdir(tmp, "p")
+    local previous_cwd = vim.fn.getcwd()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+
+    local ok, err = pcall(function()
+      vim.cmd("cd " .. vim.fn.fnameescape(tmp))
+      write_journal_file("rel-journal", "%Y", yesterday, {
+        "--- worklog #ClientA @office ---",
+        "08:00 planning",
+        "17:00",
+      })
+
+      with_worklog_setup({
+        journal = { root = "rel-journal", directory = "%Y" },
+      }, function()
+        vim.cmd("edit rel-journal/2026/2026-05-21.wkl")
+        t.set_cursor(2, 0)
+
+        with_captured_notify(function(messages)
+          with_mocked_time(now, function()
+            vim.cmd("WorklogInsert")
+          end)
+
+          t.eq(messages, {
+            {
+              message = "worklog: this file is dated 2026-05-21, not today (2026-05-22); "
+                .. "refusing to insert the current time",
+              level = vim.log.levels.WARN,
+            },
+          })
+        end)
+
+        t.eq(t.get_lines(), {
+          "--- worklog #ClientA @office ---",
+          "08:00 planning",
+          "17:00",
+        })
+      end)
+    end)
+
+    vim.cmd("cd " .. vim.fn.fnameescape(previous_cwd))
+    vim.fn.delete(tmp, "rf")
+
+    if not ok then
+      error(err, 0)
+    end
+  end)
+
   t.test("insert refuses to stamp the current time into a non-today journal file", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })

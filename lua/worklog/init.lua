@@ -247,7 +247,9 @@ local function expanded_journal_settings()
   end
 
   return {
-    root = vim.fn.expand(settings.root),
+    -- Absolutize so a relative journal.root still matches the absolute buffer
+    -- paths date_from_path compares against (it uses string equality).
+    root = vim.fn.fnamemodify(vim.fn.expand(settings.root), ":p"),
     directory = settings.directory,
   }
 end

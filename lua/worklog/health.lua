@@ -78,16 +78,9 @@ function M.check()
     return
   end
 
-  local setup_ok, setup_err = pcall(worklog.setup)
-  if setup_ok then
-    ok("worklog.setup() ran without error")
-  else
-    report_error("worklog.setup() failed", {
-      tostring(setup_err),
-    })
-    return
-  end
-
+  -- Intentionally do not call worklog.setup() here: it would reset the user's
+  -- live configuration and refresh autocmds. The command checks below verify
+  -- that setup has already been run.
   start("Commands")
   check_command("WorklogNew")
   check_command("WorklogInsert")

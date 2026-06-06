@@ -87,6 +87,8 @@ return function(t)
   end)
 
   t.test("health check reports core integration", function()
+    worklog.setup()
+
     local reports = capture_reports(modern_methods, function()
       health.check()
     end)
@@ -96,7 +98,6 @@ return function(t)
     t.ok(includes(reports.start, "worklog.nvim"))
     t.ok(includes(reports.ok, 'require("worklog") succeeded'))
     t.ok(includes(reports.ok, "worklog.setup is available"))
-    t.ok(includes(reports.ok, "worklog.setup() ran without error"))
     t.ok(includes(reports.ok, ":WorklogNew is available"))
     t.ok(includes(reports.ok, ":WorklogInsert is available"))
     t.ok(includes(reports.ok, ":WorklogToday is available"))
@@ -117,6 +118,8 @@ return function(t)
   end)
 
   t.test("health check supports legacy health api", function()
+    worklog.setup()
+
     local reports = capture_reports(legacy_methods, function()
       health.check()
     end)
@@ -126,5 +129,22 @@ return function(t)
     t.ok(includes(reports.start, "worklog.nvim"))
     t.ok(includes(reports.ok, 'require("worklog") succeeded'))
     t.ok(includes(reports.ok, ":WorklogNew is available"))
+  end)
+
+  t.test("health check does not reset the user's configuration", function()
+    local config = require("worklog.config")
+    worklog.setup({
+      journal = { root = "/tmp/hc", directory = "%Y" },
+      auto_summary = "idle",
+    })
+
+    capture_reports(modern_methods, function()
+      health.check()
+    end)
+
+    t.eq(config.get().journal.root, "/tmp/hc")
+    t.eq(config.get().auto_summary, "idle")
+
+    worklog.setup()
   end)
 end

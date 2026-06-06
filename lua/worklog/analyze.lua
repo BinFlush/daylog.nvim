@@ -209,11 +209,10 @@ local function interpret_worklog_header(header, diagnostics)
         result.declared_quantize = true
         local quantize_minutes = tonumber(token.value)
 
-        if
-          not quantize_minutes
-          or quantize_minutes <= 0
-          or quantize_minutes ~= math.floor(quantize_minutes)
-        then
+        -- tonumber alone accepts inf, hex (0x10), scientific (1e2), floats (5.0)
+        -- and signs (+5); require a plain run of digits so only true positive
+        -- integers are taken.
+        if token.value:match("^%d+$") == nil or quantize_minutes <= 0 then
           push_diagnostic(diagnostics, {
             code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
             severity = "error",

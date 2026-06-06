@@ -53,6 +53,13 @@ happen, but they are called out clearly in this changelog.
   (it previously refreshed only under `auto_summary = "save"`).
 - Past-midnight carryover no longer appends a second 24:00 (corrupting the file)
   when the previous day's final entry is already a 24:00 boundary entry.
+- The `quantize=` header option rejects non-integer values (`inf`, `0x10`, `1e2`,
+  `5.0`, `+5`) with a diagnostic instead of silently accepting them; `quantize=inf`
+  previously produced NaN summaries.
+- `:checkhealth worklog` no longer resets the live configuration (journal,
+  defaults, `auto_summary`) and its refresh autocmds — the probe is read-only now.
+- A relative `journal.root` is absolutized, so the time guard and past-midnight
+  carryover recognize journal files instead of silently disabling themselves.
 
 ## 0.4.0 - 2026-05-24
 
