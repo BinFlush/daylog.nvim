@@ -20,13 +20,14 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to worklog blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
-## Unreleased
+## 0.5.0 - 2026-06-07
 
 ### Added
 
 - `:WorklogWeek` and `:WorklogDays` reports refresh while open as their source
   files and buffers change, following `auto_summary` — matching how in-file
   summaries update.
+
 ### Changed
 
 - `:WorklogOrder` now warns when sorting sets an entry's tag or location from its
