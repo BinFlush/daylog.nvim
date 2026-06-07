@@ -49,15 +49,14 @@ function M.run(lines)
     for _, block in ipairs(analysis.worklog_blocks) do
       -- For a valid worklog: rewrite its summary, or create one when missing.
       if not analyze.find_block_diagnostic(analysis, block) then
-        local region = summary_block.find(analysis, block)
+        local computed = summary.summarize_block(block)
+        local rendered = render.summary_lines(computed, block.duration_format, {
+          leading_blank = false,
+          quantize_minutes = block.quantize_minutes,
+        })
+        local region = summary_block.find(analysis, block, rendered)
 
         if region then
-          local computed = summary.summarize_block(block)
-          local rendered = render.summary_lines(computed, block.duration_format, {
-            leading_blank = false,
-            quantize_minutes = block.quantize_minutes,
-          })
-
           if not region_matches(lines, region, rendered) then
             table.insert(edits, {
               start_index = region.start_row - 1,
@@ -71,7 +70,6 @@ function M.run(lines)
           -- its trailing blank, so that blank separates the summary from the next
           -- block while the rendered leading blank separates body from summary.
           local insert_row = body.last_content_row(block)
-          local computed = summary.summarize_block(block)
           table.insert(edits, {
             start_index = insert_row,
             end_index = insert_row,

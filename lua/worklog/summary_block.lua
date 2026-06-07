@@ -4,105 +4,178 @@ local M = {}
 
 -- Locator for a worklog's generated summary region.
 --
--- A worklog has at most one summary. This module recognizes the generated section
--- headers (current kind-less form and legacy exact/quantized) and reports where
--- that single summary lives so the summary usecases can replace it in place. It
--- owns no presentation or reporting logic; it only matches generated headers
--- (built from the same syntax constants render uses) against analyzed blocks.
+-- A worklog has at most one summary, and it is derived output -- always exactly
+-- `render(summarize(entries))`. Rather than recognize summary header strings (which
+-- break the moment a header is edited or deleted), this module aligns the freshly
+-- rendered expected summary against the worklog's tail -- a Needleman-Wunsch fitting
+-- alignment (see `fit_align`) -- and reports the best-matching span. That keeps it
+-- format-agnostic -- nothing here changes when the summary layout
+-- does -- and lets the summary usecases rewrite an edited or partly deleted summary in
+-- place: a mangled header or a deleted row is folded into the matched span. It owns no
+-- presentation or reporting logic.
 
--- The subsection headers (tags/locations/logged/totals) that continue a summary
--- region: the current kind-less form plus the legacy "exact"/"quantized" forms.
-local SUBSECTION_HEADERS = {}
-
-for _, section in pairs(syntax.SECTION) do
-  if section ~= syntax.SECTION.SUMMARY then
-    SUBSECTION_HEADERS[syntax.section_header(section)] = true
+-- Needleman-Wunsch fitting alignment (a.k.a. semi-global): line up *all* of `expected`
+-- against a contiguous span of `actual`, with the actual prefix and suffix outside the
+-- span free (free end gaps). The classic edit-distance DP -- an (m+1)x(n+1) cost matrix
+-- filled with match/substitute, delete (an expected line absent from actual) and insert
+-- (an extra actual line); its minimum-cost path locates where the rendered summary sits
+-- in the worklog's tail even after edits. Returns { start, stop, matches } (1-based,
+-- inclusive bounds; `matches` = exact non-blank line matches) or nil when nothing
+-- aligns. Substitution/match is preferred over deletion on ties so an edited boundary
+-- line (a mangled header) stays inside the span; the caller trims boundary blanks so a
+-- deleted header's separator blank stays outside it.
+local function fit_align(expected, actual)
+  local m, n = #expected, #actual
+  if m == 0 then
+    return nil
   end
-end
 
-for _, kind in ipairs({ "exact", "quantized" }) do
-  for _, section in pairs(syntax.SECTION) do
-    if section ~= syntax.SECTION.SUMMARY then
-      SUBSECTION_HEADERS["--- " .. section .. " " .. kind .. " ---"] = true
+  -- Score = edit-cost * `miss` minus non-blank exact matches, so the DP minimizes edit
+  -- cost first and then *maximizes distinctive matches* (a non-blank match scores -1, a
+  -- blank match 0, any edit `miss` > m). Maximizing matches keeps an exactly-matchable
+  -- line a match rather than a substitution of a neighbour (which would drop it from the
+  -- span and duplicate it on rewrite); counting only *non-blank* matches stops a run of
+  -- blank lines from anchoring the span over the worklog body.
+  local miss = m + 1
+  local dp = {}
+  for a = 0, m do
+    dp[a] = {}
+    for b = 0, n do
+      if a == 0 then
+        dp[a][b] = 0 -- empty expected: the actual prefix is free
+      elseif b == 0 then
+        dp[a][b] = a * miss -- expected[1..a] all deleted
+      else
+        local diag
+        if expected[a] == actual[b] then
+          diag = dp[a - 1][b - 1] + (expected[a] ~= "" and -1 or 0) -- match (blanks unrewarded)
+        else
+          diag = dp[a - 1][b - 1] + miss -- substitution
+        end
+        local del = dp[a - 1][b] + miss -- expected[a] absent from actual
+        local ins = dp[a][b - 1] + miss -- extra actual line inside the span
+        dp[a][b] = math.min(diag, del, ins)
+      end
     end
   end
+
+  -- Largest end column reaching the minimum score: a stale trailing row (a
+  -- substitution of the last expected line) is kept inside the span and rewritten,
+  -- while genuine trailing junk -- which only adds edits, raising the score -- stays
+  -- outside it.
+  local stop, best = 0, math.huge
+  for b = 0, n do
+    if dp[m][b] <= best then
+      best = dp[m][b]
+      stop = b
+    end
+  end
+  if stop == 0 then
+    return nil
+  end
+
+  -- Backtrack to the span start, counting non-blank matches. Order: exact match,
+  -- substitution, deletion, insertion -- so a mismatched boundary is kept as a
+  -- substitution (inside the span) rather than dropped via a deletion.
+  local a, b, matches = m, stop, 0
+  while a > 0 do
+    if
+      b > 0
+      and expected[a] == actual[b]
+      and dp[a][b] == dp[a - 1][b - 1] + (expected[a] ~= "" and -1 or 0)
+    then
+      if expected[a] ~= "" then
+        matches = matches + 1
+      end
+      a, b = a - 1, b - 1
+    elseif b > 0 and dp[a][b] == dp[a - 1][b - 1] + miss then
+      a, b = a - 1, b - 1 -- substitution
+    elseif dp[a][b] == dp[a - 1][b] + miss then
+      a = a - 1 -- deletion
+    else
+      b = b - 1 -- insertion
+    end
+  end
+
+  return { start = b + 1, stop = stop, matches = matches }
 end
 
--- The line that begins a summary region: the current banner
--- "--- summary q=<n> d=<fmt> ---", plus the legacy kind-less and exact/quantized
--- forms (v0.1.0) -- recognized but never emitted, so an older file's summary is
--- still located and rewritten to the current form on the next refresh.
-local LEGACY_SUMMARY_HEADERS = {
-  [syntax.section_header(syntax.SECTION.SUMMARY)] = true,
-  ["--- summary exact ---"] = true,
-  ["--- summary quantized ---"] = true,
-}
-
-local function is_summary_header(line)
-  return line ~= nil
-    and (LEGACY_SUMMARY_HEADERS[line] or line:match("^%-%-%- summary q=%d+ d=%w+ %-%-%-$") ~= nil)
-end
-
-local function header_line(block)
-  return block.header and block.header.raw
-end
-
--- Find the generated summary region for `worklog_block`: the run of generated
--- summary section blocks that follow it, up to the next worklog header or
--- end of buffer. Returns { start_row, end_row } (rows 1-based, end_row
--- exclusive), or nil when the worklog has no summary.
-function M.find(analysis, worklog_block)
+-- Rows [body_start_row, next worklog header / EOF): the worklog's entries followed by
+-- its summary. The alignment's free leading gap skips the entries (they never equal a
+-- summary line), so the matched span is the summary wherever it sits.
+local function tail_bounds(analysis, worklog_block)
+  local blocks = analysis.blocks
   local start_index
-  for index, block in ipairs(analysis.blocks) do
+  for index, block in ipairs(blocks) do
     if block == worklog_block then
       start_index = index
       break
     end
   end
-
   if not start_index then
     return nil
   end
 
-  for index = start_index + 1, #analysis.blocks do
-    local block = analysis.blocks[index]
-
-    if block.kind == syntax.BLOCK_KIND.WORKLOG then
+  local stop_row = analysis.document.row_count + 1
+  for index = start_index + 1, #blocks do
+    if blocks[index].kind == syntax.BLOCK_KIND.WORKLOG then
+      stop_row = blocks[index].start_row
       break
-    end
-
-    if is_summary_header(header_line(block)) then
-      local end_row = block.end_row
-
-      for next_index = index + 1, #analysis.blocks do
-        local next_block = analysis.blocks[next_index]
-        if SUBSECTION_HEADERS[header_line(next_block)] then
-          end_row = next_block.end_row
-        else
-          break
-        end
-      end
-
-      -- Trim trailing blank lines (e.g. the separator before the next worklog)
-      -- so the region covers only the generated summary content; the rendered
-      -- summary never ends with a blank line.
-      local nodes = analysis.document.nodes
-      while
-        end_row - 1 > block.start_row
-        and nodes[end_row - 1]
-        and nodes[end_row - 1].kind == syntax.NODE_KIND.BLANK_LINE
-      do
-        end_row = end_row - 1
-      end
-
-      return {
-        start_row = block.start_row,
-        end_row = end_row,
-      }
     end
   end
 
-  return nil
+  return worklog_block.body_start_row, stop_row
 end
+
+-- Locate `worklog_block`'s generated summary by aligning `expected_lines` (the freshly
+-- rendered summary) against the worklog's tail. Returns { start_row, end_row } (1-based,
+-- end_row exclusive) when enough of the summary is present to be sure it is this
+-- summary, or nil when there is none to rewrite.
+function M.find(analysis, worklog_block, expected_lines)
+  if not expected_lines or #expected_lines == 0 then
+    return nil
+  end
+
+  local body_start, stop_row = tail_bounds(analysis, worklog_block)
+  if not body_start then
+    return nil
+  end
+
+  local nodes = analysis.document.nodes
+  local actual = {}
+  for row = body_start, stop_row - 1 do
+    actual[#actual + 1] = (nodes[row] and nodes[row].raw) or ""
+  end
+
+  local span = fit_align(expected_lines, actual)
+  if not span then
+    return nil
+  end
+
+  -- The rendered summary never starts or ends with a blank, so trim any boundary
+  -- blanks the alignment pulled in (e.g. the separator above a header-less summary).
+  while span.start <= span.stop and actual[span.start] == "" do
+    span.start = span.start + 1
+  end
+  while span.stop >= span.start and actual[span.stop] == "" do
+    span.stop = span.stop - 1
+  end
+
+  -- Confirm it is this summary, not unrelated tail content: at least two non-blank
+  -- lines must align exactly. Two distinctive summary lines (a header and a row, say)
+  -- are enough to be sure, and a partial summary -- e.g. one whose totals were
+  -- deleted -- still clears this, so it is recognized and completed in place.
+  if span.stop < span.start or span.matches < 2 then
+    return nil
+  end
+
+  return {
+    start_row = body_start + span.start - 1,
+    end_row = body_start + span.stop,
+  }
+end
+
+-- Exposed for direct unit testing of the alignment.
+M.fit_align = fit_align
 
 return M

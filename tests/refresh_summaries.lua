@@ -19,6 +19,99 @@ return function(t)
     t.eq(result.edits[1].lines[1], "--- summary q=30 d=dec ---")
   end)
 
+  t.test("refresh restores a summary whose header was deleted (no duplicate)", function()
+    -- `dd` on the "--- summary ... ---" line leaks the rows into the body; refresh
+    -- re-aligns them and rewrites the full summary in place, with no second summary.
+    local result = refresh_summaries.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "10:00 done",
+      "",
+      "2.00h (+0m) plan",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    })
+
+    t.eq(result.edits, {
+      {
+        start_index = 4,
+        end_index = 8,
+        lines = {
+          "--- summary q=15 d=dec ---",
+          "2.00h (+0m) plan",
+          "",
+          "--- totals ---",
+          "2.00h (+0m) workday",
+        },
+      },
+    })
+  end)
+
+  t.test("refresh restores an edited section header (no orphan)", function()
+    local result = refresh_summaries.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) plan",
+      "",
+      "--- totals OOPS ---",
+      "2.00h (+0m) workday",
+    })
+
+    t.eq(result.edits, {
+      {
+        start_index = 4,
+        end_index = 9,
+        lines = {
+          "--- summary q=15 d=dec ---",
+          "2.00h (+0m) plan",
+          "",
+          "--- totals ---",
+          "2.00h (+0m) workday",
+        },
+      },
+    })
+  end)
+
+  t.test("refresh of a grown summary keeps the worklog entries", function()
+    -- A fresh worklog's empty summary, after a same-time :WorklogInsert added a second
+    -- entry, must be replaced in place -- not swallow the entries above it. The edit
+    -- starts at the old summary (index 4), leaving the two entries untouched.
+    local result = refresh_summaries.run({
+      "--- worklog #sometag @location q=15 d=dec ---",
+      "08:00 hey",
+      "08:00 ",
+      "",
+      "--- summary q=15 d=dec ---",
+      "",
+      "--- totals ---",
+      "0.00h (+0m) workday",
+    })
+
+    t.eq(result.edits, {
+      {
+        start_index = 4,
+        end_index = 8,
+        lines = {
+          "--- summary q=15 d=dec ---",
+          "0.00h (+0m) hey",
+          "",
+          "--- tags ---",
+          "0.00h (+0m) #sometag",
+          "",
+          "--- locations ---",
+          "0.00h (+0m) @location",
+          "",
+          "--- totals ---",
+          "0.00h (+0m) workday",
+        },
+      },
+    })
+  end)
+
   t.test("refresh rewrites a stale summary in place", function()
     local result = refresh_summaries.run({
       "--- worklog ---",

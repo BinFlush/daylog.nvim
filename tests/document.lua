@@ -355,4 +355,13 @@ return function(t)
       message = "invalid time",
     })
   end)
+
+  t.test("document parses a summary-shaped timestamp row as a note, not an entry", function()
+    -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp
+    -- plus a (+Nm) marker; the marker makes it a note so it can never be miscounted as
+    -- an entry if it leaks into a worklog body.
+    local doc = document.parse({ "16:00 (+0m) workday", "16:00 standup" })
+    t.eq(doc.nodes[1].kind, "note_line")
+    t.eq(doc.nodes[2].kind, "entry")
+  end)
 end

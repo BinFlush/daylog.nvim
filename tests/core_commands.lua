@@ -550,7 +550,7 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary q=15 d=dec ---",
+      "--- summary q=30 d=dec ---",
       "1.00h (+0m) implementation",
     })
     t.set_cursor(6, 0)

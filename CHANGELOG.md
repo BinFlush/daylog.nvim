@@ -28,6 +28,13 @@ happen, but they are called out clearly in this changelog.
   cursor into today's worklog at the current time (opening today if needed), instead
   of refusing — handy when reviewing a past day with `[w` / `]w`.
 
+### Fixed
+
+- Editing or deleting a generated summary's section header (`--- summary … ---`,
+  `--- totals ---`, …) no longer spawns a duplicate summary. The summary is located by
+  aligning the buffer against its expected content, so any edit to it — header or row —
+  is reverted in place on the next refresh.
+
 ### Changed
 
 - Worklog header options now use short keys: `quantize=` → `q=`, and

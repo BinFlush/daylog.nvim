@@ -113,7 +113,12 @@ function M.run(lines, cursor_row)
     return nil, err
   end
 
-  local region = summary_block.find(ctx.analysis, ctx.block)
+  local recomputed = compute_summary(ctx.block)
+  local expected = render.summary_lines(recomputed, ctx.block.duration_format, {
+    leading_blank = false,
+    quantize_minutes = ctx.block.quantize_minutes,
+  })
+  local region = summary_block.find(ctx.analysis, ctx.block, expected)
   if not region then
     return nil, STALE_OR_NOT_SUMMARY
   end
@@ -134,7 +139,6 @@ function M.run(lines, cursor_row)
 
   -- Staleness guard: the cursor line must match exactly one summary_item row in
   -- the summary the plugin would currently produce for the active worklog.
-  local recomputed = compute_summary(ctx.block)
   local layout = render.summary_layout(
     recomputed,
     ctx.block.duration_format,

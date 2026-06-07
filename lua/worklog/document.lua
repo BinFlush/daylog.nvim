@@ -203,6 +203,15 @@ local function parse_entry(line, row)
     return nil
   end
 
+  -- A summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp plus a
+  -- (+Nm) rounding marker; treat it as a note, not an entry -- mirroring the
+  -- highlighter's `\ze ([+-]\d+m)` rule. This keeps a d=hm summary row that leaks into
+  -- a worklog body (e.g. after its summary header is deleted) from being miscounted as
+  -- a real entry.
+  if rest:match("^%s+%([%+%-]%d+m%)") then
+    return nil
+  end
+
   if rest ~= "" and not rest:match("^%s") then
     return {
       kind = syntax.NODE_KIND.INVALID_ENTRY,
