@@ -110,6 +110,22 @@ local function sorted_items(items)
   return result
 end
 
+-- The block's last non-blank body line. Appending here keeps trailing blank lines
+-- (a visual gap before the summary) as separation instead of stepping past them;
+-- notes stay with their entry, only blank lines are skipped. Returns the header row
+-- for an entry-less block.
+function M.last_content_row(block)
+  local row = block.start_row
+
+  for _, node in ipairs(block.body_nodes) do
+    if node.kind ~= syntax.NODE_KIND.BLANK_LINE then
+      row = node.row
+    end
+  end
+
+  return row
+end
+
 function M.insert_index(block, minutes)
   for _, item in ipairs(block.entry_items) do
     if item.minutes > minutes then
@@ -117,17 +133,9 @@ function M.insert_index(block, minutes)
     end
   end
 
-  -- Append after the block's last non-blank body line, so trailing blank lines (a
-  -- visual gap before the summary) stay as separation instead of pushing the new
-  -- entry past them. Notes stay with their entry; only blank lines are stepped over.
-  local insert_row = block.start_row
-  for _, node in ipairs(block.body_nodes) do
-    if node.kind ~= syntax.NODE_KIND.BLANK_LINE then
-      insert_row = node.row
-    end
-  end
-
-  return insert_row
+  -- Append after the block's last non-blank body line, so trailing blank lines stay
+  -- as separation instead of pushing the new entry past them.
+  return M.last_content_row(block)
 end
 
 function M.state_before(block, minutes)

@@ -1,10 +1,10 @@
 local analyze = require("worklog.analyze")
+local body = require("worklog.body")
 local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local summary_block = require("worklog.summary_block")
-local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -68,14 +68,7 @@ function M.run(lines)
           -- Insert it after the worklog's last non-blank body line; the block spans
           -- its trailing blank, so that blank separates the summary from the next
           -- block while the rendered leading blank separates body from summary.
-          local nodes = analysis.document.nodes
-          local insert_row = block.start_row
-          for row = block.start_row, block.end_row - 1 do
-            if nodes[row] and nodes[row].kind ~= syntax.NODE_KIND.BLANK_LINE then
-              insert_row = row
-            end
-          end
-
+          local insert_row = body.last_content_row(block)
           local computed = summary.quantized_summarize_block(block)
           table.insert(edits, {
             start_index = insert_row,
