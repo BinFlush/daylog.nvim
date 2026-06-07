@@ -374,28 +374,23 @@ return function(t)
     t.eq(analysis.worklog_blocks[1].duration_format, "decimal")
   end)
 
-  t.test("analyze flags timestamped entries outside a worklog block", function()
+  t.test("analyze does not flag a two-digit-hour hhmm summary row", function()
+    -- An hhmm summary row whose duration is >= 10h (e.g. "16:00 (+0m) workday")
+    -- parses as a timestamped entry, but it lives in a generated summary block
+    -- and must not be reported as malformed.
     local analysis = analyze.analyze(document.parse({
-      "--- worklog ---",
-      "08:00 work",
-      "12:00 done",
+      "--- worklog quantize=60 duration=hhmm ---",
+      "06:00 deep work",
+      "22:00 done",
+      "",
+      "--- summary quantized ---",
+      "16:00 (+0m) deep work",
       "",
       "--- totals quantized ---",
-      "4:00 (+0m) workday",
-      "16:00 evening task",
-      "17:00 done",
+      "16:00 (+0m) workday",
     }))
 
-    t.eq(analysis.diagnostics, {
-      {
-        code = "orphaned_entry",
-        category = "structural",
-        severity = "error",
-        row = 7,
-        message = "timestamped entry is outside a worklog block and will not be "
-          .. "counted; move it under a --- worklog --- header",
-      },
-    })
+    t.eq(analysis.diagnostics, {})
   end)
 
   t.test("analyze reports duplicate header metadata when clear tokens are mixed in", function()

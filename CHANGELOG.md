@@ -27,10 +27,6 @@ happen, but they are called out clearly in this changelog.
 - `:WorklogWeek` and `:WorklogDays` reports refresh while open as their source
   files and buffers change, following `auto_summary` — matching how in-file
   summaries update.
-- A timestamped entry that falls outside a worklog block (for example, added
-  below the summary) is now flagged by `:WorklogCheck` and inline diagnostics
-  instead of being silently dropped from the totals.
-
 ### Changed
 
 - `:WorklogOrder` now warns when sorting sets an entry's tag or location from its

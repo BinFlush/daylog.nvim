@@ -349,19 +349,6 @@ function M.analyze(document)
     if M.is_worklog(block) then
       block.entry_items, block.entries = analyze_entry_items(block, diagnostics)
       table.insert(worklog_blocks, block)
-    else
-      for _, node in ipairs(block.body_nodes) do
-        if node.kind == syntax.NODE_KIND.ENTRY or node.kind == syntax.NODE_KIND.INVALID_ENTRY then
-          push_diagnostic(diagnostics, {
-            code = syntax.DIAGNOSTIC.ORPHANED_ENTRY,
-            severity = "error",
-            row = node.row,
-            message = "timestamped entry is outside a worklog block and will not be "
-              .. "counted; move it under a --- worklog --- header",
-          })
-          break
-        end
-      end
     end
 
     table.insert(blocks, block)
