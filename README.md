@@ -118,7 +118,8 @@ logged and not enter it twice. Run it again to unmark.
 
 **7. Review the week `:WorklogWeek`.** Opens a read-only report totalling every
 day this week. `:WorklogDays 7` does the last seven days; add `!` (e.g.
-`:WorklogWeek!`) for just the grand totals.
+`:WorklogWeek!`) for just the grand totals. With `auto_summary` on it stays live,
+rebuilding as you edit the days it covers (including unsaved buffers).
 
 In short: **open today, `Insert` / `Repeat` as you work, glance at the live
 summary, `Log` rows as you report them, and `Week` to review.**
@@ -199,6 +200,10 @@ To run it automatically, set `auto_summary` in `setup()`:
 | `"change"` | Shortly after edits settle (debounced) |
 | `"idle"` | When you pause or leave insert mode |
 | `"save"` | On write (`:w`) |
+
+Open `:WorklogWeek` / `:WorklogDays` reports follow the same setting: while one is
+open, it rebuilds in place as the days it covers change, including unsaved edits in
+open buffers.
 
 ```lua
 require("worklog").setup({ auto_summary = "idle" })

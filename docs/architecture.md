@@ -111,7 +111,9 @@ buffer-editing commands republish diagnostics after applying (so `:WorklogOrder`
 clears its own warning). Diagnostics also render inline in any mode, so there is
 no insert-mode timing to manage. The reporting core (`summary.lua`, `render.lua`)
 stays pure so the journal reports (`:WorklogWeek` / `:WorklogDays`) share it
-unchanged.
+unchanged; an open report re-derives on the same `auto_summary` autocmds,
+rebuilding from a spec stored on its buffer so it tracks its source days the way
+an in-file summary tracks its entries.
 
 ## Parsing and semantics
 
