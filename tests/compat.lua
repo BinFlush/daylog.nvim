@@ -1,14 +1,12 @@
 return function(t)
   local append_copy = require("worklog.usecases.append_copy")
   local order_worklogs = require("worklog.usecases.order_worklogs")
-  local summarize = require("worklog.usecases.summarize")
+  local refresh_summaries = require("worklog.usecases.refresh_summaries")
 
-  local function summarize_exact(lines)
-    return summarize.run(lines, "exact")
-  end
-
-  local function summarize_quantized(lines)
-    return summarize.run(lines, "quantized")
+  -- The summary refresh creates a summary for a worklog that lacks one, so it
+  -- produces the canonical summary for a v0.1.0 fixture.
+  local function summarize(lines)
+    return refresh_summaries.run(lines)
   end
 
   local root = vim.fn.getcwd()
@@ -16,32 +14,32 @@ return function(t)
   local fixtures = {
     {
       name = "basic",
-      run = summarize_exact,
+      run = summarize,
       expected_suffix = ".summary",
     },
     {
       name = "sticky_metadata",
-      run = summarize_exact,
+      run = summarize,
       expected_suffix = ".summary",
     },
     {
       name = "out_of_office",
-      run = summarize_exact,
+      run = summarize,
       expected_suffix = ".summary",
     },
     {
       name = "quantized",
-      run = summarize_quantized,
+      run = summarize,
       expected_suffix = ".summary",
     },
     {
       name = "summary_conflicting_tags",
-      run = summarize_exact,
+      run = summarize,
       expected_suffix = ".summary",
     },
     {
       name = "quantized_out_of_office",
-      run = summarize_quantized,
+      run = summarize,
       expected_suffix = ".summary",
     },
     {

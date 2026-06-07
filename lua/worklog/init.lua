@@ -10,7 +10,6 @@ local order_worklogs = require("worklog.usecases.order_worklogs")
 local refresh_summaries = require("worklog.usecases.refresh_summaries")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
-local summarize = require("worklog.usecases.summarize")
 local week = require("worklog.week")
 
 local M = {}
@@ -490,12 +489,6 @@ function M.insert_now()
   apply_insert_time(os.date("%H:%M"))
 end
 
--- Set the active worklog's single summary, replacing any existing one. Used by
--- :WorklogToday to seed a freshly opened day with a summary.
-function M.append_quantized_summary()
-  run_buffer_usecase(summarize.run)
-end
-
 function M.append_copy()
   run_buffer_usecase(append_copy.run)
 end
@@ -567,10 +560,11 @@ function M.open_today(day_offset)
     return
   end
 
-  -- A freshly created today file gets the current time and a quantized summary,
-  -- so it tracks the day from the start (live when auto_summary is enabled).
+  -- A freshly created today file gets the current time and a summary, so it tracks
+  -- the day from the start (live when auto_summary is enabled). The summary refresh
+  -- creates it the same way it would self-heal any other summary-less worklog.
   apply_insert_time(os.date("%H:%M", now))
-  M.append_quantized_summary()
+  apply_refresh(false)
 end
 
 -- Open the journal file `step` days from the one in the current buffer, falling
