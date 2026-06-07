@@ -61,8 +61,8 @@ M.has_entry_node = has_entry_node
 -- Every problem that prevents a clean summary, as { row, message } entries:
 -- whole-document structure (a bad first header, bad header options), one problem
 -- per worklog block (out-of-order timestamps, an invalid entry, 24:00 not final),
--- and timestamped lines with no worklog header at all. Shared by the live refresh
--- and :WorklogCheck so they always agree.
+-- and timestamped lines with no worklog header at all. Used by the live summary
+-- refresh, which publishes them as buffer diagnostics.
 function M.collect(analysis)
   local warnings = {}
 

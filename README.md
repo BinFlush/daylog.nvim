@@ -20,22 +20,23 @@ timestamp; the final `done` line simply closes the last interval.
 12:02 done
 ```
 
-Running `:WorklogQuantSum` adds a rounded summary:
+A summary is kept at the bottom of the worklog:
 
 ```text
---- summary quantized ---
+--- summary ---
 1.75h (+2m) planning
 1.50h (+2m) PR review
 0.50h (+3m) bugfixes on backend
 
---- totals quantized ---
+--- totals ---
 3.75h (+7m) workday
 ```
 
-Identical work items are automatically summed. Quantized summaries round to
-15-minute buckets by default. The `(+Nm)` beside a row is the rounding
-difference from the exact time. `+` when rounded down, `-` when rounded up. Here
-the exact day is 3h52m, so the rounded 3.75h total (equalling 3h45m) shows `(+7m)`.
+Identical work items are summed automatically. Durations round to 15-minute
+buckets by default (set `quantize=1` in the header for exact figures). The
+`(+Nm)` beside a row is the rounding difference from the exact time: `+` when
+rounded down, `-` when rounded up, `(+0m)` when exact. Here the exact day is
+3h52m, so the rounded 3.75h total (equalling 3h45m) shows `(+7m)`.
 
 ## Basic setup
 **Install and point it at a journal folder.** With `lazy.nvim`:
@@ -97,18 +98,17 @@ the day with `:WorklogInsert` and type `done` (or leave it blank/anything):
 12:00 done
 ```
 
-**5. See your totals `:WorklogSummarize` or `:WorklogQuantSum`.** Both add up
-time per task. `Summarize` is exact; `QuantSum` rounds to tidy buckets for
-reporting. With `auto_summary` set, the summary already exists from step 2 and
-updates as you type, so you rarely run these by hand:
+**5. See your totals.** The summary lives at the bottom of the worklog and
+updates as you type (`auto_summary` defaults to `change`), so totals are always
+there without a separate command:
 
 ```text
---- summary exact ---
-2.25h planning
-0.75h fixing the login bug
+--- summary ---
+2.25h (+0m) planning
+0.75h (+0m) fixing the login bug
 
---- totals exact ---
-3.00h workday
+--- totals ---
+3.00h (+0m) workday
 ```
 
 **6. Mark what you have logged elsewhere `:WorklogLog`.** Once you have entered
@@ -164,7 +164,6 @@ duration=hhmm  render summary durations as hours:minutes
 
 | Command | Effect |
 | --- | --- |
-| `:WorklogNew` | Create a new worklog block using configured defaults |
 | `:WorklogToday [offset]` | Open today's journal, creating it on first use; a nonzero offset only navigates to another day (never creates it) |
 | `:WorklogNextDay [count]` | Step forward `count` days (default 1) relative to the open journal file, falling back to today |
 | `:WorklogPrevDay [count]` | Step backward `count` days (default 1) relative to the open journal file, falling back to today |
@@ -172,11 +171,8 @@ duration=hhmm  render summary durations as hours:minutes
 | `:WorklogWeek[!]` | Open this week's journal report; `!` shows only the aggregate weekly summary |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
 | `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
-| `:WorklogCheck` | Validate the current buffer without modifying it |
-| `:WorklogCopy` | Append a normalized editable copy |
+| `:WorklogCopy` | Append a normalized editable copy, with its own summary |
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
-| `:WorklogSummarize` | Set the worklog's summary to an exact summary (replacing any existing one) |
-| `:WorklogQuantSum` | Set the worklog's summary to a rounded summary (replacing any existing one) |
 | `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
 | `:WorklogRefresh` | Rebuild every existing summary in the buffer to match its entries |
 
@@ -184,30 +180,22 @@ The active worklog is the latest `--- worklog ... ---` block in the file.
 
 ## Live summaries
 
-`:WorklogRefresh` rebuilds every summary already present in the buffer so it
-matches its worklog's entries. Unlike `:WorklogSummarize` / `:WorklogQuantSum`
-(which act on the active worklog), refresh updates **every** worklog that has a
-summary, in its existing kind. It never creates or removes a summary. You opt a
-worklog in by summarizing it once. While a worklog is invalid (for example its
-timestamps are out of order) its summary is left alone rather than churned, and
-refresh reports the problem as a buffer diagnostic that clears once you fix it.
-
-To run it automatically, set `auto_summary` in `setup()`:
+Worklogs created by `:WorklogToday` and `:WorklogCopy` carry a summary from the
+start. By default (`auto_summary = "change"`) it stays live as you type. The same
+setting keeps open `:WorklogWeek` / `:WorklogDays` reports current, rebuilding in
+place as the days they cover change (including unsaved edits in open buffers).
 
 | `auto_summary` | When summaries refresh |
 | --- | --- |
-| `"off"` (default) | Never automatically; use `:WorklogRefresh` |
-| `"change"` | Shortly after edits settle (debounced) |
+| `"change"` (default) | Shortly after edits settle (debounced) |
 | `"idle"` | When you pause or leave insert mode |
 | `"save"` | On write (`:w`) |
+| `"off"` (or `false`) | Never automatically; use `:WorklogRefresh` |
 
-Open `:WorklogWeek` / `:WorklogDays` reports follow the same setting: while one is
-open, it rebuilds in place as the days it covers change, including unsaved edits in
-open buffers.
-
-```lua
-require("worklog").setup({ auto_summary = "idle" })
-```
+`:WorklogRefresh` rebuilds every summary in the buffer by hand. It never creates
+or removes a summary. While a worklog is invalid (for example its timestamps are
+out of order) its summary is left alone rather than churned, and the problem is
+reported as a buffer diagnostic that clears once you fix it.
 
 ## Limitations and syntax gotchas
 
@@ -218,7 +206,7 @@ require("worklog").setup({ auto_summary = "idle" })
 - Only trailing metadata tokens are parsed as metadata; multiple trailing tags or locations are invalid.
 - `#ooo` counts as activity but is excluded from workday totals.
 - Main summary rows do not split by location; locations are reported separately.
-- Each worklog has at most one summary (exact or quantized); re-running `:WorklogSummarize` or `:WorklogQuantSum` replaces it. The summary is regenerable derived output and owns the tail of its worklog. Keep notes on entries, not in the summary.
+- Each worklog has exactly one summary, always quantized to its `quantize=<minutes>` bucket (`quantize=1` for exact). It is regenerable derived output and owns the tail of its worklog, so keep notes on entries, not in the summary.
 
 ## Requirements
 
@@ -250,54 +238,21 @@ return {
 ```
 
 Every option is optional. The default fields are `tag`, `location`,
-`quantize_minutes`, and `duration_format`. `auto_summary` (`"off"` by default,
-or `"change"` / `"idle"` / `"save"`) controls when summaries refresh
-automatically, see [Live summaries](#live-summaries).
+`quantize_minutes`, and `duration_format`. `auto_summary` (`"change"` by default,
+or `"idle"` / `"save"` / `"off"`) controls when summaries refresh automatically,
+see [Live summaries](#live-summaries).
 
-Journal settings are optional too:
+Journal settings are optional too. `journal.root` is the base directory for
+`:WorklogToday`; `journal.directory` is an optional `strftime` template under it;
+the filename is always `YYYY-MM-DD.wkl`. With the example above, `:WorklogToday`
+opens `~/timereg/2026/21/2026-05-18.wkl`. Use `%G/%V` instead of `%Y/%V` if you
+want ISO week-based trees that stay correct around new-year boundaries.
 
-- `journal.root` is the base directory used by `:WorklogToday`.
-- `journal.directory` is an optional `strftime` template under that root.
-- The journal filename is always `YYYY-MM-DD.wkl`.
+Drop this in a file such as `~/.config/nvim/lua/plugins/worklog.lua`, restart
+Neovim, and run `:Lazy sync`.
 
-With the example above, `:WorklogToday` opens:
-
-```text
-~/timereg/2026/21/2026-05-18.wkl
-```
-
-On first use, `:WorklogToday` creates today's file with a worklog block from your
-defaults, inserts the current time, and appends a quantized summary so the day is
-tracked from the start (live when `auto_summary` is enabled). Everything else is
-navigation only: a signed offset (`:WorklogToday -1`, `+1`, and so on) and `[w` /
-`]w` open the target day if it exists, or an empty unmodified buffer if it
-doesn't, never creating a file or directory (so a day you only glance at leaves
-nothing behind). To start a past or future day, navigate there and run
-`:WorklogNew`.
-
-`:WorklogDays {count}` and `:WorklogWeek` build read-only reports from your
-journal files: they recompute each day's quantized summary from its latest
-worklog block, then sum those daily results into one aggregate total. `Days`
-covers the last N dates including today; `Week` covers the current ISO week
-(Monday to Sunday). Add `!` to show only the aggregate.
-
-`journal.directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees
-better than `%Y/%V` around new year boundaries.
-
-A common place for this file is:
-
-```text
-~/.config/nvim/lua/plugins/worklog.lua
-```
-
-Then restart Neovim and run:
-
-```vim
-:Lazy sync
-```
-
-`worklog.nvim` does not set keymaps by default. You can map the commands however
-you like, for example:
+`worklog.nvim` sets no keymaps by default. Map the commands however you like, for
+example:
 
 ```lua
 vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>", { desc = "Worklog insert time" })
@@ -312,8 +267,6 @@ vim.keymap.set("n", "<leader>wk", "<cmd>WorklogWeek<cr>", { desc = "Worklog week
 vim.keymap.set("n", "<leader>wr", "<cmd>WorklogRepeat<cr>", { desc = "Worklog repeat activity" })
 vim.keymap.set("n", "<leader>ww", "<cmd>WorklogCopy<cr>", { desc = "Worklog copy block" })
 vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>", { desc = "Worklog order blocks" })
-vim.keymap.set("n", "<leader>ws", "<cmd>WorklogSummarize<cr>", { desc = "Worklog summarize exact" })
-vim.keymap.set("n", "<leader>wq", "<cmd>WorklogQuantSum<cr>", { desc = "Worklog summarize quantized" })
 vim.keymap.set("n", "<leader>wl", "<cmd>WorklogLog<cr>", { desc = "Worklog mark summary row as logged" })
 vim.keymap.set("n", "<leader>wR", "<cmd>WorklogRefresh<cr>", { desc = "Worklog refresh summaries" })
 vim.keymap.set("n", "]w", function()
@@ -331,23 +284,9 @@ today off a non-journal buffer).
 
 ## Documentation
 
-For full format and command details, see:
-
-```vim
-:help worklog.nvim
-```
-
-For integration diagnostics, run:
-
-```vim
-:checkhealth worklog
-```
-
-For internal design notes, see:
-
-```text
-docs/architecture.md
-```
+- `:help worklog.nvim` for full format and command details.
+- `:checkhealth worklog` for integration diagnostics.
+- `docs/architecture.md` for internal design notes.
 
 ## Versioning and compatibility
 

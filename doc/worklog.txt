@@ -19,7 +19,7 @@ OVERVIEW                                                    *worklog-overview*
 worklog.nvim is a Neovim plugin for structured timestamped plain-text worklogs.
 
 It helps you keep a plain-text source of truth for what you did during the day,
-then derive exact or rounded summaries for reporting.
+then derive a quantized summary for reporting (`quantize=1` for exact figures).
 
 A worklog can track:
 
@@ -27,8 +27,7 @@ A worklog can track:
 - reporting tags
 - work locations
 - out-of-office time
-- exact totals
-- quantized reporting totals
+- quantized reporting totals (exact when `quantize=1`)
 
 Files ending in `.wkl` are detected as filetype `worklog` when the plugin is
 loaded.
@@ -209,16 +208,6 @@ GOTCHAS                                                      *worklog-gotchas*
 ==============================================================================
 COMMANDS                                                    *worklog-commands*
 
-                                                           *:WorklogNew*
-:WorklogNew
-
-Create a new worklog block at the end of the buffer.
-
-- In an empty buffer, this creates the initial worklog header.
-- In a populated buffer, this appends a new worklog block at the end.
-- The header uses optional defaults from `require('worklog').setup({ defaults = ... })`,
-  including `duration_format`.
-
                                                         *:WorklogToday*
 :WorklogToday [offset]
 
@@ -229,11 +218,12 @@ Open a journal file relative to today from
 - The path is `{root}/{strftime(directory)}/YYYY-MM-DD.wkl`.
 - Offset 0 (today) creates the file when missing or empty: it makes the parent
   directories, writes the first worklog block from configured defaults, inserts
-  the current time, and appends a quantized summary (which tracks the day live
-  when `auto_summary` is enabled).
+  the current time, and appends a summary (which tracks the day live when
+  `auto_summary` is enabled).
 - A nonzero offset is navigation only: it opens that day's file if it exists, or
   an empty unmodified buffer if it does not. It never creates a directory or file
-  and never writes a header. Start a past/future day there with |:WorklogNew|.
+  and never writes a header. To start an arbitrary day there, type a
+  `--- worklog ---` header by hand.
 - A file that already has content is opened without modification.
 
                                                         *:WorklogNextDay*
@@ -267,8 +257,8 @@ Open a scratch report for the current ISO week from
 - Each included day is recomputed from that file's latest worklog block, or from
   an open buffer for it (reflecting unsaved changes).
 - Existing rendered summaries are ignored.
-- The report shows each included day's quantized summary first, then one weekly
-  quantized summary built by summing those daily quantized results.
+- The report shows each included day's summary first, then one weekly summary
+  built by summing those daily results.
 - While open, the report refreshes as its source files and buffers change,
   following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
@@ -288,8 +278,8 @@ Open a scratch report for the last N journal dates from
 - Each included day is recomputed from that file's latest worklog block, or from
   an open buffer for it (reflecting unsaved changes).
 - Existing rendered summaries are ignored.
-- The report shows each included day's quantized summary first, then one range
-  summary built by summing those daily quantized results.
+- The report shows each included day's summary first, then one range summary
+  built by summing those daily results.
 - While open, the report refreshes as its source files and buffers change,
   following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
@@ -335,19 +325,11 @@ After carrying over, the entry under the cursor is repeated in today's file at
 the current time, while the task that was running at midnight continues from
 `00:00`.
 
-                                                        *:WorklogCheck*
-:WorklogCheck
-
-Validate the current buffer without modifying it.
-
-- The full buffer is analyzed, not just the active worklog.
-- Every problem is published as a buffer diagnostic; a one-line summary
-  (`worklog: ok` or a problem count) is shown as a message.
-
                                                         *:WorklogCopy*
 :WorklogCopy
 
-Append a normalized editable copy of the active worklog.
+Append a normalized editable copy of the active worklog, followed by a summary
+of the copy so it is self-describing immediately.
 
 The active worklog is the latest `--- worklog ... ---` block in the buffer.
 
@@ -366,40 +348,13 @@ Rewrite all worklog blocks in chronological order.
 - A warning lists any entry whose tag or location was set from its original
   order, so order-dependent meaning is never changed silently.
 
-                                                        *:WorklogSummarize*
-:WorklogSummarize
-
-Set the active worklog's summary to an exact summary.
-
-A worklog has at most one summary. If one already exists (exact or quantized) it
-is replaced in place; otherwise the summary is appended.
-
-The summary includes item totals and overall totals. Tag and location totals are
-included when they contain meaningful buckets.
-
-Durations render according to `duration=decimal|hhmm` on that worklog block.
-
-                                                        *:WorklogQuantSum*
-:WorklogQuantSum
-
-Set the active worklog's summary to a rounded summary.
-
-Like |:WorklogSummarize|, this maintains a single summary per worklog, replacing
-any existing one (running it over an exact summary switches that summary to
-quantized).
-
-The bucket size is read from `quantize=<minutes>` on that worklog block. If
-omitted, the default is 15 minutes.
-
-Durations render according to `duration=decimal|hhmm` on that worklog block.
-
                                                         *:WorklogLog*
 :WorklogLog
 
 Toggle the logged state of the main summary row under the cursor.
 
-- The cursor must be on a main summary row inside an appended exact or
-  quantized summary section of the active worklog.
+- The cursor must be on a main summary row inside the summary section of the
+  active worklog.
 - The active worklog summary is recomputed from source; the rendered row acts
   only as a selector.
 - The logged state is toggled: an unlogged row's source intervals gain a
@@ -408,7 +363,7 @@ Toggle the logged state of the main summary row under the cursor.
 - Tag, location, logged, and total rows are not eligible.
 - `#ooo` rows are refused, since out-of-office time cannot be logged.
 - Summary rows that no longer match the recomputed summary are refused; run
-  |:WorklogSummarize| or |:WorklogQuantSum| again to refresh them.
+  |:WorklogRefresh| (or let `auto_summary` refresh) to bring them current.
 
                                                         *:WorklogRefresh*
 :WorklogRefresh
@@ -445,8 +400,7 @@ Configure `worklog.nvim` with:
   })
 <
 
-`defaults` are used by |:WorklogNew| and by the initial header created from
-|:WorklogToday|.
+`defaults` are used for the initial worklog header created by |:WorklogToday|.
 
 `journal` is optional:
 
@@ -493,20 +447,20 @@ than `%Y/%V` around new year boundaries.
 |:WorklogDays| uses the same journal settings to scan the last N dates,
 including today, from oldest to newest. |:WorklogWeek| scans the current ISO
 week from Monday through Sunday. Both commands recompute each included day's
-quantized summary from the latest worklog block in that file (or an open buffer
-for it, including unsaved edits), show those daily sections in a scratch buffer,
-then append one aggregate summary built from the already-quantized daily results.
+summary from the latest worklog block in that file (or an open buffer for it,
+including unsaved edits), show those daily sections in a scratch buffer, then
+append one aggregate summary built from those daily results.
 While a report is open it refreshes as those sources change, following
 `auto_summary`.
 
                                                         *worklog-auto-summary*
 `auto_summary` controls when existing summaries refresh automatically (see
-|:WorklogRefresh|). It is optional and defaults to `off`:
+|:WorklogRefresh|). It is optional and defaults to `change`:
 
-- `off` (or `false`) - never automatically; run |:WorklogRefresh| yourself.
-- `change` - shortly after edits settle (debounced).
+- `change` (default) - shortly after edits settle (debounced).
 - `idle` - when you pause or leave insert mode.
 - `save` - on write (`:w`).
+- `off` (or `false`) - never automatically; run |:WorklogRefresh| yourself.
 
 Open |:WorklogWeek| and |:WorklogDays| reports follow the same setting,
 rebuilding in place as their source days change.
@@ -549,46 +503,45 @@ Example:
   13:00 done
 <
 
-Exact summary:
+Summary:
 
 >
-  --- summary exact ---
-  4.00h planning
-  1.00h meeting
+  --- summary ---
+  4.00h (+0m) planning
+  1.00h (+0m) meeting
 
-  --- tags exact ---
-  4.00h #ClientA
-  1.00h #internal
+  --- tags ---
+  4.00h (+0m) #ClientA
+  1.00h (+0m) #internal
 
-  --- locations exact ---
-  3.00h @home
-  2.00h @office
+  --- locations ---
+  3.00h (+0m) @home
+  2.00h (+0m) @office
 
-  --- totals exact ---
-  5.00h workday
+  --- totals ---
+  5.00h (+0m) workday
 <
 
 If the same activity text appears under multiple tags, the tag is shown to
 disambiguate the rows:
 
 >
-  1.00h meeting #ClientA
-  1.00h meeting #internal
+  1.00h (+0m) meeting #ClientA
+  1.00h (+0m) meeting #internal
 <
 
-Exact summaries use raw interval durations.
+A worklog has one summary, always quantized to its `quantize=<minutes>` bucket
+(default 15). Setting `quantize=1` gives exact, unrounded figures.
 
-Quantized summaries round work into buckets. The bucket size is read from
-`quantize=<minutes>` on the active worklog block.
-
-Quantized summaries use one rounding pass over full-grain rows:
+Quantization uses one rounding pass over full-grain rows:
 
 >
   activity text + effective #tag + effective @location
 <
 
 The displayed summary, tag totals, location totals, and overall totals are then
-derived from that same rounded base.
+derived from that same rounded base. Every row shows its rounding error in
+`(+Nm)` form (`+` rounded down, `-` rounded up, `(+0m)` when exact).
 
 Tag and location sections are omitted when they only contain placeholder buckets.
 The `activity` total is omitted when it is identical to `workday`.

@@ -83,13 +83,12 @@ init.lua          -> Neovim shell
 
 ## Summary model
 
-A worklog has at most one summary, either exact or quantized. The summary is a
-**pure projection** of the worklog's entries: it stores no authored content and
-is always safe to rebuild from source. `:WorklogSummarize` / `:WorklogQuantSum`
-create or replace that single summary (via `summary_block.lua` + the `summarize`
-usecase); `:WorklogLog` marks the contributing source entries `!L` and rebuilds
-it. Annotations belong on entries (canonical, surviving copy/order), not in the
-summary.
+A worklog has at most one summary. The summary is a **pure projection** of the
+worklog's entries: it stores no authored content and is always safe to rebuild
+from source. It is created with the worklog (`:WorklogToday` and `:WorklogCopy`
+append one) and kept current by the refresh below; `:WorklogLog` marks the
+contributing source entries `!L` and rebuilds it. Annotations belong on entries
+(canonical, surviving copy/order), not in the summary.
 
 Keeping authored content out of the summary is what makes regeneration safe. The
 `refresh_summaries` usecase exploits this: it rebuilds *every* worklog's existing
@@ -171,8 +170,10 @@ can become:
 
 `summary.lua` builds intervals from adjacent semantic entries (`entry[i] ->
 entry[i + 1]`); the final entry closes the previous interval and produces none of
-its own. Exact summaries use raw interval durations, rendered as decimal hours or
-`hh:mm`.
+its own. There is one summary type, always quantized to the worklog's
+`quantize=<minutes>` bucket (default 15); `quantize=1` reproduces exact, unrounded
+durations. Durations render as decimal hours or `hh:mm`, each with its `(+Nm)`
+rounding error (`(+0m)` when exact).
 
 Quantization rounds full-grain rows. The full grain is `activity text + tag +
 location + workday_excluded`; intervals sharing a grain are summed before
@@ -259,9 +260,9 @@ while counting it in activity — rather than silently turning untagged work int
 ## Testing expectations
 
 Core areas under test: syntax parsing; sticky tag/location inheritance; `#-` and
-`@-`; `#ooo`; exact and quantized summaries; tag and location totals; copy,
-order, repeat, and insert behavior; equal-timestamp insertion; and quantized
-summary invariants.
+`@-`; `#ooo`; summaries and quantization (including `quantize=1` exactness); tag
+and location totals; copy, order, repeat, and insert behavior; equal-timestamp
+insertion; and quantized summary invariants.
 
 Tooling and the local gate (`just install`, `just check`, `just --list`, and the
 raw headless test/health commands) are documented in the README and `justfile`.

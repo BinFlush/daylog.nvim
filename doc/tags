@@ -1,16 +1,12 @@
-:WorklogCheck	worklog.txt	/*:WorklogCheck*
 :WorklogCopy	worklog.txt	/*:WorklogCopy*
 :WorklogDays	worklog.txt	/*:WorklogDays*
 :WorklogInsert	worklog.txt	/*:WorklogInsert*
 :WorklogLog	worklog.txt	/*:WorklogLog*
-:WorklogNew	worklog.txt	/*:WorklogNew*
 :WorklogNextDay	worklog.txt	/*:WorklogNextDay*
 :WorklogOrder	worklog.txt	/*:WorklogOrder*
 :WorklogPrevDay	worklog.txt	/*:WorklogPrevDay*
-:WorklogQuantSum	worklog.txt	/*:WorklogQuantSum*
 :WorklogRefresh	worklog.txt	/*:WorklogRefresh*
 :WorklogRepeat	worklog.txt	/*:WorklogRepeat*
-:WorklogSummarize	worklog.txt	/*:WorklogSummarize*
 :WorklogToday	worklog.txt	/*:WorklogToday*
 :WorklogWeek	worklog.txt	/*:WorklogWeek*
 worklog-auto-summary	worklog.txt	/*worklog-auto-summary*

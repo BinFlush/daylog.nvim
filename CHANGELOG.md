@@ -22,6 +22,27 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Changed
+
+- The two summary types are now one. "Exact" is just `quantize=1`; generated
+  summary headers drop their kind word (`--- summary exact ---` and
+  `--- summary quantized ---` both become `--- summary ---`) and every row shows
+  its rounding error, including `(+0m)`. Existing `.wkl` files load unchanged —
+  their summaries regenerate in the new form on the next refresh.
+- Every worklog now carries a summary: `:WorklogCopy` appends one to the copy,
+  matching `:WorklogToday`, and `auto_summary` defaults to `change` so it stays
+  live. Set `auto_summary = "off"` to opt out.
+
+### Removed
+
+- `:WorklogSummarize` and `:WorklogQuantSum`. A worklog's summary is now created
+  by `:WorklogToday` / `:WorklogCopy` and kept current automatically; use
+  `quantize=1` in the worklog header for exact (unrounded) figures.
+- `:WorklogCheck`. Its diagnostics are already published live by the summary
+  refresh.
+- The `:WorklogNew` command binding. `:WorklogToday` still creates and stamps the
+  day; arbitrary `.wkl` buffers take a `--- worklog ---` header typed by hand.
+
 ### Development
 
 - Added a release workflow that publishes a GitHub Release from the matching
