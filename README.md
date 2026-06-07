@@ -170,7 +170,7 @@ duration=hhmm  render summary durations as hours:minutes
 | `:WorklogDays[!] {count}` | Open the last N journal days report; `!` shows only the aggregate range summary |
 | `:WorklogWeek[!]` | Open this week's journal report; `!` shows only the aggregate weekly summary |
 | `:WorklogInsert` | Insert current time in order and enter insert mode |
-| `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
+| `:WorklogRepeat` | Repeat the activity under the cursor at the current time; on another day's file, bring it into today instead |
 | `:WorklogCopy` | Append a normalized editable copy, with its own summary |
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
 | `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |

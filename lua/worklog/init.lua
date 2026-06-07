@@ -443,10 +443,36 @@ local function run_carryover(settings, command, now)
   return true
 end
 
+-- Bring the activity under the cursor into today's worklog at the current time,
+-- used when :WorklogRepeat runs on another day's file. The browsed day is left
+-- untouched; today is opened (created if needed) and the window switches to it.
+local function run_cross_day_repeat(settings, now)
+  -- Capture the activity before open_journal_file switches the buffer away.
+  local activity, err = carryover.entry_at_row(buffer_lines(), cursor_row())
+  if not activity then
+    warn(err)
+    return
+  end
+
+  if not open_journal_file(settings, now) then
+    return
+  end
+
+  local clock = os.date("*t", now)
+  local seed, seed_err = carryover.seed_edit(buffer_lines(), activity, clock.hour * 60 + clock.min)
+  if not seed then
+    warn(seed_err)
+    return
+  end
+
+  apply_result(seed)
+  apply_refresh(false)
+end
+
 -- Refuse to stamp the current time into a day that is not today. When the
 -- buffer is not a canonical journal file the guard stays silent so the plugin
 -- keeps working on arbitrary files. Returns true when the request was handled
--- (blocked or carried over) and the caller should stop.
+-- (blocked, carried over, or repeated into today) and the caller should stop.
 local function guard_current_time(command)
   local settings = expanded_journal_settings()
   if settings == nil then
@@ -467,6 +493,13 @@ local function guard_current_time(command)
     journal.same_date(file_date, journal.offset_date(now, -1))
     and run_carryover(settings, command, now)
   then
+    return true
+  end
+
+  -- :WorklogRepeat on any other day brings the cursor activity into today instead
+  -- of refusing; :WorklogInsert still refuses (there is no activity to carry).
+  if command == "repeat" then
+    run_cross_day_repeat(settings, now)
     return true
   end
 

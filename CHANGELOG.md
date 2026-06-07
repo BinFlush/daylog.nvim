@@ -22,6 +22,12 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- `:WorklogRepeat` on another day's journal file brings the activity under the
+  cursor into today's worklog at the current time (opening today if needed), instead
+  of refusing — handy when reviewing a past day with `[w` / `]w`.
+
 ### Changed
 
 - The two summary types are now one. "Exact" is just `quantize=1`; generated

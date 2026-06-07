@@ -1787,6 +1787,115 @@ return function(t)
     end)
   end)
 
+  t.test("repeat on another day brings the cursor activity into today", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
+    local past_path = write_journal_file(root, "%Y", past, {
+      "--- worklog #ClientA @office ---",
+      "08:00 deep work",
+      "09:00 done",
+    })
+    local today_path = root .. "/2026/2026-05-22.wkl"
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(past_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogRepeat")
+      end)
+
+      -- Switched to a fresh today, with the activity at the current time.
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office ---",
+        "10:00 deep work",
+        "",
+        "--- summary ---",
+        "",
+        "--- totals ---",
+        "0.00h (+0m) workday",
+      })
+      -- The browsed day is left untouched.
+      t.eq(vim.fn.readfile(past_path), {
+        "--- worklog #ClientA @office ---",
+        "08:00 deep work",
+        "09:00 done",
+      })
+    end)
+  end)
+
+  t.test("repeat from another day inserts into an existing today worklog", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
+    local past_path = write_journal_file(root, "%Y", past, {
+      "--- worklog #ClientA @office ---",
+      "08:00 deep work",
+      "09:00 done",
+    })
+    local today = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })
+    local today_path = write_journal_file(root, "%Y", today, {
+      "--- worklog #ClientA @office ---",
+      "08:00 standup",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(past_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogRepeat")
+      end)
+
+      -- deep work is inserted at 10:00, after the existing entries.
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      local lines = t.get_lines()
+      t.eq(lines[2], "08:00 standup")
+      t.eq(lines[3], "09:00 done")
+      t.eq(lines[4], "10:00 deep work")
+    end)
+  end)
+
+  t.test("repeat on another day with the cursor off an entry warns and does nothing", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
+    local past_path = write_journal_file(root, "%Y", past, {
+      "--- worklog #ClientA @office ---",
+      "08:00 deep work",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(past_path))
+      t.set_cursor(1, 0)
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogRepeat")
+      end)
+
+      -- Stayed on the browsed day, unchanged.
+      t.eq(vim.api.nvim_buf_get_name(0), past_path)
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA @office ---",
+        "08:00 deep work",
+        "09:00 done",
+      })
+    end)
+  end)
+
   t.test("repeat past midnight carries the running task and repeats the cursor entry", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })

@@ -320,10 +320,12 @@ Repeat the activity under the cursor at the current time.
 - The following entry keeps its tag and location when the inserted entry changes
   the sticky state.
 
-The same date guard and past-midnight carryover as |:WorklogInsert| apply.
-After carrying over, the entry under the cursor is repeated in today's file at
-the current time, while the task that was running at midnight continues from
-`00:00`.
+On another day's journal file, the entry under the cursor is brought into today
+instead of refused: today's file is opened (created if needed), the activity is
+inserted at the current time, and the window switches to today; the browsed day is
+left unchanged. The past-midnight carryover still applies on yesterday's file with
+a still-running task (that task continues from `00:00`). |:WorklogInsert| still
+refuses on another day's file.
 
                                                         *:WorklogCopy*
 :WorklogCopy
