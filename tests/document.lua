@@ -3,11 +3,11 @@ return function(t)
 
   t.test("document parse preserves line kinds and rows", function()
     local doc = document.parse({
-      "--- worklog #ProjectOrion @office quantize=30 ---",
+      "--- worklog #ProjectOrion @office q=30 ---",
       "08:00 plan",
       "note about planning",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
     })
 
     t.eq(doc.kind, "document")
@@ -16,7 +16,7 @@ return function(t)
       {
         kind = "worklog_header",
         row = 1,
-        raw = "--- worklog #ProjectOrion @office quantize=30 ---",
+        raw = "--- worklog #ProjectOrion @office q=30 ---",
         metadata_tokens = {
           {
             kind = "tag",
@@ -31,9 +31,9 @@ return function(t)
         },
         option_tokens = {
           {
-            key = "quantize",
+            key = "q",
             value = "30",
-            raw = "quantize=30",
+            raw = "q=30",
           },
         },
         invalid_tokens = {},
@@ -61,8 +61,8 @@ return function(t)
       {
         kind = "block_header",
         row = 5,
-        raw = "--- summary ---",
-        text = "summary",
+        raw = "--- summary q=15 d=dec ---",
+        text = "summary q=15 d=dec",
       },
     })
   end)
@@ -113,10 +113,10 @@ return function(t)
   end)
 
   t.test("document parse keeps worklog header metadata and options", function()
-    t.eq(document.parse_line("--- worklog #ProjectOrion @office quantize=30 nope ---"), {
+    t.eq(document.parse_line("--- worklog #ProjectOrion @office q=30 nope ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog #ProjectOrion @office quantize=30 nope ---",
+      raw = "--- worklog #ProjectOrion @office q=30 nope ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -131,18 +131,18 @@ return function(t)
       },
       option_tokens = {
         {
-          key = "quantize",
+          key = "q",
           value = "30",
-          raw = "quantize=30",
+          raw = "q=30",
         },
       },
       invalid_tokens = { "nope" },
     })
 
-    t.eq(document.parse_line("--- worklog quantize=foo unknown=bar #internal @home ---"), {
+    t.eq(document.parse_line("--- worklog q=foo unknown=bar #internal @home ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog quantize=foo unknown=bar #internal @home ---",
+      raw = "--- worklog q=foo unknown=bar #internal @home ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -157,9 +157,9 @@ return function(t)
       },
       option_tokens = {
         {
-          key = "quantize",
+          key = "q",
           value = "foo",
-          raw = "quantize=foo",
+          raw = "q=foo",
         },
         {
           key = "unknown",
@@ -233,10 +233,10 @@ return function(t)
   end)
 
   t.test("document parse recognizes clear tokens in headers and entries", function()
-    t.eq(document.parse_line("--- worklog #- @- quantize=30 ---"), {
+    t.eq(document.parse_line("--- worklog #- @- q=30 ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog #- @- quantize=30 ---",
+      raw = "--- worklog #- @- q=30 ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -253,9 +253,9 @@ return function(t)
       },
       option_tokens = {
         {
-          key = "quantize",
+          key = "q",
           value = "30",
-          raw = "quantize=30",
+          raw = "q=30",
         },
       },
       invalid_tokens = {},

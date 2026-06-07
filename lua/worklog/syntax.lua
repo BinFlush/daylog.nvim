@@ -5,13 +5,13 @@ M.TAG_CLEAR_TOKEN = "#-"
 M.LOCATION_CLEAR_TOKEN = "@-"
 M.OUT_OF_OFFICE_TAG = "ooo"
 
-M.OPTION_QUANTIZE = "quantize"
-M.OPTION_DURATION = "duration"
+M.OPTION_QUANTIZE = "q"
+M.OPTION_DURATION = "d"
 
-M.DURATION_DECIMAL = "decimal"
-M.DURATION_HHMM = "hhmm"
+M.DURATION_DECIMAL = "dec"
+M.DURATION_HM = "hm"
 
-M.DURATION_FORMATS = { [M.DURATION_DECIMAL] = true, [M.DURATION_HHMM] = true }
+M.DURATION_FORMATS = { [M.DURATION_DECIMAL] = true, [M.DURATION_HM] = true }
 
 M.DEFAULT_QUANTIZE_MINUTES = 15
 M.END_OF_DAY_MINUTES = 24 * 60
@@ -90,6 +90,16 @@ M.DIAGNOSTIC_CATEGORY_BY_CODE = {
 
 function M.section_header(section)
   return "--- " .. section .. " ---"
+end
+
+-- The summary banner echoes the parameters it was generated with (read-only
+-- provenance; the worklog header stays the source of truth).
+function M.summary_header(quantize_minutes, duration_format)
+  return string.format(
+    "--- summary q=%d d=%s ---",
+    quantize_minutes or M.DEFAULT_QUANTIZE_MINUTES,
+    duration_format or M.DURATION_DECIMAL
+  )
 end
 
 return M

@@ -30,9 +30,15 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
-- The two summary types are now one. "Exact" is just `quantize=1`; generated
+- Worklog header options now use short keys: `quantize=` → `q=`, and
+  `duration=decimal|hhmm` → `d=dec|hm`. The summary header echoes them as a
+  read-only banner — `--- summary q=15 d=dec ---` — regenerated from the worklog
+  header on refresh. **Breaking:** update existing files (`quantize=`→`q=`,
+  `duration=`→`d=`, `decimal`→`dec`, `hhmm`→`hm`); an old option now reports an
+  unknown-option diagnostic.
+- The two summary types are now one. "Exact" is just `q=1`; generated
   summary headers drop their kind word (`--- summary exact ---` and
-  `--- summary quantized ---` both become `--- summary ---`) and every row shows
+  `--- summary quantized ---` both become `--- summary q=<n> d=<fmt> ---`) and every row shows
   its rounding error, including `(+0m)`. Existing `.wkl` files load unchanged —
   their summaries regenerate in the new form on the next refresh.
 - Every worklog now carries a summary: `:WorklogCopy` appends one to the copy,

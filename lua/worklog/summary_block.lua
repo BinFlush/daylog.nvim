@@ -10,12 +10,8 @@ local M = {}
 -- owns no presentation or reporting logic; it only matches generated headers
 -- (built from the same syntax constants render uses) against analyzed blocks.
 
--- Headers that begin a generated summary region, and the subsection headers that
--- continue it. The current form is kind-less ("--- summary ---"). The legacy
--- "exact"/"quantized" forms (v0.1.0) are recognized but never emitted, so a
--- summary written by an older version is still located and rewritten to the
--- kind-less form on the next refresh.
-local SUMMARY_HEADERS = { [syntax.section_header(syntax.SECTION.SUMMARY)] = true }
+-- The subsection headers (tags/locations/logged/totals) that continue a summary
+-- region: the current kind-less form plus the legacy "exact"/"quantized" forms.
 local SUBSECTION_HEADERS = {}
 
 for _, section in pairs(syntax.SECTION) do
@@ -25,13 +21,26 @@ for _, section in pairs(syntax.SECTION) do
 end
 
 for _, kind in ipairs({ "exact", "quantized" }) do
-  SUMMARY_HEADERS["--- summary " .. kind .. " ---"] = true
-
   for _, section in pairs(syntax.SECTION) do
     if section ~= syntax.SECTION.SUMMARY then
       SUBSECTION_HEADERS["--- " .. section .. " " .. kind .. " ---"] = true
     end
   end
+end
+
+-- The line that begins a summary region: the current banner
+-- "--- summary q=<n> d=<fmt> ---", plus the legacy kind-less and exact/quantized
+-- forms (v0.1.0) -- recognized but never emitted, so an older file's summary is
+-- still located and rewritten to the current form on the next refresh.
+local LEGACY_SUMMARY_HEADERS = {
+  [syntax.section_header(syntax.SECTION.SUMMARY)] = true,
+  ["--- summary exact ---"] = true,
+  ["--- summary quantized ---"] = true,
+}
+
+local function is_summary_header(line)
+  return line ~= nil
+    and (LEGACY_SUMMARY_HEADERS[line] or line:match("^%-%-%- summary q=%d+ d=%w+ %-%-%-$") ~= nil)
 end
 
 local function header_line(block)
@@ -62,7 +71,7 @@ function M.find(analysis, worklog_block)
       break
     end
 
-    if SUMMARY_HEADERS[header_line(block)] then
+    if is_summary_header(header_line(block)) then
       local end_row = block.end_row
 
       for next_index = index + 1, #analysis.blocks do

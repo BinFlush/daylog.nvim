@@ -53,8 +53,10 @@ function M.run(lines)
 
         if region then
           local computed = summary.summarize_block(block)
-          local rendered =
-            render.summary_lines(computed, block.duration_format, { leading_blank = false })
+          local rendered = render.summary_lines(computed, block.duration_format, {
+            leading_blank = false,
+            quantize_minutes = block.quantize_minutes,
+          })
 
           if not region_matches(lines, region, rendered) then
             table.insert(edits, {
@@ -73,7 +75,11 @@ function M.run(lines)
           table.insert(edits, {
             start_index = insert_row,
             end_index = insert_row,
-            lines = render.summary_lines(computed, block.duration_format),
+            lines = render.summary_lines(
+              computed,
+              block.duration_format,
+              { quantize_minutes = block.quantize_minutes }
+            ),
           })
         end
       end

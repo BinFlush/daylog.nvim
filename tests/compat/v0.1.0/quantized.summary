@@ -1,9 +1,9 @@
---- worklog @office quantize=60 ---
+--- worklog @office q=60 ---
 09:00 plan
 09:20 call #sales @client
 10:00 done
 
---- summary ---
+--- summary q=60 d=dec ---
 1.00h (-20m) call
 0.00h (+20m) plan
 

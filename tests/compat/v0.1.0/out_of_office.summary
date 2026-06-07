@@ -4,7 +4,7 @@
 09:00 break #ooo
 09:15 done #ProjectOrion @office
 
---- summary ---
+--- summary q=15 d=dec ---
 0.50h (+0m) plan #ProjectOrion
 0.50h (+0m) plan #sales
 0.25h (+0m) break

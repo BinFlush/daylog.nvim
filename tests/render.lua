@@ -78,7 +78,7 @@ return function(t)
       }),
       {
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "1.00h (+0m) planning #ClientA",
         "0.50h (+0m) planning #internal",
         "1.50h (+0m) implementation",
@@ -133,7 +133,7 @@ return function(t)
       }),
       {
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "0.50h (+0m) plan",
         "",
         "--- totals ---",
@@ -192,7 +192,7 @@ return function(t)
       }),
       {
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "1.00h (+5m) client",
         "0.50h (-5m) break",
         "",
@@ -238,10 +238,10 @@ return function(t)
         },
         activity_total = 90,
         workday_total = 90,
-      }, "hhmm"),
+      }, "hm"),
       {
         "",
-        "--- summary ---",
+        "--- summary q=15 d=hm ---",
         "1:30 (+0m) planning",
         "",
         "--- tags ---",
@@ -289,10 +289,10 @@ return function(t)
         workday_total = 90,
         activity_error_minutes = 5,
         workday_error_minutes = 5,
-      }, "hhmm"),
+      }, "hm"),
       {
         "",
-        "--- summary ---",
+        "--- summary q=15 d=hm ---",
         "1:30 (+5m) plan",
         "",
         "--- totals ---",
@@ -352,7 +352,7 @@ return function(t)
       }),
       {
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "1.00h (+0m) implementation !L",
         "1.00h (+0m) implementation",
         "",
@@ -431,7 +431,7 @@ return function(t)
       }),
       {
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "0.50h (-10m) implementation !L",
         "0.50h (-10m) implementation",
         "",
@@ -524,7 +524,7 @@ return function(t)
           activity_error_minutes = 8,
           workday_error_minutes = 8,
         },
-      }, "hhmm"),
+      }, "hm"),
       {
         "--- day summary 2026-05-18 ---",
         "1:00 (+8m) plan",
@@ -602,7 +602,7 @@ return function(t)
             workday_error_minutes = 8,
           },
         },
-        "hhmm",
+        "hm",
         {
           aggregate_only = true,
         }
@@ -686,7 +686,7 @@ return function(t)
           activity_error_minutes = 0,
           workday_error_minutes = 0,
         },
-      }, "hhmm"),
+      }, "hm"),
       {
         "--- day summary 2026-05-18 ---",
         "1:00 (+0m) plan !L",
@@ -782,7 +782,7 @@ return function(t)
           activity_error_minutes = 8,
           workday_error_minutes = 8,
         },
-      }, "hhmm"),
+      }, "hm"),
       {
         "--- day summary 2026-05-22 ---",
         "1:00 (+8m) plan",
@@ -860,7 +860,7 @@ return function(t)
             workday_error_minutes = 8,
           },
         },
-        "hhmm",
+        "hm",
         {
           aggregate_only = true,
         }

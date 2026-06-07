@@ -26,7 +26,10 @@ function M.run(lines)
   )
 
   local computed = summary.summarize_block(ctx.block)
-  for _, line in ipairs(render.summary_lines(computed, ctx.block.duration_format)) do
+  local summary_lines = render.summary_lines(computed, ctx.block.duration_format, {
+    quantize_minutes = ctx.block.quantize_minutes,
+  })
+  for _, line in ipairs(summary_lines) do
     table.insert(rendered, line)
   end
 

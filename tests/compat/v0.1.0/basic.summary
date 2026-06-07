@@ -3,7 +3,7 @@
 08:30 call #sales @client
 09:00 done
 
---- summary ---
+--- summary q=15 d=dec ---
 0.50h (+0m) plan
 0.50h (+0m) call
 

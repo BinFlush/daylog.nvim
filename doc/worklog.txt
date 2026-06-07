@@ -19,7 +19,7 @@ OVERVIEW                                                    *worklog-overview*
 worklog.nvim is a Neovim plugin for structured timestamped plain-text worklogs.
 
 It helps you keep a plain-text source of truth for what you did during the day,
-then derive a quantized summary for reporting (`quantize=1` for exact figures).
+then derive a quantized summary for reporting (`q=1` for exact figures).
 
 A worklog can track:
 
@@ -27,7 +27,7 @@ A worklog can track:
 - reporting tags
 - work locations
 - out-of-office time
-- quantized reporting totals (exact when `quantize=1`)
+- quantized reporting totals (exact when `q=1`)
 
 Files ending in `.wkl` are detected as filetype `worklog` when the plugin is
 loaded.
@@ -70,7 +70,7 @@ A worklog block starts with a worklog header:
 The header may set initial sticky metadata and options:
 
 >
-  --- worklog #ClientA @office quantize=30 duration=hhmm ---
+  --- worklog #ClientA @office q=30 d=hm ---
 <
 
 A worklog entry has this shape:
@@ -82,7 +82,7 @@ A worklog entry has this shape:
 Example:
 
 >
-  --- worklog #ClientA @office quantize=30 ---
+  --- worklog #ClientA @office q=30 ---
   08:00 planning
   10:00 implementation @home
   13:00 internal meeting #internal
@@ -102,9 +102,9 @@ Rules:
 - Non-timestamped lines under an entry are notes.
 - Notes move with their timestamped entry when copied or ordered.
 - `!L` marks the interval started by that entry as already logged externally.
-- `quantize=<minutes>` sets the quantization bucket for that worklog block.
+- `q=<minutes>` sets the quantization bucket for that worklog block.
 - If no quantize option is present, quantization defaults to 15 minutes.
-- `duration=decimal|hhmm` sets how summaries render durations for that worklog
+- `d=dec|hm` sets how summaries render durations for that worklog
   block.
 - If no duration option is present, summaries default to decimal hours such as
   `1.50h`.
@@ -392,7 +392,7 @@ Configure `worklog.nvim` with:
       tag = 'ClientA',
       location = 'office',
       quantize_minutes = 30,
-      duration_format = 'hhmm',
+      duration_format = 'hm',
     },
     journal = {
       root = '~/timereg',
@@ -508,7 +508,7 @@ Example:
 Summary:
 
 >
-  --- summary ---
+  --- summary q=15 d=dec ---
   4.00h (+0m) planning
   1.00h (+0m) meeting
 
@@ -532,8 +532,12 @@ disambiguate the rows:
   1.00h (+0m) meeting #internal
 <
 
-A worklog has one summary, always quantized to its `quantize=<minutes>` bucket
-(default 15). Setting `quantize=1` gives exact, unrounded figures.
+A worklog has one summary, always quantized to its `q=<minutes>` bucket
+(default 15). Setting `q=1` gives exact, unrounded figures.
+
+The summary header echoes those parameters as a read-only banner
+(`--- summary q=<minutes> d=<dec|hm> ---`); it mirrors the worklog header and is
+regenerated on refresh, so set `q=`/`d=` on the worklog, not the summary.
 
 Quantization uses one rounding pass over full-grain rows:
 

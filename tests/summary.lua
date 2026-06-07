@@ -29,9 +29,9 @@ return function(t)
     test.eq(total_duration(result.location_totals), result.activity_total)
   end
 
-  -- The single summary type is quantized; "exact" is just quantize=1 (rounding is a
+  -- The single summary type is quantized; "exact" is just q=1 (rounding is a
   -- no-op on whole-minute durations). These helpers assert the unrounded shape by
-  -- computing at quantize=1 and dropping the now-zero error fields.
+  -- computing at q=1 and dropping the now-zero error fields.
   local function strip_errors(result)
     local groups = { result.summary_items, result.tag_totals, result.location_totals }
     if result.logged_totals then
@@ -262,7 +262,7 @@ return function(t)
 
   t.test("quantized summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
-      "--- worklog @office quantize=30 ---",
+      "--- worklog @office q=30 ---",
       "08:00 plan",
       "08:12 call #sales @client",
       "08:30 done",
@@ -326,7 +326,7 @@ return function(t)
 
   t.test("quantized summary supports 60 minute rounding", function()
     local block = block_from_lines({
-      "--- worklog @office quantize=60 ---",
+      "--- worklog @office q=60 ---",
       "08:00 plan",
       "08:20 call #sales @client",
       "09:00 done",
@@ -390,7 +390,7 @@ return function(t)
 
   t.test("quantized summary splits logged rows without splitting tag or location totals", function()
     local block = block_from_lines({
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 implementation !L",
       "08:20 implementation",
       "08:40 break #ooo !L",
@@ -476,7 +476,7 @@ return function(t)
     "quantized logged totals follow visible main summary rows instead of independent bucket rounding",
     function()
       local block = block_from_lines({
-        "--- worklog #ClientA quantize=30 ---",
+        "--- worklog #ClientA q=30 ---",
         "08:00 implementation !L",
         "08:20 implementation",
         "08:40 done",
@@ -546,7 +546,7 @@ return function(t)
     "logged totals render logged before unlogged even when unlogged duration is larger",
     function()
       local block = block_from_lines({
-        "--- worklog #ClientA quantize=30 ---",
+        "--- worklog #ClientA q=30 ---",
         "08:00 implementation !L",
         "08:10 implementation",
         "09:00 done",
@@ -569,11 +569,11 @@ return function(t)
 
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
-      "--- worklog @office quantize=30 ---",
+      "--- worklog @office q=30 ---",
       "08:00 plan",
       "08:12 call #sales @client",
       "08:30 done",
-      "--- worklog @office quantize=60 ---",
+      "--- worklog @office q=60 ---",
       "09:00 plan",
       "09:20 call #sales @client",
       "10:00 done",
@@ -637,7 +637,7 @@ return function(t)
 
   t.test("quantized summary derives item tag and location totals from one shared base", function()
     local block = block_from_lines({
-      "--- worklog quantize=30 ---",
+      "--- worklog q=30 ---",
       "08:00 alpha #A @x",
       "08:17 beta #B @y",
       "08:34 gamma #C @x",
@@ -721,7 +721,7 @@ return function(t)
 
   t.test("quantized summary folds same text and tag across locations", function()
     local block = block_from_lines({
-      "--- worklog #ClientA quantize=30 ---",
+      "--- worklog #ClientA q=30 ---",
       "08:00 planning @office",
       "08:17 planning @home",
       "08:34 done",
@@ -1483,7 +1483,7 @@ return function(t)
 
   t.test("quantized summary preserves source_entry_rows on visible main rows", function()
     local block = block_from_lines({
-      "--- worklog #ClientA quantize=30 ---",
+      "--- worklog #ClientA q=30 ---",
       "08:00 planning @office",
       "08:17 planning @home",
       "08:34 done",

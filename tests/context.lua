@@ -1,18 +1,18 @@
 return function(t)
   local context = require("worklog.context")
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
-    .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+    .. "--- worklog --- or --- worklog #ClientA @office q=30 ---"
   local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a "
     .. "worklog header such as --- worklog --- or "
-    .. "--- worklog #ClientA @office quantize=30 ---"
+    .. "--- worklog #ClientA @office q=30 ---"
 
   t.test("context selects the active worklog and preserves body lines", function()
     local ctx = context.get_active_worklog_context({
-      "--- worklog #ProjectOrion @office quantize=30 ---",
+      "--- worklog #ProjectOrion @office q=30 ---",
       "08:00 raw",
       "09:00",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h raw",
       "",
       "--- worklog #internal @home ---",
@@ -26,7 +26,7 @@ return function(t)
     t.eq(ctx.block.body_start_row, 9)
     t.eq(ctx.block.end_row, 11)
     t.eq(ctx.block.quantize_minutes, 15)
-    t.eq(ctx.block.duration_format, "decimal")
+    t.eq(ctx.block.duration_format, "dec")
   end)
 
   t.test("context includes header rows when selecting worklogs by cursor", function()
@@ -35,7 +35,7 @@ return function(t)
       "08:00 raw",
       "09:00",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h raw",
       "",
       "--- worklog #internal @home ---",
@@ -63,7 +63,7 @@ return function(t)
 
   t.test("context surfaces structural header errors and missing worklogs", function()
     local ctx, err = context.get_active_worklog_context({
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h activity",
     })
 
@@ -84,7 +84,7 @@ return function(t)
       "08:00 raw",
       "09:00",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h raw",
     }, 5)
 

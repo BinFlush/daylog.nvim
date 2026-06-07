@@ -7,7 +7,7 @@ return function(t)
         date_label = "2026-05-18",
         path = "/tmp/2026-05-18.wkl",
         lines = {
-          "--- worklog #ClientA quantize=30 ---",
+          "--- worklog #ClientA q=30 ---",
           "08:00 plan",
           "08:20 done",
         },
@@ -16,7 +16,7 @@ return function(t)
         date_label = "2026-05-19",
         path = "/tmp/2026-05-19.wkl",
         lines = {
-          "--- worklog #ClientA quantize=60 ---",
+          "--- worklog #ClientA q=60 ---",
           "08:00 plan",
           "08:20 done",
         },
@@ -141,7 +141,7 @@ return function(t)
         date_label = "2026-05-18",
         path = "/tmp/2026-05-18.wkl",
         lines = {
-          "--- worklog #ClientA quantize=30 ---",
+          "--- worklog #ClientA q=30 ---",
           "08:00 plan !L",
           "08:20 plan",
           "08:40 done",
@@ -151,7 +151,7 @@ return function(t)
         date_label = "2026-05-19",
         path = "/tmp/2026-05-19.wkl",
         lines = {
-          "--- worklog #ClientA quantize=30 ---",
+          "--- worklog #ClientA q=30 ---",
           "08:00 plan !L",
           "08:20 done",
         },
@@ -303,7 +303,7 @@ return function(t)
     t.eq(
       err,
       "worklog: /tmp/2026-05-18.wkl: no worklog block found; first line must be a "
-        .. "worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+        .. "worklog header such as --- worklog --- or --- worklog #ClientA @office q=30 ---"
     )
   end)
 

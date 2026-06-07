@@ -63,7 +63,7 @@ local function normalize_defaults(defaults)
 
   if defaults.duration_format ~= nil then
     if not is_duration_format(defaults.duration_format) then
-      error("worklog: defaults.duration_format must be decimal or hhmm")
+      error("worklog: defaults.duration_format must be dec or hm")
     end
 
     result.duration_format = defaults.duration_format

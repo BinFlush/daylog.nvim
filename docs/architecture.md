@@ -21,7 +21,7 @@ Design goals:
 A worklog is a sequence of timestamped entries inside a worklog block.
 
 ```text
---- worklog #ClientA @office quantize=30 ---
+--- worklog #ClientA @office q=30 ---
 08:00 planning
 10:00 implementation @home
 13:00 internal meeting #internal
@@ -172,9 +172,12 @@ can become:
 `summary.lua` builds intervals from adjacent semantic entries (`entry[i] ->
 entry[i + 1]`); the final entry closes the previous interval and produces none of
 its own. There is one summary type, always quantized to the worklog's
-`quantize=<minutes>` bucket (default 15); `quantize=1` reproduces exact, unrounded
+`q=<minutes>` bucket (default 15); `q=1` reproduces exact, unrounded
 durations. Durations render as decimal hours or `hh:mm`, each with its `(+Nm)`
-rounding error (`(+0m)` when exact).
+rounding error (`(+0m)` when exact). The summary header echoes the worklog's
+`q=`/`d=` as a read-only banner (`--- summary q=<n> d=<fmt> ---`) built by
+`syntax.summary_header` and regenerated on refresh, so the worklog header stays the
+single source of truth.
 
 Quantization rounds full-grain rows. The full grain is `activity text + tag +
 location + workday_excluded`; intervals sharing a grain are summed before
@@ -261,7 +264,7 @@ while counting it in activity — rather than silently turning untagged work int
 ## Testing expectations
 
 Core areas under test: syntax parsing; sticky tag/location inheritance; `#-` and
-`@-`; `#ooo`; summaries and quantization (including `quantize=1` exactness); tag
+`@-`; `#ooo`; summaries and quantization (including `q=1` exactness); tag
 and location totals; copy, order, repeat, and insert behavior; equal-timestamp
 insertion; and quantized summary invariants.
 

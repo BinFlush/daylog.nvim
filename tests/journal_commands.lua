@@ -34,7 +34,7 @@ return function(t)
         tag = "ClientA",
         location = "office",
         quantize_minutes = 30,
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = root,
@@ -54,10 +54,10 @@ return function(t)
       t.eq(vim.fn.isdirectory(expected_dir), 1)
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office quantize=30 duration=hhmm ---",
+        "--- worklog #ClientA @office q=30 d=hm ---",
         "08:45 ",
         "",
-        "--- summary ---",
+        "--- summary q=30 d=hm ---",
         "",
         "--- totals ---",
         "0:00 (+0m) workday",
@@ -126,7 +126,7 @@ return function(t)
         "--- worklog ---",
         "08:45 ",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "",
         "--- totals ---",
         "0.00h (+0m) workday",
@@ -293,7 +293,7 @@ return function(t)
         "--- worklog ---",
         "08:45 ",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "",
         "--- totals ---",
         "0.00h (+0m) workday",
@@ -841,31 +841,31 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 plan",
       "08:20 implementation @home",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "stale",
     })
 
     write_journal_file(root, "%Y/%V", friday, {
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "09:00 stale",
       "09:30 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "stale",
       "",
-      "--- worklog #internal @home quantize=60 ---",
+      "--- worklog #internal @home q=60 ---",
       "10:00 retro",
       "10:40 done",
     })
 
     with_worklog_setup({
       defaults = {
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = root,
@@ -942,14 +942,14 @@ return function(t)
     local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
 
     local monday_path = write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
 
     with_worklog_setup({
       defaults = {
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = root,
@@ -961,7 +961,7 @@ return function(t)
       -- Open Monday and extend it to two hours without saving.
       vim.cmd("edit " .. vim.fn.fnameescape(monday_path))
       vim.api.nvim_buf_set_lines(0, 0, -1, false, {
-        "--- worklog #ClientA @office quantize=30 ---",
+        "--- worklog #ClientA @office q=30 ---",
         "08:00 plan",
         "10:00 done",
       })
@@ -984,7 +984,7 @@ return function(t)
 
       -- The reporting path must not write the unsaved buffer back to disk.
       t.eq(vim.fn.readfile(monday_path), {
-        "--- worklog #ClientA @office quantize=30 ---",
+        "--- worklog #ClientA @office q=30 ---",
         "08:00 plan",
         "09:00 done",
       })
@@ -1013,14 +1013,14 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
 
     with_worklog_setup({
       defaults = {
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = root,
@@ -1206,27 +1206,27 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", wednesday, {
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 plan",
       "08:20 implementation @home",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "stale",
     })
     write_journal_file(root, "%Y/%V", thursday, {})
     write_journal_file(root, "%Y/%V", friday, {
-      "--- worklog #internal @home quantize=60 ---",
+      "--- worklog #internal @home q=60 ---",
       "10:00 retro",
       "10:40 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "stale",
     })
 
     with_worklog_setup({
       defaults = {
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = root,
@@ -1312,14 +1312,14 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", friday, {
-      "--- worklog #internal @home quantize=60 ---",
+      "--- worklog #internal @home q=60 ---",
       "10:00 retro",
       "11:00 done",
     })
 
     with_worklog_setup({
       defaults = {
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = root,
@@ -1450,14 +1450,14 @@ return function(t)
     local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
 
     local monday_path = write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
 
     with_worklog_setup({
       auto_summary = "save",
-      defaults = { duration_format = "hhmm" },
+      defaults = { duration_format = "hm" },
       journal = { root = root, directory = "%Y/%V" },
     }, function()
       vim.cmd("silent! only!")
@@ -1476,7 +1476,7 @@ return function(t)
 
       -- Extend Monday to two hours in its buffer (unsaved) and signal a save.
       vim.api.nvim_buf_set_lines(monday_buf, 0, -1, false, {
-        "--- worklog #ClientA @office quantize=30 ---",
+        "--- worklog #ClientA @office q=30 ---",
         "08:00 plan",
         "10:00 done",
       })
@@ -1498,14 +1498,14 @@ return function(t)
     local day_one = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
 
     local day_one_path = write_journal_file(root, "%Y", day_one, {
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
 
     with_worklog_setup({
       auto_summary = "save",
-      defaults = { duration_format = "hhmm" },
+      defaults = { duration_format = "hm" },
       journal = { root = root, directory = "%Y" },
     }, function()
       vim.cmd("silent! only!")
@@ -1522,7 +1522,7 @@ return function(t)
       t.ok(report_has_workday(report_buf, "1:00"))
 
       vim.api.nvim_buf_set_lines(source_buf, 0, -1, false, {
-        "--- worklog #ClientA @office quantize=30 ---",
+        "--- worklog #ClientA @office q=30 ---",
         "08:00 plan",
         "10:00 done",
       })
@@ -1704,7 +1704,7 @@ return function(t)
       "08:00 standup",
       "10:30 writing report",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "2.50h standup",
       "",
       "--- totals ---",
@@ -1772,7 +1772,7 @@ return function(t)
         "22:30 writing report",
         "24:00",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "1.50h (+0m) writing report",
         "",
         "--- tags ---",
@@ -1815,7 +1815,7 @@ return function(t)
         "--- worklog #ClientA @office ---",
         "10:00 deep work",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "",
         "--- totals ---",
         "0.00h (+0m) workday",
@@ -1933,7 +1933,7 @@ return function(t)
         "22:30 writing report",
         "24:00",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "2.50h (+0m) standup",
         "1.50h (+0m) writing report",
         "",

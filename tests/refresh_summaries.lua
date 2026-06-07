@@ -1,13 +1,31 @@
 return function(t)
   local refresh_summaries = require("worklog.usecases.refresh_summaries")
 
+  t.test("refresh regenerates a hand-edited summary header from the worklog params", function()
+    -- The worklog header is the single source of truth; the summary banner is
+    -- read-only display, so an edited q=/d= is overwritten on the next refresh.
+    local result = refresh_summaries.run({
+      "--- worklog q=30 ---",
+      "08:00 plan",
+      "08:34 done",
+      "",
+      "--- summary q=99 d=hm ---",
+      "0.50h (+4m) plan",
+      "",
+      "--- totals ---",
+      "0.50h (+4m) workday",
+    })
+
+    t.eq(result.edits[1].lines[1], "--- summary q=30 d=dec ---")
+  end)
+
   t.test("refresh rewrites a stale summary in place", function()
     local result = refresh_summaries.run({
       "--- worklog ---",
       "08:00 plan",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "0.50h (+0m) plan",
       "",
       "--- totals ---",
@@ -21,7 +39,7 @@ return function(t)
           start_index = 4,
           end_index = 9,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan",
             "",
             "--- totals ---",
@@ -52,7 +70,7 @@ return function(t)
           start_index = 4,
           end_index = 9,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan",
             "",
             "--- totals ---",
@@ -69,7 +87,7 @@ return function(t)
       "08:00 plan",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",
       "",
       "--- totals ---",
@@ -85,7 +103,7 @@ return function(t)
       "08:00 a",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) a",
       "",
       "--- totals ---",
@@ -95,7 +113,7 @@ return function(t)
       "10:00 b",
       "11:30 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "0.50h (+0m) b",
       "",
       "--- totals ---",
@@ -109,7 +127,7 @@ return function(t)
           start_index = 14,
           end_index = 19,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.50h (+0m) b",
             "",
             "--- totals ---",
@@ -122,11 +140,11 @@ return function(t)
 
   t.test("refresh preserves the summary kind", function()
     local result = refresh_summaries.run({
-      "--- worklog quantize=30 ---",
+      "--- worklog q=30 ---",
       "08:00 plan",
       "08:34 done",
       "",
-      "--- summary ---",
+      "--- summary q=30 d=dec ---",
       "1.00h (+0m) plan",
       "",
       "--- totals ---",
@@ -140,7 +158,7 @@ return function(t)
           start_index = 4,
           end_index = 9,
           lines = {
-            "--- summary ---",
+            "--- summary q=30 d=dec ---",
             "0.50h (+4m) plan",
             "",
             "--- totals ---",
@@ -168,7 +186,7 @@ return function(t)
           end_index = 3,
           lines = {
             "",
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan",
             "",
             "--- totals ---",
@@ -189,7 +207,7 @@ return function(t)
       "10:00 b",
       "11:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) b",
       "",
       "--- totals ---",
@@ -207,7 +225,7 @@ return function(t)
           end_index = 3,
           lines = {
             "",
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) a",
             "",
             "--- totals ---",
@@ -225,7 +243,7 @@ return function(t)
       "08:00 earlier",
       "10:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "0.50h (+0m) later",
       "",
       "--- totals ---",
@@ -274,7 +292,7 @@ return function(t)
         {
           row = 1,
           message = "worklog: no worklog block found; first line must be a worklog header "
-            .. "such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---",
+            .. "such as --- worklog --- or --- worklog #ClientA @office q=30 ---",
         },
       },
     })
@@ -303,7 +321,7 @@ return function(t)
         {
           row = 2,
           message = "worklog: first line must be a worklog header such as --- worklog --- or "
-            .. "--- worklog #ClientA @office quantize=30 ---",
+            .. "--- worklog #ClientA @office q=30 ---",
         },
         {
           row = 3,

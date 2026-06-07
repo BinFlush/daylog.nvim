@@ -20,10 +20,10 @@ timestamp; the final `done` line simply closes the last interval.
 12:02 done
 ```
 
-A summary is kept at the bottom of the worklog:
+A summary is automatically kept underneath the worklog:
 
 ```text
---- summary ---
+--- summary q=15 d=dec ---
 1.75h (+2m) planning
 1.50h (+2m) PR review
 0.50h (+3m) bugfixes on backend
@@ -33,7 +33,7 @@ A summary is kept at the bottom of the worklog:
 ```
 
 Identical work items are summed automatically. Durations round to 15-minute
-buckets by default (set `quantize=1` in the header for exact figures). The
+buckets by default (set `q=1` in the header for exact figures). The
 `(+Nm)` beside a row is the rounding difference from the exact time: `+` when
 rounded down, `-` when rounded up, `(+0m)` when exact. Here the exact day is
 3h52m, so the rounded 3.75h total (equalling 3h45m) shows `(+7m)`.
@@ -58,7 +58,7 @@ and suggested keymaps.
 
 ## A typical day
 
-**1. Start the day `:WorklogToday`.** Opens (and creates) today's dated file.
+**1. Start the day `:WorklogToday`.** Opens (or creates) today's dated file.
 On a fresh day it adds the header, stamps the current time, and drops you into
 insert mode. Type what you are starting on:
 
@@ -72,6 +72,7 @@ it to stamp the current time on a new line, then type the new task. Every line
 means "from this time, I was doing this":
 
 ```text
+--- worklog ---
 09:00 planning
 10:30 fixing the login bug
 ```
@@ -85,6 +86,7 @@ recurring work (a standup, email, a client) is one keystroke instead of
 retyping:
 
 ```text
+--- worklog ---
 09:00 planning              <- at 11:15 you run :WorklogRepeat while cursor on this line
 10:30 fixing the login bug
 11:15 planning              <- makes this appear
@@ -94,27 +96,49 @@ retyping:
 the day with `:WorklogInsert` and type `done` (or leave it blank/anything):
 
 ```text
+--- worklog ---
+09:00 planning
+10:30 fixing the login bug
 11:15 planning
-12:00 done
+12:03 done
 ```
 
 **5. See your totals.** The summary lives at the bottom of the worklog and
 updates as you type (`auto_summary` defaults to `change`), so totals are always
-there without a separate command:
+there:
 
 ```text
---- summary ---
-2.25h (+0m) planning
+--- summary q=15 d=dec ---
+2.25h (+3m) planning
 0.75h (+0m) fixing the login bug
 
 --- totals ---
-3.00h (+0m) workday
+3.00h (+3m) workday
 ```
 
 **6. Mark what you have logged elsewhere `:WorklogLog`.** Once you have entered
 a chunk of time into some external system, put the cursor on that summary row and
 run it. It marks the underlying time with `!L` so you can see what is already
 logged and not enter it twice. Run it again to unmark.
+
+```text
+--- worklog ---
+09:00 planning !L
+10:30 fixing the login bug
+11:15 planning !L
+12:03 done
+
+--- summary q=15 d=dec ---
+2.25h (+3m) planning !L             <- :WorklogLog while cursor here marks
+0.75h (+0m) fixing the login bug        the above entries and creates the
+                                        --- logged --- block below
+--- logged ---
+2.25h (+3m) logged
+0.75h (+0m) unlogged
+
+--- totals ---
+3.00h (+3m) workday
+```
 
 **7. Review the week `:WorklogWeek`.** Opens a read-only report totalling every
 day this week. `:WorklogDays 7` does the last seven days; add `!` (e.g.
@@ -129,7 +153,7 @@ summary, `Log` rows as you report them, and `Week` to review.**
 You can add reporting tags, locations, and a custom quantization bucket.
 Example where each task is rounded to nearest half hour:
 ```text
---- worklog #ClientA @office quantize=30 ---
+--- worklog #ClientA @office q=30 ---
 08:00 planning
 10:00 implementation @home
 13:00 internal meeting #internal
@@ -156,8 +180,8 @@ Useful syntax:
 !L             interval starting here was logged externally
 #-             clear current tag (only useful if untagged items are explicitly needed)
 @-             clear current location (only useful if unlocated items are explicitly needed)
-quantize=30    round summaries to 30-minute buckets
-duration=hhmm  render summary durations as hours:minutes
+q=30    round summaries to 30-minute buckets
+d=hm  render summary durations as hours:minutes rather than decimal notation
 ```
 
 ## Commands
@@ -176,7 +200,7 @@ duration=hhmm  render summary durations as hours:minutes
 | `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
 | `:WorklogRefresh` | Rebuild every summary to match its entries, creating one for any worklog that lacks it |
 
-The active worklog is the latest `--- worklog ... ---` block in the file.
+The active worklog is always the latest `--- worklog ... ---` block in the file.
 
 ## Live summaries
 
@@ -184,6 +208,10 @@ Worklogs created by `:WorklogToday` and `:WorklogCopy` carry a summary from the
 start. By default (`auto_summary = "change"`) it stays live as you type. The same
 setting keeps open `:WorklogWeek` / `:WorklogDays` reports current, rebuilding in
 place as the days they cover change (including unsaved edits in open buffers).
+
+The summary header echoes the worklog's `q=`/`d=` as a read-only banner
+(`--- summary q=15 d=dec ---`); it is regenerated on refresh, so change the
+quantization or duration format on the worklog header, not the summary.
 
 | `auto_summary` | When summaries refresh |
 | --- | --- |
@@ -207,7 +235,7 @@ diagnostic that clears once you fix it.
 - Only trailing metadata tokens are parsed as metadata; multiple trailing tags or locations are invalid.
 - `#ooo` counts as activity but is excluded from workday totals.
 - Main summary rows do not split by location; locations are reported separately.
-- Each worklog has exactly one summary, always quantized to its `quantize=<minutes>` bucket (`quantize=1` for exact). It is regenerable derived output and owns the tail of its worklog, so keep notes on entries, not in the summary.
+- Each worklog has exactly one summary, always quantized to its `q=<minutes>` bucket (`q=1` for exact). It is regenerable derived output and owns the tail of its worklog, so keep notes on entries, not in the summary.
 
 ## Requirements
 
@@ -225,8 +253,8 @@ return {
       defaults = {
         tag = "ClientA",
         location = "office",
-        quantize_minutes = 30,
-        duration_format = "hhmm",
+        quantize_minutes = 15,
+        duration_format = "dec",
       },
       journal = {
         root = "~/timereg",

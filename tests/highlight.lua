@@ -23,12 +23,12 @@ return function(t)
 
   t.test("syntax/worklog.vim classifies canonical tokens", function()
     load_worklog_syntax({
-      "--- worklog #ClientA @office quantize=30 ---",
+      "--- worklog #ClientA @office q=30 ---",
       "08:00 planning #ClientA @office",
       "10:00 meeting #ooo",
       "12:00 resume #- @-",
       "14:00 done !L",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.75h (+2m) planning",
       "",
       "a free-form note",
@@ -42,7 +42,7 @@ return function(t)
     t.eq(group_at(1, 1), "WorklogHeader")
     t.eq(group_at(1, col_of(1, "#ClientA")), "WorklogTag")
     t.eq(group_at(1, col_of(1, "@office")), "WorklogLocation")
-    t.eq(group_at(1, col_of(1, "quantize=30")), "WorklogOption")
+    t.eq(group_at(1, col_of(1, "q=30")), "WorklogOption")
 
     -- Entry timestamp and trailing sticky metadata.
     t.eq(group_at(2, 1), "WorklogTimestamp")
@@ -153,7 +153,7 @@ return function(t)
     load_worklog_syntax({
       "--- worklog #a #b ---",
       "--- worklog @a @b ---",
-      "--- worklog #a @b quantize=30 ---",
+      "--- worklog #a @b q=30 ---",
       "--- worklog @b #a ---",
     })
 
@@ -173,7 +173,7 @@ return function(t)
     t.eq(group_at(3, 1), "WorklogHeader")
     t.eq(group_at(3, col_of(3, "#a")), "WorklogTag")
     t.eq(group_at(3, col_of(3, "@b")), "WorklogLocation")
-    t.eq(group_at(3, col_of(3, "quantize=30")), "WorklogOption")
+    t.eq(group_at(3, col_of(3, "q=30")), "WorklogOption")
     t.eq(group_at(4, 1), "WorklogHeader")
     t.eq(group_at(4, col_of(4, "#a")), "WorklogTag")
     t.eq(group_at(4, col_of(4, "@b")), "WorklogLocation")
@@ -181,41 +181,41 @@ return function(t)
 
   t.test("only valid header options highlight; the parser's rejects fall back", function()
     load_worklog_syntax({
-      "--- worklog quantize=30 ---", -- 1 valid quantize
-      "--- worklog duration=decimal ---", -- 2 valid duration
-      "--- worklog duration=hhmm ---", -- 3 valid duration
-      "--- worklog quantize=01 ---", -- 4 leading zero, value > 0 (parser accepts)
-      "--- worklog #a @b quantize=5 duration=hhmm ---", -- 5 all four, any order
-      "--- worklog quantize=abc ---", -- 6 non-numeric value
-      "--- worklog quantize=0 ---", -- 7 not positive
-      "--- worklog quantize=1.5 ---", -- 8 not an integer
-      "--- worklog duration=foo ---", -- 9 value not decimal/hhmm
+      "--- worklog q=30 ---", -- 1 valid quantize
+      "--- worklog d=dec ---", -- 2 valid duration
+      "--- worklog d=hm ---", -- 3 valid duration
+      "--- worklog q=01 ---", -- 4 leading zero, value > 0 (parser accepts)
+      "--- worklog #a @b q=5 d=hm ---", -- 5 all four, any order
+      "--- worklog q=abc ---", -- 6 non-numeric value
+      "--- worklog q=0 ---", -- 7 not positive
+      "--- worklog q=1.5 ---", -- 8 not an integer
+      "--- worklog d=foo ---", -- 9 value not dec/hm
       "--- worklog foo=bar ---", -- 10 unknown option
-      "--- worklog quantize=15 quantize=30 ---", -- 11 duplicate option
+      "--- worklog q=15 q=30 ---", -- 11 duplicate option
       "--- worklog hello ---", -- 12 junk token
     })
 
     -- Valid options highlight as options inside a worklog header.
     t.eq(group_at(1, 1), "WorklogHeader")
-    t.eq(group_at(1, col_of(1, "quantize=30")), "WorklogOption")
-    t.eq(group_at(2, col_of(2, "duration=decimal")), "WorklogOption")
-    t.eq(group_at(3, col_of(3, "duration=hhmm")), "WorklogOption")
-    t.eq(group_at(4, col_of(4, "quantize=01")), "WorklogOption")
+    t.eq(group_at(1, col_of(1, "q=30")), "WorklogOption")
+    t.eq(group_at(2, col_of(2, "d=dec")), "WorklogOption")
+    t.eq(group_at(3, col_of(3, "d=hm")), "WorklogOption")
+    t.eq(group_at(4, col_of(4, "q=01")), "WorklogOption")
     t.eq(group_at(5, 1), "WorklogHeader")
     t.eq(group_at(5, col_of(5, "#a")), "WorklogTag")
     t.eq(group_at(5, col_of(5, "@b")), "WorklogLocation")
-    t.eq(group_at(5, col_of(5, "quantize=5")), "WorklogOption")
-    t.eq(group_at(5, col_of(5, "duration=hhmm")), "WorklogOption")
+    t.eq(group_at(5, col_of(5, "q=5")), "WorklogOption")
+    t.eq(group_at(5, col_of(5, "d=hm")), "WorklogOption")
 
     -- Anything the parser rejects makes the line a plain block header, and the
     -- offending token is not highlighted as an option.
     local rejects = {
-      { 6, "quantize=abc" },
-      { 7, "quantize=0" },
-      { 8, "quantize=1.5" },
-      { 9, "duration=foo" },
+      { 6, "q=abc" },
+      { 7, "q=0" },
+      { 8, "q=1.5" },
+      { 9, "d=foo" },
       { 10, "foo=bar" },
-      { 11, "quantize=15" },
+      { 11, "q=15" },
       { 12, "hello" },
     }
     for _, case in ipairs(rejects) do
@@ -270,10 +270,10 @@ return function(t)
 
   t.test("two-digit-hour hhmm summary rows highlight as durations via block context", function()
     load_worklog_syntax({
-      "--- worklog duration=hhmm ---",
+      "--- worklog d=hm ---",
       "08:00 deep work",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "16:00 deep work #ClientA",
       "2:00 admin",
       "",

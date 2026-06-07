@@ -7,7 +7,7 @@ return function(t)
         tag = "ClientA",
         location = "office",
         quantize_minutes = 30,
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = "~/timereg",
@@ -20,7 +20,7 @@ return function(t)
         tag = "ClientA",
         location = "office",
         quantize_minutes = 30,
-        duration_format = "hhmm",
+        duration_format = "hm",
       },
       journal = {
         root = "~/timereg",
@@ -80,7 +80,7 @@ return function(t)
       },
     })
     t.ok(not ok)
-    t.ok(tostring(err):match("defaults.duration_format must be decimal or hhmm") ~= nil)
+    t.ok(tostring(err):match("defaults.duration_format must be dec or hm") ~= nil)
 
     config.setup()
   end)

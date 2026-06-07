@@ -9,7 +9,7 @@ local M = {}
 -- source of truth for command-time behavior.
 
 local INVALID_FIRST_HEADER_MESSAGE =
-  "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+  "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office q=30 ---"
 local DEFAULT_DURATION_FORMAT = syntax.DURATION_DECIMAL
 
 local function push_diagnostic(diagnostics, diagnostic)
@@ -203,7 +203,7 @@ local function interpret_worklog_header(header, diagnostics)
           code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
           severity = "error",
           row = header.row,
-          message = "duplicate worklog header option: quantize",
+          message = "duplicate worklog header option: q",
         })
       else
         result.declared_quantize = true
@@ -217,7 +217,7 @@ local function interpret_worklog_header(header, diagnostics)
             code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
             severity = "error",
             row = header.row,
-            message = "worklog header option quantize must be a positive integer",
+            message = "worklog header option q must be a positive integer",
           })
         else
           result.quantize_minutes = quantize_minutes
@@ -229,7 +229,7 @@ local function interpret_worklog_header(header, diagnostics)
           code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
           severity = "error",
           row = header.row,
-          message = "duplicate worklog header option: duration",
+          message = "duplicate worklog header option: d",
         })
       else
         result.declared_duration = true
@@ -239,7 +239,7 @@ local function interpret_worklog_header(header, diagnostics)
             code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
             severity = "error",
             row = header.row,
-            message = "worklog header option duration must be decimal or hhmm",
+            message = "worklog header option d must be dec or hm",
           })
         else
           result.duration_format = token.value

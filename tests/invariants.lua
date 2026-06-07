@@ -56,7 +56,7 @@ return function(t)
 
   local function case_context(case_number, entries, quantize_minutes)
     return string.format(
-      "seed=%d case=%d quantize=%d\n%s",
+      "seed=%d case=%d q=%d\n%s",
       SEED,
       case_number,
       quantize_minutes,

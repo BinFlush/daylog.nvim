@@ -135,7 +135,11 @@ function M.run(lines, cursor_row)
   -- Staleness guard: the cursor line must match exactly one summary_item row in
   -- the summary the plugin would currently produce for the active worklog.
   local recomputed = compute_summary(ctx.block)
-  local layout = render.summary_layout(recomputed, ctx.block.duration_format)
+  local layout = render.summary_layout(
+    recomputed,
+    ctx.block.duration_format,
+    { quantize_minutes = ctx.block.quantize_minutes }
+  )
   local matches = find_summary_item_matches(layout, cursor_line)
 
   if #matches == 0 then
@@ -174,8 +178,10 @@ function M.run(lines, cursor_row)
   local source_edits = build_log_edits(ctx.block, target_rows, target_logged)
 
   local rebuilt = rebuilt_summary(ctx.block, target_rows, target_logged)
-  local rendered =
-    render.summary_lines(rebuilt, ctx.block.duration_format, { leading_blank = false })
+  local rendered = render.summary_lines(rebuilt, ctx.block.duration_format, {
+    leading_blank = false,
+    quantize_minutes = ctx.block.quantize_minutes,
+  })
 
   -- The summary rebuild targets higher rows than the source-entry edits, so it
   -- is applied first to avoid index drift when the rendered summary changes size.

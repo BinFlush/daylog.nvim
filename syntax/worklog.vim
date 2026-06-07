@@ -6,8 +6,8 @@ endif
 " lua/worklog/document.lua and lua/worklog/analyze.lua so highlighting agrees
 " with how the plugin reads a file, and tests/highlight.lua guards the agreement:
 "   * A worklog header is valid only when its body is a sequence (any order) of
-"     at most one #tag, one @location, one quantize=<positive int> and one
-"     duration=decimal|hhmm, with no other tokens. An invalid header falls back to
+"     at most one #tag, one @location, one q=<positive int> and one
+"     d=dec|hm, with no other tokens. An invalid header falls back to
 "     a generic block header rather than highlighting bad metadata.
 "   * Entries and summary rows treat only a TRAILING run of #tag / @location / !L
 "     as metadata, each kind at most once, in any order. A '#word' earlier in the
@@ -19,8 +19,8 @@ endif
 " parser.
 let s:tag = '#[[:alnum:]_-]\+'
 let s:loc = '@[[:alnum:]_-]\+'
-let s:quantize = 'quantize=\d*[1-9]\d*'
-let s:duration = 'duration=\%(decimal\|hhmm\)'
+let s:quantize = 'q=\d*[1-9]\d*'
+let s:duration = 'd=\%(dec\|hm\)'
 
 " Forbid a kind from appearing twice on the line (a repeat the parser rejects).
 " Shared by the header body and the entry metadata run below.
@@ -46,7 +46,7 @@ syntax match WorklogBlockHeader /^---\s.\+\s---$/
 " back to the generic block header above instead of highlighting bad metadata.
 let s:header_token = '\%(' . s:tag . '\|' . s:loc . '\|' . s:quantize . '\|' . s:duration . '\)'
 let s:header_no_dup =
-  \ s:no_repeat(s:tag) . s:no_repeat(s:loc) . s:no_repeat('quantize=') . s:no_repeat('duration=')
+  \ s:no_repeat(s:tag) . s:no_repeat(s:loc) . s:no_repeat('q=') . s:no_repeat('d=')
 execute 'syntax match WorklogHeader '
   \ . '/^--- worklog' . s:header_no_dup . '\%(\s\+' . s:header_token . '\)*\s*---$/'
   \ . ' contains=WorklogTag,WorklogOoo,WorklogLocation,WorklogOption'
@@ -82,7 +82,7 @@ syntax match WorklogQuantError /([+-]\d\+m)/
 " excluded. fromstart sync is required so the region is recognized regardless of
 " the window's scroll position.
 syntax region WorklogSummaryBlock matchgroup=WorklogBlockHeader
-  \ start=/^--- \%(summary\|tags\|locations\|logged\|totals\)\%( \%(exact\|quantized\)\)\? ---$/
+  \ start=/^--- \%(summary\%( q=\d\+ d=\a\+\)\?\|tags\|locations\|logged\|totals\)\%( \%(exact\|quantized\)\)\? ---$/
   \ end=/^$/ end=/\%$/
   \ transparent keepend
   \ contains=ALLBUT,WorklogTimestamp,WorklogNote

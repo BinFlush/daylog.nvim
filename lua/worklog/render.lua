@@ -24,7 +24,7 @@ local function hhmm_string(minutes)
 end
 
 local function duration_string(minutes, duration_format)
-  if duration_format == syntax.DURATION_HHMM then
+  if duration_format == syntax.DURATION_HM then
     return hhmm_string(minutes)
   end
 
@@ -142,11 +142,11 @@ local function has_workday_excluded_items(items)
   return false
 end
 
-local function section_headers(options)
+local function section_headers(format, options)
   options = options or {}
 
   return {
-    summary = options.summary_header or syntax.section_header(syntax.SECTION.SUMMARY),
+    summary = options.summary_header or syntax.summary_header(options.quantize_minutes, format),
     tag = options.tag_header or syntax.section_header(syntax.SECTION.TAGS),
     location = options.location_header or syntax.section_header(syntax.SECTION.LOCATIONS),
     logged = options.logged_header or syntax.section_header(syntax.SECTION.LOGGED),
@@ -177,9 +177,9 @@ end
 -- output stays in lockstep with the layout.
 local function build_summary_layout(summary, duration_format, options)
   local layout = {}
-  local headers = section_headers(options)
-  local conflicts = text_tag_conflicts(summary.summary_items)
   local format = duration_format or syntax.DURATION_DECIMAL
+  local headers = section_headers(format, options)
+  local conflicts = text_tag_conflicts(summary.summary_items)
 
   if headers.leading_blank then
     table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })

@@ -13,7 +13,7 @@ return function(t)
       "08:00 plan",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h plan",
       "",
       "--- totals ---",
@@ -28,11 +28,11 @@ return function(t)
 
   t.test("summary_block finds a quantized summary region", function()
     local analysis = analyze_lines({
-      "--- worklog quantize=30 ---",
+      "--- worklog q=30 ---",
       "08:00 plan",
       "08:34 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "0.50h (+4m) plan",
       "",
       "--- totals ---",
@@ -82,7 +82,7 @@ return function(t)
       "08:00 plan",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h plan",
       "",
       "--- totals ---",

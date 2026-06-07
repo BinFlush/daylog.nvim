@@ -27,7 +27,7 @@ return function(t)
       tag = "ClientA",
       location = "office",
       quantize_minutes = 30,
-      duration_format = "hhmm",
+      duration_format = "hm",
     })
 
     t.eq(result, {
@@ -35,7 +35,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 1,
-          lines = { "", "--- worklog #ClientA @office quantize=30 duration=hhmm ---" },
+          lines = { "", "--- worklog #ClientA @office q=30 d=hm ---" },
         },
       },
       cursor = { 3, 0 },
@@ -97,7 +97,7 @@ return function(t)
       "09:00 done",
       "",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) first",
     }, 2, "10:00")
 
@@ -121,7 +121,7 @@ return function(t)
       "09:00 done",
       "  note about done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) first",
     }, 2, "10:00")
 
@@ -158,7 +158,7 @@ return function(t)
             "09:00 resume #- @-",
             "10:00 done",
             "",
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) break",
             "1.00h (+0m) resume",
             "",
@@ -197,7 +197,7 @@ return function(t)
             "08:00 plan @client !L",
             "09:00 done",
             "",
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan !L",
             "",
             "--- tags ---",
@@ -219,7 +219,7 @@ return function(t)
 
   t.test("append_copy preserves explicit duration format on the header", function()
     local result = append_copy.run({
-      "--- worklog #sales @client duration=hhmm ---",
+      "--- worklog #sales @client d=hm ---",
       "11:00 tea",
       "12:00",
     })
@@ -231,11 +231,11 @@ return function(t)
           end_index = 3,
           lines = {
             "",
-            "--- worklog #sales @client duration=hhmm ---",
+            "--- worklog #sales @client d=hm ---",
             "11:00 tea",
             "12:00",
             "",
-            "--- summary ---",
+            "--- summary q=15 d=hm ---",
             "1:00 (+0m) tea",
             "",
             "--- tags ---",
@@ -475,7 +475,7 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
     }, 6)
 
@@ -485,7 +485,7 @@ return function(t)
           start_index = 4,
           end_index = 6,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) implementation !L",
             "",
             "--- logged ---",
@@ -506,11 +506,11 @@ return function(t)
 
   t.test("log_current marks the source entry behind a quantized summary row", function()
     local result = log_current.run({
-      "--- worklog quantize=30 ---",
+      "--- worklog q=30 ---",
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=30 d=dec ---",
       "1.00h (+0m) implementation",
     }, 6)
 
@@ -520,7 +520,7 @@ return function(t)
           start_index = 4,
           end_index = 6,
           lines = {
-            "--- summary ---",
+            "--- summary q=30 d=dec ---",
             "1.00h (+0m) implementation !L",
             "",
             "--- logged ---",
@@ -547,7 +547,7 @@ return function(t)
       "10:00 implementation",
       "11:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "2.00h (+0m) implementation",
       "1.00h (+0m) meeting",
     }, 8)
@@ -558,7 +558,7 @@ return function(t)
           start_index = 6,
           end_index = 9,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "2.00h (+0m) implementation !L",
             "1.00h (+0m) meeting",
             "",
@@ -591,7 +591,7 @@ return function(t)
       "note text",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
     }, 7)
 
@@ -601,7 +601,7 @@ return function(t)
           start_index = 5,
           end_index = 7,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) implementation !L",
             "",
             "--- logged ---",
@@ -626,7 +626,7 @@ return function(t)
       "08:00 plan #ClientA @office",
       "09:00 done #- @-",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",
     }, 6)
 
@@ -636,7 +636,7 @@ return function(t)
           start_index = 4,
           end_index = 6,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan !L",
             "",
             "--- tags ---",
@@ -667,7 +667,7 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
     }, 2)
 
@@ -681,7 +681,7 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
       "",
       "--- tags ---",
@@ -698,7 +698,7 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
       "",
       "--- totals ---",
@@ -715,7 +715,7 @@ return function(t)
       "08:00 implementation !L",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation !L",
     }, 6)
 
@@ -725,7 +725,7 @@ return function(t)
           start_index = 4,
           end_index = 6,
           lines = {
-            "--- summary ---",
+            "--- summary q=15 d=dec ---",
             "1.00h (+0m) implementation",
             "",
             "--- totals ---",
@@ -747,7 +747,7 @@ return function(t)
       "08:00 break #ooo",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) break",
     }, 6)
 
@@ -761,7 +761,7 @@ return function(t)
       "08:00 plan",
       "09:00 done",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
     }, 6)
 
@@ -775,7 +775,7 @@ return function(t)
       "09:00 done",
       "08:00 plan",
       "",
-      "--- summary ---",
+      "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",
     }, 6)
 
@@ -795,7 +795,7 @@ return function(t)
         "08:00 implementation",
         "09:00 done",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "1.00h (+0m) implementation",
         "",
         "--- worklog ---",
@@ -843,7 +843,7 @@ return function(t)
     "log_current refuses summary-shaped block headers placed before the active worklog",
     function()
       local result, err = log_current.run({
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "1.00h (+0m) implementation",
         "",
         "--- worklog ---",
@@ -859,7 +859,7 @@ return function(t)
       t.eq(
         err,
         "worklog: first line must be a worklog header such as "
-          .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
+          .. "--- worklog --- or --- worklog #ClientA @office q=30 ---"
       )
     end
   )
@@ -876,7 +876,7 @@ return function(t)
         "10:00 review",
         "11:00 done",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "2.00h (+0m) planning",
         "1.00h (+0m) review",
         "",
@@ -896,7 +896,7 @@ return function(t)
             start_index = 5,
             end_index = 17,
             lines = {
-              "--- summary ---",
+              "--- summary q=15 d=dec ---",
               "2.00h (+0m) planning !L",
               "1.00h (+0m) review",
               "",
@@ -940,7 +940,7 @@ return function(t)
         "10:17 Q1 features",
         "11:01 versions",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",
         "0.75h (-1m) Q1 features",
         "0.25h (+5m) stand",
@@ -964,7 +964,7 @@ return function(t)
             start_index = 9,
             end_index = 23,
             lines = {
-              "--- summary ---",
+              "--- summary q=15 d=dec ---",
               "2.00h (-8m) versions",
               "0.75h (-1m) Q1 features !L",
               "0.25h (+5m) stand",
@@ -1022,7 +1022,7 @@ return function(t)
         "10:17 Q1 features !L",
         "11:01 versions",
         "",
-        "--- summary ---",
+        "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",
         "0.75h (-1m) Q1 features !L",
         "0.25h (+5m) stand",
