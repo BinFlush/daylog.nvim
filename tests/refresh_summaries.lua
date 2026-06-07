@@ -112,6 +112,49 @@ return function(t)
     })
   end)
 
+  t.test("refresh restores a deleted summary row without eating an entry", function()
+    -- Deleting a summary row is undone in place; the worklog's entries (here the final
+    -- 21:00 close) are never drawn into the rewrite -- the window starts after them.
+    local result = refresh_summaries.run({
+      "--- worklog #sometag @location q=15 d=dec ---",
+      "20:10 hey",
+      "20:33 hey2",
+      "21:00 done",
+      "--- summary q=15 d=dec ---",
+      "0.25h (+8m) hey",
+      "",
+      "--- tags ---",
+      "0.75h (+5m) #sometag",
+      "",
+      "--- locations ---",
+      "0.75h (+5m) @location",
+      "",
+      "--- totals ---",
+      "0.75h (+5m) workday",
+    })
+
+    t.eq(result.edits, {
+      {
+        start_index = 4,
+        end_index = 15,
+        lines = {
+          "--- summary q=15 d=dec ---",
+          "0.50h (-3m) hey2",
+          "0.25h (+8m) hey",
+          "",
+          "--- tags ---",
+          "0.75h (+5m) #sometag",
+          "",
+          "--- locations ---",
+          "0.75h (+5m) @location",
+          "",
+          "--- totals ---",
+          "0.75h (+5m) workday",
+        },
+      },
+    })
+  end)
+
   t.test("refresh rewrites a stale summary in place", function()
     local result = refresh_summaries.run({
       "--- worklog ---",

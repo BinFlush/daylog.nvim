@@ -171,6 +171,32 @@ return function(t)
     )
   end)
 
+  t.test("summary_block keeps an entry flush against a header-less summary", function()
+    -- The summary header was deleted AND there is no separator blank, so the rows sit
+    -- directly under the final entry (21:00 done). The window starts after the last
+    -- entry, so that entry can never be drawn into the span and rewritten away.
+    t.eq(
+      locate({
+        "--- worklog #sometag @location q=15 d=dec ---",
+        "20:10 hey",
+        "20:33 hey2",
+        "21:00 done",
+        "0.50h (-3m) hey2",
+        "0.25h (+8m) hey",
+        "",
+        "--- tags ---",
+        "0.75h (+5m) #sometag",
+        "",
+        "--- locations ---",
+        "0.75h (+5m) @location",
+        "",
+        "--- totals ---",
+        "0.75h (+5m) workday",
+      }),
+      { start_row = 5, end_row = 16 }
+    )
+  end)
+
   t.test("summary_block recognizes a legacy exact/quantized summary", function()
     -- Older files (kind-word headers) still resolve: the rows align and the headers
     -- are substitutions, so a refresh can rewrite them to the current form.

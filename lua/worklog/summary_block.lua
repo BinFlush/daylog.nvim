@@ -100,9 +100,11 @@ local function fit_align(expected, actual)
   return { start = b + 1, stop = stop, matches = matches }
 end
 
--- Rows [body_start_row, next worklog header / EOF): the worklog's entries followed by
--- its summary. The alignment's free leading gap skips the entries (they never equal a
--- summary line), so the matched span is the summary wherever it sits.
+-- The alignment window: from just after the worklog's last timestamped entry to the
+-- next worklog header / EOF. Anchoring the window past the entries is a hard guarantee
+-- that they can never be drawn into the matched span and rewritten away -- the summary
+-- always follows the entries, and a deleted summary header only leaks its rows in as
+-- notes, which still sit after the last entry.
 local function tail_bounds(analysis, worklog_block)
   local blocks = analysis.blocks
   local start_index
@@ -116,6 +118,13 @@ local function tail_bounds(analysis, worklog_block)
     return nil
   end
 
+  local tail_start = worklog_block.body_start_row
+  for _, node in ipairs(worklog_block.body_nodes or {}) do
+    if node.kind == syntax.NODE_KIND.ENTRY then
+      tail_start = node.row + 1
+    end
+  end
+
   local stop_row = analysis.document.row_count + 1
   for index = start_index + 1, #blocks do
     if blocks[index].kind == syntax.BLOCK_KIND.WORKLOG then
@@ -124,7 +133,7 @@ local function tail_bounds(analysis, worklog_block)
     end
   end
 
-  return worklog_block.body_start_row, stop_row
+  return tail_start, stop_row
 end
 
 -- Locate `worklog_block`'s generated summary by aligning `expected_lines` (the freshly
@@ -136,14 +145,14 @@ function M.find(analysis, worklog_block, expected_lines)
     return nil
   end
 
-  local body_start, stop_row = tail_bounds(analysis, worklog_block)
-  if not body_start then
+  local tail_start, stop_row = tail_bounds(analysis, worklog_block)
+  if not tail_start then
     return nil
   end
 
   local nodes = analysis.document.nodes
   local actual = {}
-  for row = body_start, stop_row - 1 do
+  for row = tail_start, stop_row - 1 do
     actual[#actual + 1] = (nodes[row] and nodes[row].raw) or ""
   end
 
@@ -170,8 +179,8 @@ function M.find(analysis, worklog_block, expected_lines)
   end
 
   return {
-    start_row = body_start + span.start - 1,
-    end_row = body_start + span.stop,
+    start_row = tail_start + span.start - 1,
+    end_row = tail_start + span.stop,
   }
 end
 
