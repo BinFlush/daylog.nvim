@@ -64,13 +64,31 @@ syntax match WorklogTimestamp /^\%(\%([01]\d\|2[0-3]\):[0-5]\d\|24:00\)\%(\s\|$\
 " rounding error. A decimal duration is unambiguous. For hhmm (H:MM) durations a
 " single-digit hour cannot be an entry (entries are zero-padded HH:MM), and any
 " H:MM directly before a (+Nm) error is a quantized summary row, never an entry;
-" both are defined after WorklogTimestamp so they win at the same position. (An
-" exact hhmm row with a two-digit hour, e.g. "16:00 workday", is
-" indistinguishable from an entry line-by-line and still reads as a timestamp.)
+" both are defined after WorklogTimestamp so they win at the same position. The
+" remaining case -- an exact hhmm row with a two-digit hour, e.g. "16:00 workday",
+" byte-identical to an entry line -- is disambiguated by block context in the
+" WorklogSummaryBlock region below.
 syntax match WorklogDuration /^\d\+\.\d\+h/
 syntax match WorklogDuration /^\d:\d\d\%(\s\|$\)\@=/
 syntax match WorklogDuration /^\d\+:\d\d\ze ([+-]\d\+m)/
 syntax match WorklogQuantError /([+-]\d\+m)/
+
+" A generated summary section gives its H:MM rows the block context the line
+" matches lack: inside one, a two-digit-hour duration ("16:00 workday") is a
+" duration, not an entry. `transparent` plus the ALLBUT contains keeps every other
+" token highlighting while suppressing the entry-timestamp match; each
+" blank-separated section is its own region, ending at the blank line (or EOF) that
+" closes it. The start matches only generated section headers, so "--- worklog",
+" user dividers, and labeled report headers (always quantized, handled above) are
+" excluded. fromstart sync is required so the region is recognized regardless of
+" the window's scroll position.
+syntax region WorklogSummaryBlock matchgroup=WorklogBlockHeader
+  \ start=/^--- \%(summary\|tags\|locations\|logged\|totals\) \%(exact\|quantized\) ---$/
+  \ end=/^$/ end=/\%$/
+  \ transparent keepend
+  \ contains=ALLBUT,WorklogTimestamp,WorklogNote
+syntax match WorklogDuration /^\d\d:\d\d\%(\s\|$\)\@=/ contained
+syntax sync fromstart
 
 " Trailing metadata --------------------------------------------------------
 " document.lua consumes a trailing run of whitespace-separated #tag / @location /

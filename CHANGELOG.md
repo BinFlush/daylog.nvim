@@ -59,8 +59,10 @@ happen, but they are called out clearly in this changelog.
 - A `--- worklog ---` header is recognized only when `worklog` is a whole word, so
   `--- worklogs ---` and `--- worklog#sales ---` read as generic block headers
   (matching the highlighter) instead of malformed worklog headers.
-- `duration=hhmm` summary rows highlight as durations (single-digit-hour rows and
-  any quantized `(+Nm)` row) instead of as entry timestamps or dimmed notes.
+- `duration=hhmm` summary rows highlight as durations instead of as entry
+  timestamps or dimmed notes, including exact two-digit-hour rows (e.g.
+  `16:00 workday`), which are disambiguated from entries by their summary-block
+  context.
 
 ## 0.4.0 - 2026-05-24
 

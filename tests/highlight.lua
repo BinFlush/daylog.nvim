@@ -30,6 +30,7 @@ return function(t)
       "14:00 done !L",
       "--- summary quantized ---",
       "1.75h (+2m) planning",
+      "",
       "a free-form note",
       "10:17 #Q1 features",
       "24:00 done",
@@ -58,32 +59,36 @@ return function(t)
     -- Logged marker.
     t.eq(group_at(5, col_of(5, "!L")), "WorklogLogged")
 
-    -- Generated section header (non-worklog) and quantized summary row.
+    -- Generated section header (non-worklog) and quantized summary row. The row
+    -- sits inside the WorklogSummaryBlock region, ended by the blank line below.
     t.eq(group_at(6, 1), "WorklogBlockHeader")
     t.eq(group_at(7, 1), "WorklogDuration")
     t.eq(group_at(7, col_of(7, "(+2m)")), "WorklogQuantError")
 
-    -- Free-form note line.
-    t.eq(group_at(8, 1), "WorklogNote")
+    -- Free-form note line (outside the summary region).
+    t.eq(group_at(9, 1), "WorklogNote")
 
     -- A '#' that is not part of the trailing metadata run is plain text, never a
     -- tag, mirroring the parser's trailing-only metadata rule.
-    t.eq(group_at(9, 1), "WorklogTimestamp")
-    t.ok(group_at(9, col_of(9, "#Q1")) ~= "WorklogTag", "mid-text #Q1 must not highlight as a tag")
+    t.eq(group_at(10, 1), "WorklogTimestamp")
+    t.ok(
+      group_at(10, col_of(10, "#Q1")) ~= "WorklogTag",
+      "mid-text #Q1 must not highlight as a tag"
+    )
 
     -- 24:00 is a valid end-of-day boundary and still highlights as a timestamp.
-    t.eq(group_at(10, 1), "WorklogTimestamp")
+    t.eq(group_at(11, 1), "WorklogTimestamp")
 
     -- Out-of-range times mirror the parser's rejection: 99:99 is not a
     -- timestamp, so it falls through to a free-form note.
     t.ok(
-      group_at(11, 1) ~= "WorklogTimestamp",
+      group_at(12, 1) ~= "WorklogTimestamp",
       "out-of-range 99:99 must not highlight as a timestamp"
     )
 
     -- A time glued to non-whitespace is not an entry for the parser, so it must
     -- not highlight as a timestamp either.
-    t.ok(group_at(12, 1) ~= "WorklogTimestamp", "12:34xyz must not highlight as a timestamp")
+    t.ok(group_at(13, 1) ~= "WorklogTimestamp", "12:34xyz must not highlight as a timestamp")
   end)
 
   t.test(
@@ -261,5 +266,35 @@ return function(t)
 
     -- A zero-padded HH:MM entry still reads as a timestamp, not a duration.
     t.eq(group_at(4, 1), "WorklogTimestamp")
+  end)
+
+  t.test("exact hhmm summary rows highlight as durations via block context", function()
+    load_worklog_syntax({
+      "--- worklog duration=hhmm ---",
+      "08:00 deep work",
+      "",
+      "--- summary exact ---",
+      "16:00 deep work #ClientA",
+      "2:00 admin",
+      "",
+      "--- totals exact ---",
+      "16:00 workday",
+    })
+
+    -- An entry in the worklog body still reads as a timestamp.
+    t.eq(group_at(2, 1), "WorklogTimestamp")
+
+    -- Generated section headers stay block headers.
+    t.eq(group_at(4, 1), "WorklogBlockHeader")
+    t.eq(group_at(8, 1), "WorklogBlockHeader")
+
+    -- Inside a summary section a two-digit-hour hhmm row is a duration, not a
+    -- timestamp -- the case the line matches alone cannot resolve.
+    t.eq(group_at(5, 1), "WorklogDuration")
+    t.eq(group_at(9, 1), "WorklogDuration")
+
+    -- Single-digit-hour rows and trailing metadata still highlight inside it.
+    t.eq(group_at(6, 1), "WorklogDuration")
+    t.eq(group_at(5, col_of(5, "#ClientA")), "WorklogTag")
   end)
 end
