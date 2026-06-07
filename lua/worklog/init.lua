@@ -1,7 +1,6 @@
 local filetype = require("worklog.filetype")
 local append_copy = require("worklog.usecases.append_copy")
 local carryover = require("worklog.usecases.carryover")
-local check = require("worklog.usecases.check")
 local config = require("worklog.config")
 local insert_now = require("worklog.usecases.insert_now")
 local journal = require("worklog.journal")
@@ -18,10 +17,6 @@ local M = {}
 
 local function warn(message)
   vim.notify(message, vim.log.levels.WARN)
-end
-
-local function info(message)
-  vim.notify(message, vim.log.levels.INFO)
 end
 
 local function ensure_user_command(name, callback, options)
@@ -495,11 +490,8 @@ function M.insert_now()
   apply_insert_time(os.date("%H:%M"))
 end
 
--- Set the active worklog's single summary (replacing any existing one).
-function M.append_summary()
-  run_buffer_usecase(summarize.run)
-end
-
+-- Set the active worklog's single summary, replacing any existing one. Used by
+-- :WorklogToday to seed a freshly opened day with a summary.
 function M.append_quantized_summary()
   run_buffer_usecase(summarize.run)
 end
@@ -533,17 +525,6 @@ function M.order_worklogs()
   end
 end
 
-function M.check()
-  local result = check.run(buffer_lines())
-  publish_diagnostics(result.warnings)
-
-  if result.ok then
-    info(result.summary)
-  else
-    warn(result.summary)
-  end
-end
-
 function M.log_current()
   run_buffer_usecase(log_current.run, cursor_row())
 end
@@ -551,10 +532,6 @@ end
 -- Rebuild every existing summary in the current buffer to match its entries.
 function M.refresh()
   apply_refresh(false)
-end
-
-function M.new_worklog()
-  apply_new_worklog(config.get().defaults)
 end
 
 function M.open_today(day_offset)
@@ -575,7 +552,7 @@ function M.open_today(day_offset)
 
   -- Only opening today creates and stamps a file. Other offsets are navigation:
   -- open the day if it exists, otherwise an empty unmodified buffer (no file
-  -- created). Start a past/future day there with :WorklogNew.
+  -- created).
   if offset ~= 0 then
     edit_journal_file(settings, target_date)
     return
@@ -766,10 +743,6 @@ function M.setup(options)
   config.setup(options)
   filetype.register()
 
-  ensure_user_command("WorklogNew", function()
-    M.new_worklog()
-  end)
-
   ensure_user_command("WorklogInsert", function()
     M.insert_now()
   end)
@@ -839,18 +812,6 @@ function M.setup(options)
 
   ensure_user_command("WorklogCopy", function()
     M.append_copy()
-  end)
-
-  ensure_user_command("WorklogSummarize", function()
-    M.append_summary()
-  end)
-
-  ensure_user_command("WorklogQuantSum", function()
-    M.append_quantized_summary()
-  end)
-
-  ensure_user_command("WorklogCheck", function()
-    M.check()
   end)
 
   ensure_user_command("WorklogLog", function()

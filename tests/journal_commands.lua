@@ -18,39 +18,6 @@ return function(t)
     return false
   end
 
-  t.test("new creates the initial worklog block in an empty buffer", function()
-    t.reset({})
-
-    vim.cmd("WorklogNew")
-    t.eq(t.get_lines(), {
-      "--- worklog ---",
-    })
-    t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
-  end)
-
-  t.test("new appends a worklog block with configured defaults", function()
-    with_worklog_setup({
-      defaults = {
-        tag = "ClientA",
-        location = "office",
-        quantize_minutes = 30,
-        duration_format = "hhmm",
-      },
-    }, function()
-      t.reset({
-        "notes",
-      })
-
-      vim.cmd("WorklogNew")
-      t.eq(t.get_lines(), {
-        "notes",
-        "",
-        "--- worklog #ClientA @office quantize=30 duration=hhmm ---",
-      })
-      t.eq(vim.api.nvim_win_get_cursor(0), { 3, 0 })
-    end)
-  end)
-
   t.test("today opens a new journal file and initializes the first entry", function()
     local root = vim.fn.tempname()
     local now = os.time({

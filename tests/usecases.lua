@@ -1,7 +1,6 @@
 return function(t)
   local append_copy = require("worklog.usecases.append_copy")
   local carryover = require("worklog.usecases.carryover")
-  local check = require("worklog.usecases.check")
   local insert_now = require("worklog.usecases.insert_now")
   local log_current = require("worklog.usecases.log_current")
   local new_worklog = require("worklog.usecases.new_worklog")
@@ -16,10 +15,6 @@ return function(t)
   local function summarize_quantized(lines)
     return summarize.run(lines)
   end
-  local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
-    .. "--- worklog --- or --- worklog #ClientA @office quantize=30 ---"
-  local NO_WORKLOG_BLOCK_MESSAGE = "worklog: no worklog block found; first line must be a "
-    .. "worklog header such as --- worklog --- or --- worklog #ClientA @office quantize=30 ---"
 
   t.test("new_worklog usecase creates the initial header in an empty buffer", function()
     local result = new_worklog.run({ "" })
@@ -291,7 +286,7 @@ return function(t)
     })
   end)
 
-  t.test("summarize switches an existing summary to the other kind", function()
+  t.test("summarize replaces a summary left at a different quantization", function()
     local result = summarize_quantized({
       "--- worklog quantize=30 ---",
       "08:00 plan",
@@ -318,116 +313,6 @@ return function(t)
           },
         },
       },
-    })
-  end)
-
-  t.test("check usecase returns ok for a valid worklog", function()
-    local result = check.run({
-      "--- worklog ---",
-      "08:00 plan",
-      "09:00 done",
-    })
-
-    t.eq(result, {
-      ok = true,
-      warnings = {},
-      summary = "worklog: ok",
-    })
-  end)
-
-  t.test("check usecase reports no worklog block", function()
-    local result = check.run({
-      "just some prose",
-    })
-
-    t.eq(result, {
-      ok = false,
-      warnings = {},
-      summary = NO_WORKLOG_BLOCK_MESSAGE,
-    })
-  end)
-
-  t.test("check usecase reports the structural error", function()
-    local result = check.run({
-      "--- summary ---",
-      "1.00h (+0m) workday",
-      "--- worklog ---",
-      "08:00 plan",
-      "09:00 done",
-    })
-
-    t.eq(result.ok, false)
-    t.eq(result.summary, "worklog: 1 problem; see diagnostics")
-    t.eq(result.warnings, {
-      { row = 1, message = INVALID_FIRST_HEADER_MESSAGE },
-    })
-  end)
-
-  t.test("check usecase reports invalid entry errors", function()
-    local result = check.run({
-      "--- worklog ---",
-      "08:00 plan #sales #meeting",
-      "09:00 done",
-    })
-
-    t.eq(result.ok, false)
-    t.eq(result.summary, "worklog: 1 problem; see diagnostics")
-    t.eq(result.warnings, {
-      {
-        row = 2,
-        message = "worklog: invalid worklog entry at line 2: multiple trailing tags are not allowed",
-      },
-    })
-  end)
-
-  t.test("check usecase reports unordered timestamp errors", function()
-    local result = check.run({
-      "--- worklog ---",
-      "09:00 later",
-      "08:00 earlier",
-      "10:00 done",
-    })
-
-    t.eq(result.ok, false)
-    t.eq(result.warnings, {
-      {
-        row = 2,
-        message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
-      },
-    })
-  end)
-
-  t.test("check usecase accepts a two-digit-hour hhmm summary", function()
-    local result = check.run({
-      "--- worklog quantize=60 duration=hhmm ---",
-      "06:00 deep work",
-      "22:00 done",
-      "",
-      "--- summary ---",
-      "16:00 (+0m) deep work",
-      "",
-      "--- totals ---",
-      "16:00 (+0m) workday",
-    })
-
-    t.eq(result, {
-      ok = true,
-      warnings = {},
-      summary = "worklog: ok",
-    })
-  end)
-
-  t.test("check usecase reports a 24:00 entry that is not the final entry", function()
-    local result = check.run({
-      "--- worklog ---",
-      "08:00 plan",
-      "24:00 overnight",
-      "24:00 done",
-    })
-
-    t.eq(result.ok, false)
-    t.eq(result.warnings, {
-      { row = 3, message = "worklog: 24:00 must be the final entry in a worklog block" },
     })
   end)
 

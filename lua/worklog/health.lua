@@ -82,7 +82,6 @@ function M.check()
   -- live configuration and refresh autocmds. The command checks below verify
   -- that setup has already been run.
   start("Commands")
-  check_command("WorklogNew")
   check_command("WorklogInsert")
   check_command("WorklogToday")
   check_command("WorklogNextDay")
@@ -92,9 +91,6 @@ function M.check()
   check_command("WorklogRepeat")
   check_command("WorklogCopy")
   check_command("WorklogOrder")
-  check_command("WorklogSummarize")
-  check_command("WorklogQuantSum")
-  check_command("WorklogCheck")
   check_command("WorklogLog")
   check_command("WorklogRefresh")
 
