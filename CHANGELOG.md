@@ -20,6 +20,14 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to worklog blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Development
+
+- Added a release workflow that publishes a GitHub Release from the matching
+  `CHANGELOG.md` section when a `vX.Y.Z` tag is pushed (or via manual dispatch),
+  plus a `just release X.Y.Z` recipe that bumps the changelog, commits, and tags.
+
 ## 0.5.0 - 2026-06-07
 
 ### Added

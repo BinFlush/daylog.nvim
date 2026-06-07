@@ -56,3 +56,21 @@ check:
 
 release-check:
     just check
+
+# Cut release vVERSION: verify the tree, rename CHANGELOG's `## Unreleased` section to
+# the version and today's date, commit (gated by the pre-commit hook), and tag. Then run
+# `git push origin main --follow-tags` to publish the GitHub release.
+release VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="{{VERSION}}"
+    [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "error: VERSION must be X.Y.Z (got '$version')" >&2; exit 1; }
+    [ "$(git branch --show-current)" = "main" ] || { echo "error: not on the main branch" >&2; exit 1; }
+    [ -z "$(git status --porcelain)" ] || { echo "error: working tree is not clean" >&2; exit 1; }
+    git rev-parse -q --verify "refs/tags/v$version" >/dev/null && { echo "error: tag v$version already exists" >&2; exit 1; }
+    grep -q '^## Unreleased$' CHANGELOG.md || { echo "error: CHANGELOG.md has no '## Unreleased' section" >&2; exit 1; }
+    sed -i "s/^## Unreleased$/## $version - $(date +%Y-%m-%d)/" CHANGELOG.md
+    git add CHANGELOG.md
+    git commit -m "Release $version"
+    git tag -a "v$version" -m "v$version"
+    printf '\nRelease %s committed and tagged v%s.\nPublish with:\n  git push origin main --follow-tags\n' "$version" "$version"

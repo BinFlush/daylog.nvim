@@ -382,6 +382,25 @@ Local checks are split into `just static-check` and `just nvim-check`. Run
 
 For available convenience recipes, run `just --list` or inspect `justfile`.
 
+## Releasing
+
+Maintainers cut a release with one command:
+
+```sh
+just release 0.6.0
+```
+
+It checks the tree is clean and on `main`, renames the `## Unreleased` section of
+`CHANGELOG.md` to the version and today's date, commits as `Release 0.6.0`, and tags
+`v0.6.0`. Then:
+
+```sh
+git push origin main --follow-tags
+```
+
+publishes a GitHub Release whose notes are that changelog section, via
+`.github/workflows/release.yml` (triggered by the `v*` tag).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
