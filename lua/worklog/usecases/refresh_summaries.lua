@@ -4,17 +4,18 @@ local document = require("worklog.document")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local summary_block = require("worklog.summary_block")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
--- Refresh every worklog's existing summary so it matches its entries, and report
--- the problems that stop a worklog from being summarized.
+-- Refresh every valid worklog's summary so it matches its entries -- creating one
+-- where missing -- and report the problems that stop a worklog from being summarized.
 --
--- Edits are conservative: a summary is only rewritten when it already exists, is
--- valid, and has drifted from its source. A structurally
--- broken document and currently-invalid worklogs are never rewritten, so editing
--- cannot churn or corrupt output, and an already-current summary yields no edit
--- (which keeps the shell's auto-refresh idempotent and loop-free).
+-- Edits are conservative: a valid worklog's summary is created when missing and
+-- rewritten when it exists but has drifted from its source; it is never removed. A
+-- structurally broken document and currently-invalid worklogs are left untouched,
+-- so editing cannot churn or corrupt output, and an already-current summary yields
+-- no edit (which keeps the shell's auto-refresh idempotent and loop-free).
 --
 -- Warnings are not conservative: an unrefreshed summary is otherwise a silent
 -- stall, so run also returns `warnings` for every problem the analyzer can see --
@@ -46,7 +47,7 @@ function M.run(lines)
   -- via diagnostics.collect above.
   if not analyze.structural_error(analysis) then
     for _, block in ipairs(analysis.worklog_blocks) do
-      -- Only refresh a worklog that is valid and already has a summary.
+      -- For a valid worklog: rewrite its summary, or create one when missing.
       if not analyze.find_block_diagnostic(analysis, block) then
         local region = summary_block.find(analysis, block)
 
@@ -62,6 +63,25 @@ function M.run(lines)
               lines = rendered,
             })
           end
+        else
+          -- No summary yet: create one so every valid worklog stays summarized.
+          -- Insert it after the worklog's last non-blank body line; the block spans
+          -- its trailing blank, so that blank separates the summary from the next
+          -- block while the rendered leading blank separates body from summary.
+          local nodes = analysis.document.nodes
+          local insert_row = block.start_row
+          for row = block.start_row, block.end_row - 1 do
+            if nodes[row] and nodes[row].kind ~= syntax.NODE_KIND.BLANK_LINE then
+              insert_row = row
+            end
+          end
+
+          local computed = summary.quantized_summarize_block(block)
+          table.insert(edits, {
+            start_index = insert_row,
+            end_index = insert_row,
+            lines = render.summary_lines(computed, block.duration_format),
+          })
         end
       end
     end

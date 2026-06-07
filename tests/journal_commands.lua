@@ -1766,10 +1766,23 @@ return function(t)
         "00:00 writing report",
         "00:47 ",
       })
+      -- The pre-save refresh closes yesterday at 24:00 and gives it a summary.
       t.eq(vim.fn.readfile(yesterday_path), {
         "--- worklog #ClientA @office ---",
         "22:30 writing report",
         "24:00",
+        "",
+        "--- summary ---",
+        "1.50h (+0m) writing report",
+        "",
+        "--- tags ---",
+        "1.50h (+0m) #ClientA",
+        "",
+        "--- locations ---",
+        "1.50h (+0m) @office",
+        "",
+        "--- totals ---",
+        "1.50h (+0m) workday",
       })
     end)
   end)
@@ -1804,11 +1817,25 @@ return function(t)
         "00:00 writing report",
         "00:47 standup",
       })
+      -- The pre-save refresh closes yesterday at 24:00 and gives it a summary.
       t.eq(vim.fn.readfile(yesterday_path), {
         "--- worklog #ClientA @office ---",
         "20:00 standup",
         "22:30 writing report",
         "24:00",
+        "",
+        "--- summary ---",
+        "2.50h (+0m) standup",
+        "1.50h (+0m) writing report",
+        "",
+        "--- tags ---",
+        "4.00h (+0m) #ClientA",
+        "",
+        "--- locations ---",
+        "4.00h (+0m) @office",
+        "",
+        "--- totals ---",
+        "4.00h (+0m) workday",
       })
     end)
   end)

@@ -368,12 +368,12 @@ Toggle the logged state of the main summary row under the cursor.
                                                         *:WorklogRefresh*
 :WorklogRefresh
 
-Rebuild every existing summary in the buffer so it matches its worklog's
-entries.
+Rebuild every summary in the buffer so it matches its worklog's entries, and
+create one for any valid worklog that has none.
 
-- Updates every worklog that already has a summary, in its existing kind (not
-  just the active worklog).
-- Never creates or removes a summary; a worklog with no summary is left alone.
+- Updates every worklog that has a summary, and adds one to a valid worklog that
+  lacks it (not just the active worklog), so a deleted summary comes back.
+- Never removes a summary.
 - Skips a worklog that is currently invalid rather than churn it, and reports
   the problem (for example out-of-order timestamps) as a buffer diagnostic.
 - Is a no-op for summaries that are already up to date.

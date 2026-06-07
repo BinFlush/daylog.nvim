@@ -32,6 +32,9 @@ happen, but they are called out clearly in this changelog.
 - Every worklog now carries a summary: `:WorklogCopy` appends one to the copy,
   matching `:WorklogToday`, and `auto_summary` defaults to `change` so it stays
   live. Set `auto_summary = "off"` to opt out.
+- A deleted summary is restored automatically: the summary refresh (and
+  `:WorklogRefresh`) re-creates a missing summary for any valid worklog, so every
+  valid worklog stays summarized.
 
 ### Removed
 

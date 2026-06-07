@@ -91,9 +91,10 @@ contributing source entries `!L` and rebuilds it. Annotations belong on entries
 (canonical, surviving copy/order), not in the summary.
 
 Keeping authored content out of the summary is what makes regeneration safe. The
-`refresh_summaries` usecase exploits this: it rebuilds *every* worklog's existing
-summary to match its entries (not just the active one), skipping invalid worklogs
-and emitting no edit where a summary is already current. Alongside the edits it
+`refresh_summaries` usecase exploits this: it ensures *every* valid worklog has a
+current summary — updating a stale one, creating a missing one, never removing one —
+not just the active one, skipping invalid worklogs and emitting no edit where a
+summary is already current. Alongside the edits it
 returns `warnings` (each `{ row, message }`) for every problem the analyzer can
 see — a broken or absent header, out-of-order timestamps, an invalid entry —
 whether or not the worklog has a summary, and even for a structurally broken

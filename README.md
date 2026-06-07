@@ -174,7 +174,7 @@ duration=hhmm  render summary durations as hours:minutes
 | `:WorklogCopy` | Append a normalized editable copy, with its own summary |
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
 | `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
-| `:WorklogRefresh` | Rebuild every existing summary in the buffer to match its entries |
+| `:WorklogRefresh` | Rebuild every summary to match its entries, creating one for any worklog that lacks it |
 
 The active worklog is the latest `--- worklog ... ---` block in the file.
 
@@ -192,10 +192,11 @@ place as the days they cover change (including unsaved edits in open buffers).
 | `"save"` | On write (`:w`) |
 | `"off"` (or `false`) | Never automatically; use `:WorklogRefresh` |
 
-`:WorklogRefresh` rebuilds every summary in the buffer by hand. It never creates
-or removes a summary. While a worklog is invalid (for example its timestamps are
-out of order) its summary is left alone rather than churned, and the problem is
-reported as a buffer diagnostic that clears once you fix it.
+`:WorklogRefresh` rebuilds every summary in the buffer by hand, and creates one for
+any valid worklog that has none — so a summary you delete comes back. It never
+removes a summary. While a worklog is invalid (for example its timestamps are out of
+order) it is left alone rather than churned, and the problem is reported as a buffer
+diagnostic that clears once you fix it.
 
 ## Limitations and syntax gotchas
 

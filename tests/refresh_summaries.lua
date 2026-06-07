@@ -151,14 +151,71 @@ return function(t)
     })
   end)
 
-  t.test("refresh skips a worklog with no summary", function()
+  t.test("refresh creates a summary for a worklog that has none", function()
     local result = refresh_summaries.run({
       "--- worklog ---",
       "08:00 plan",
       "09:00 done",
     })
 
-    t.eq(result, { edits = {}, warnings = {} })
+    -- The summary is inserted after the last entry; re-running on the result is a
+    -- no-op (covered by "refresh is a no-op when the summary is already current").
+    t.eq(result, {
+      warnings = {},
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = {
+            "",
+            "--- summary ---",
+            "1.00h (+0m) plan",
+            "",
+            "--- totals ---",
+            "1.00h (+0m) workday",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("refresh creates a summary for a non-last worklog in the right place", function()
+    local result = refresh_summaries.run({
+      "--- worklog ---",
+      "08:00 a",
+      "09:00 done",
+      "",
+      "--- worklog ---",
+      "10:00 b",
+      "11:00 done",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) b",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    })
+
+    -- The first worklog's summary lands after its last entry (row 3); the blank
+    -- before the second worklog stays as the separator. The second worklog's
+    -- summary is already current, so it is left untouched.
+    t.eq(result, {
+      warnings = {},
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = {
+            "",
+            "--- summary ---",
+            "1.00h (+0m) a",
+            "",
+            "--- totals ---",
+            "1.00h (+0m) workday",
+          },
+        },
+      },
+    })
   end)
 
   t.test("refresh warns instead of churning an invalid worklog with a summary", function()
