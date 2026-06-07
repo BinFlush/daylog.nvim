@@ -142,40 +142,32 @@ local function has_workday_excluded_items(items)
   return false
 end
 
-local function section_headers(kind, options)
+local function section_headers(options)
   options = options or {}
 
   return {
-    summary = options.summary_header or syntax.section_header(syntax.SECTION.SUMMARY, kind),
-    tag = options.tag_header or syntax.section_header(syntax.SECTION.TAGS, kind),
-    location = options.location_header or syntax.section_header(syntax.SECTION.LOCATIONS, kind),
-    logged = options.logged_header or syntax.section_header(syntax.SECTION.LOGGED, kind),
-    total = options.total_header or syntax.section_header(syntax.SECTION.TOTALS, kind),
+    summary = options.summary_header or syntax.section_header(syntax.SECTION.SUMMARY),
+    tag = options.tag_header or syntax.section_header(syntax.SECTION.TAGS),
+    location = options.location_header or syntax.section_header(syntax.SECTION.LOCATIONS),
+    logged = options.logged_header or syntax.section_header(syntax.SECTION.LOGGED),
+    total = options.total_header or syntax.section_header(syntax.SECTION.TOTALS),
     leading_blank = options.leading_blank ~= false,
   }
 end
 
-local function summary_item_line(item, kind, format, show_tag)
-  if kind == syntax.REPORT_KIND.QUANTIZED then
-    return summary_line(
-      string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
-      item,
-      show_tag
-    )
-  end
-
-  return summary_line(duration_string(item.duration, format), item, show_tag)
+local function summary_item_line(item, format, show_tag)
+  return summary_line(
+    string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
+    item,
+    show_tag
+  )
 end
 
-local function metadata_line(item, kind, format, line_builder)
-  if kind == syntax.REPORT_KIND.QUANTIZED then
-    return line_builder(
-      string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
-      item
-    )
-  end
-
-  return line_builder(duration_string(item.duration, format), item)
+local function metadata_line(item, format, line_builder)
+  return line_builder(
+    string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
+    item
+  )
 end
 
 -- Build a structured summary layout that records both rendered text and the
@@ -183,9 +175,9 @@ end
 -- recompute the same layout, and recover the underlying summary item via the
 -- `item` field.  `summary_lines` projects this layout to lines so user-facing
 -- output stays in lockstep with the layout.
-local function build_summary_layout(summary, kind, duration_format, options)
+local function build_summary_layout(summary, duration_format, options)
   local layout = {}
-  local headers = section_headers(kind, options)
+  local headers = section_headers(options)
   local conflicts = text_tag_conflicts(summary.summary_items)
   local format = duration_format or syntax.DURATION_DECIMAL
 
@@ -199,7 +191,7 @@ local function build_summary_layout(summary, kind, duration_format, options)
     table.insert(layout, {
       kind = LAYOUT_KIND.SUMMARY_ITEM,
       section = "summary",
-      line = summary_item_line(item, kind, format, conflicts[item.text]),
+      line = summary_item_line(item, format, conflicts[item.text]),
       item = item,
     })
   end
@@ -213,7 +205,7 @@ local function build_summary_layout(summary, kind, duration_format, options)
       table.insert(layout, {
         kind = LAYOUT_KIND.TAG_TOTAL,
         section = "tag",
-        line = metadata_line(item, kind, format, tag_line),
+        line = metadata_line(item, format, tag_line),
         item = item,
       })
     end
@@ -231,7 +223,7 @@ local function build_summary_layout(summary, kind, duration_format, options)
       table.insert(layout, {
         kind = LAYOUT_KIND.LOCATION_TOTAL,
         section = "location",
-        line = metadata_line(item, kind, format, location_line),
+        line = metadata_line(item, format, location_line),
         item = item,
       })
     end
@@ -246,7 +238,7 @@ local function build_summary_layout(summary, kind, duration_format, options)
       table.insert(layout, {
         kind = LAYOUT_KIND.LOGGED_TOTAL,
         section = "logged",
-        line = metadata_line(item, kind, format, logged_line),
+        line = metadata_line(item, format, logged_line),
         item = item,
       })
     end
@@ -256,49 +248,33 @@ local function build_summary_layout(summary, kind, duration_format, options)
 
   table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "total", line = headers.total })
 
-  if kind == syntax.REPORT_KIND.QUANTIZED then
-    if has_workday_excluded_items(summary.summary_items) then
-      table.insert(layout, {
-        kind = LAYOUT_KIND.TOTAL,
-        section = "total",
-        line = string.format(
-          "%s (%+dm) activity",
-          duration_string(summary.activity_total, format),
-          summary.activity_error_minutes or 0
-        ),
-      })
-    end
-
+  if has_workday_excluded_items(summary.summary_items) then
     table.insert(layout, {
       kind = LAYOUT_KIND.TOTAL,
       section = "total",
       line = string.format(
-        "%s (%+dm) workday",
-        duration_string(summary.workday_total, format),
-        summary.workday_error_minutes or 0
+        "%s (%+dm) activity",
+        duration_string(summary.activity_total, format),
+        summary.activity_error_minutes or 0
       ),
     })
-  else
-    if has_workday_excluded_items(summary.summary_items) then
-      table.insert(layout, {
-        kind = LAYOUT_KIND.TOTAL,
-        section = "total",
-        line = string.format("%s activity", duration_string(summary.activity_total, format)),
-      })
-    end
-
-    table.insert(layout, {
-      kind = LAYOUT_KIND.TOTAL,
-      section = "total",
-      line = string.format("%s workday", duration_string(summary.workday_total, format)),
-    })
   end
+
+  table.insert(layout, {
+    kind = LAYOUT_KIND.TOTAL,
+    section = "total",
+    line = string.format(
+      "%s (%+dm) workday",
+      duration_string(summary.workday_total, format),
+      summary.workday_error_minutes or 0
+    ),
+  })
 
   return layout
 end
 
-local function append_summary_lines(lines, summary, kind, duration_format, options)
-  for _, row in ipairs(build_summary_layout(summary, kind, duration_format, options)) do
+local function append_summary_lines(lines, summary, duration_format, options)
+  for _, row in ipairs(build_summary_layout(summary, duration_format, options)) do
     table.insert(lines, row.line)
   end
 end
@@ -352,14 +328,14 @@ function M.worklog_lines(
   return rendered
 end
 
-function M.summary_lines(summary, kind, duration_format, options)
+function M.summary_lines(summary, duration_format, options)
   local lines = {}
-  append_summary_lines(lines, summary, kind, duration_format, options)
+  append_summary_lines(lines, summary, duration_format, options)
   return lines
 end
 
-function M.summary_layout(summary, kind, duration_format, options)
-  return build_summary_layout(summary, kind, duration_format, options)
+function M.summary_layout(summary, duration_format, options)
+  return build_summary_layout(summary, duration_format, options)
 end
 
 -- Build the labeled section headers for one report section. `prefix` selects the
@@ -367,11 +343,11 @@ end
 local function report_headers(prefix, label, leading_blank)
   return {
     leading_blank = leading_blank,
-    summary_header = string.format("--- %s summary quantized %s ---", prefix, label),
-    tag_header = string.format("--- %s tags quantized %s ---", prefix, label),
-    location_header = string.format("--- %s locations quantized %s ---", prefix, label),
-    logged_header = string.format("--- %s logged quantized %s ---", prefix, label),
-    total_header = string.format("--- %s totals quantized %s ---", prefix, label),
+    summary_header = string.format("--- %s summary %s ---", prefix, label),
+    tag_header = string.format("--- %s tags %s ---", prefix, label),
+    location_header = string.format("--- %s locations %s ---", prefix, label),
+    logged_header = string.format("--- %s logged %s ---", prefix, label),
+    total_header = string.format("--- %s totals %s ---", prefix, label),
   }
 end
 
@@ -387,7 +363,6 @@ local function period_report_lines(report, duration_format, options, aggregate_p
       append_summary_lines(
         lines,
         day.summary,
-        syntax.REPORT_KIND.QUANTIZED,
         duration_format,
         report_headers("day", day.date_label, index > 1)
       )
@@ -397,7 +372,6 @@ local function period_report_lines(report, duration_format, options, aggregate_p
   append_summary_lines(
     lines,
     report.summary,
-    syntax.REPORT_KIND.QUANTIZED,
     duration_format,
     report_headers(aggregate_prefix, report.period_label, #lines > 0)
   )

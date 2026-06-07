@@ -7,11 +7,11 @@ return function(t)
       "08:00 plan",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "0.50h plan",
+      "--- summary ---",
+      "0.50h (+0m) plan",
       "",
-      "--- totals exact ---",
-      "0.50h workday",
+      "--- totals ---",
+      "0.50h (+0m) workday",
     })
 
     t.eq(result, {
@@ -21,79 +21,22 @@ return function(t)
           start_index = 4,
           end_index = 9,
           lines = {
-            "--- summary exact ---",
-            "1.00h plan",
+            "--- summary ---",
+            "1.00h (+0m) plan",
             "",
-            "--- totals exact ---",
-            "1.00h workday",
+            "--- totals ---",
+            "1.00h (+0m) workday",
           },
         },
       },
     })
   end)
 
-  t.test("refresh is a no-op when the summary is already current", function()
+  t.test("refresh migrates a legacy quantized-header summary to the kind-less form", function()
     local result = refresh_summaries.run({
       "--- worklog ---",
       "08:00 plan",
       "09:00 done",
-      "",
-      "--- summary exact ---",
-      "1.00h plan",
-      "",
-      "--- totals exact ---",
-      "1.00h workday",
-    })
-
-    t.eq(result, { edits = {}, warnings = {} })
-  end)
-
-  t.test("refresh updates only the changed worklog among several", function()
-    local result = refresh_summaries.run({
-      "--- worklog ---",
-      "08:00 a",
-      "09:00 done",
-      "",
-      "--- summary exact ---",
-      "1.00h a",
-      "",
-      "--- totals exact ---",
-      "1.00h workday",
-      "",
-      "--- worklog ---",
-      "10:00 b",
-      "11:30 done",
-      "",
-      "--- summary exact ---",
-      "0.50h b",
-      "",
-      "--- totals exact ---",
-      "0.50h workday",
-    })
-
-    t.eq(result, {
-      warnings = {},
-      edits = {
-        {
-          start_index = 14,
-          end_index = 19,
-          lines = {
-            "--- summary exact ---",
-            "1.50h b",
-            "",
-            "--- totals exact ---",
-            "1.50h workday",
-          },
-        },
-      },
-    })
-  end)
-
-  t.test("refresh preserves the summary kind", function()
-    local result = refresh_summaries.run({
-      "--- worklog quantize=30 ---",
-      "08:00 plan",
-      "08:34 done",
       "",
       "--- summary quantized ---",
       "1.00h (+0m) plan",
@@ -109,10 +52,98 @@ return function(t)
           start_index = 4,
           end_index = 9,
           lines = {
-            "--- summary quantized ---",
+            "--- summary ---",
+            "1.00h (+0m) plan",
+            "",
+            "--- totals ---",
+            "1.00h (+0m) workday",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("refresh is a no-op when the summary is already current", function()
+    local result = refresh_summaries.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) plan",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    })
+
+    t.eq(result, { edits = {}, warnings = {} })
+  end)
+
+  t.test("refresh updates only the changed worklog among several", function()
+    local result = refresh_summaries.run({
+      "--- worklog ---",
+      "08:00 a",
+      "09:00 done",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) a",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+      "",
+      "--- worklog ---",
+      "10:00 b",
+      "11:30 done",
+      "",
+      "--- summary ---",
+      "0.50h (+0m) b",
+      "",
+      "--- totals ---",
+      "0.50h (+0m) workday",
+    })
+
+    t.eq(result, {
+      warnings = {},
+      edits = {
+        {
+          start_index = 14,
+          end_index = 19,
+          lines = {
+            "--- summary ---",
+            "1.50h (+0m) b",
+            "",
+            "--- totals ---",
+            "1.50h (+0m) workday",
+          },
+        },
+      },
+    })
+  end)
+
+  t.test("refresh preserves the summary kind", function()
+    local result = refresh_summaries.run({
+      "--- worklog quantize=30 ---",
+      "08:00 plan",
+      "08:34 done",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) plan",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    })
+
+    t.eq(result, {
+      warnings = {},
+      edits = {
+        {
+          start_index = 4,
+          end_index = 9,
+          lines = {
+            "--- summary ---",
             "0.50h (+4m) plan",
             "",
-            "--- totals quantized ---",
+            "--- totals ---",
             "0.50h (+4m) workday",
           },
         },
@@ -137,11 +168,11 @@ return function(t)
       "08:00 earlier",
       "10:00 done",
       "",
-      "--- summary exact ---",
-      "0.50h later",
+      "--- summary ---",
+      "0.50h (+0m) later",
       "",
-      "--- totals exact ---",
-      "0.50h workday",
+      "--- totals ---",
+      "0.50h (+0m) workday",
     })
 
     t.eq(result, {

@@ -75,24 +75,24 @@ return function(t)
         },
         activity_total = 180,
         workday_total = 180,
-      }, "exact"),
+      }),
       {
         "",
-        "--- summary exact ---",
-        "1.00h planning #ClientA",
-        "0.50h planning #internal",
-        "1.50h implementation",
+        "--- summary ---",
+        "1.00h (+0m) planning #ClientA",
+        "0.50h (+0m) planning #internal",
+        "1.50h (+0m) implementation",
         "",
-        "--- tags exact ---",
-        "2.50h #ClientA",
-        "0.50h #internal",
+        "--- tags ---",
+        "2.50h (+0m) #ClientA",
+        "0.50h (+0m) #internal",
         "",
-        "--- locations exact ---",
-        "2.00h @office",
-        "1.00h @home",
+        "--- locations ---",
+        "2.00h (+0m) @office",
+        "1.00h (+0m) @home",
         "",
-        "--- totals exact ---",
-        "3.00h workday",
+        "--- totals ---",
+        "3.00h (+0m) workday",
       }
     )
   end)
@@ -130,13 +130,13 @@ return function(t)
         workday_total = 30,
         activity_error_minutes = 0,
         workday_error_minutes = 0,
-      }, "quantized"),
+      }),
       {
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "0.50h (+0m) plan",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "0.50h (+0m) workday",
       }
     )
@@ -189,21 +189,21 @@ return function(t)
         workday_total = 60,
         activity_error_minutes = 0,
         workday_error_minutes = 5,
-      }, "quantized"),
+      }),
       {
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "1.00h (+5m) client",
         "0.50h (-5m) break",
         "",
-        "--- tags quantized ---",
+        "--- tags ---",
         "1.00h (+5m) #ClientA",
         "0.50h (-5m) #ooo",
         "",
-        "--- locations quantized ---",
+        "--- locations ---",
         "1.50h (+0m) @office",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "1.50h (+0m) activity",
         "1.00h (+5m) workday",
       }
@@ -238,20 +238,20 @@ return function(t)
         },
         activity_total = 90,
         workday_total = 90,
-      }, "exact", "hhmm"),
+      }, "hhmm"),
       {
         "",
-        "--- summary exact ---",
-        "1:30 planning",
+        "--- summary ---",
+        "1:30 (+0m) planning",
         "",
-        "--- tags exact ---",
-        "1:30 #ClientA",
+        "--- tags ---",
+        "1:30 (+0m) #ClientA",
         "",
-        "--- locations exact ---",
-        "1:30 @office",
+        "--- locations ---",
+        "1:30 (+0m) @office",
         "",
-        "--- totals exact ---",
-        "1:30 workday",
+        "--- totals ---",
+        "1:30 (+0m) workday",
       }
     )
   end)
@@ -289,13 +289,13 @@ return function(t)
         workday_total = 90,
         activity_error_minutes = 5,
         workday_error_minutes = 5,
-      }, "quantized", "hhmm"),
+      }, "hhmm"),
       {
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "1:30 (+5m) plan",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "1:30 (+5m) workday",
       }
     )
@@ -349,25 +349,25 @@ return function(t)
         },
         activity_total = 120,
         workday_total = 120,
-      }, "exact"),
+      }),
       {
         "",
-        "--- summary exact ---",
-        "1.00h implementation !L",
-        "1.00h implementation",
+        "--- summary ---",
+        "1.00h (+0m) implementation !L",
+        "1.00h (+0m) implementation",
         "",
-        "--- tags exact ---",
-        "2.00h #ClientA",
+        "--- tags ---",
+        "2.00h (+0m) #ClientA",
         "",
-        "--- locations exact ---",
-        "2.00h @office",
+        "--- locations ---",
+        "2.00h (+0m) @office",
         "",
-        "--- logged exact ---",
-        "1.00h logged",
-        "1.00h unlogged",
+        "--- logged ---",
+        "1.00h (+0m) logged",
+        "1.00h (+0m) unlogged",
         "",
-        "--- totals exact ---",
-        "2.00h workday",
+        "--- totals ---",
+        "2.00h (+0m) workday",
       }
     )
   end)
@@ -428,24 +428,24 @@ return function(t)
         workday_total = 60,
         activity_error_minutes = -20,
         workday_error_minutes = -20,
-      }, "quantized"),
+      }),
       {
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "0.50h (-10m) implementation !L",
         "0.50h (-10m) implementation",
         "",
-        "--- tags quantized ---",
+        "--- tags ---",
         "1.00h (-20m) #ClientA",
         "",
-        "--- locations quantized ---",
+        "--- locations ---",
         "1.00h (-20m) @office",
         "",
-        "--- logged quantized ---",
+        "--- logged ---",
         "0.50h (-10m) logged",
         "0.50h (-10m) unlogged",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "1.00h (-20m) workday",
       }
     )
@@ -526,16 +526,16 @@ return function(t)
         },
       }, "hhmm"),
       {
-        "--- day summary quantized 2026-05-18 ---",
+        "--- day summary 2026-05-18 ---",
         "1:00 (+8m) plan",
         "",
-        "--- day totals quantized 2026-05-18 ---",
+        "--- day totals 2026-05-18 ---",
         "1:00 (+8m) workday",
         "",
-        "--- week summary quantized 2026-W21 ---",
+        "--- week summary 2026-W21 ---",
         "1:00 (+8m) plan",
         "",
-        "--- week totals quantized 2026-W21 ---",
+        "--- week totals 2026-W21 ---",
         "1:00 (+8m) workday",
       }
     )
@@ -608,16 +608,16 @@ return function(t)
         }
       ),
       {
-        "--- week summary quantized 2026-W21 ---",
+        "--- week summary 2026-W21 ---",
         "1:00 (+8m) plan",
         "",
-        "--- week tags quantized 2026-W21 ---",
+        "--- week tags 2026-W21 ---",
         "1:00 (+8m) #ClientA",
         "",
-        "--- week locations quantized 2026-W21 ---",
+        "--- week locations 2026-W21 ---",
         "1:00 (+8m) @office",
         "",
-        "--- week totals quantized 2026-W21 ---",
+        "--- week totals 2026-W21 ---",
         "1:00 (+8m) workday",
       }
     )
@@ -688,22 +688,22 @@ return function(t)
         },
       }, "hhmm"),
       {
-        "--- day summary quantized 2026-05-18 ---",
+        "--- day summary 2026-05-18 ---",
         "1:00 (+0m) plan !L",
         "",
-        "--- day logged quantized 2026-05-18 ---",
+        "--- day logged 2026-05-18 ---",
         "1:00 (+0m) logged",
         "",
-        "--- day totals quantized 2026-05-18 ---",
+        "--- day totals 2026-05-18 ---",
         "1:00 (+0m) workday",
         "",
-        "--- week summary quantized 2026-W21 ---",
+        "--- week summary 2026-W21 ---",
         "1:00 (+0m) plan !L",
         "",
-        "--- week logged quantized 2026-W21 ---",
+        "--- week logged 2026-W21 ---",
         "1:00 (+0m) logged",
         "",
-        "--- week totals quantized 2026-W21 ---",
+        "--- week totals 2026-W21 ---",
         "1:00 (+0m) workday",
       }
     )
@@ -784,16 +784,16 @@ return function(t)
         },
       }, "hhmm"),
       {
-        "--- day summary quantized 2026-05-22 ---",
+        "--- day summary 2026-05-22 ---",
         "1:00 (+8m) plan",
         "",
-        "--- day totals quantized 2026-05-22 ---",
+        "--- day totals 2026-05-22 ---",
         "1:00 (+8m) workday",
         "",
-        "--- range summary quantized 2026-05-20..2026-05-22 ---",
+        "--- range summary 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) plan",
         "",
-        "--- range totals quantized 2026-05-20..2026-05-22 ---",
+        "--- range totals 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) workday",
       }
     )
@@ -866,16 +866,16 @@ return function(t)
         }
       ),
       {
-        "--- range summary quantized 2026-05-20..2026-05-22 ---",
+        "--- range summary 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) retro",
         "",
-        "--- range tags quantized 2026-05-20..2026-05-22 ---",
+        "--- range tags 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) #internal",
         "",
-        "--- range locations quantized 2026-05-20..2026-05-22 ---",
+        "--- range locations 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) @home",
         "",
-        "--- range totals quantized 2026-05-20..2026-05-22 ---",
+        "--- range totals 2026-05-20..2026-05-22 ---",
         "1:00 (+8m) workday",
       }
     )
@@ -932,14 +932,14 @@ return function(t)
       workday_total = 120,
     }
 
-    local layout = render.summary_layout(summary, "exact")
+    local layout = render.summary_layout(summary)
     local lines_from_layout = {}
 
     for _, row in ipairs(layout) do
       table.insert(lines_from_layout, row.line)
     end
 
-    t.eq(lines_from_layout, render.summary_lines(summary, "exact"))
+    t.eq(lines_from_layout, render.summary_lines(summary))
   end)
 
   t.test("summary_layout marks summary rows with kind summary_item and exposes the item", function()
@@ -967,7 +967,7 @@ return function(t)
       location_totals = {},
       activity_total = 120,
       workday_total = 120,
-    }, "exact")
+    })
 
     local summary_rows = collect_layout_rows(layout, function(row)
       return row.kind == "summary_item"
@@ -976,9 +976,9 @@ return function(t)
     t.eq(#summary_rows, 2)
     t.eq(summary_rows[1].section, "summary")
     t.eq(summary_rows[1].item, first_item)
-    t.eq(summary_rows[1].line, "1.00h implementation !L")
+    t.eq(summary_rows[1].line, "1.00h (+0m) implementation !L")
     t.eq(summary_rows[2].item, second_item)
-    t.eq(summary_rows[2].line, "1.00h implementation")
+    t.eq(summary_rows[2].line, "1.00h (+0m) implementation")
   end)
 
   t.test("summary_layout uses distinct kinds for tag, location, logged, and total rows", function()
@@ -1005,7 +1005,7 @@ return function(t)
       },
       activity_total = 60,
       workday_total = 60,
-    }, "exact")
+    })
 
     local function find_by_line(line)
       return find_layout_row(layout, function(row)
@@ -1013,10 +1013,10 @@ return function(t)
       end)
     end
 
-    t.eq(find_by_line("1.00h #ClientA").kind, "tag_total")
-    t.eq(find_by_line("1.00h @office").kind, "location_total")
-    t.eq(find_by_line("1.00h logged").kind, "logged_total")
-    t.eq(find_by_line("1.00h workday").kind, "total")
+    t.eq(find_by_line("1.00h (+0m) #ClientA").kind, "tag_total")
+    t.eq(find_by_line("1.00h (+0m) @office").kind, "location_total")
+    t.eq(find_by_line("1.00h (+0m) logged").kind, "logged_total")
+    t.eq(find_by_line("1.00h (+0m) workday").kind, "total")
 
     for _, row in ipairs(layout) do
       if row.kind == "summary_item" then
@@ -1046,7 +1046,7 @@ return function(t)
       workday_total = 30,
       activity_error_minutes = 10,
       workday_error_minutes = 10,
-    }, "quantized")
+    })
 
     local summary_row = find_layout_row(layout, function(row)
       return row.kind == "summary_item"

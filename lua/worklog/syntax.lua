@@ -45,12 +45,6 @@ M.TOKEN_KIND = {
   LOGGED = "logged",
 }
 
--- Report kinds selecting exact versus quantized summary computation and rendering.
-M.REPORT_KIND = {
-  EXACT = "exact",
-  QUANTIZED = "quantized",
-}
-
 -- Generated section-header words fed to section_header(). Shared so render.lua
 -- (which produces the headers) and usecases that match them (log_current) agree.
 M.SECTION = {
@@ -94,8 +88,8 @@ M.DIAGNOSTIC_CATEGORY_BY_CODE = {
   [M.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
 }
 
-function M.section_header(section, kind)
-  return "--- " .. section .. " " .. kind .. " ---"
+function M.section_header(section)
+  return "--- " .. section .. " ---"
 end
 
 return M

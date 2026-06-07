@@ -29,6 +29,34 @@ return function(t)
     test.eq(total_duration(result.location_totals), result.activity_total)
   end
 
+  -- The single summary type is quantized; "exact" is just quantize=1 (rounding is a
+  -- no-op on whole-minute durations). These helpers assert the unrounded shape by
+  -- computing at quantize=1 and dropping the now-zero error fields.
+  local function strip_errors(result)
+    local groups = { result.summary_items, result.tag_totals, result.location_totals }
+    if result.logged_totals then
+      table.insert(groups, result.logged_totals)
+    end
+
+    for _, group in ipairs(groups) do
+      for _, item in ipairs(group) do
+        item.error_minutes = nil
+      end
+    end
+
+    result.activity_error_minutes = nil
+    result.workday_error_minutes = nil
+    return result
+  end
+
+  local function summarize_exact_entries(entries)
+    return strip_errors(summary.quantized_summarize_entries(entries, 1))
+  end
+
+  local function summarize_exact(block)
+    return summarize_exact_entries(block.entries)
+  end
+
   t.test("summary summarizes semantic worklog blocks directly", function()
     local block = block_from_lines({
       "--- worklog #ProjectOrion @office ---",
@@ -38,7 +66,7 @@ return function(t)
       "09:15 done #ProjectOrion @office",
     })
 
-    t.eq(summary.summarize_block(block), {
+    t.eq(summarize_exact(block), {
       summary_items = {
         {
           text = "plan",
@@ -107,7 +135,7 @@ return function(t)
       "10:00 done",
     })
 
-    t.eq(summary.summarize_block(block), {
+    t.eq(summarize_exact(block), {
       summary_items = {
         {
           text = "break",
@@ -166,7 +194,7 @@ return function(t)
         "10:30 done",
       })
 
-      t.eq(summary.summarize_block(block), {
+      t.eq(summarize_exact(block), {
         summary_items = {
           {
             text = "implementation",
@@ -1195,7 +1223,7 @@ return function(t)
       "17:00 done",
     })
 
-    t.eq(summary.summarize_block(block), {
+    t.eq(summarize_exact(block), {
       summary_items = {
         {
           text = "planning",
@@ -1275,7 +1303,7 @@ return function(t)
         "14:00 done",
       })
 
-      t.eq(summary.summarize_block(block).summary_items, {
+      t.eq(summarize_exact(block).summary_items, {
         {
           text = "meeting",
           tag = "internal",
@@ -1312,7 +1340,7 @@ return function(t)
       "10:00 done",
     })
 
-    t.eq(summary.summarize_block(block).summary_items, {
+    t.eq(summarize_exact(block).summary_items, {
       {
         text = "alpha",
         tag = nil,
@@ -1341,7 +1369,7 @@ return function(t)
       "11:00 done",
     })
 
-    t.eq(summary.summarize_block(block).summary_items, {
+    t.eq(summarize_exact(block).summary_items, {
       {
         text = "meeting",
         tag = "ClientA",
@@ -1377,7 +1405,7 @@ return function(t)
       "10:00 done",
     })
 
-    t.eq(summary.summarize_block(block).summary_items, {
+    t.eq(summarize_exact(block).summary_items, {
       {
         text = "alpha|beta",
         tag = nil,
@@ -1406,7 +1434,7 @@ return function(t)
       "11:00 done",
     })
 
-    local items = summary.summarize_block(block).summary_items
+    local items = summarize_exact(block).summary_items
 
     t.eq(items[1].text, "implementation")
     t.eq(items[1].source_entry_rows, { 2, 4 })
@@ -1423,7 +1451,7 @@ return function(t)
       "11:00 done",
     })
 
-    local items = summary.summarize_block(block).summary_items
+    local items = summarize_exact(block).summary_items
 
     t.eq(items[1].logged, true)
     t.eq(items[1].source_entry_rows, { 2, 4 })
@@ -1440,7 +1468,7 @@ return function(t)
       "10:30 done",
     })
 
-    local items = summary.summarize_block(block).summary_items
+    local items = summarize_exact(block).summary_items
     local break_item
 
     for _, item in ipairs(items) do

@@ -5,20 +5,20 @@
 09:30 review
 10:00 done
 
---- summary exact ---
-0.50h plan
-0.50h pair
-0.50h untagged
-0.50h review
+--- summary ---
+0.50h (+0m) plan
+0.50h (+0m) pair
+0.50h (+0m) untagged
+0.50h (+0m) review
 
---- tags exact ---
-1.00h #ClientA
-1.00h (untagged)
+--- tags ---
+1.00h (+0m) #ClientA
+1.00h (+0m) (untagged)
 
---- locations exact ---
-1.00h (no location)
-0.50h @office
-0.50h @home
+--- locations ---
+1.00h (+0m) (no location)
+0.50h (+0m) @office
+0.50h (+0m) @home
 
---- totals exact ---
-2.00h workday
+--- totals ---
+2.00h (+0m) workday

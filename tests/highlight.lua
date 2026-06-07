@@ -28,7 +28,7 @@ return function(t)
       "10:00 meeting #ooo",
       "12:00 resume #- @-",
       "14:00 done !L",
-      "--- summary quantized ---",
+      "--- summary ---",
       "1.75h (+2m) planning",
       "",
       "a free-form note",
@@ -273,11 +273,11 @@ return function(t)
       "--- worklog duration=hhmm ---",
       "08:00 deep work",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "16:00 deep work #ClientA",
       "2:00 admin",
       "",
-      "--- totals exact ---",
+      "--- totals ---",
       "16:00 workday",
     })
 

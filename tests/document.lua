@@ -7,7 +7,7 @@ return function(t)
       "08:00 plan",
       "note about planning",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
     })
 
     t.eq(doc.kind, "document")
@@ -61,8 +61,8 @@ return function(t)
       {
         kind = "block_header",
         row = 5,
-        raw = "--- summary exact ---",
-        text = "summary exact",
+        raw = "--- summary ---",
+        text = "summary",
       },
     })
   end)

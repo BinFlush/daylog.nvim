@@ -28,11 +28,11 @@ return function(t)
       "08:00 plan",
       "10:00 done",
       "",
-      "--- summary exact ---",
-      "0.50h plan",
+      "--- summary ---",
+      "0.50h (+0m) plan",
       "",
-      "--- totals exact ---",
-      "0.50h workday",
+      "--- totals ---",
+      "0.50h (+0m) workday",
     })
 
     vim.cmd("WorklogRefresh")
@@ -41,16 +41,16 @@ return function(t)
       "08:00 plan",
       "10:00 done",
       "",
-      "--- summary exact ---",
-      "2.00h plan",
+      "--- summary ---",
+      "2.00h (+0m) plan",
       "",
-      "--- totals exact ---",
-      "2.00h workday",
+      "--- totals ---",
+      "2.00h (+0m) workday",
     })
 
     -- Running again leaves the now-current summary untouched.
     vim.cmd("WorklogRefresh")
-    t.eq(t.get_lines()[6], "2.00h plan")
+    t.eq(t.get_lines()[6], "2.00h (+0m) plan")
   end)
 
   local function has_unordered_diagnostic()
@@ -70,11 +70,11 @@ return function(t)
       "08:00 earlier",
       "10:00 done",
       "",
-      "--- summary exact ---",
-      "0.50h later",
+      "--- summary ---",
+      "0.50h (+0m) later",
       "",
-      "--- totals exact ---",
-      "0.50h workday",
+      "--- totals ---",
+      "0.50h (+0m) workday",
     })
     local before = t.get_lines()
 
@@ -125,15 +125,15 @@ return function(t)
     vim.cmd("WorklogSummarize")
     local lines = t.get_lines()
 
-    t.eq(lines[6], "--- summary exact ---")
-    t.eq(lines[7], "1.00h same again")
-    t.eq(lines[8], "0.00h same")
-    t.eq(lines[10], "--- tags exact ---")
-    t.eq(lines[11], "1.00h #ProjectOrion")
-    t.eq(lines[13], "--- locations exact ---")
-    t.eq(lines[14], "1.00h @client")
-    t.eq(lines[15], "0.00h @office")
-    t.eq(lines[18], "1.00h workday")
+    t.eq(lines[6], "--- summary ---")
+    t.eq(lines[7], "1.00h (+0m) same again")
+    t.eq(lines[8], "0.00h (+0m) same")
+    t.eq(lines[10], "--- tags ---")
+    t.eq(lines[11], "1.00h (+0m) #ProjectOrion")
+    t.eq(lines[13], "--- locations ---")
+    t.eq(lines[14], "1.00h (+0m) @client")
+    t.eq(lines[15], "0.00h (+0m) @office")
+    t.eq(lines[18], "1.00h (+0m) workday")
   end)
 
   t.test("worklog order rewrites all worklog blocks", function()
@@ -144,7 +144,7 @@ return function(t)
       "08:00 earlier #sales",
       "note b",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "x",
       "",
       "--- worklog #internal @home ---",
@@ -160,7 +160,7 @@ return function(t)
       "note b",
       "08:30 later #ProjectOrion",
       "note a",
-      "--- summary exact ---",
+      "--- summary ---",
       "x",
       "",
       "--- worklog #internal @home ---",
@@ -176,7 +176,7 @@ return function(t)
       "08:00 first",
       "09:00 done",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "x",
       "",
       "--- worklog #sales @client ---",
@@ -192,7 +192,7 @@ return function(t)
       "08:00 first",
       "09:00 done",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "x",
       "",
       "--- worklog #sales @client ---",
@@ -289,8 +289,8 @@ return function(t)
       "08:21 negotiate with goose",
       "10:00 done",
       "",
-      "--- summary exact ---",
-      "1.93h activity",
+      "--- summary ---",
+      "1.93h (+0m) activity",
       "",
       "--- worklog #sales @client ---",
       "11:00 tea",
@@ -494,20 +494,20 @@ return function(t)
       "08:15 call #sales @client",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "0.75h call",
-      "0.25h plan",
+      "--- summary ---",
+      "0.75h (+0m) call",
+      "0.25h (+0m) plan",
       "",
-      "--- tags exact ---",
-      "0.75h #sales",
-      "0.25h (untagged)",
+      "--- tags ---",
+      "0.75h (+0m) #sales",
+      "0.25h (+0m) (untagged)",
       "",
-      "--- locations exact ---",
-      "0.75h @client",
-      "0.25h (no location)",
+      "--- locations ---",
+      "0.75h (+0m) @client",
+      "0.25h (+0m) (no location)",
       "",
-      "--- totals exact ---",
-      "1.00h workday",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -527,16 +527,16 @@ return function(t)
       "09:00 implementation",
       "10:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h implementation !L",
-      "1.00h implementation",
+      "--- summary ---",
+      "1.00h (+0m) implementation !L",
+      "1.00h (+0m) implementation",
       "",
-      "--- logged exact ---",
-      "1.00h logged",
-      "1.00h unlogged",
+      "--- logged ---",
+      "1.00h (+0m) logged",
+      "1.00h (+0m) unlogged",
       "",
-      "--- totals exact ---",
-      "2.00h workday",
+      "--- totals ---",
+      "2.00h (+0m) workday",
     })
   end)
 
@@ -560,17 +560,17 @@ return function(t)
         "12:00 meeting #internal",
         "14:00 done",
         "",
-        "--- summary exact ---",
-        "2.00h meeting #internal",
-        "1.00h meeting #ClientA",
-        "3.00h implementation",
+        "--- summary ---",
+        "2.00h (+0m) meeting #internal",
+        "1.00h (+0m) meeting #ClientA",
+        "3.00h (+0m) implementation",
         "",
-        "--- tags exact ---",
-        "4.00h #ClientA",
-        "2.00h #internal",
+        "--- tags ---",
+        "4.00h (+0m) #ClientA",
+        "2.00h (+0m) #internal",
         "",
-        "--- totals exact ---",
-        "6.00h workday",
+        "--- totals ---",
+        "6.00h (+0m) workday",
       })
     end
   )
@@ -589,11 +589,11 @@ return function(t)
       "08:00 plan",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h plan",
+      "--- summary ---",
+      "1.00h (+0m) plan",
       "",
-      "--- totals exact ---",
-      "1.00h workday",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -613,21 +613,21 @@ return function(t)
       "09:00 resume #- @-",
       "10:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h break",
-      "1.00h resume",
+      "--- summary ---",
+      "1.00h (+0m) break",
+      "1.00h (+0m) resume",
       "",
-      "--- tags exact ---",
-      "1.00h #ooo",
-      "1.00h (untagged)",
+      "--- tags ---",
+      "1.00h (+0m) #ooo",
+      "1.00h (+0m) (untagged)",
       "",
-      "--- locations exact ---",
-      "1.00h @home",
-      "1.00h (no location)",
+      "--- locations ---",
+      "1.00h (+0m) @home",
+      "1.00h (+0m) (no location)",
       "",
-      "--- totals exact ---",
-      "2.00h activity",
-      "1.00h workday",
+      "--- totals ---",
+      "2.00h (+0m) activity",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -653,17 +653,17 @@ return function(t)
       "10:00 plan",
       "11:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h plan",
+      "--- summary ---",
+      "1.00h (+0m) plan",
       "",
-      "--- tags exact ---",
-      "1.00h #sales",
+      "--- tags ---",
+      "1.00h (+0m) #sales",
       "",
-      "--- locations exact ---",
-      "1.00h @client",
+      "--- locations ---",
+      "1.00h (+0m) @client",
       "",
-      "--- totals exact ---",
-      "1.00h workday",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -685,20 +685,20 @@ return function(t)
       "08:30 call #sales @client",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "0.50h plan",
-      "0.50h call",
+      "--- summary ---",
+      "0.50h (+0m) plan",
+      "0.50h (+0m) call",
       "",
-      "--- tags exact ---",
-      "0.50h #ProjectOrion",
-      "0.50h #sales",
+      "--- tags ---",
+      "0.50h (+0m) #ProjectOrion",
+      "0.50h (+0m) #sales",
       "",
-      "--- locations exact ---",
-      "0.50h @office",
-      "0.50h @client",
+      "--- locations ---",
+      "0.50h (+0m) @office",
+      "0.50h (+0m) @client",
       "",
-      "--- totals exact ---",
-      "1.00h workday",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -720,19 +720,19 @@ return function(t)
         "08:12 call #sales @client",
         "08:30 done",
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "0.50h (-12m) call",
         "0.00h (+12m) plan",
         "",
-        "--- tags quantized ---",
+        "--- tags ---",
         "0.50h (-12m) #sales",
         "0.00h (+12m) (untagged)",
         "",
-        "--- locations quantized ---",
+        "--- locations ---",
         "0.50h (-12m) @client",
         "0.00h (+12m) (no location)",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "0.50h (+0m) workday",
       })
     end
@@ -752,10 +752,10 @@ return function(t)
       "08:00 plan",
       "08:30 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "0.50h (+0m) plan",
       "",
-      "--- totals quantized ---",
+      "--- totals ---",
       "0.50h (+0m) workday",
     })
   end)
@@ -776,15 +776,15 @@ return function(t)
       "08:20 implementation",
       "08:40 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "0.50h (-10m) implementation !L",
       "0.00h (+20m) implementation",
       "",
-      "--- logged quantized ---",
+      "--- logged ---",
       "0.50h (-10m) logged",
       "0.00h (+20m) unlogged",
       "",
-      "--- totals quantized ---",
+      "--- totals ---",
       "0.50h (+10m) workday",
     })
   end)
@@ -813,19 +813,19 @@ return function(t)
       "09:20 call #sales @client",
       "10:00 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "1.00h (-20m) call",
       "0.00h (+20m) plan",
       "",
-      "--- tags quantized ---",
+      "--- tags ---",
       "1.00h (-20m) #sales",
       "0.00h (+20m) (untagged)",
       "",
-      "--- locations quantized ---",
+      "--- locations ---",
       "1.00h (-20m) @client",
       "0.00h (+20m) @office",
       "",
-      "--- totals quantized ---",
+      "--- totals ---",
       "1.00h (+0m) workday",
     })
   end)
@@ -836,8 +836,8 @@ return function(t)
       "08:00 task",
       "09:00",
       "",
-      "--- summary exact ---",
-      "0.00h task",
+      "--- summary ---",
+      "0.00h (+0m) task",
     })
     t.set_cursor(5, 0)
 
@@ -847,8 +847,8 @@ return function(t)
       "08:00 task",
       "09:00",
       "",
-      "--- summary exact ---",
-      "0.00h task",
+      "--- summary ---",
+      "0.00h (+0m) task",
     })
   end)
 
@@ -870,23 +870,23 @@ return function(t)
       "09:00 break #ooo",
       "09:15 done #ProjectOrion @office",
       "",
-      "--- summary exact ---",
-      "0.50h plan #ProjectOrion",
-      "0.50h plan #sales",
-      "0.25h break",
+      "--- summary ---",
+      "0.50h (+0m) plan #ProjectOrion",
+      "0.50h (+0m) plan #sales",
+      "0.25h (+0m) break",
       "",
-      "--- tags exact ---",
-      "0.50h #ProjectOrion",
-      "0.50h #sales",
-      "0.25h #ooo",
+      "--- tags ---",
+      "0.50h (+0m) #ProjectOrion",
+      "0.50h (+0m) #sales",
+      "0.25h (+0m) #ooo",
       "",
-      "--- locations exact ---",
-      "0.75h @client",
-      "0.50h @office",
+      "--- locations ---",
+      "0.75h (+0m) @client",
+      "0.50h (+0m) @office",
       "",
-      "--- totals exact ---",
-      "1.25h activity",
-      "1.00h workday",
+      "--- totals ---",
+      "1.25h (+0m) activity",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -914,23 +914,23 @@ return function(t)
       "09:36 bake strudel",
       "10:00 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "1.00h (+0m) bake strudel",
       "0.50h (-5m) polish trombone",
       "0.25h (+4m) coffee with ghost",
       "0.25h (-3m) negotiate with goose",
       "",
-      "--- tags quantized ---",
+      "--- tags ---",
       "1.50h (-5m) #ProjectOrion",
       "0.25h (+4m) #ooo",
       "0.25h (-3m) #sales",
       "",
-      "--- locations quantized ---",
+      "--- locations ---",
       "1.50h (-5m) @office",
       "0.25h (+4m) @home",
       "0.25h (-3m) @client",
       "",
-      "--- totals quantized ---",
+      "--- totals ---",
       "2.00h (-4m) activity",
       "1.75h (-8m) workday",
     })
@@ -982,8 +982,8 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h implementation",
+      "--- summary ---",
+      "1.00h (+0m) implementation",
     })
     t.set_cursor(6, 0)
 
@@ -994,14 +994,14 @@ return function(t)
       "08:00 implementation !L",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h implementation !L",
+      "--- summary ---",
+      "1.00h (+0m) implementation !L",
       "",
-      "--- logged exact ---",
-      "1.00h logged",
+      "--- logged ---",
+      "1.00h (+0m) logged",
       "",
-      "--- totals exact ---",
-      "1.00h workday",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -1011,7 +1011,7 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "1.00h (+0m) implementation",
     })
     t.set_cursor(6, 0)
@@ -1023,13 +1023,13 @@ return function(t)
       "08:00 implementation !L",
       "09:00 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "1.00h (+0m) implementation !L",
       "",
-      "--- logged quantized ---",
+      "--- logged ---",
       "1.00h (+0m) logged",
       "",
-      "--- totals quantized ---",
+      "--- totals ---",
       "1.00h (+0m) workday",
     })
   end)
@@ -1040,8 +1040,8 @@ return function(t)
       "08:00 implementation !L",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h implementation !L",
+      "--- summary ---",
+      "1.00h (+0m) implementation !L",
     })
     t.set_cursor(6, 0)
 
@@ -1052,11 +1052,11 @@ return function(t)
       "08:00 implementation",
       "09:00 done",
       "",
-      "--- summary exact ---",
-      "1.00h implementation",
+      "--- summary ---",
+      "1.00h (+0m) implementation",
       "",
-      "--- totals exact ---",
-      "1.00h workday",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -1077,19 +1077,19 @@ return function(t)
         "10:17 Q1 features",
         "11:01 versions",
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "2.00h (-8m) versions",
         "0.75h (-1m) Q1 features",
         "0.25h (+5m) stand",
         "0.00h (+5m) folksy",
         "",
-        "--- tags quantized ---",
+        "--- tags ---",
         "3.00h (+1m) #someproject",
         "",
-        "--- locations quantized ---",
+        "--- locations ---",
         "3.00h (+1m) @office",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "3.00h (+1m) workday",
       })
       t.set_cursor(12, 0)
@@ -1106,23 +1106,23 @@ return function(t)
         "10:17 Q1 features !L",
         "11:01 versions",
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "2.00h (-8m) versions",
         "0.75h (-1m) Q1 features !L",
         "0.25h (+5m) stand",
         "0.00h (+5m) folksy",
         "",
-        "--- tags quantized ---",
+        "--- tags ---",
         "3.00h (+1m) #someproject",
         "",
-        "--- locations quantized ---",
+        "--- locations ---",
         "3.00h (+1m) @office",
         "",
-        "--- logged quantized ---",
+        "--- logged ---",
         "0.75h (-1m) logged",
         "2.25h (+2m) unlogged",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "3.00h (+1m) workday",
       })
     end

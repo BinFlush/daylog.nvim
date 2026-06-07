@@ -7,22 +7,22 @@
 09:36 bake strudel
 10:00 done
 
---- summary quantized ---
+--- summary ---
 1.00h (+0m) bake strudel
 0.50h (-5m) polish trombone
 0.25h (+4m) coffee with ghost
 0.25h (-3m) negotiate with goose
 
---- tags quantized ---
+--- tags ---
 1.50h (-5m) #ProjectOrion
 0.25h (+4m) #ooo
 0.25h (-3m) #sales
 
---- locations quantized ---
+--- locations ---
 1.50h (-5m) @office
 0.25h (+4m) @home
 0.25h (-3m) @client
 
---- totals quantized ---
+--- totals ---
 2.00h (-4m) activity
 1.75h (-8m) workday

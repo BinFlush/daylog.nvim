@@ -4,7 +4,6 @@ local document = require("worklog.document")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local summary_block = require("worklog.summary_block")
-local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -12,7 +11,7 @@ local M = {}
 -- the problems that stop a worklog from being summarized.
 --
 -- Edits are conservative: a summary is only rewritten when it already exists, is
--- valid, and has drifted from its source, in its existing kind. A structurally
+-- valid, and has drifted from its source. A structurally
 -- broken document and currently-invalid worklogs are never rewritten, so editing
 -- cannot churn or corrupt output, and an already-current summary yields no edit
 -- (which keeps the shell's auto-refresh idempotent and loop-free).
@@ -22,14 +21,6 @@ local M = {}
 -- a broken or absent header, out-of-order timestamps, an invalid entry, 24:00 not
 -- final -- whether or not a summary exists yet. Each warning is { row, message };
 -- the shell publishes them as buffer diagnostics so they clear when fixed.
-
-local function summarize_block(block, kind)
-  if kind == syntax.REPORT_KIND.QUANTIZED then
-    return summary.quantized_summarize_block(block)
-  end
-
-  return summary.summarize_block(block)
-end
 
 local function region_matches(lines, region, rendered)
   if (region.end_row - region.start_row) ~= #rendered then
@@ -60,13 +51,9 @@ function M.run(lines)
         local region = summary_block.find(analysis, block)
 
         if region then
-          local computed = summarize_block(block, region.kind)
-          local rendered = render.summary_lines(
-            computed,
-            region.kind,
-            block.duration_format,
-            { leading_blank = false }
-          )
+          local computed = summary.quantized_summarize_block(block)
+          local rendered =
+            render.summary_lines(computed, block.duration_format, { leading_blank = false })
 
           if not region_matches(lines, region, rendered) then
             table.insert(edits, {

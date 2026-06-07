@@ -4,20 +4,20 @@
 09:00 break #ooo
 09:15 done #ProjectOrion @office
 
---- summary exact ---
-0.50h plan #ProjectOrion
-0.50h plan #sales
-0.25h break
+--- summary ---
+0.50h (+0m) plan #ProjectOrion
+0.50h (+0m) plan #sales
+0.25h (+0m) break
 
---- tags exact ---
-0.50h #ProjectOrion
-0.50h #sales
-0.25h #ooo
+--- tags ---
+0.50h (+0m) #ProjectOrion
+0.50h (+0m) #sales
+0.25h (+0m) #ooo
 
---- locations exact ---
-0.75h @client
-0.50h @office
+--- locations ---
+0.75h (+0m) @client
+0.50h (+0m) @office
 
---- totals exact ---
-1.25h activity
-1.00h workday
+--- totals ---
+1.25h (+0m) activity
+1.00h (+0m) workday

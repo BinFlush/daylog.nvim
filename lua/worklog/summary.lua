@@ -64,9 +64,7 @@ local function summarize_metadata(rows, field)
   return projection.project_rows(rows, { field }, { field })
 end
 
-local logged_totals_from_exact_items
-
--- Project one row set into every exact reporting section.
+-- Project one row set into every reporting section.
 -- Main summary items fold location away, while tag and location totals keep
 -- their own label fields and all totals are derived from the same source rows.
 local function build_summary_from_rows(rows)
@@ -81,20 +79,13 @@ local function build_summary_from_rows(rows)
     end
   end
 
-  local summary = {
+  return {
     summary_items = summarize_items(rows),
     tag_totals = summarize_metadata(rows, "tag"),
     location_totals = summarize_metadata(rows, "location"),
     activity_total = activity_total,
     workday_total = workday_total,
   }
-
-  local logged_totals = logged_totals_from_exact_items(summary.summary_items)
-  if logged_totals then
-    summary.logged_totals = logged_totals
-  end
-
-  return summary
 end
 
 local function sort_by_duration(items)
@@ -194,35 +185,6 @@ local function ordered_logged_totals(by_logged)
   return totals
 end
 
-logged_totals_from_exact_items = function(items)
-  local workday_items = {}
-  local has_logged = false
-
-  for _, item in ipairs(items or {}) do
-    if not item.workday_excluded then
-      local logged = item.logged == true
-      has_logged = has_logged or logged
-
-      table.insert(workday_items, {
-        logged = logged,
-        duration = item.duration,
-        exact_duration = item.exact_duration or item.duration,
-      })
-    end
-  end
-
-  if not has_logged then
-    return nil
-  end
-
-  local totals_by_logged = {}
-  for _, row in ipairs(projection.project_rows(workday_items, { "logged" }, { "logged" })) do
-    totals_by_logged[row.logged] = row
-  end
-
-  return ordered_logged_totals(totals_by_logged)
-end
-
 -- Derive logged totals by projecting workday-eligible summary items by logged state.
 -- Items must already carry quantized durations and error_minutes (i.e. they come from
 -- quantize.project_quantized_items or an apply_error_minutes pass).  Duration,
@@ -260,15 +222,6 @@ local function logged_totals_from_quantized_items(items)
   end
 
   return ordered_logged_totals(buckets)
-end
-
-function M.summarize_entries(entries)
-  local summary = build_summary_from_rows(build_fine_grained_rows(build_intervals(entries)))
-  return finalize_summary_order(summary)
-end
-
-function M.summarize_block(block)
-  return M.summarize_entries(block.entries)
 end
 
 -- Quantize grouped summary rows together.

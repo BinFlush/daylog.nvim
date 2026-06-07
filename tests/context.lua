@@ -12,7 +12,7 @@ return function(t)
       "08:00 raw",
       "09:00",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "1.00h raw",
       "",
       "--- worklog #internal @home ---",
@@ -35,7 +35,7 @@ return function(t)
       "08:00 raw",
       "09:00",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "1.00h raw",
       "",
       "--- worklog #internal @home ---",
@@ -63,7 +63,7 @@ return function(t)
 
   t.test("context surfaces structural header errors and missing worklogs", function()
     local ctx, err = context.get_active_worklog_context({
-      "--- summary exact ---",
+      "--- summary ---",
       "1.00h activity",
     })
 
@@ -84,7 +84,7 @@ return function(t)
       "08:00 raw",
       "09:00",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "1.00h raw",
     }, 5)
 

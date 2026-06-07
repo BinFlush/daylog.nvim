@@ -4,23 +4,33 @@ local M = {}
 
 -- Locator for a worklog's generated summary region.
 --
--- A worklog has at most one summary, either exact or quantized. This module
--- recognizes the generated section headers and reports where that single summary
+-- A worklog has at most one summary. This module recognizes the generated
+-- section headers (current kind-less form and legacy exact/quantized) and reports
+-- where that single summary
 -- lives so the summary usecases can replace it in place. It owns no presentation
 -- or reporting logic; it only matches generated headers (built from the same
 -- syntax constants render uses) against analyzed blocks.
 
--- Header of the leading `--- summary <kind> ---` block, mapped to its kind.
-local SUMMARY_HEADER_KIND = {}
--- Per kind, the set of every generated subsection header in that summary group.
+-- Headers that begin a generated summary region, and the subsection headers that
+-- continue it. The current form is kind-less ("--- summary ---"); the legacy
+-- "exact"/"quantized" forms are still recognized so a pre-existing summary is
+-- located (and rewritten to the new form on the next refresh).
+local SUMMARY_HEADERS = { [syntax.section_header(syntax.SECTION.SUMMARY)] = true }
 local SUBSECTION_HEADERS = {}
 
-for _, kind in pairs(syntax.REPORT_KIND) do
-  SUMMARY_HEADER_KIND[syntax.section_header(syntax.SECTION.SUMMARY, kind)] = kind
-  SUBSECTION_HEADERS[kind] = {}
+for _, section in pairs(syntax.SECTION) do
+  if section ~= syntax.SECTION.SUMMARY then
+    SUBSECTION_HEADERS[syntax.section_header(section)] = true
+  end
+end
+
+for _, kind in ipairs({ "exact", "quantized" }) do
+  SUMMARY_HEADERS["--- summary " .. kind .. " ---"] = true
 
   for _, section in pairs(syntax.SECTION) do
-    SUBSECTION_HEADERS[kind][syntax.section_header(section, kind)] = true
+    if section ~= syntax.SECTION.SUMMARY then
+      SUBSECTION_HEADERS["--- " .. section .. " " .. kind .. " ---"] = true
+    end
   end
 end
 
@@ -30,7 +40,7 @@ end
 
 -- Find the generated summary region for `worklog_block`: the run of generated
 -- summary section blocks that follow it, up to the next worklog header or
--- end of buffer. Returns { start_row, end_row, kind } (rows 1-based, end_row
+-- end of buffer. Returns { start_row, end_row } (rows 1-based, end_row
 -- exclusive), or nil when the worklog has no summary.
 function M.find(analysis, worklog_block)
   local start_index
@@ -52,13 +62,12 @@ function M.find(analysis, worklog_block)
       break
     end
 
-    local kind = SUMMARY_HEADER_KIND[header_line(block)]
-    if kind then
+    if SUMMARY_HEADERS[header_line(block)] then
       local end_row = block.end_row
 
       for next_index = index + 1, #analysis.blocks do
         local next_block = analysis.blocks[next_index]
-        if SUBSECTION_HEADERS[kind][header_line(next_block)] then
+        if SUBSECTION_HEADERS[header_line(next_block)] then
           end_row = next_block.end_row
         else
           break
@@ -80,7 +89,6 @@ function M.find(analysis, worklog_block)
       return {
         start_row = block.start_row,
         end_row = end_row,
-        kind = kind,
       }
     end
   end

@@ -4,14 +4,14 @@
 09:30 implementation #ClientA
 11:00 done
 
---- summary exact ---
-1.00h planning #ClientA
-0.50h planning #internal
-1.50h implementation
+--- summary ---
+1.00h (+0m) planning #ClientA
+0.50h (+0m) planning #internal
+1.50h (+0m) implementation
 
---- tags exact ---
-2.50h #ClientA
-0.50h #internal
+--- tags ---
+2.50h (+0m) #ClientA
+0.50h (+0m) #internal
 
---- totals exact ---
-3.00h workday
+--- totals ---
+3.00h (+0m) workday

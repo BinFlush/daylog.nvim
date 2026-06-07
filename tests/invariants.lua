@@ -277,7 +277,7 @@ return function(t)
       local entries = generate_entries()
       local quantize_minutes = choice(QUANTIZE_MINUTES)
       local context = case_context(case_number, entries, quantize_minutes)
-      local exact_summary = summary.summarize_entries(entries)
+      local exact_summary = summary.quantized_summarize_entries(entries, 1)
       local quantized_summary = summary.quantized_summarize_entries(entries, quantize_minutes)
 
       assert_exact_invariants(t, exact_summary, context)

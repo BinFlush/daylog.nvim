@@ -3,13 +3,12 @@ local render = require("worklog.render")
 local summary = require("worklog.summary")
 local summary_block = require("worklog.summary_block")
 local support = require("worklog.usecases.support")
-local syntax = require("worklog.syntax")
 
 local M = {}
 
 -- Toggle the logged state of the main summary row under the cursor.
 --
--- A worklog has a single summary (exact or quantized). The rendered row is only
+-- A worklog has a single summary. The rendered row is only
 -- a selector: the active worklog is analyzed from source, the matching summary
 -- item is recomputed, the contributing source entries gain or lose a trailing
 -- !L, and the one summary is rebuilt from the updated source. The summary is a
@@ -36,18 +35,14 @@ local function block_at_row(analysis, row)
   return nil
 end
 
-local function compute_summary(block, kind)
-  if kind == syntax.REPORT_KIND.QUANTIZED then
-    return summary.quantized_summarize_block(block)
-  end
-
-  return summary.summarize_block(block)
+local function compute_summary(block)
+  return summary.quantized_summarize_block(block)
 end
 
 -- Recompute the summary with `logged` toggled on the target source rows, by
 -- copying the block's semantic entries and flipping them in memory. This avoids
 -- re-parsing the buffer and yields the post-mark summary directly.
-local function rebuilt_summary(block, target_rows, target_logged, kind)
+local function rebuilt_summary(block, target_rows, target_logged)
   local entries = {}
 
   for _, semantic_entry in ipairs(block.entries) do
@@ -63,11 +58,7 @@ local function rebuilt_summary(block, target_rows, target_logged, kind)
     table.insert(entries, copy)
   end
 
-  if kind == syntax.REPORT_KIND.QUANTIZED then
-    return summary.quantized_summarize_entries(entries, block.quantize_minutes)
-  end
-
-  return summary.summarize_entries(entries)
+  return summary.quantized_summarize_entries(entries, block.quantize_minutes)
 end
 
 local function find_summary_item_matches(layout, cursor_line)
@@ -128,7 +119,7 @@ function M.run(lines, cursor_row)
   end
 
   -- The cursor must sit inside the active worklog's summary subsection (the
-  -- `--- summary <kind> ---` block), and not on its header line. Tag, location,
+  -- `--- summary ---` block), and not on its header line. Tag, location,
   -- logged, and total subsections are their own blocks and are not eligible.
   local cursor_block = block_at_row(ctx.analysis, cursor_row)
   if
@@ -139,13 +130,12 @@ function M.run(lines, cursor_row)
     return nil, STALE_OR_NOT_SUMMARY
   end
 
-  local kind = region.kind
   local cursor_line = lines[cursor_row]
 
   -- Staleness guard: the cursor line must match exactly one summary_item row in
   -- the summary the plugin would currently produce for the active worklog.
-  local recomputed = compute_summary(ctx.block, kind)
-  local layout = render.summary_layout(recomputed, kind, ctx.block.duration_format)
+  local recomputed = compute_summary(ctx.block)
+  local layout = render.summary_layout(recomputed, ctx.block.duration_format)
   local matches = find_summary_item_matches(layout, cursor_line)
 
   if #matches == 0 then
@@ -183,9 +173,9 @@ function M.run(lines, cursor_row)
 
   local source_edits = build_log_edits(ctx.block, target_rows, target_logged)
 
-  local rebuilt = rebuilt_summary(ctx.block, target_rows, target_logged, kind)
+  local rebuilt = rebuilt_summary(ctx.block, target_rows, target_logged)
   local rendered =
-    render.summary_lines(rebuilt, kind, ctx.block.duration_format, { leading_blank = false })
+    render.summary_lines(rebuilt, ctx.block.duration_format, { leading_blank = false })
 
   -- The summary rebuild targets higher rows than the source-entry edits, so it
   -- is applied first to avoid index drift when the rendered summary changes size.

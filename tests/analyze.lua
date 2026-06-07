@@ -14,7 +14,7 @@ return function(t)
       "09:30 prep",
       "10:00 done #ProjectOrion @client",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "1.00h activity",
       "",
       "--- worklog #internal @office ---",
@@ -258,7 +258,7 @@ return function(t)
 
   t.test("analyze reports header, invalid entry, and unordered diagnostics", function()
     local analysis = analyze.analyze(document.parse({
-      "--- summary exact ---",
+      "--- summary ---",
       "1.00h activity",
       "--- worklog #sales @office quantize=60 ---",
       "09:00 later",
@@ -383,10 +383,10 @@ return function(t)
       "06:00 deep work",
       "22:00 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "16:00 (+0m) deep work",
       "",
-      "--- totals quantized ---",
+      "--- totals ---",
       "16:00 (+0m) workday",
     }))
 
@@ -875,7 +875,7 @@ return function(t)
 
   t.test("analyze helpers expose structural and block diagnostics", function()
     local analysis = analyze.analyze(document.parse({
-      "--- summary exact ---",
+      "--- summary ---",
       "1.00h activity",
       "--- worklog ---",
       "09:00 later",

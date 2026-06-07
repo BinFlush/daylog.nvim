@@ -35,7 +35,7 @@ endfunction
 syntax region WorklogNote start=/^\s*\S/ end=/$/ contains=NONE keepend
 
 " Block headers ------------------------------------------------------------
-" Generated section headers, e.g. --- summary exact --- or --- tags quantized ---
+" Generated section headers, e.g. --- summary --- or --- tags ---
 syntax match WorklogBlockHeader /^---\s.\+\s---$/
 
 " Worklog headers ----------------------------------------------------------
@@ -60,14 +60,13 @@ unlet s:header_token s:header_no_dup
 syntax match WorklogTimestamp /^\%(\%([01]\d\|2[0-3]\):[0-5]\d\|24:00\)\%(\s\|$\)\@=/
 
 " Summary rows -------------------------------------------------------------
-" Generated rows start at column 0 with a duration; quantized rows add a (+Nm)
-" rounding error. A decimal duration is unambiguous. For hhmm (H:MM) durations a
-" single-digit hour cannot be an entry (entries are zero-padded HH:MM), and any
-" H:MM directly before a (+Nm) error is a quantized summary row, never an entry;
-" both are defined after WorklogTimestamp so they win at the same position. The
-" remaining case -- an exact hhmm row with a two-digit hour, e.g. "16:00 workday",
-" byte-identical to an entry line -- is disambiguated by block context in the
-" WorklogSummaryBlock region below.
+" Generated rows start at column 0 with a duration followed by a (+Nm) rounding
+" error. A decimal duration is unambiguous. For hhmm (H:MM) durations a
+" single-digit hour cannot be an entry (entries are zero-padded HH:MM), and a
+" duration directly before a (+Nm) error is a summary row, never an entry --
+" including a two-digit-hour row like "16:00 (+0m) workday"; these are defined
+" after WorklogTimestamp so they win at the same position. The WorklogSummaryBlock
+" region below additionally gives every summary row its block context.
 syntax match WorklogDuration /^\d\+\.\d\+h/
 syntax match WorklogDuration /^\d:\d\d\%(\s\|$\)\@=/
 syntax match WorklogDuration /^\d\+:\d\d\ze ([+-]\d\+m)/
@@ -79,11 +78,11 @@ syntax match WorklogQuantError /([+-]\d\+m)/
 " token highlighting while suppressing the entry-timestamp match; each
 " blank-separated section is its own region, ending at the blank line (or EOF) that
 " closes it. The start matches only generated section headers, so "--- worklog",
-" user dividers, and labeled report headers (always quantized, handled above) are
+" user dividers, and labeled report headers (handled above) are
 " excluded. fromstart sync is required so the region is recognized regardless of
 " the window's scroll position.
 syntax region WorklogSummaryBlock matchgroup=WorklogBlockHeader
-  \ start=/^--- \%(summary\|tags\|locations\|logged\|totals\) \%(exact\|quantized\) ---$/
+  \ start=/^--- \%(summary\|tags\|locations\|logged\|totals\)\%( \%(exact\|quantized\)\)\? ---$/
   \ end=/^$/ end=/\%$/
   \ transparent keepend
   \ contains=ALLBUT,WorklogTimestamp,WorklogNote

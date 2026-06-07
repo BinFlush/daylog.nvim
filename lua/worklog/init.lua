@@ -12,7 +12,6 @@ local refresh_summaries = require("worklog.usecases.refresh_summaries")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
 local summarize = require("worklog.usecases.summarize")
-local syntax = require("worklog.syntax")
 local week = require("worklog.week")
 
 local M = {}
@@ -498,11 +497,11 @@ end
 
 -- Set the active worklog's single summary (replacing any existing one).
 function M.append_summary()
-  run_buffer_usecase(summarize.run, syntax.REPORT_KIND.EXACT)
+  run_buffer_usecase(summarize.run)
 end
 
 function M.append_quantized_summary()
-  run_buffer_usecase(summarize.run, syntax.REPORT_KIND.QUANTIZED)
+  run_buffer_usecase(summarize.run)
 end
 
 function M.append_copy()

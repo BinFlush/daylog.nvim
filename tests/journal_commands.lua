@@ -90,9 +90,9 @@ return function(t)
         "--- worklog #ClientA @office quantize=30 duration=hhmm ---",
         "08:45 ",
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "0:00 (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
@@ -159,9 +159,9 @@ return function(t)
         "--- worklog ---",
         "08:45 ",
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "0.00h (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
@@ -326,9 +326,9 @@ return function(t)
         "--- worklog ---",
         "08:45 ",
         "",
-        "--- summary quantized ---",
+        "--- summary ---",
         "",
-        "--- totals quantized ---",
+        "--- totals ---",
         "0.00h (+0m) workday",
       })
     end)
@@ -879,7 +879,7 @@ return function(t)
       "08:20 implementation @home",
       "09:00 done",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "stale",
     })
 
@@ -888,7 +888,7 @@ return function(t)
       "09:00 stale",
       "09:30 done",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "stale",
       "",
       "--- worklog #internal @home quantize=60 ---",
@@ -922,46 +922,46 @@ return function(t)
       t.ok(not vim.bo.modifiable)
       t.ok(not vim.bo.modified)
       t.eq(t.get_lines(), {
-        "--- day summary quantized 2026-05-18 ---",
+        "--- day summary 2026-05-18 ---",
         "0:30 (+10m) implementation",
         "0:30 (-10m) plan",
         "",
-        "--- day tags quantized 2026-05-18 ---",
+        "--- day tags 2026-05-18 ---",
         "1:00 (+0m) #ClientA",
         "",
-        "--- day locations quantized 2026-05-18 ---",
+        "--- day locations 2026-05-18 ---",
         "0:30 (+10m) @home",
         "0:30 (-10m) @office",
         "",
-        "--- day totals quantized 2026-05-18 ---",
+        "--- day totals 2026-05-18 ---",
         "1:00 (+0m) workday",
         "",
-        "--- day summary quantized 2026-05-22 ---",
+        "--- day summary 2026-05-22 ---",
         "1:00 (-20m) retro",
         "",
-        "--- day tags quantized 2026-05-22 ---",
+        "--- day tags 2026-05-22 ---",
         "1:00 (-20m) #internal",
         "",
-        "--- day locations quantized 2026-05-22 ---",
+        "--- day locations 2026-05-22 ---",
         "1:00 (-20m) @home",
         "",
-        "--- day totals quantized 2026-05-22 ---",
+        "--- day totals 2026-05-22 ---",
         "1:00 (-20m) workday",
         "",
-        "--- week summary quantized 2026-W21 ---",
+        "--- week summary 2026-W21 ---",
         "1:00 (-20m) retro",
         "0:30 (+10m) implementation",
         "0:30 (-10m) plan",
         "",
-        "--- week tags quantized 2026-W21 ---",
+        "--- week tags 2026-W21 ---",
         "1:00 (+0m) #ClientA",
         "1:00 (-20m) #internal",
         "",
-        "--- week locations quantized 2026-W21 ---",
+        "--- week locations 2026-W21 ---",
         "1:30 (-10m) @home",
         "0:30 (-10m) @office",
         "",
-        "--- week totals quantized 2026-W21 ---",
+        "--- week totals 2026-W21 ---",
         "2:00 (-20m) workday",
       })
 
@@ -1072,16 +1072,16 @@ return function(t)
         "worklog-week-summary-2026-W21.wkl"
       )
       t.eq(t.get_lines(), {
-        "--- week summary quantized 2026-W21 ---",
+        "--- week summary 2026-W21 ---",
         "1:00 (+0m) plan",
         "",
-        "--- week tags quantized 2026-W21 ---",
+        "--- week tags 2026-W21 ---",
         "1:00 (+0m) #ClientA",
         "",
-        "--- week locations quantized 2026-W21 ---",
+        "--- week locations 2026-W21 ---",
         "1:00 (+0m) @office",
         "",
-        "--- week totals quantized 2026-W21 ---",
+        "--- week totals 2026-W21 ---",
         "1:00 (+0m) workday",
       })
 
@@ -1128,7 +1128,7 @@ return function(t)
         end)
 
         t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21.wkl")
-        t.eq(t.get_lines()[1], "--- day summary quantized 2026-05-18 ---")
+        t.eq(t.get_lines()[1], "--- day summary 2026-05-18 ---")
 
         vim.cmd("silent! only!")
       end)
@@ -1244,7 +1244,7 @@ return function(t)
       "08:20 implementation @home",
       "09:00 done",
       "",
-      "--- summary exact ---",
+      "--- summary ---",
       "stale",
     })
     write_journal_file(root, "%Y/%V", thursday, {})
@@ -1253,7 +1253,7 @@ return function(t)
       "10:00 retro",
       "10:40 done",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "stale",
     })
 
@@ -1278,46 +1278,46 @@ return function(t)
         "worklog-days-2026-05-19..2026-05-22.wkl"
       )
       t.eq(t.get_lines(), {
-        "--- day summary quantized 2026-05-20 ---",
+        "--- day summary 2026-05-20 ---",
         "0:30 (+10m) implementation",
         "0:30 (-10m) plan",
         "",
-        "--- day tags quantized 2026-05-20 ---",
+        "--- day tags 2026-05-20 ---",
         "1:00 (+0m) #ClientA",
         "",
-        "--- day locations quantized 2026-05-20 ---",
+        "--- day locations 2026-05-20 ---",
         "0:30 (+10m) @home",
         "0:30 (-10m) @office",
         "",
-        "--- day totals quantized 2026-05-20 ---",
+        "--- day totals 2026-05-20 ---",
         "1:00 (+0m) workday",
         "",
-        "--- day summary quantized 2026-05-22 ---",
+        "--- day summary 2026-05-22 ---",
         "1:00 (-20m) retro",
         "",
-        "--- day tags quantized 2026-05-22 ---",
+        "--- day tags 2026-05-22 ---",
         "1:00 (-20m) #internal",
         "",
-        "--- day locations quantized 2026-05-22 ---",
+        "--- day locations 2026-05-22 ---",
         "1:00 (-20m) @home",
         "",
-        "--- day totals quantized 2026-05-22 ---",
+        "--- day totals 2026-05-22 ---",
         "1:00 (-20m) workday",
         "",
-        "--- range summary quantized 2026-05-19..2026-05-22 ---",
+        "--- range summary 2026-05-19..2026-05-22 ---",
         "1:00 (-20m) retro",
         "0:30 (+10m) implementation",
         "0:30 (-10m) plan",
         "",
-        "--- range tags quantized 2026-05-19..2026-05-22 ---",
+        "--- range tags 2026-05-19..2026-05-22 ---",
         "1:00 (+0m) #ClientA",
         "1:00 (-20m) #internal",
         "",
-        "--- range locations quantized 2026-05-19..2026-05-22 ---",
+        "--- range locations 2026-05-19..2026-05-22 ---",
         "1:30 (-10m) @home",
         "0:30 (-10m) @office",
         "",
-        "--- range totals quantized 2026-05-19..2026-05-22 ---",
+        "--- range totals 2026-05-19..2026-05-22 ---",
         "2:00 (-20m) workday",
       })
 
@@ -1371,16 +1371,16 @@ return function(t)
         "worklog-days-summary-2026-05-20..2026-05-22.wkl"
       )
       t.eq(t.get_lines(), {
-        "--- range summary quantized 2026-05-20..2026-05-22 ---",
+        "--- range summary 2026-05-20..2026-05-22 ---",
         "1:00 (+0m) retro",
         "",
-        "--- range tags quantized 2026-05-20..2026-05-22 ---",
+        "--- range tags 2026-05-20..2026-05-22 ---",
         "1:00 (+0m) #internal",
         "",
-        "--- range locations quantized 2026-05-20..2026-05-22 ---",
+        "--- range locations 2026-05-20..2026-05-22 ---",
         "1:00 (+0m) @home",
         "",
-        "--- range totals quantized 2026-05-20..2026-05-22 ---",
+        "--- range totals 2026-05-20..2026-05-22 ---",
         "1:00 (+0m) workday",
       })
 
@@ -1737,10 +1737,10 @@ return function(t)
       "08:00 standup",
       "10:30 writing report",
       "",
-      "--- summary quantized ---",
+      "--- summary ---",
       "2.50h standup",
       "",
-      "--- totals quantized ---",
+      "--- totals ---",
       "2.50h workday",
     })
 
