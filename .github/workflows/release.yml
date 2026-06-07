@@ -43,8 +43,14 @@ jobs:
           echo '----- release notes -----'
           cat NOTES.md
 
-      - name: Create GitHub Release
+      - name: Create or update the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: gh release create "$TAG" --title "$TAG" --notes-file NOTES.md
+          LATEST: ${{ github.event_name == 'push' }}   # push = forward release; dispatch = back-fill
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file NOTES.md
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file NOTES.md --latest="$LATEST"
+          fi
