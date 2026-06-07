@@ -26,13 +26,13 @@ return function(t)
         root = "~/timereg",
         directory = "%Y/%V",
       },
-      auto_summary = "off",
+      auto_summary = "change",
     })
 
     config.setup()
     t.eq(config.get(), {
       defaults = {},
-      auto_summary = "off",
+      auto_summary = "change",
     })
   end)
 
@@ -120,7 +120,7 @@ return function(t)
         root = "~/timereg",
         directory = "",
       },
-      auto_summary = "off",
+      auto_summary = "change",
     })
 
     config.setup()
@@ -134,7 +134,7 @@ return function(t)
     t.eq(config.get().auto_summary, "off")
 
     config.setup()
-    t.eq(config.get().auto_summary, "off")
+    t.eq(config.get().auto_summary, "change")
 
     local ok, err = pcall(config.setup, { auto_summary = "live" })
     t.ok(not ok)

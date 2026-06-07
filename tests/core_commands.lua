@@ -205,6 +205,18 @@ return function(t)
       "11:00 tea",
       "note tea",
       "12:00",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) tea",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #sales",
+      "",
+      "--- locations ---",
+      "1.00h (+0m) @client",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -232,6 +244,18 @@ return function(t)
       "--- worklog #sales @client quantize=30 ---",
       "11:00 tea",
       "12:00",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) tea",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #sales",
+      "",
+      "--- locations ---",
+      "1.00h (+0m) @client",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -254,6 +278,22 @@ return function(t)
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) break",
+      "1.00h (+0m) resume",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #ooo",
+      "1.00h (+0m) (untagged)",
+      "",
+      "--- locations ---",
+      "1.00h (+0m) @home",
+      "1.00h (+0m) (no location)",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) activity",
+      "1.00h (+0m) workday",
     })
   end)
 
@@ -279,6 +319,22 @@ return function(t)
       "09:00 client #ClientA @home",
       "10:00 reset #- @-",
       "11:00 done",
+      "",
+      "--- summary ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) client",
+      "1.00h (+0m) reset",
+      "",
+      "--- tags ---",
+      "2.00h (+0m) (untagged)",
+      "1.00h (+0m) #ClientA",
+      "",
+      "--- locations ---",
+      "2.00h (+0m) (no location)",
+      "1.00h (+0m) @home",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
     })
   end)
 

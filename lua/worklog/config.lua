@@ -4,7 +4,7 @@ local M = {}
 
 local current = {
   defaults = {},
-  auto_summary = "off",
+  auto_summary = "change",
 }
 
 local AUTO_SUMMARY_MODES = {
@@ -95,10 +95,16 @@ local function normalize_journal(journal)
   }
 end
 
--- Automatic summary refresh trigger: `off` (manual only), `change` (debounced as
--- you type), `idle` (on pause / leaving insert), or `save`. `false` aliases `off`.
+-- Automatic summary refresh trigger: `change` (debounced as you type, the
+-- default), `idle` (on pause / leaving insert), `save`, or `off` (manual only).
+-- `false` aliases `off`; an unset value defaults to `change` so every worklog's
+-- summary stays live.
 local function normalize_auto_summary(value)
-  if value == nil or value == false or value == "off" then
+  if value == nil then
+    return "change"
+  end
+
+  if value == false or value == "off" then
     return "off"
   end
 
@@ -113,7 +119,7 @@ local function normalize_config(options)
   if options == nil then
     return {
       defaults = {},
-      auto_summary = "off",
+      auto_summary = "change",
     }
   end
 

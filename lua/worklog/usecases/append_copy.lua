@@ -1,11 +1,14 @@
 local body = require("worklog.body")
 local entry = require("worklog.entry")
 local render = require("worklog.render")
+local summary = require("worklog.summary")
 local support = require("worklog.usecases.support")
 
 local M = {}
 
--- Build the edit script for appending a normalized copy of the active worklog.
+-- Build the edit script for appending a normalized copy of the active worklog,
+-- followed by its summary, so the copy is self-describing from the moment it is
+-- created (matching how a freshly opened today file already carries a summary).
 
 function M.run(lines)
   local ctx, err = support.get_validated_active(lines)
@@ -21,6 +24,12 @@ function M.run(lines)
     ctx.block.header_quantize_minutes,
     ctx.block.header_duration_format
   )
+
+  local computed = summary.quantized_summarize_block(ctx.block)
+  for _, line in ipairs(render.summary_lines(computed, ctx.block.duration_format)) do
+    table.insert(rendered, line)
+  end
+
   return support.append_edit(lines, rendered)
 end
 
