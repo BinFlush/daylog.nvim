@@ -69,7 +69,7 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows)
     if not bucket then
       bucket = {
         duration = 0,
-        exact_duration = 0,
+        unrounded_duration = 0,
       }
 
       for _, field in ipairs(fields) do
@@ -85,7 +85,7 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows)
     end
 
     bucket.duration = bucket.duration + row.duration
-    bucket.exact_duration = bucket.exact_duration + (row.exact_duration or row.duration)
+    bucket.unrounded_duration = bucket.unrounded_duration + (row.unrounded_duration or row.duration)
 
     if accumulate_source_entry_rows then
       if row.source_entry_rows then

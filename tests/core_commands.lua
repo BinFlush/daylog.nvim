@@ -515,7 +515,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog log marks the source entry behind an exact summary row", function()
+  t.test("worklog log marks the source entry behind an unrounded summary row", function()
     t.reset({
       "--- worklog ---",
       "08:00 implementation",

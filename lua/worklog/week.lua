@@ -43,7 +43,7 @@ local function analyze_day(day)
   return {
     date_label = day.date_label,
     path = day.path,
-    summary = summary.quantized_summarize_block(analyze.get_active_worklog(analysis)),
+    summary = summary.summarize_block(analyze.get_active_worklog(analysis)),
   },
     nil
 end
@@ -70,7 +70,7 @@ function M.build_report(days)
     return nil, "worklog: no journal worklogs found"
   end
 
-  report.summary = summary.combine_quantized_summaries(day_summaries)
+  report.summary = summary.combine_summaries(day_summaries)
   return report
 end
 

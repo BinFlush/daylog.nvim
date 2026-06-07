@@ -100,11 +100,11 @@ local function sort_by_duration(items)
 
   table.sort(indexed, function(a, b)
     if a.item.duration == b.item.duration then
-      local a_exact = a.item.exact_duration or a.item.duration
-      local b_exact = b.item.exact_duration or b.item.duration
+      local a_unrounded = a.item.unrounded_duration or a.item.duration
+      local b_unrounded = b.item.unrounded_duration or b.item.duration
 
-      if a_exact ~= b_exact then
-        return a_exact > b_exact
+      if a_unrounded ~= b_unrounded then
+        return a_unrounded > b_unrounded
       end
 
       return a.index < b.index
@@ -133,7 +133,7 @@ local function sort_summary_items(items)
         text = item.text,
         items = {},
         duration = 0,
-        exact_duration = 0,
+        unrounded_duration = 0,
       }
       groups_by_text[item.text] = group
       table.insert(groups, group)
@@ -141,7 +141,7 @@ local function sort_summary_items(items)
 
     table.insert(group.items, item)
     group.duration = group.duration + item.duration
-    group.exact_duration = group.exact_duration + (item.exact_duration or item.duration)
+    group.unrounded_duration = group.unrounded_duration + (item.unrounded_duration or item.duration)
   end
 
   for _, group in ipairs(groups) do
@@ -188,7 +188,7 @@ end
 -- Derive logged totals by projecting workday-eligible summary items by logged state.
 -- Items must already carry quantized durations and error_minutes (i.e. they come from
 -- quantize.project_quantized_items or an apply_error_minutes pass).  Duration,
--- exact_duration, and error_minutes are summed directly so the result equals the sum of
+-- unrounded_duration, and error_minutes are summed directly so the result equals the sum of
 -- the visible quantized main summary rows by logged state, preserving the remainder
 -- distribution from the shared quantization pass.
 local function logged_totals_from_quantized_items(items)
@@ -205,14 +205,14 @@ local function logged_totals_from_quantized_items(items)
         bucket = {
           logged = logged,
           duration = 0,
-          exact_duration = 0,
+          unrounded_duration = 0,
           error_minutes = 0,
         }
         buckets[logged] = bucket
       end
 
       bucket.duration = bucket.duration + item.duration
-      bucket.exact_duration = bucket.exact_duration + (item.exact_duration or 0)
+      bucket.unrounded_duration = bucket.unrounded_duration + (item.unrounded_duration or 0)
       bucket.error_minutes = bucket.error_minutes + (item.error_minutes or 0)
     end
   end
@@ -231,38 +231,38 @@ end
 -- quantized section is then projected from that one quantized fine-grained
 -- base. `#ooo` rows participate in the same pass, but are excluded from the
 -- final workday total.
-function M.quantized_summarize_entries(entries, quantize_minutes)
+function M.summarize_entries(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
-  local exact_rows = build_fine_grained_rows(build_intervals(entries))
-  local exact_summary = build_summary_from_rows(exact_rows)
+  local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
+  local unrounded_summary = build_summary_from_rows(unrounded_rows)
   local target_total =
-    quantize.round_to_nearest_bucket(exact_summary.activity_total, bucket_minutes)
-  local quantized_rows = quantize.quantize_rows(exact_rows, bucket_minutes, target_total)
+    quantize.round_to_nearest_bucket(unrounded_summary.activity_total, bucket_minutes)
+  local quantized_rows = quantize.quantize_rows(unrounded_rows, bucket_minutes, target_total)
   local quantized_summary = build_summary_from_rows(quantized_rows)
 
   local summary = {
     summary_items = quantize.project_quantized_items(
-      exact_summary.summary_items,
+      unrounded_summary.summary_items,
       quantized_summary.summary_items,
       { "text", "tag", "workday_excluded", "logged" },
       { "text", "tag", "workday_excluded", "logged" }
     ),
     tag_totals = quantize.project_quantized_items(
-      exact_summary.tag_totals,
+      unrounded_summary.tag_totals,
       quantized_summary.tag_totals,
       { "tag" },
       { "tag" }
     ),
     location_totals = quantize.project_quantized_items(
-      exact_summary.location_totals,
+      unrounded_summary.location_totals,
       quantized_summary.location_totals,
       { "location" },
       { "location" }
     ),
     activity_total = quantized_summary.activity_total,
     workday_total = quantized_summary.workday_total,
-    activity_error_minutes = exact_summary.activity_total - quantized_summary.activity_total,
-    workday_error_minutes = exact_summary.workday_total - quantized_summary.workday_total,
+    activity_error_minutes = unrounded_summary.activity_total - quantized_summary.activity_total,
+    workday_error_minutes = unrounded_summary.workday_total - quantized_summary.workday_total,
   }
 
   local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
@@ -273,11 +273,11 @@ function M.quantized_summarize_entries(entries, quantize_minutes)
   return finalize_summary_order(summary)
 end
 
-function M.quantized_summarize_block(block)
-  return M.quantized_summarize_entries(block.entries, block.quantize_minutes)
+function M.summarize_block(block)
+  return M.summarize_entries(block.entries, block.quantize_minutes)
 end
 
-function M.combine_quantized_summaries(summaries)
+function M.combine_summaries(summaries)
   local summary_items = {}
   local tag_totals = {}
   local location_totals = {}

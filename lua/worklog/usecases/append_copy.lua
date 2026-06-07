@@ -25,7 +25,7 @@ function M.run(lines)
     ctx.block.header_duration_format
   )
 
-  local computed = summary.quantized_summarize_block(ctx.block)
+  local computed = summary.summarize_block(ctx.block)
   for _, line in ipairs(render.summary_lines(computed, ctx.block.duration_format)) do
     table.insert(rendered, line)
   end

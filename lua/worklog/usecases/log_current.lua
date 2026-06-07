@@ -36,7 +36,7 @@ local function block_at_row(analysis, row)
 end
 
 local function compute_summary(block)
-  return summary.quantized_summarize_block(block)
+  return summary.summarize_block(block)
 end
 
 -- Recompute the summary with `logged` toggled on the target source rows, by
@@ -58,7 +58,7 @@ local function rebuilt_summary(block, target_rows, target_logged)
     table.insert(entries, copy)
   end
 
-  return summary.quantized_summarize_entries(entries, block.quantize_minutes)
+  return summary.summarize_entries(entries, block.quantize_minutes)
 end
 
 local function find_summary_item_matches(layout, cursor_line)

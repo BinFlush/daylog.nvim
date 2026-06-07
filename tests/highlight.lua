@@ -268,7 +268,7 @@ return function(t)
     t.eq(group_at(4, 1), "WorklogTimestamp")
   end)
 
-  t.test("exact hhmm summary rows highlight as durations via block context", function()
+  t.test("two-digit-hour hhmm summary rows highlight as durations via block context", function()
     load_worklog_syntax({
       "--- worklog duration=hhmm ---",
       "08:00 deep work",

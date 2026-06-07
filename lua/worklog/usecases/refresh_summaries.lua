@@ -52,7 +52,7 @@ function M.run(lines)
         local region = summary_block.find(analysis, block)
 
         if region then
-          local computed = summary.quantized_summarize_block(block)
+          local computed = summary.summarize_block(block)
           local rendered =
             render.summary_lines(computed, block.duration_format, { leading_blank = false })
 
@@ -69,7 +69,7 @@ function M.run(lines)
           -- its trailing blank, so that blank separates the summary from the next
           -- block while the rendered leading blank separates body from summary.
           local insert_row = body.last_content_row(block)
-          local computed = summary.quantized_summarize_block(block)
+          local computed = summary.summarize_block(block)
           table.insert(edits, {
             start_index = insert_row,
             end_index = insert_row,

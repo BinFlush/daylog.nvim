@@ -5,7 +5,7 @@ local M = {}
 -- Quantization math.
 --
 -- Rounds fine-grained reporting rows to a bucket using the largest-remainder
--- method, then projects the quantized durations back onto the exact reporting
+-- method, then projects the rounded durations back onto the unrounded reporting
 -- sections. summary.lua owns which row sets are quantized; this module owns the
 -- arithmetic.
 
@@ -31,7 +31,7 @@ end
 
 function M.apply_error_minutes(items)
   for _, item in ipairs(items) do
-    item.error_minutes = (item.exact_duration or item.duration) - item.duration
+    item.error_minutes = (item.unrounded_duration or item.duration) - item.duration
   end
 
   return items
@@ -46,11 +46,11 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   local ranked = {}
 
   for i, row in ipairs(result) do
-    local exact_duration = row.exact_duration or row.duration
-    local base = math.floor(exact_duration / bucket_minutes) * bucket_minutes
-    local remainder = exact_duration - base
+    local unrounded_duration = row.unrounded_duration or row.duration
+    local base = math.floor(unrounded_duration / bucket_minutes) * bucket_minutes
+    local remainder = unrounded_duration - base
 
-    row.exact_duration = exact_duration
+    row.unrounded_duration = unrounded_duration
     row.error_minutes = remainder
     row.duration = base
     quantized_total = quantized_total + base
@@ -83,16 +83,16 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   return result
 end
 
--- Reapply quantized durations onto exact ordered sections.
--- Exact rows define the visible labels and exact totals, while the quantized
+-- Reapply the rounded durations onto the unrounded ordered sections.
+-- The unrounded rows define the visible labels and true totals, while the rounded
 -- rows provide the displayed duration after one shared quantization pass.
--- Provenance, when present on the exact item, flows into the quantized
--- projection so visible quantized rows can still be traced back to source.
-function M.project_quantized_items(exact_items, quantized_items, key_fields, fields)
+-- Provenance, when present on the unrounded item, flows into the projection so
+-- visible rows can still be traced back to source.
+function M.project_quantized_items(unrounded_items, quantized_items, key_fields, fields)
   local result = {}
   local quantized_index = projection.items_by_fields(quantized_items, key_fields)
 
-  for _, item in ipairs(exact_items) do
+  for _, item in ipairs(unrounded_items) do
     local projected = {}
     local quantized_item = projection.get_nested(quantized_index, item, key_fields)
 
@@ -100,10 +100,10 @@ function M.project_quantized_items(exact_items, quantized_items, key_fields, fie
       projected[field] = item[field]
     end
 
-    -- Exact and quantized projections should stay aligned. Falling back to zero
+    -- The unrounded and rounded projections should stay aligned. Falling back to zero
     -- keeps this helper defensive if an internal mismatch ever slips through.
     projected.duration = quantized_item and quantized_item.duration or 0
-    projected.exact_duration = item.exact_duration
+    projected.unrounded_duration = item.unrounded_duration
     projected.error_minutes = item.duration - (quantized_item and quantized_item.duration or 0)
 
     if item.source_entry_rows then

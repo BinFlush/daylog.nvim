@@ -31,21 +31,21 @@ return function(t)
             text = "planning",
             tag = "ClientA",
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
             workday_excluded = false,
           },
           {
             text = "planning",
             tag = "internal",
             duration = 30,
-            exact_duration = 30,
+            unrounded_duration = 30,
             workday_excluded = false,
           },
           {
             text = "implementation",
             tag = "ClientA",
             duration = 90,
-            exact_duration = 90,
+            unrounded_duration = 90,
             workday_excluded = false,
           },
         },
@@ -53,24 +53,24 @@ return function(t)
           {
             tag = "ClientA",
             duration = 150,
-            exact_duration = 150,
+            unrounded_duration = 150,
           },
           {
             tag = "internal",
             duration = 30,
-            exact_duration = 30,
+            unrounded_duration = 30,
           },
         },
         location_totals = {
           {
             location = "office",
             duration = 120,
-            exact_duration = 120,
+            unrounded_duration = 120,
           },
           {
             location = "home",
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
           },
         },
         activity_total = 180,
@@ -105,7 +105,7 @@ return function(t)
             text = "plan",
             tag = nil,
             duration = 30,
-            exact_duration = 30,
+            unrounded_duration = 30,
             error_minutes = 0,
             workday_excluded = false,
           },
@@ -114,7 +114,7 @@ return function(t)
           {
             tag = nil,
             duration = 30,
-            exact_duration = 30,
+            unrounded_duration = 30,
             error_minutes = 0,
           },
         },
@@ -122,7 +122,7 @@ return function(t)
           {
             location = nil,
             duration = 30,
-            exact_duration = 30,
+            unrounded_duration = 30,
             error_minutes = 0,
           },
         },
@@ -150,7 +150,7 @@ return function(t)
             text = "client",
             tag = "ClientA",
             duration = 60,
-            exact_duration = 65,
+            unrounded_duration = 65,
             error_minutes = 5,
             workday_excluded = false,
           },
@@ -158,7 +158,7 @@ return function(t)
             text = "break",
             tag = "ooo",
             duration = 30,
-            exact_duration = 25,
+            unrounded_duration = 25,
             error_minutes = -5,
             workday_excluded = true,
           },
@@ -167,13 +167,13 @@ return function(t)
           {
             tag = "ClientA",
             duration = 60,
-            exact_duration = 65,
+            unrounded_duration = 65,
             error_minutes = 5,
           },
           {
             tag = "ooo",
             duration = 30,
-            exact_duration = 25,
+            unrounded_duration = 25,
             error_minutes = -5,
           },
         },
@@ -181,7 +181,7 @@ return function(t)
           {
             location = "office",
             duration = 90,
-            exact_duration = 90,
+            unrounded_duration = 90,
             error_minutes = 0,
           },
         },
@@ -210,7 +210,7 @@ return function(t)
     )
   end)
 
-  t.test("render supports hhmm exact durations", function()
+  t.test("render supports hhmm unrounded durations", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -218,7 +218,7 @@ return function(t)
             text = "planning",
             tag = "ClientA",
             duration = 90,
-            exact_duration = 90,
+            unrounded_duration = 90,
             workday_excluded = false,
           },
         },
@@ -226,14 +226,14 @@ return function(t)
           {
             tag = "ClientA",
             duration = 90,
-            exact_duration = 90,
+            unrounded_duration = 90,
           },
         },
         location_totals = {
           {
             location = "office",
             duration = 90,
-            exact_duration = 90,
+            unrounded_duration = 90,
           },
         },
         activity_total = 90,
@@ -264,7 +264,7 @@ return function(t)
             text = "plan",
             tag = nil,
             duration = 90,
-            exact_duration = 95,
+            unrounded_duration = 95,
             error_minutes = 5,
             workday_excluded = false,
           },
@@ -273,7 +273,7 @@ return function(t)
           {
             tag = nil,
             duration = 90,
-            exact_duration = 95,
+            unrounded_duration = 95,
             error_minutes = 5,
           },
         },
@@ -281,7 +281,7 @@ return function(t)
           {
             location = nil,
             duration = 90,
-            exact_duration = 95,
+            unrounded_duration = 95,
             error_minutes = 5,
           },
         },
@@ -301,7 +301,7 @@ return function(t)
     )
   end)
 
-  t.test("render exact summaries append !L on main rows and show a logged section", function()
+  t.test("render unrounded summaries append !L on main rows and show a logged section", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -309,7 +309,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
             workday_excluded = false,
             logged = true,
           },
@@ -317,7 +317,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
             workday_excluded = false,
           },
         },
@@ -325,26 +325,26 @@ return function(t)
           {
             tag = "ClientA",
             duration = 120,
-            exact_duration = 120,
+            unrounded_duration = 120,
           },
         },
         location_totals = {
           {
             location = "office",
             duration = 120,
-            exact_duration = 120,
+            unrounded_duration = 120,
           },
         },
         logged_totals = {
           {
             logged = true,
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
           },
           {
             logged = false,
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
           },
         },
         activity_total = 120,
@@ -380,7 +380,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
@@ -389,7 +389,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
             workday_excluded = false,
           },
@@ -398,7 +398,7 @@ return function(t)
           {
             tag = "ClientA",
             duration = 60,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = -20,
           },
         },
@@ -406,7 +406,7 @@ return function(t)
           {
             location = "office",
             duration = 60,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = -20,
           },
         },
@@ -414,13 +414,13 @@ return function(t)
           {
             logged = true,
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
           },
           {
             logged = false,
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
           },
         },
@@ -464,7 +464,7 @@ return function(t)
                   text = "plan",
                   tag = nil,
                   duration = 60,
-                  exact_duration = 68,
+                  unrounded_duration = 68,
                   error_minutes = 8,
                   workday_excluded = false,
                 },
@@ -473,7 +473,7 @@ return function(t)
                 {
                   tag = nil,
                   duration = 60,
-                  exact_duration = 68,
+                  unrounded_duration = 68,
                   error_minutes = 8,
                 },
               },
@@ -481,7 +481,7 @@ return function(t)
                 {
                   location = nil,
                   duration = 60,
-                  exact_duration = 68,
+                  unrounded_duration = 68,
                   error_minutes = 8,
                 },
               },
@@ -498,7 +498,7 @@ return function(t)
               text = "plan",
               tag = nil,
               duration = 60,
-              exact_duration = 68,
+              unrounded_duration = 68,
               error_minutes = 8,
               workday_excluded = false,
             },
@@ -507,7 +507,7 @@ return function(t)
             {
               tag = nil,
               duration = 60,
-              exact_duration = 68,
+              unrounded_duration = 68,
               error_minutes = 8,
             },
           },
@@ -515,7 +515,7 @@ return function(t)
             {
               location = nil,
               duration = 60,
-              exact_duration = 68,
+              unrounded_duration = 68,
               error_minutes = 8,
             },
           },
@@ -555,7 +555,7 @@ return function(t)
                     text = "stale day",
                     tag = nil,
                     duration = 15,
-                    exact_duration = 20,
+                    unrounded_duration = 20,
                     error_minutes = 5,
                     workday_excluded = false,
                   },
@@ -575,7 +575,7 @@ return function(t)
                 text = "plan",
                 tag = "ClientA",
                 duration = 60,
-                exact_duration = 68,
+                unrounded_duration = 68,
                 error_minutes = 8,
                 workday_excluded = false,
               },
@@ -584,7 +584,7 @@ return function(t)
               {
                 tag = "ClientA",
                 duration = 60,
-                exact_duration = 68,
+                unrounded_duration = 68,
                 error_minutes = 8,
               },
             },
@@ -592,7 +592,7 @@ return function(t)
               {
                 location = "office",
                 duration = 60,
-                exact_duration = 68,
+                unrounded_duration = 68,
                 error_minutes = 8,
               },
             },
@@ -636,7 +636,7 @@ return function(t)
                   text = "plan",
                   tag = nil,
                   duration = 60,
-                  exact_duration = 60,
+                  unrounded_duration = 60,
                   error_minutes = 0,
                   workday_excluded = false,
                   logged = true,
@@ -648,7 +648,7 @@ return function(t)
                 {
                   logged = true,
                   duration = 60,
-                  exact_duration = 60,
+                  unrounded_duration = 60,
                   error_minutes = 0,
                 },
               },
@@ -665,7 +665,7 @@ return function(t)
               text = "plan",
               tag = nil,
               duration = 60,
-              exact_duration = 60,
+              unrounded_duration = 60,
               error_minutes = 0,
               workday_excluded = false,
               logged = true,
@@ -677,7 +677,7 @@ return function(t)
             {
               logged = true,
               duration = 60,
-              exact_duration = 60,
+              unrounded_duration = 60,
               error_minutes = 0,
             },
           },
@@ -722,7 +722,7 @@ return function(t)
                   text = "plan",
                   tag = nil,
                   duration = 60,
-                  exact_duration = 68,
+                  unrounded_duration = 68,
                   error_minutes = 8,
                   workday_excluded = false,
                 },
@@ -731,7 +731,7 @@ return function(t)
                 {
                   tag = nil,
                   duration = 60,
-                  exact_duration = 68,
+                  unrounded_duration = 68,
                   error_minutes = 8,
                 },
               },
@@ -739,7 +739,7 @@ return function(t)
                 {
                   location = nil,
                   duration = 60,
-                  exact_duration = 68,
+                  unrounded_duration = 68,
                   error_minutes = 8,
                 },
               },
@@ -756,7 +756,7 @@ return function(t)
               text = "plan",
               tag = nil,
               duration = 60,
-              exact_duration = 68,
+              unrounded_duration = 68,
               error_minutes = 8,
               workday_excluded = false,
             },
@@ -765,7 +765,7 @@ return function(t)
             {
               tag = nil,
               duration = 60,
-              exact_duration = 68,
+              unrounded_duration = 68,
               error_minutes = 8,
             },
           },
@@ -773,7 +773,7 @@ return function(t)
             {
               location = nil,
               duration = 60,
-              exact_duration = 68,
+              unrounded_duration = 68,
               error_minutes = 8,
             },
           },
@@ -813,7 +813,7 @@ return function(t)
                     text = "stale day",
                     tag = nil,
                     duration = 15,
-                    exact_duration = 20,
+                    unrounded_duration = 20,
                     error_minutes = 5,
                     workday_excluded = false,
                   },
@@ -833,7 +833,7 @@ return function(t)
                 text = "retro",
                 tag = "internal",
                 duration = 60,
-                exact_duration = 68,
+                unrounded_duration = 68,
                 error_minutes = 8,
                 workday_excluded = false,
               },
@@ -842,7 +842,7 @@ return function(t)
               {
                 tag = "internal",
                 duration = 60,
-                exact_duration = 68,
+                unrounded_duration = 68,
                 error_minutes = 8,
               },
             },
@@ -850,7 +850,7 @@ return function(t)
               {
                 location = "home",
                 duration = 60,
-                exact_duration = 68,
+                unrounded_duration = 68,
                 error_minutes = 8,
               },
             },
@@ -888,7 +888,7 @@ return function(t)
           text = "implementation",
           tag = "ClientA",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = false,
           logged = true,
           source_entry_rows = { 2 },
@@ -897,7 +897,7 @@ return function(t)
           text = "implementation",
           tag = "ClientA",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = false,
           source_entry_rows = { 3 },
         },
@@ -906,26 +906,26 @@ return function(t)
         {
           tag = "ClientA",
           duration = 120,
-          exact_duration = 120,
+          unrounded_duration = 120,
         },
       },
       location_totals = {
         {
           location = "office",
           duration = 120,
-          exact_duration = 120,
+          unrounded_duration = 120,
         },
       },
       logged_totals = {
         {
           logged = true,
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
         },
         {
           logged = false,
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
         },
       },
       activity_total = 120,
@@ -947,7 +947,7 @@ return function(t)
       text = "implementation",
       tag = "ClientA",
       duration = 60,
-      exact_duration = 60,
+      unrounded_duration = 60,
       workday_excluded = false,
       logged = true,
       source_entry_rows = { 2 },
@@ -956,7 +956,7 @@ return function(t)
       text = "implementation",
       tag = "ClientA",
       duration = 60,
-      exact_duration = 60,
+      unrounded_duration = 60,
       workday_excluded = false,
       source_entry_rows = { 3 },
     }
@@ -988,20 +988,20 @@ return function(t)
           text = "plan",
           tag = "ClientA",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = false,
           logged = true,
           source_entry_rows = { 2 },
         },
       },
       tag_totals = {
-        { tag = "ClientA", duration = 60, exact_duration = 60 },
+        { tag = "ClientA", duration = 60, unrounded_duration = 60 },
       },
       location_totals = {
-        { location = "office", duration = 60, exact_duration = 60 },
+        { location = "office", duration = 60, unrounded_duration = 60 },
       },
       logged_totals = {
-        { logged = true, duration = 60, exact_duration = 60 },
+        { logged = true, duration = 60, unrounded_duration = 60 },
       },
       activity_total = 60,
       workday_total = 60,
@@ -1032,7 +1032,7 @@ return function(t)
       text = "plan",
       tag = "ClientA",
       duration = 30,
-      exact_duration = 20,
+      unrounded_duration = 20,
       error_minutes = -10,
       workday_excluded = false,
       source_entry_rows = { 2 },

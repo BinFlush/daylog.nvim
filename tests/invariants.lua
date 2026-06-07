@@ -90,43 +90,43 @@ return function(t)
     end
   end
 
-  local function assert_exact_invariants(test, exact_summary, context)
+  local function assert_unrounded_invariants(test, unrounded_summary, context)
     test.ok(
-      sum_durations(exact_summary.summary_items) == exact_summary.activity_total,
+      sum_durations(unrounded_summary.summary_items) == unrounded_summary.activity_total,
       fail(
         context,
         "sum(summary_items.duration) must equal activity_total",
-        vim.inspect(exact_summary)
+        vim.inspect(unrounded_summary)
       )
     )
     test.ok(
-      sum_durations(exact_summary.tag_totals) == exact_summary.activity_total,
+      sum_durations(unrounded_summary.tag_totals) == unrounded_summary.activity_total,
       fail(
         context,
         "sum(tag_totals.duration) must equal activity_total",
-        vim.inspect(exact_summary)
+        vim.inspect(unrounded_summary)
       )
     )
     test.ok(
-      sum_durations(exact_summary.location_totals) == exact_summary.activity_total,
+      sum_durations(unrounded_summary.location_totals) == unrounded_summary.activity_total,
       fail(
         context,
         "sum(location_totals.duration) must equal activity_total",
-        vim.inspect(exact_summary)
+        vim.inspect(unrounded_summary)
       )
     )
     test.ok(
-      exact_summary.workday_total <= exact_summary.activity_total,
+      unrounded_summary.workday_total <= unrounded_summary.activity_total,
       fail(
         context,
         "workday_total must be less than or equal to activity_total",
-        vim.inspect(exact_summary)
+        vim.inspect(unrounded_summary)
       )
     )
 
-    assert_non_negative(test, exact_summary.summary_items, "summary_items", context)
-    assert_non_negative(test, exact_summary.tag_totals, "tag_totals", context)
-    assert_non_negative(test, exact_summary.location_totals, "location_totals", context)
+    assert_non_negative(test, unrounded_summary.summary_items, "summary_items", context)
+    assert_non_negative(test, unrounded_summary.tag_totals, "tag_totals", context)
+    assert_non_negative(test, unrounded_summary.location_totals, "location_totals", context)
   end
 
   local function assert_bucket_value(test, value, bucket_minutes, label, context, payload)
@@ -138,7 +138,7 @@ return function(t)
 
   local function assert_quantized_invariants(
     test,
-    exact_summary,
+    unrounded_summary,
     quantized_summary,
     quantize_minutes,
     context
@@ -213,20 +213,20 @@ return function(t)
     )
     test.ok(
       quantized_summary.activity_error_minutes
-        == exact_summary.activity_total - quantized_summary.activity_total,
+        == unrounded_summary.activity_total - quantized_summary.activity_total,
       fail(
         context,
         "activity_error_minutes must match exact.activity_total - quantized.activity_total",
-        string.format("exact=%s\nquantized=%s", vim.inspect(exact_summary), payload)
+        string.format("exact=%s\nquantized=%s", vim.inspect(unrounded_summary), payload)
       )
     )
     test.ok(
       quantized_summary.workday_error_minutes
-        == exact_summary.workday_total - quantized_summary.workday_total,
+        == unrounded_summary.workday_total - quantized_summary.workday_total,
       fail(
         context,
         "workday_error_minutes must match exact.workday_total - quantized.workday_total",
-        string.format("exact=%s\nquantized=%s", vim.inspect(exact_summary), payload)
+        string.format("exact=%s\nquantized=%s", vim.inspect(unrounded_summary), payload)
       )
     )
 
@@ -270,18 +270,24 @@ return function(t)
     return entries
   end
 
-  t.test("random semantic summaries satisfy exact and quantized invariants", function()
+  t.test("random semantic summaries satisfy unrounded and quantized invariants", function()
     math.randomseed(SEED)
 
     for case_number = 1, CASES do
       local entries = generate_entries()
       local quantize_minutes = choice(QUANTIZE_MINUTES)
       local context = case_context(case_number, entries, quantize_minutes)
-      local exact_summary = summary.quantized_summarize_entries(entries, 1)
-      local quantized_summary = summary.quantized_summarize_entries(entries, quantize_minutes)
+      local unrounded_summary = summary.summarize_entries(entries, 1)
+      local quantized_summary = summary.summarize_entries(entries, quantize_minutes)
 
-      assert_exact_invariants(t, exact_summary, context)
-      assert_quantized_invariants(t, exact_summary, quantized_summary, quantize_minutes, context)
+      assert_unrounded_invariants(t, unrounded_summary, context)
+      assert_quantized_invariants(
+        t,
+        unrounded_summary,
+        quantized_summary,
+        quantize_minutes,
+        context
+      )
     end
   end)
 end

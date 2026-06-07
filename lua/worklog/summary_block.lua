@@ -4,17 +4,17 @@ local M = {}
 
 -- Locator for a worklog's generated summary region.
 --
--- A worklog has at most one summary. This module recognizes the generated
--- section headers (current kind-less form and legacy exact/quantized) and reports
--- where that single summary
--- lives so the summary usecases can replace it in place. It owns no presentation
--- or reporting logic; it only matches generated headers (built from the same
--- syntax constants render uses) against analyzed blocks.
+-- A worklog has at most one summary. This module recognizes the generated section
+-- headers (current kind-less form and legacy exact/quantized) and reports where
+-- that single summary lives so the summary usecases can replace it in place. It
+-- owns no presentation or reporting logic; it only matches generated headers
+-- (built from the same syntax constants render uses) against analyzed blocks.
 
 -- Headers that begin a generated summary region, and the subsection headers that
--- continue it. The current form is kind-less ("--- summary ---"); the legacy
--- "exact"/"quantized" forms are still recognized so a pre-existing summary is
--- located (and rewritten to the new form on the next refresh).
+-- continue it. The current form is kind-less ("--- summary ---"). The legacy
+-- "exact"/"quantized" forms (v0.1.0) are recognized but never emitted, so a
+-- summary written by an older version is still located and rewritten to the
+-- kind-less form on the next refresh.
 local SUMMARY_HEADERS = { [syntax.section_header(syntax.SECTION.SUMMARY)] = true }
 local SUBSECTION_HEADERS = {}
 

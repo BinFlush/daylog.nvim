@@ -7,7 +7,7 @@ return function(t)
     return analyze.analyze(document.parse(lines))
   end
 
-  t.test("summary_block finds an exact summary region for the active worklog", function()
+  t.test("summary_block finds the summary region for the active worklog", function()
     local analysis = analyze_lines({
       "--- worklog ---",
       "08:00 plan",

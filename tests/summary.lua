@@ -50,7 +50,7 @@ return function(t)
   end
 
   local function summarize_exact_entries(entries)
-    return strip_errors(summary.quantized_summarize_entries(entries, 1))
+    return strip_errors(summary.summarize_entries(entries, 1))
   end
 
   local function summarize_exact(block)
@@ -72,7 +72,7 @@ return function(t)
           text = "plan",
           tag = "ProjectOrion",
           duration = 30,
-          exact_duration = 30,
+          unrounded_duration = 30,
           workday_excluded = false,
           source_entry_rows = { 2 },
         },
@@ -80,7 +80,7 @@ return function(t)
           text = "call",
           tag = "sales",
           duration = 30,
-          exact_duration = 30,
+          unrounded_duration = 30,
           workday_excluded = false,
           source_entry_rows = { 3 },
         },
@@ -88,7 +88,7 @@ return function(t)
           text = "break",
           tag = "ooo",
           duration = 15,
-          exact_duration = 15,
+          unrounded_duration = 15,
           workday_excluded = true,
           source_entry_rows = { 4 },
         },
@@ -97,29 +97,29 @@ return function(t)
         {
           tag = "ProjectOrion",
           duration = 30,
-          exact_duration = 30,
+          unrounded_duration = 30,
         },
         {
           tag = "sales",
           duration = 30,
-          exact_duration = 30,
+          unrounded_duration = 30,
         },
         {
           tag = "ooo",
           duration = 15,
-          exact_duration = 15,
+          unrounded_duration = 15,
         },
       },
       location_totals = {
         {
           location = "client",
           duration = 45,
-          exact_duration = 45,
+          unrounded_duration = 45,
         },
         {
           location = "office",
           duration = 30,
-          exact_duration = 30,
+          unrounded_duration = 30,
         },
       },
       activity_total = 75,
@@ -141,7 +141,7 @@ return function(t)
           text = "break",
           tag = "ooo",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = true,
           source_entry_rows = { 2 },
         },
@@ -149,7 +149,7 @@ return function(t)
           text = "resume",
           tag = nil,
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = false,
           source_entry_rows = { 3 },
         },
@@ -158,24 +158,24 @@ return function(t)
         {
           tag = "ooo",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
         },
         {
           tag = nil,
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
         },
       },
       location_totals = {
         {
           location = "home",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
         },
         {
           location = nil,
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
         },
       },
       activity_total = 120,
@@ -200,7 +200,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
             workday_excluded = false,
             logged = true,
             source_entry_rows = { 2 },
@@ -209,7 +209,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
             workday_excluded = false,
             source_entry_rows = { 3 },
           },
@@ -217,7 +217,7 @@ return function(t)
             text = "break",
             tag = "ooo",
             duration = 30,
-            exact_duration = 30,
+            unrounded_duration = 30,
             workday_excluded = true,
             logged = true,
             source_entry_rows = { 4 },
@@ -227,31 +227,31 @@ return function(t)
           {
             tag = "ClientA",
             duration = 120,
-            exact_duration = 120,
+            unrounded_duration = 120,
           },
           {
             tag = "ooo",
             duration = 30,
-            exact_duration = 30,
+            unrounded_duration = 30,
           },
         },
         location_totals = {
           {
             location = "office",
             duration = 150,
-            exact_duration = 150,
+            unrounded_duration = 150,
           },
         },
         logged_totals = {
           {
             logged = true,
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
           },
           {
             logged = false,
             duration = 60,
-            exact_duration = 60,
+            unrounded_duration = 60,
           },
         },
         activity_total = 150,
@@ -268,13 +268,13 @@ return function(t)
       "08:30 done",
     })
 
-    t.eq(summary.quantized_summarize_block(block), {
+    t.eq(summary.summarize_block(block), {
       summary_items = {
         {
           text = "call",
           tag = "sales",
           duration = 30,
-          exact_duration = 18,
+          unrounded_duration = 18,
           error_minutes = -12,
           workday_excluded = false,
           source_entry_rows = { 3 },
@@ -283,7 +283,7 @@ return function(t)
           text = "plan",
           tag = nil,
           duration = 0,
-          exact_duration = 12,
+          unrounded_duration = 12,
           error_minutes = 12,
           workday_excluded = false,
           source_entry_rows = { 2 },
@@ -293,13 +293,13 @@ return function(t)
         {
           tag = "sales",
           duration = 30,
-          exact_duration = 18,
+          unrounded_duration = 18,
           error_minutes = -12,
         },
         {
           tag = nil,
           duration = 0,
-          exact_duration = 12,
+          unrounded_duration = 12,
           error_minutes = 12,
         },
       },
@@ -307,13 +307,13 @@ return function(t)
         {
           location = "client",
           duration = 30,
-          exact_duration = 18,
+          unrounded_duration = 18,
           error_minutes = -12,
         },
         {
           location = "office",
           duration = 0,
-          exact_duration = 12,
+          unrounded_duration = 12,
           error_minutes = 12,
         },
       },
@@ -332,13 +332,13 @@ return function(t)
       "09:00 done",
     })
 
-    t.eq(summary.quantized_summarize_block(block), {
+    t.eq(summary.summarize_block(block), {
       summary_items = {
         {
           text = "call",
           tag = "sales",
           duration = 60,
-          exact_duration = 40,
+          unrounded_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
           source_entry_rows = { 3 },
@@ -347,7 +347,7 @@ return function(t)
           text = "plan",
           tag = nil,
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
           source_entry_rows = { 2 },
@@ -357,13 +357,13 @@ return function(t)
         {
           tag = "sales",
           duration = 60,
-          exact_duration = 40,
+          unrounded_duration = 40,
           error_minutes = -20,
         },
         {
           tag = nil,
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
         },
       },
@@ -371,13 +371,13 @@ return function(t)
         {
           location = "client",
           duration = 60,
-          exact_duration = 40,
+          unrounded_duration = 40,
           error_minutes = -20,
         },
         {
           location = "office",
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
         },
       },
@@ -397,13 +397,13 @@ return function(t)
       "09:00 done",
     })
 
-    t.eq(summary.quantized_summarize_block(block), {
+    t.eq(summary.summarize_block(block), {
       summary_items = {
         {
           text = "implementation",
           tag = "ClientA",
           duration = 30,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = -10,
           workday_excluded = false,
           logged = true,
@@ -413,7 +413,7 @@ return function(t)
           text = "implementation",
           tag = "ClientA",
           duration = 30,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = -10,
           workday_excluded = false,
           source_entry_rows = { 3 },
@@ -422,7 +422,7 @@ return function(t)
           text = "break",
           tag = "ooo",
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
           workday_excluded = true,
           logged = true,
@@ -433,13 +433,13 @@ return function(t)
         {
           tag = "ClientA",
           duration = 60,
-          exact_duration = 40,
+          unrounded_duration = 40,
           error_minutes = -20,
         },
         {
           tag = "ooo",
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
         },
       },
@@ -447,7 +447,7 @@ return function(t)
         {
           location = "office",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           error_minutes = 0,
         },
       },
@@ -455,13 +455,13 @@ return function(t)
         {
           logged = true,
           duration = 30,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = -10,
         },
         {
           logged = false,
           duration = 30,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = -10,
         },
       },
@@ -482,13 +482,13 @@ return function(t)
         "08:40 done",
       })
 
-      t.eq(summary.quantized_summarize_block(block), {
+      t.eq(summary.summarize_block(block), {
         summary_items = {
           {
             text = "implementation",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
@@ -498,7 +498,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 0,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = 20,
             workday_excluded = false,
             source_entry_rows = { 3 },
@@ -508,7 +508,7 @@ return function(t)
           {
             tag = "ClientA",
             duration = 30,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 10,
           },
         },
@@ -516,7 +516,7 @@ return function(t)
           {
             location = nil,
             duration = 30,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 10,
           },
         },
@@ -524,13 +524,13 @@ return function(t)
           {
             logged = true,
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
           },
           {
             logged = false,
             duration = 0,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = 20,
           },
         },
@@ -552,7 +552,7 @@ return function(t)
         "09:00 done",
       })
 
-      local result = summary.quantized_summarize_block(block)
+      local result = summary.summarize_block(block)
 
       -- Unlogged exact = 50, logged exact = 10; after quantization unlogged gets the
       -- larger quantized bucket.  Logged must still appear before unlogged.
@@ -579,13 +579,13 @@ return function(t)
       "10:00 done",
     }, 2)
 
-    t.eq(summary.quantized_summarize_block(block), {
+    t.eq(summary.summarize_block(block), {
       summary_items = {
         {
           text = "call",
           tag = "sales",
           duration = 60,
-          exact_duration = 40,
+          unrounded_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
           source_entry_rows = { 7 },
@@ -594,7 +594,7 @@ return function(t)
           text = "plan",
           tag = nil,
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
           source_entry_rows = { 6 },
@@ -604,13 +604,13 @@ return function(t)
         {
           tag = "sales",
           duration = 60,
-          exact_duration = 40,
+          unrounded_duration = 40,
           error_minutes = -20,
         },
         {
           tag = nil,
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
         },
       },
@@ -618,13 +618,13 @@ return function(t)
         {
           location = "client",
           duration = 60,
-          exact_duration = 40,
+          unrounded_duration = 40,
           error_minutes = -20,
         },
         {
           location = "office",
           duration = 0,
-          exact_duration = 20,
+          unrounded_duration = 20,
           error_minutes = 20,
         },
       },
@@ -644,7 +644,7 @@ return function(t)
       "08:51 done",
     })
 
-    local quantized = summary.quantized_summarize_block(block)
+    local quantized = summary.summarize_block(block)
 
     t.eq(quantized, {
       summary_items = {
@@ -652,7 +652,7 @@ return function(t)
           text = "alpha",
           tag = "A",
           duration = 30,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
           source_entry_rows = { 2 },
@@ -661,7 +661,7 @@ return function(t)
           text = "beta",
           tag = "B",
           duration = 30,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
           source_entry_rows = { 3 },
@@ -670,7 +670,7 @@ return function(t)
           text = "gamma",
           tag = "C",
           duration = 0,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = 17,
           workday_excluded = false,
           source_entry_rows = { 4 },
@@ -680,19 +680,19 @@ return function(t)
         {
           tag = "A",
           duration = 30,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = -13,
         },
         {
           tag = "B",
           duration = 30,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = -13,
         },
         {
           tag = "C",
           duration = 0,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = 17,
         },
       },
@@ -700,13 +700,13 @@ return function(t)
         {
           location = "x",
           duration = 30,
-          exact_duration = 34,
+          unrounded_duration = 34,
           error_minutes = 4,
         },
         {
           location = "y",
           duration = 30,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = -13,
         },
       },
@@ -727,13 +727,13 @@ return function(t)
       "08:34 done",
     })
 
-    t.eq(summary.quantized_summarize_block(block), {
+    t.eq(summary.summarize_block(block), {
       summary_items = {
         {
           text = "planning",
           tag = "ClientA",
           duration = 30,
-          exact_duration = 34,
+          unrounded_duration = 34,
           error_minutes = 4,
           workday_excluded = false,
           source_entry_rows = { 2, 3 },
@@ -743,7 +743,7 @@ return function(t)
         {
           tag = "ClientA",
           duration = 30,
-          exact_duration = 34,
+          unrounded_duration = 34,
           error_minutes = 4,
         },
       },
@@ -751,13 +751,13 @@ return function(t)
         {
           location = "office",
           duration = 30,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = -13,
         },
         {
           location = "home",
           duration = 0,
-          exact_duration = 17,
+          unrounded_duration = 17,
           error_minutes = 17,
         },
       },
@@ -770,14 +770,14 @@ return function(t)
 
   t.test("combined quantized summaries preserve daily rounding and sum errors", function()
     t.eq(
-      summary.combine_quantized_summaries({
+      summary.combine_summaries({
         {
           summary_items = {
             {
               text = "plan",
               tag = "ClientA",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
               workday_excluded = false,
             },
@@ -786,7 +786,7 @@ return function(t)
             {
               tag = "ClientA",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -794,7 +794,7 @@ return function(t)
             {
               location = "office",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -809,7 +809,7 @@ return function(t)
               text = "plan",
               tag = "ClientA",
               duration = 0,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = 20,
               workday_excluded = false,
             },
@@ -818,7 +818,7 @@ return function(t)
             {
               tag = "ClientA",
               duration = 0,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = 20,
             },
           },
@@ -826,7 +826,7 @@ return function(t)
             {
               location = "office",
               duration = 0,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = 20,
             },
           },
@@ -842,7 +842,7 @@ return function(t)
             text = "plan",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 10,
             workday_excluded = false,
           },
@@ -851,7 +851,7 @@ return function(t)
           {
             tag = "ClientA",
             duration = 30,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 10,
           },
         },
@@ -859,7 +859,7 @@ return function(t)
           {
             location = "office",
             duration = 30,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 10,
           },
         },
@@ -873,14 +873,14 @@ return function(t)
 
   t.test("combined quantized summaries preserve logged main-row separation and totals", function()
     t.eq(
-      summary.combine_quantized_summaries({
+      summary.combine_summaries({
         {
           summary_items = {
             {
               text = "plan",
               tag = "ClientA",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
               workday_excluded = false,
               logged = true,
@@ -890,7 +890,7 @@ return function(t)
             {
               tag = "ClientA",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -898,7 +898,7 @@ return function(t)
             {
               location = "office",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -906,7 +906,7 @@ return function(t)
             {
               logged = true,
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -921,7 +921,7 @@ return function(t)
               text = "plan",
               tag = "ClientA",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
               workday_excluded = false,
             },
@@ -930,7 +930,7 @@ return function(t)
             {
               tag = "ClientA",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -938,7 +938,7 @@ return function(t)
             {
               location = "office",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -946,7 +946,7 @@ return function(t)
             {
               logged = false,
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
             },
           },
@@ -962,7 +962,7 @@ return function(t)
             text = "plan",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
@@ -971,7 +971,7 @@ return function(t)
             text = "plan",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
             workday_excluded = false,
           },
@@ -980,7 +980,7 @@ return function(t)
           {
             tag = "ClientA",
             duration = 60,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = -20,
           },
         },
@@ -988,7 +988,7 @@ return function(t)
           {
             location = "office",
             duration = 60,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = -20,
           },
         },
@@ -996,13 +996,13 @@ return function(t)
           {
             logged = true,
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
           },
           {
             logged = false,
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
           },
         },
@@ -1016,14 +1016,14 @@ return function(t)
 
   t.test("combined quantized summaries derive logged totals from combined summary items", function()
     t.eq(
-      summary.combine_quantized_summaries({
+      summary.combine_summaries({
         {
           summary_items = {
             {
               text = "implementation",
               tag = "ClientA",
               duration = 30,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = -10,
               workday_excluded = false,
               logged = true,
@@ -1032,7 +1032,7 @@ return function(t)
               text = "implementation",
               tag = "ClientA",
               duration = 0,
-              exact_duration = 20,
+              unrounded_duration = 20,
               error_minutes = 20,
               workday_excluded = false,
             },
@@ -1041,7 +1041,7 @@ return function(t)
             {
               tag = "ClientA",
               duration = 30,
-              exact_duration = 40,
+              unrounded_duration = 40,
               error_minutes = 10,
             },
           },
@@ -1049,7 +1049,7 @@ return function(t)
             {
               location = "office",
               duration = 30,
-              exact_duration = 40,
+              unrounded_duration = 40,
               error_minutes = 10,
             },
           },
@@ -1057,7 +1057,7 @@ return function(t)
             {
               logged = true,
               duration = 999,
-              exact_duration = 999,
+              unrounded_duration = 999,
               error_minutes = 0,
             },
           },
@@ -1073,7 +1073,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
@@ -1082,7 +1082,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 0,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = 20,
             workday_excluded = false,
           },
@@ -1091,7 +1091,7 @@ return function(t)
           {
             tag = "ClientA",
             duration = 30,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 10,
           },
         },
@@ -1099,7 +1099,7 @@ return function(t)
           {
             location = "office",
             duration = 30,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 10,
           },
         },
@@ -1107,13 +1107,13 @@ return function(t)
           {
             logged = true,
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
           },
           {
             logged = false,
             duration = 0,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = 20,
           },
         },
@@ -1144,7 +1144,7 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 30,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
@@ -1153,20 +1153,20 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 0,
-            exact_duration = 20,
+            unrounded_duration = 20,
             error_minutes = 20,
             workday_excluded = false,
           },
         },
         tag_totals = {
-          { tag = "ClientA", duration = 30, exact_duration = 40, error_minutes = 10 },
+          { tag = "ClientA", duration = 30, unrounded_duration = 40, error_minutes = 10 },
         },
         location_totals = {
-          { location = nil, duration = 30, exact_duration = 40, error_minutes = 10 },
+          { location = nil, duration = 30, unrounded_duration = 40, error_minutes = 10 },
         },
         logged_totals = {
-          { logged = true, duration = 30, exact_duration = 20, error_minutes = -10 },
-          { logged = false, duration = 0, exact_duration = 20, error_minutes = 20 },
+          { logged = true, duration = 30, unrounded_duration = 20, error_minutes = -10 },
+          { logged = false, duration = 0, unrounded_duration = 20, error_minutes = 20 },
         },
         activity_total = 30,
         workday_total = 30,
@@ -1174,13 +1174,13 @@ return function(t)
         workday_error_minutes = 10,
       }
 
-      t.eq(summary.combine_quantized_summaries({ day, day }), {
+      t.eq(summary.combine_summaries({ day, day }), {
         summary_items = {
           {
             text = "implementation",
             tag = "ClientA",
             duration = 60,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = -20,
             workday_excluded = false,
             logged = true,
@@ -1189,20 +1189,20 @@ return function(t)
             text = "implementation",
             tag = "ClientA",
             duration = 0,
-            exact_duration = 40,
+            unrounded_duration = 40,
             error_minutes = 40,
             workday_excluded = false,
           },
         },
         tag_totals = {
-          { tag = "ClientA", duration = 60, exact_duration = 80, error_minutes = 20 },
+          { tag = "ClientA", duration = 60, unrounded_duration = 80, error_minutes = 20 },
         },
         location_totals = {
-          { location = nil, duration = 60, exact_duration = 80, error_minutes = 20 },
+          { location = nil, duration = 60, unrounded_duration = 80, error_minutes = 20 },
         },
         logged_totals = {
-          { logged = true, duration = 60, exact_duration = 40, error_minutes = -20 },
-          { logged = false, duration = 0, exact_duration = 40, error_minutes = 40 },
+          { logged = true, duration = 60, unrounded_duration = 40, error_minutes = -20 },
+          { logged = false, duration = 0, unrounded_duration = 40, error_minutes = 40 },
         },
         activity_total = 60,
         workday_total = 60,
@@ -1229,7 +1229,7 @@ return function(t)
           text = "planning",
           tag = "ClientA",
           duration = 240,
-          exact_duration = 240,
+          unrounded_duration = 240,
           workday_excluded = false,
           source_entry_rows = { 2, 4 },
         },
@@ -1237,7 +1237,7 @@ return function(t)
           text = "client followup",
           tag = "ClientA",
           duration = 180,
-          exact_duration = 180,
+          unrounded_duration = 180,
           workday_excluded = false,
           source_entry_rows = { 6 },
         },
@@ -1245,7 +1245,7 @@ return function(t)
           text = "implementation",
           tag = "ClientA",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = false,
           source_entry_rows = { 3 },
         },
@@ -1253,7 +1253,7 @@ return function(t)
           text = "internal meeting",
           tag = "internal",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = false,
           source_entry_rows = { 5 },
         },
@@ -1262,29 +1262,29 @@ return function(t)
         {
           tag = "ClientA",
           duration = 480,
-          exact_duration = 480,
+          unrounded_duration = 480,
         },
         {
           tag = "internal",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
         },
       },
       location_totals = {
         {
           location = "home",
           duration = 240,
-          exact_duration = 240,
+          unrounded_duration = 240,
         },
         {
           location = "client",
           duration = 180,
-          exact_duration = 180,
+          unrounded_duration = 180,
         },
         {
           location = "office",
           duration = 120,
-          exact_duration = 120,
+          unrounded_duration = 120,
         },
       },
       activity_total = 540,
@@ -1308,7 +1308,7 @@ return function(t)
           text = "meeting",
           tag = "internal",
           duration = 120,
-          exact_duration = 120,
+          unrounded_duration = 120,
           workday_excluded = false,
           source_entry_rows = { 4 },
         },
@@ -1316,7 +1316,7 @@ return function(t)
           text = "meeting",
           tag = "ClientA",
           duration = 60,
-          exact_duration = 60,
+          unrounded_duration = 60,
           workday_excluded = false,
           source_entry_rows = { 2 },
         },
@@ -1324,7 +1324,7 @@ return function(t)
           text = "implementation",
           tag = "ClientA",
           duration = 180,
-          exact_duration = 180,
+          unrounded_duration = 180,
           workday_excluded = false,
           source_entry_rows = { 3 },
         },
@@ -1345,7 +1345,7 @@ return function(t)
         text = "alpha",
         tag = nil,
         duration = 60,
-        exact_duration = 60,
+        unrounded_duration = 60,
         workday_excluded = false,
         source_entry_rows = { 2 },
       },
@@ -1353,7 +1353,7 @@ return function(t)
         text = "beta",
         tag = nil,
         duration = 60,
-        exact_duration = 60,
+        unrounded_duration = 60,
         workday_excluded = false,
         source_entry_rows = { 3 },
       },
@@ -1374,7 +1374,7 @@ return function(t)
         text = "meeting",
         tag = "ClientA",
         duration = 60,
-        exact_duration = 60,
+        unrounded_duration = 60,
         workday_excluded = false,
         source_entry_rows = { 2 },
       },
@@ -1382,7 +1382,7 @@ return function(t)
         text = "meeting",
         tag = "internal",
         duration = 60,
-        exact_duration = 60,
+        unrounded_duration = 60,
         workday_excluded = false,
         source_entry_rows = { 4 },
       },
@@ -1390,7 +1390,7 @@ return function(t)
         text = "other",
         tag = "ClientA",
         duration = 60,
-        exact_duration = 60,
+        unrounded_duration = 60,
         workday_excluded = false,
         source_entry_rows = { 3 },
       },
@@ -1410,7 +1410,7 @@ return function(t)
         text = "alpha|beta",
         tag = nil,
         duration = 60,
-        exact_duration = 60,
+        unrounded_duration = 60,
         workday_excluded = false,
         source_entry_rows = { 2 },
       },
@@ -1418,7 +1418,7 @@ return function(t)
         text = "alpha",
         tag = "beta",
         duration = 60,
-        exact_duration = 60,
+        unrounded_duration = 60,
         workday_excluded = false,
         source_entry_rows = { 3 },
       },
@@ -1489,7 +1489,7 @@ return function(t)
       "08:34 done",
     })
 
-    local items = summary.quantized_summarize_block(block).summary_items
+    local items = summary.summarize_block(block).summary_items
 
     t.eq(#items, 1)
     t.eq(items[1].text, "planning")

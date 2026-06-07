@@ -469,7 +469,7 @@ return function(t)
     })
   end)
 
-  t.test("log_current marks the source entry behind an exact summary row", function()
+  t.test("log_current marks the source entry behind an unrounded summary row", function()
     local result = log_current.run({
       "--- worklog ---",
       "08:00 implementation",
