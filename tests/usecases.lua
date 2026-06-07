@@ -104,6 +104,54 @@ return function(t)
     t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
+  t.test("insert_now appends a new entry before trailing blank lines", function()
+    local result = insert_now.run({
+      "--- worklog ---",
+      "08:00 first",
+      "09:00 done",
+      "",
+      "",
+      "--- summary exact ---",
+      "1.00h first",
+    }, 2, "10:00")
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 3,
+          lines = { "10:00 " },
+        },
+      },
+      cursor = { 4, 6 },
+      startinsert = true,
+    })
+  end)
+
+  t.test("insert_now appends after a trailing note but before blank lines", function()
+    local result = insert_now.run({
+      "--- worklog ---",
+      "08:00 first",
+      "09:00 done",
+      "  note about done",
+      "",
+      "--- summary exact ---",
+      "1.00h first",
+    }, 2, "10:00")
+
+    t.eq(result.edits[1].start_index, 4)
+  end)
+
+  t.test("insert_now still appends after the last entry with no trailing gap", function()
+    local result = insert_now.run({
+      "--- worklog ---",
+      "08:00 first",
+      "09:00 done",
+    }, 1, "10:00")
+
+    t.eq(result.edits[1].start_index, 3)
+  end)
+
   t.test("summarize appends a summary when none exists", function()
     local result = summarize_exact({
       "--- worklog @office ---",

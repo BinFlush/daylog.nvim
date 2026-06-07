@@ -63,6 +63,9 @@ happen, but they are called out clearly in this changelog.
   timestamps or dimmed notes, including exact two-digit-hour rows (e.g.
   `16:00 workday`), which are disambiguated from entries by their summary-block
   context.
+- `:WorklogInsert` places a new entry right after the last entry, keeping any
+  trailing blank lines as a gap before the summary instead of inserting past them
+  (also applies to `:WorklogRepeat` and the past-midnight `24:00` close).
 
 ## 0.4.0 - 2026-05-24
 

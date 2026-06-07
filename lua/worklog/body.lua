@@ -1,4 +1,5 @@
 local analyze = require("worklog.analyze")
+local syntax = require("worklog.syntax")
 
 local M = {}
 
@@ -116,7 +117,17 @@ function M.insert_index(block, minutes)
     end
   end
 
-  return block.end_row - 1
+  -- Append after the block's last non-blank body line, so trailing blank lines (a
+  -- visual gap before the summary) stay as separation instead of pushing the new
+  -- entry past them. Notes stay with their entry; only blank lines are stepped over.
+  local insert_row = block.start_row
+  for _, node in ipairs(block.body_nodes) do
+    if node.kind ~= syntax.NODE_KIND.BLANK_LINE then
+      insert_row = node.row
+    end
+  end
+
+  return insert_row
 end
 
 function M.state_before(block, minutes)
