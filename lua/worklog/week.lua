@@ -6,8 +6,20 @@ local summary = require("worklog.summary")
 
 local M = {}
 
+-- Mirrors init's lines_are_empty and new_worklog's empty_buffer: no lines, or only
+-- blank/whitespace lines. Every layer must agree on what "empty" means.
 local function empty_lines(lines)
-  return lines == nil or #lines == 0 or (#lines == 1 and lines[1] == "")
+  if lines == nil then
+    return true
+  end
+
+  for _, line in ipairs(lines) do
+    if line:find("%S") then
+      return false
+    end
+  end
+
+  return true
 end
 
 local function strip_worklog_prefix(message)

@@ -236,7 +236,12 @@ local function journal_path_has_content(path)
     return not lines_are_empty(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end
 
-  return vim.fn.filereadable(path) == 1 and vim.fn.getfsize(path) > 0
+  if vim.fn.filereadable(path) == 0 then
+    return false
+  end
+
+  -- Match the loaded-buffer branch: a whitespace-only file is empty, not content.
+  return not lines_are_empty(vim.fn.readfile(path))
 end
 
 local function expanded_journal_settings()
