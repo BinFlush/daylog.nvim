@@ -1896,6 +1896,70 @@ return function(t)
     end)
   end)
 
+  t.test("repeat on another day reports a broken today without leaving the browsed day", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
+    local past_path = write_journal_file(root, "%Y", past, {
+      "--- worklog #ClientA @office ---",
+      "08:00 deep work",
+      "09:00 done",
+    })
+    local today = os.time({ year = 2026, month = 5, day = 22, hour = 8, min = 0, sec = 0 })
+    -- today already has out-of-order entries, so the activity cannot be seeded into it.
+    write_journal_file(root, "%Y", today, {
+      "--- worklog #ClientA @office ---",
+      "09:00 later",
+      "08:00 earlier",
+    })
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(past_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogRepeat")
+      end)
+
+      -- Stayed on the browsed day rather than being switched onto the broken today.
+      t.eq(vim.api.nvim_buf_get_name(0), past_path)
+    end)
+  end)
+
+  t.test("repeat on another day initializes a whitespace-only today", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
+    local past_path = write_journal_file(root, "%Y", past, {
+      "--- worklog #ClientA @office ---",
+      "08:00 deep work",
+      "09:00 done",
+    })
+    local today = os.time({ year = 2026, month = 5, day = 22, hour = 8, min = 0, sec = 0 })
+    local today_path = write_journal_file(root, "%Y", today, { "", "  ", "" })
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(past_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogRepeat")
+      end)
+
+      -- The whitespace today is initialized fresh, with the header on line 1.
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      local lines = t.get_lines()
+      t.eq(lines[1], "--- worklog #ClientA @office ---")
+      t.eq(lines[2], "10:00 deep work")
+    end)
+  end)
+
   t.test("repeat past midnight carries the running task and repeats the cursor entry", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })

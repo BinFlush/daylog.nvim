@@ -35,7 +35,13 @@ end
 -- Mirrors new_worklog's empty_buffer and week's empty_lines so every layer
 -- agrees on what "empty" means.
 local function lines_are_empty(lines)
-  return #lines == 0 or (#lines == 1 and lines[1] == "")
+  for _, line in ipairs(lines) do
+    if line:find("%S") then
+      return false
+    end
+  end
+
+  return true
 end
 
 local function buffer_is_empty()
@@ -463,12 +469,27 @@ local function run_cross_day_repeat(settings, now)
     return
   end
 
+  local clock = os.date("*t", now)
+  local minutes = clock.hour * 60 + clock.min
+
+  -- If today already holds a worklog, confirm the activity can be inserted there before
+  -- switching to it, so a broken today is reported while staying on the browsed day
+  -- rather than yanking the window across and only then failing. A missing/empty (or
+  -- whitespace-only) today is initialized fresh by open_journal_file and always seeds.
+  local today_lines = journal_lines(journal.path_for_date(settings, now))
+  if today_lines and not lines_are_empty(today_lines) then
+    local ok, validate_err = carryover.seed_edit(today_lines, activity, minutes)
+    if not ok then
+      warn(validate_err)
+      return
+    end
+  end
+
   if not open_journal_file(settings, now) then
     return
   end
 
-  local clock = os.date("*t", now)
-  local seed, seed_err = carryover.seed_edit(buffer_lines(), activity, clock.hour * 60 + clock.min)
+  local seed, seed_err = carryover.seed_edit(buffer_lines(), activity, minutes)
   if not seed then
     warn(seed_err)
     return
