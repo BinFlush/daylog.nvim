@@ -227,6 +227,34 @@ return function(t)
     end)
   end)
 
+  t.test("navigation refuses to leave today while it has errors", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local today_path = write_journal_file(root, "%Y", now, {
+      "--- worklog #ClientA @office ---",
+      "09:00 later",
+      "08:00 earlier",
+    })
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      with_mocked_time(now, function()
+        vim.cmd("edit " .. vim.fn.fnameescape(today_path))
+
+        -- The out-of-order entries keep navigation on today.
+        vim.cmd("WorklogPrevDay")
+        t.eq(vim.api.nvim_buf_get_name(0), today_path)
+
+        -- Fixing the order releases the guard.
+        vim.api.nvim_buf_set_lines(0, 1, 3, false, { "08:00 earlier", "09:00 later" })
+        vim.cmd("WorklogPrevDay")
+        t.ok(vim.api.nvim_buf_get_name(0) ~= today_path, "navigates once today is valid")
+      end)
+    end)
+  end)
+
   t.test("today expands a home-relative journal root before opening", function()
     local now = os.time({
       year = 2026,

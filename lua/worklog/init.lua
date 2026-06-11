@@ -370,6 +370,27 @@ local function current_buffer_journal_date(settings)
   return journal.date_from_path(settings, vim.fn.fnamemodify(name, ":p"))
 end
 
+-- Today's worklog must be left in a valid state: leaving a broken today (out-of-order
+-- entries, an invalid entry, ...) would silently stop tracking the active day, so the
+-- day-navigation commands refuse until it is fixed. Only today is guarded -- browsing a
+-- past day's old problems is fine -- and only the plugin's own navigation (a raw :edit
+-- cannot be vetoed). The problems are published as buffer diagnostics so they show up.
+local function refuse_when_today_has_errors(settings)
+  local file_date = current_buffer_journal_date(settings)
+  if not file_date or not journal.same_date(file_date, os.time()) then
+    return false
+  end
+
+  local warnings = refresh_summaries.run(buffer_lines()).warnings
+  if #warnings == 0 then
+    return false
+  end
+
+  publish_diagnostics(warnings)
+  warn("worklog: today's worklog has errors; fix them before leaving the day")
+  return true
+end
+
 -- Roll a task that ran across midnight into today: close the previous day at
 -- 24:00, open/create today, continue the activity from 00:00, then apply the
 -- originating command at the current time. Returns true when it took over the
@@ -610,6 +631,10 @@ function M.open_today(day_offset)
   -- open the day if it exists, otherwise an empty unmodified buffer (no file
   -- created).
   if offset ~= 0 then
+    if refuse_when_today_has_errors(settings) then
+      return
+    end
+
     edit_journal_file(settings, target_date)
     return
   end
@@ -642,6 +667,10 @@ function M.open_relative_day(step)
 
   if not can_abandon_current_buffer() then
     warn("worklog: current buffer has unsaved changes")
+    return
+  end
+
+  if refuse_when_today_has_errors(settings) then
     return
   end
 
