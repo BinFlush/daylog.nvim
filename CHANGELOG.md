@@ -20,6 +20,22 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to worklog blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Changed
+
+- The day-navigation commands (`:WorklogPrevDay`, `:WorklogNextDay`, and
+  `:WorklogToday` with a nonzero offset) refuse to leave today while its worklog has
+  errors (e.g. out-of-order entries), so the active day is not silently abandoned in a
+  broken state; the problems are shown as diagnostics. Fix them to navigate.
+
+### Fixed
+
+- `:WorklogRepeat` from another day is robust when bringing the activity into today: it
+  reports the problem and stays on the browsed day when today's worklog is broken or the
+  browsed buffer is unsaved (instead of a raw error), and a whitespace-only today is
+  initialized fresh.
+
 ## 0.6.0 - 2026-06-07
 
 ### Added

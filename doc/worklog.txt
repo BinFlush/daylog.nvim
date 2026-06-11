@@ -225,6 +225,8 @@ Open a journal file relative to today from
   and never writes a header. To start an arbitrary day there, type a
   `--- worklog ---` header by hand.
 - A file that already has content is opened without modification.
+- Leaving today with a nonzero offset is guarded the same way: see the unsaved-changes
+  and broken-today refusals under |:WorklogNextDay|.
 
                                                         *:WorklogNextDay*
 :WorklogNextDay [count]
@@ -239,6 +241,11 @@ buffer.
   unmodified buffer if it does not. It never creates a file or writes a header,
   even when it lands on today, so a day you only glance at leaves nothing behind.
   Use |:WorklogToday| (offset 0) to create and stamp today.
+- It refuses to leave today while today's worklog has errors (out-of-order entries,
+  an invalid entry, ...): the problems show as diagnostics and must be fixed first. It
+  also refuses to abandon a buffer with unsaved changes when 'hidden' is off. The same
+  guards apply to |:WorklogToday| with a nonzero offset. They guard the plugin's own
+  navigation only -- a raw `:edit` is not blocked.
 
                                                         *:WorklogPrevDay*
 :WorklogPrevDay [count]
