@@ -454,6 +454,15 @@ local function run_cross_day_repeat(settings, now)
     return
   end
 
+  -- Opening today switches the window away from the browsed day; refuse cleanly when
+  -- that buffer cannot be abandoned (unsaved with 'hidden' off), the same way the day
+  -- navigation does, instead of surfacing a raw E37 from the :edit below. The browsed
+  -- day is left untouched, so -- unlike carryover -- it is not saved on the user's behalf.
+  if not can_abandon_current_buffer() then
+    warn("worklog: current buffer has unsaved changes")
+    return
+  end
+
   if not open_journal_file(settings, now) then
     return
   end
