@@ -22,6 +22,18 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- External work-item sources. Configure `sources` in `setup{}` (Azure DevOps is
+  built in) and run `:WorklogInsert {source}` to pick a work item from a fuzzy
+  picker and insert it as `{id} {title}` at the current time. The picker uses
+  `vim.ui.select`, so Telescope / fzf-lua / snacks / mini.pick take over its UI
+  when installed. Picking reads a per-source local cache, so it is instant and
+  works offline; `:WorklogSync [source]` and a periodic TTL refresh update the
+  cache. Syncing needs the `curl` executable. The Personal Access Token is a
+  function resolved only at sync time and never written to the cache. Plain
+  `:WorklogInsert` (no argument) is unchanged.
+
 ### Changed
 
 - The day-navigation commands (`:WorklogPrevDay`, `:WorklogNextDay`, and

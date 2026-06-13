@@ -1,3 +1,6 @@
+local config = require("worklog.config")
+local sources_sync = require("worklog.sources.sync")
+
 local M = {}
 
 local function start(name)
@@ -93,6 +96,7 @@ function M.check()
   check_command("WorklogOrder")
   check_command("WorklogLog")
   check_command("WorklogRefresh")
+  check_command("WorklogSync")
 
   start("Filetype")
   if vim.filetype.match({ filename = "example.wkl" }) == "worklog" then
@@ -110,6 +114,46 @@ function M.check()
     warn(":help worklog.nvim is unavailable", {
       "Run :helptags doc or just helptags.",
     })
+  end
+
+  -- Only report on sources when some are configured, so the default install stays
+  -- clean. Reads config.get() (never calls setup), matching the section above.
+  local sources = config.get().sources
+  if sources and next(sources) then
+    start("Sources")
+
+    if vim.fn.executable("curl") == 1 then
+      ok("curl is available")
+    else
+      report_error("curl is not on PATH", {
+        "Install curl; worklog source sync uses curl for HTTP.",
+      })
+    end
+
+    local names = {}
+    for name in pairs(sources) do
+      table.insert(names, name)
+    end
+    table.sort(names)
+
+    for _, name in ipairs(names) do
+      ok(string.format("source %s (%s) is configured", name, sources[name].type))
+
+      if vim.fn.filereadable(sources_sync.cache_path(name)) == 1 then
+        local cache = sources_sync.read_cache(name)
+        if cache then
+          ok(string.format("source %s cache is readable (%d items)", name, #(cache.items or {})))
+        else
+          warn(string.format("source %s cache is unreadable or corrupt", name), {
+            "Run :WorklogSync " .. name .. " to rebuild it.",
+          })
+        end
+      else
+        warn(string.format("source %s has no cache yet", name), {
+          "Run :WorklogSync " .. name .. " or pick from it once.",
+        })
+      end
+    end
   end
 end
 

@@ -9,9 +9,10 @@ CONTENTS                                                    *worklog-contents*
 4. Sticky metadata..........................................|worklog-sticky-metadata|
 5. Gotchas..................................................|worklog-gotchas|
 6. Commands.................................................|worklog-commands|
-7. Configuration..............................................|worklog-config|
-8. Summaries................................................|worklog-summaries|
-9. Development..............................................|worklog-development|
+7. Sources...................................................|worklog-sources|
+8. Configuration..............................................|worklog-config|
+9. Summaries................................................|worklog-summaries|
+10. Development.............................................|worklog-development|
 
 ==============================================================================
 OVERVIEW                                                    *worklog-overview*
@@ -38,6 +39,8 @@ and runtime plugin integration.
 Requirements:
 
   Neovim 0.8.0 or newer.
+  The `curl` executable, only when using external sources (see
+  |worklog-sources|).
 
 Users who need reproducible behavior can pin a tagged release. `.wkl`
 compatibility notes are tracked in `CHANGELOG.md`.
@@ -295,7 +298,7 @@ Open a scratch report for the last N journal dates from
   totals.
 
                                                          *:WorklogInsert*
-:WorklogInsert
+:WorklogInsert [source]
 
 Insert the current time into the worklog block under the cursor.
 
@@ -303,6 +306,13 @@ Insert the current time into the worklog block under the cursor.
 - The new timestamp is inserted in chronological order.
 - Equal timestamps stay grouped together.
 - Insert mode starts on the new line.
+
+With a `[source]` argument (a configured source name, see |worklog-sources|), it
+instead opens a picker of that source's work items and inserts the chosen one as
+`{id} {title}` at the current time. The picker uses `vim.ui.select`, so
+Telescope, fzf-lua, snacks, or mini.pick take over its UI when installed.
+Cancelling the picker falls back to the plain bare timestamp. An optional further
+argument pre-seeds the picker's filter.
 
 When the buffer is a journal file (see |worklog-config|) dated for a day other
 than today, inserting the current time is refused, since stamping "now" into
@@ -387,6 +397,71 @@ create one for any valid worklog that has none.
   the problem (for example out-of-order timestamps) as a buffer diagnostic.
 - Is a no-op for summaries that are already up to date.
 - Can be run automatically via the `auto_summary` option (see below).
+
+                                                        *:WorklogSync*
+:WorklogSync [source]
+
+Refresh the local cache for a source, or for every configured source when no
+name is given, by fetching from the tracker. See |worklog-sources|.
+
+- Sync is the only networked operation and uses `curl`.
+- Picking with |:WorklogInsert| already refreshes the cache in the background
+  when it is older than the source's `ttl`, so a manual sync is mainly for
+  pulling in brand-new work items immediately.
+
+==============================================================================
+SOURCES                                                        *worklog-sources*
+
+Sources pull work items from an external tracker into a worklog entry. Azure
+DevOps is built in. Configure one or more named sources, then run |:WorklogInsert|
+with a source name to pick a work item and insert it.
+
+Configure sources in `setup{}`:
+
+>
+  require('worklog').setup({
+    sources = {
+      ADO = {
+        type = 'azure_devops',
+        organization = 'contoso',
+        project = 'Platform',
+        token = function()
+          return vim.trim(vim.fn.system({ 'pass', 'show', 'ado/pat' }))
+        end,
+        -- optional:
+        -- query_id = '<saved query GUID>',   -- run a saved ADO query
+        -- query    = '<raw WIQL>',           -- or your own WIQL
+        -- template = '{id} {title}',         -- inserted activity text
+        -- ttl      = 1800,                   -- cache lifetime, seconds
+      },
+    },
+  })
+<
+
+- The source name (`ADO` above) is what you pass to |:WorklogInsert| and
+  |:WorklogSync|, and is the cache filename, so keep it to letters, digits,
+  underscores, and hyphens.
+- `token` is a function returning a Personal Access Token. It is called only
+  when syncing and is never written to the cache, so keep no secret in plain
+  config -- read it from the environment or a password manager.
+- By default the cache holds work items assigned to you that are active and
+  recently changed. Override with a saved query (`query_id`) or raw WIQL
+  (`query`).
+- The picked item is inserted as `template` (default `{id} {title}`) at the
+  current time. The title is sanitized so it can never form trailing metadata.
+
+Picking is offline and instant: it reads a per-source cache at
+`stdpath('cache')/worklog/sources/<name>.json` and filters it locally. The cache
+refreshes in the background when older than `ttl` (default 1800 seconds) and on
+|:WorklogSync|. Syncing requires the `curl` executable; pick-time needs no
+network.
+
+Register a custom source object (with `fetch`, `format_item`, and
+`to_entry_text`) directly:
+
+>
+  require('worklog.sources.registry').register('MySource', my_source)
+<
 
 ==============================================================================
 CONFIGURATION                                                  *worklog-config*

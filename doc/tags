@@ -7,6 +7,7 @@
 :WorklogPrevDay	worklog.txt	/*:WorklogPrevDay*
 :WorklogRefresh	worklog.txt	/*:WorklogRefresh*
 :WorklogRepeat	worklog.txt	/*:WorklogRepeat*
+:WorklogSync	worklog.txt	/*:WorklogSync*
 :WorklogToday	worklog.txt	/*:WorklogToday*
 :WorklogWeek	worklog.txt	/*:WorklogWeek*
 worklog-auto-summary	worklog.txt	/*worklog-auto-summary*
@@ -19,6 +20,7 @@ worklog-format	worklog.txt	/*worklog-format*
 worklog-gotchas	worklog.txt	/*worklog-gotchas*
 worklog-license	worklog.txt	/*worklog-license*
 worklog-overview	worklog.txt	/*worklog-overview*
+worklog-sources	worklog.txt	/*worklog-sources*
 worklog-sticky-metadata	worklog.txt	/*worklog-sticky-metadata*
 worklog-summaries	worklog.txt	/*worklog-summaries*
 worklog.nvim	worklog.txt	/*worklog.nvim*

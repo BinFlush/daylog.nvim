@@ -193,12 +193,13 @@ d=hm  render summary durations as hours:minutes rather than decimal notation
 | `:WorklogPrevDay [count]` | Step backward `count` days (default 1) relative to the open journal file, falling back to today |
 | `:WorklogDays[!] {count}` | Open the last N journal days report; `!` shows only the aggregate range summary |
 | `:WorklogWeek[!]` | Open this week's journal report; `!` shows only the aggregate weekly summary |
-| `:WorklogInsert` | Insert current time in order and enter insert mode |
+| `:WorklogInsert [source]` | Insert current time in order and enter insert mode; with a configured source name, pick a work item to insert (see [Sources](#sources)) |
 | `:WorklogRepeat` | Repeat the activity under the cursor at the current time; on another day's file, bring it into today instead |
 | `:WorklogCopy` | Append a normalized editable copy, with its own summary |
 | `:WorklogOrder` | Rewrite worklog blocks in chronological order |
 | `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
 | `:WorklogRefresh` | Rebuild every summary to match its entries, creating one for any worklog that lacks it |
+| `:WorklogSync [source]` | Refresh a source's local work-item cache, or every configured source (see [Sources](#sources)) |
 
 The active worklog is always the latest `--- worklog ... ---` block in the file.
 
@@ -226,6 +227,46 @@ removes a summary. While a worklog is invalid (for example its timestamps are ou
 order) it is left alone rather than churned, and the problem is reported as a buffer
 diagnostic that clears once you fix it.
 
+## Sources
+
+Pull work items from an external tracker into a worklog entry. **Azure DevOps**
+is built in. Configure a named source, then run `:WorklogInsert <name>` to pick a
+work item and insert it as `{id} {title}` at the current time.
+
+```lua
+require("worklog").setup({
+  sources = {
+    ADO = {
+      type = "azure_devops",
+      organization = "contoso",
+      project = "Platform",
+      token = function()
+        return vim.trim(vim.fn.system({ "pass", "show", "ado/pat" }))
+      end,
+      -- optional: query_id (a saved ADO query), query (raw WIQL), template, ttl
+    },
+  },
+})
+
+vim.keymap.set("n", "<leader>wa", "<cmd>WorklogInsert ADO<cr>", { desc = "Worklog insert ADO item" })
+```
+
+- **The picker is `vim.ui.select`**, so Telescope / fzf-lua / snacks / mini.pick
+  take over automatically when installed — no hard dependency, and no picker is
+  required.
+- **Picking is offline and instant.** It reads a per-source cache; the cache
+  refreshes in the background when stale and on `:WorklogSync`. Only syncing
+  touches the network (via `curl`).
+- **Your PAT is a function**, resolved only at sync time and never written to the
+  cache — read it from the environment or a password manager.
+- **Scope is yours.** The default fetch is "assigned to me, active, recently
+  changed"; point at a saved ADO query (`query_id`) or paste raw WIQL (`query`).
+- Cancelling the picker falls back to a plain bare timestamp, so
+  `:WorklogInsert <name>` is a non-committal enhancement of `:WorklogInsert`.
+
+Multiple sources can coexist (several ADO orgs, plus your own). See
+`:help worklog-sources` for the full reference.
+
 ## Limitations and syntax gotchas
 
 - The final timestamp closes the previous interval and has no duration of its own.
@@ -240,6 +281,7 @@ diagnostic that clears once you fix it.
 ## Requirements
 
 - Neovim 0.8.0 or newer
+- `curl` — only when using external [sources](#sources)
 
 ## Install
 

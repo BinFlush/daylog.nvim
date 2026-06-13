@@ -115,6 +115,130 @@ local function normalize_auto_summary(value)
   return value
 end
 
+local SOURCE_DEFAULT_TTL = 1800
+local SOURCE_DEFAULT_TEMPLATE = "{id} {title}"
+
+local function normalize_azure_devops(name, entry)
+  local function required_string(field)
+    local value = entry[field]
+    if type(value) ~= "string" or value == "" then
+      error("worklog: source '" .. name .. "'." .. field .. " must be a non-empty string")
+    end
+    return value
+  end
+
+  local result = {
+    organization = required_string("organization"),
+    project = required_string("project"),
+  }
+
+  -- The PAT is a function so it is resolved lazily at fetch time and never stored
+  -- as plaintext in setup{} or a config dump. It is never called during setup.
+  if type(entry.token) ~= "function" then
+    error("worklog: source '" .. name .. "'.token must be a function")
+  end
+  result.token = entry.token
+
+  if entry.query ~= nil and entry.query_id ~= nil then
+    error("worklog: source '" .. name .. "' must not set both query and query_id")
+  end
+
+  if entry.query ~= nil then
+    if type(entry.query) ~= "string" or entry.query == "" then
+      error("worklog: source '" .. name .. "'.query must be a non-empty string")
+    end
+    result.query = entry.query
+  end
+
+  if entry.query_id ~= nil then
+    if type(entry.query_id) ~= "string" or entry.query_id == "" then
+      error("worklog: source '" .. name .. "'.query_id must be a non-empty string")
+    end
+    result.query_id = entry.query_id
+  end
+
+  if entry.api_version ~= nil then
+    if type(entry.api_version) ~= "string" or entry.api_version == "" then
+      error("worklog: source '" .. name .. "'.api_version must be a non-empty string")
+    end
+    result.api_version = entry.api_version
+  else
+    result.api_version = "7.0"
+  end
+
+  if entry.format_item ~= nil then
+    if type(entry.format_item) ~= "function" then
+      error("worklog: source '" .. name .. "'.format_item must be a function")
+    end
+    result.format_item = entry.format_item
+  end
+
+  return result
+end
+
+local SOURCE_TYPES = {
+  azure_devops = normalize_azure_devops,
+}
+
+local function normalize_source(name, entry)
+  if type(entry) ~= "table" then
+    error("worklog: source '" .. name .. "' must be a table")
+  end
+
+  local normalize_type = type(entry.type) == "string" and SOURCE_TYPES[entry.type]
+  if not normalize_type then
+    error("worklog: source '" .. name .. "' has unknown type")
+  end
+
+  local result = normalize_type(name, entry)
+  result.type = entry.type
+
+  if entry.ttl ~= nil then
+    if type(entry.ttl) ~= "number" or entry.ttl <= 0 or entry.ttl ~= math.floor(entry.ttl) then
+      error("worklog: source '" .. name .. "'.ttl must be a positive integer")
+    end
+    result.ttl = entry.ttl
+  else
+    result.ttl = SOURCE_DEFAULT_TTL
+  end
+
+  if entry.template ~= nil then
+    if type(entry.template) ~= "string" or entry.template == "" then
+      error("worklog: source '" .. name .. "'.template must be a non-empty string")
+    end
+    result.template = entry.template
+  else
+    result.template = SOURCE_DEFAULT_TEMPLATE
+  end
+
+  return result
+end
+
+-- Optional external work-item sources, keyed by a name used as a command
+-- argument and cache filename. Each entry declares a built-in `type` plus its
+-- per-type fields; omitted entirely when no sources are configured.
+local function normalize_sources(sources)
+  if sources == nil then
+    return nil
+  end
+
+  if type(sources) ~= "table" then
+    error("worklog: setup sources must be a table")
+  end
+
+  local result = {}
+
+  for name, entry in pairs(sources) do
+    if type(name) ~= "string" or name:match("^[%w_%-]+$") == nil then
+      error("worklog: source names must use only letters, digits, underscores, or hyphens")
+    end
+
+    result[name] = normalize_source(name, entry)
+  end
+
+  return result
+end
+
 local function normalize_config(options)
   if options == nil then
     return {
@@ -135,6 +259,11 @@ local function normalize_config(options)
   local journal = normalize_journal(options.journal)
   if journal ~= nil then
     result.journal = journal
+  end
+
+  local sources = normalize_sources(options.sources)
+  if sources ~= nil then
+    result.sources = sources
   end
 
   return result

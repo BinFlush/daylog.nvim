@@ -2,6 +2,7 @@ local filetype = require("worklog.filetype")
 local append_copy = require("worklog.usecases.append_copy")
 local carryover = require("worklog.usecases.carryover")
 local config = require("worklog.config")
+local insert_entry = require("worklog.usecases.insert_entry")
 local insert_now = require("worklog.usecases.insert_now")
 local journal = require("worklog.journal")
 local log_current = require("worklog.usecases.log_current")
@@ -10,6 +11,10 @@ local order_worklogs = require("worklog.usecases.order_worklogs")
 local refresh_summaries = require("worklog.usecases.refresh_summaries")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
+local sources_cache = require("worklog.sources.cache")
+local sources_http = require("worklog.sources.http")
+local sources_registry = require("worklog.sources.registry")
+local sources_sync = require("worklog.sources.sync")
 local week = require("worklog.week")
 
 local M = {}
@@ -156,6 +161,20 @@ local function apply_insert_time(time)
   local lines = buffer_lines()
   local row = cursor_row()
   local result, err = insert_now.run(lines, row, time)
+  if not result then
+    warn(err)
+    return false
+  end
+
+  apply_result(result)
+  return true
+end
+
+-- Insert a fully-resolved "HH:MM <text>" entry at the cursor's worklog and enter
+-- insert mode. Mirrors apply_insert_time but carries an activity string (the text
+-- is built and sanitized by the source layer before it gets here).
+local function apply_insert_entry(time, text)
+  local result, err = insert_entry.run(buffer_lines(), cursor_row(), time, text)
   if not result then
     warn(err)
     return false
@@ -569,6 +588,87 @@ local function guard_current_time(command)
   return true
 end
 
+-- Command-line completion over configured source names (first argument only).
+local function source_complete(arglead)
+  local matches = {}
+  for _, name in ipairs(sources_registry.names()) do
+    if name:sub(1, #arglead) == arglead then
+      table.insert(matches, name)
+    end
+  end
+  return matches
+end
+
+-- Bring a work item from a configured source into the current worklog at the
+-- current time. Offline-first: reads the source's local cache and opens
+-- vim.ui.select (Telescope/fzf/snacks take over if installed). On pick the
+-- configured "{id} {title}" template is inserted; cancelling falls back to a bare
+-- timestamp, exactly like :WorklogInsert with no argument.
+function M.insert_from_source(name, query)
+  if guard_current_time("insert") then
+    return
+  end
+
+  local source = sources_registry.get(name)
+  if not source then
+    warn("worklog: unknown source '" .. name .. "'")
+    return
+  end
+
+  local sources = config.get().sources or {}
+  local ttl = sources[name] and sources[name].ttl or 1800
+
+  -- The picker is async, so capture the moment and the target buffer up front: a
+  -- late selection then stamps the time the command was issued and never edits a
+  -- buffer we have since moved away from.
+  local time = os.date("%H:%M")
+  local target_buf = vim.api.nvim_get_current_buf()
+
+  sources_sync.ensure_fresh(name, ttl, function(items)
+    vim.ui.select(sources_cache.filter(items, query), {
+      prompt = "Worklog: pick " .. name .. " item",
+      format_item = function(item)
+        return source.format_item(item)
+      end,
+    }, function(choice)
+      if not choice then
+        apply_insert_time(time)
+        return
+      end
+
+      if vim.api.nvim_get_current_buf() ~= target_buf then
+        warn("worklog: buffer changed during selection; aborting insert")
+        return
+      end
+
+      apply_insert_entry(time, source.to_entry_text(choice))
+    end)
+  end)
+end
+
+-- Refresh the on-disk cache for one source, or every configured source.
+function M.sync_source(name)
+  if name and name ~= "" then
+    if not sources_registry.get(name) then
+      warn("worklog: unknown source '" .. name .. "'")
+      return
+    end
+
+    sources_sync.sync(name, { silent = false })
+    return
+  end
+
+  local names = sources_registry.names()
+  if #names == 0 then
+    warn("worklog: no sources configured")
+    return
+  end
+
+  for _, source_name in ipairs(names) do
+    sources_sync.sync(source_name, { silent = false })
+  end
+end
+
 -- Insert the current time at the cursor and enter insert mode.
 function M.insert_now()
   if guard_current_time("insert") then
@@ -830,13 +930,67 @@ local function setup_auto_summary(mode)
   end
 end
 
+-- Build and register the source objects declared in config, injecting the shell
+-- transport, JSON codec, and a lazy token resolver. Clears first so repeated
+-- setup() calls (and tests) start from a clean registry.
+local function instantiate_sources()
+  sources_registry.clear()
+
+  local sources = config.get().sources
+  if not sources then
+    return
+  end
+
+  for name, source_config in pairs(sources) do
+    local source, err = sources_registry.instantiate(name, source_config, {
+      transport = sources_http,
+      json = vim.json,
+      token_resolver = function(source_cfg)
+        local ok, token = pcall(source_cfg.token)
+        if not ok then
+          return nil, "worklog: source token() errored: " .. tostring(token)
+        end
+        if type(token) ~= "string" or token == "" then
+          return nil, "worklog: source token() did not return a non-empty string"
+        end
+        return token
+      end,
+    })
+
+    if source then
+      sources_registry.register(name, source)
+    else
+      warn(err)
+    end
+  end
+end
+
 function M.setup(options)
   config.setup(options)
   filetype.register()
+  instantiate_sources()
 
-  ensure_user_command("WorklogInsert", function()
-    M.insert_now()
-  end)
+  ensure_user_command("WorklogInsert", function(args)
+    local fargs = args.fargs
+    if #fargs == 0 then
+      M.insert_now()
+      return
+    end
+
+    local name = fargs[1]
+    local query = #fargs > 1 and table.concat({ unpack(fargs, 2) }, " ") or nil
+    M.insert_from_source(name, query)
+  end, {
+    nargs = "*",
+    complete = function(arglead, cmdline)
+      -- Complete the source name (the first argument) only.
+      local after = cmdline:match("^%s*WorklogInsert%s+(.*)$") or ""
+      if after:match("%S%s") then
+        return {}
+      end
+      return source_complete(arglead)
+    end,
+  })
 
   ensure_user_command("WorklogToday", function(args)
     local offset, err = parse_day_offset(args.args)
@@ -912,6 +1066,15 @@ function M.setup(options)
   ensure_user_command("WorklogRefresh", function()
     M.refresh()
   end)
+
+  ensure_user_command("WorklogSync", function(args)
+    M.sync_source(args.fargs[1])
+  end, {
+    nargs = "?",
+    complete = function(arglead)
+      return source_complete(arglead)
+    end,
+  })
 
   setup_auto_summary(config.get().auto_summary)
 end
