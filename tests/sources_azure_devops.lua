@@ -333,4 +333,46 @@ return function(t)
     -- format_item labels the project when several are configured.
     t.eq(source.format_item(result.items[1]), "#7  Cross-project  [Bug/Active]  Data")
   end)
+
+  t.test("a project name with a single quote is escaped in the WIQL", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = {} }) }
+      end
+      return { status = 200, body = vim.json.encode({ value = {} }) }
+    end)
+
+    local source =
+      new_source({ organization = "contoso", projects = { "Pro'ject", "B" } }, transport)
+    source.search("x", function() end)
+
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("IN %('Pro''ject', 'B'%)") ~= nil, body.query)
+  end)
+
+  t.test("hydrate skips work items that have no id", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = { { id = 1 }, { id = 2 } } }) }
+      end
+      return {
+        status = 200,
+        body = vim.json.encode({
+          value = {
+            { id = 1, fields = { ["System.Title"] = "Real" } },
+            { fields = {} }, -- malformed: no id
+          },
+        }),
+      }
+    end)
+
+    local source = new_source(base_cfg(), transport)
+    local result
+    source.fetch(function(items, err)
+      result = { items = items, err = err }
+    end)
+
+    t.eq(result.err, nil)
+    t.eq(result.items, { { id = "1", title = "Real" } })
+  end)
 end

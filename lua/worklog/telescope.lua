@@ -40,6 +40,7 @@ function M.live_pick(source, opts)
   local picker
   local seq = 0
   local last_query = nil
+  local closed = false
 
   -- Telescope's input hook fires on every prompt change. Use it to drive a
   -- debounced server search; client-side filtering is the sorter's job. Guard with
@@ -58,7 +59,7 @@ function M.live_pick(source, opts)
 
         source.search(prompt, function(items, err, total)
           vim.schedule(function()
-            if mine ~= seq or not picker then
+            if mine ~= seq or not picker or closed then
               return
             end
             if err then
@@ -101,20 +102,19 @@ function M.live_pick(source, opts)
     attach_mappings = function(prompt_bufnr, _)
       local picked = false
 
-      -- Bare-timestamp fallback on cancel, matching :WorklogInsert.
-      if opts.on_cancel then
-        vim.api.nvim_create_autocmd("BufWipeout", {
-          buffer = prompt_bufnr,
-          once = true,
-          callback = function()
-            vim.schedule(function()
-              if not picked then
-                opts.on_cancel()
-              end
-            end)
-          end,
-        })
-      end
+      -- Closing the prompt (pick or cancel) marks the picker done so a late search
+      -- response stops refreshing/notifying. Cancelling also leaves a bare timestamp,
+      -- matching :WorklogInsert.
+      vim.api.nvim_create_autocmd("BufWipeout", {
+        buffer = prompt_bufnr,
+        once = true,
+        callback = function()
+          closed = true
+          if opts.on_cancel and not picked then
+            vim.schedule(opts.on_cancel)
+          end
+        end,
+      })
 
       actions.select_default:replace(function()
         picked = true

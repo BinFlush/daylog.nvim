@@ -56,7 +56,9 @@ function M.new(_name, cfg, deps)
     "WHERE [System.AssignedTo] = @Me",
     "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'",
     "AND [System.ChangedDate] >= @Today - 30" .. project_filter,
-    "ORDER BY [System.ChangedDate] DESC",
+    -- Id is a tiebreaker so the 200-item cap is deterministic when several items
+    -- (possibly from different projects) share a ChangedDate.
+    "ORDER BY [System.ChangedDate] DESC, [System.Id] DESC",
   }, " ")
 
   local source = {}
@@ -112,14 +114,18 @@ function M.new(_name, cfg, deps)
       local items = {}
       for _, work_item in ipairs(decoded.value or {}) do
         local fields = work_item.fields or {}
-        table.insert(items, {
-          id = tostring(work_item.id or fields["System.Id"] or ""),
-          title = fields["System.Title"] or "",
-          type = fields["System.WorkItemType"],
-          state = fields["System.State"],
-          project = fields["System.TeamProject"],
-          url = work_item.url,
-        })
+        local id = tostring(work_item.id or fields["System.Id"] or "")
+        -- Skip a malformed entry with no id rather than emit an empty-id item.
+        if id ~= "" then
+          table.insert(items, {
+            id = id,
+            title = fields["System.Title"] or "",
+            type = fields["System.WorkItemType"],
+            state = fields["System.State"],
+            project = fields["System.TeamProject"],
+            url = work_item.url,
+          })
+        end
       end
 
       cb(items, nil)
@@ -191,7 +197,7 @@ function M.new(_name, cfg, deps)
         .. "WHERE [System.Title] CONTAINS WORDS '%s' "
         .. "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'"
         .. "%s"
-        .. " ORDER BY [System.ChangedDate] DESC",
+        .. " ORDER BY [System.ChangedDate] DESC, [System.Id] DESC",
       escaped,
       project_filter
     )

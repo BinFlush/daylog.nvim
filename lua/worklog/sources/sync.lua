@@ -95,7 +95,12 @@ function M.sync(name, opts, cb)
         return cb(false, fetch_err)
       end
 
-      M.write_cache(name, items, os.time())
+      -- write_cache already warns on failure; don't also report success when the
+      -- items never reached disk.
+      if not M.write_cache(name, items, os.time()) then
+        return cb(false)
+      end
+
       if not opts.silent then
         notify(string.format("worklog: synced %d items from %s", #items, name))
       end
