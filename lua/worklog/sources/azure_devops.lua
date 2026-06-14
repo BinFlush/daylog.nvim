@@ -129,7 +129,12 @@ function M.new(_name, cfg, deps)
         end
       end
 
-      hydrate(auth, ids, cb)
+      -- Report the full match count so the picker can flag when hydrate's 200-item
+      -- cap truncated the results; fetch's callers simply ignore the extra arg.
+      local total = #ids
+      hydrate(auth, ids, function(items, hydrate_err)
+        cb(items, hydrate_err, total)
+      end)
     end)
   end
 

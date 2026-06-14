@@ -242,4 +242,38 @@ return function(t)
     t.eq(captured.err, "worklog: token missing")
     t.eq(#transport.seen, 0)
   end)
+
+  t.test("search caps hydration at 200 and reports the full match total", function()
+    local refs = {}
+    for i = 1, 250 do
+      refs[i] = { id = i }
+    end
+
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = refs }) }
+      end
+
+      -- Hydrate echoes one item per requested id; the cap means 200 reach here.
+      local value = {}
+      local ids_str = opts.url:match("ids=([%d,]+)") or ""
+      for id in ids_str:gmatch("%d+") do
+        table.insert(value, {
+          id = tonumber(id),
+          fields = { ["System.Title"] = "Item " .. id },
+        })
+      end
+      return { status = 200, body = vim.json.encode({ value = value }) }
+    end)
+
+    local source = new_source(base_cfg(), transport)
+    local result
+    source.search("widespread", function(items, err, total)
+      result = { items = items, err = err, total = total }
+    end)
+
+    t.eq(result.err, nil)
+    t.eq(#result.items, 200)
+    t.eq(result.total, 250)
+  end)
 end

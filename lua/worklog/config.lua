@@ -117,6 +117,7 @@ end
 
 local SOURCE_DEFAULT_TTL = 1800
 local SOURCE_DEFAULT_TEMPLATE = "{id} {title}"
+local SOURCE_DEFAULT_MIN_QUERY = 3
 
 local function normalize_azure_devops(name, entry)
   local function required_string(field)
@@ -209,6 +210,21 @@ local function normalize_source(name, entry)
     result.template = entry.template
   else
     result.template = SOURCE_DEFAULT_TEMPLATE
+  end
+
+  -- Minimum prompt length before a live search hits the network; shorter prompts
+  -- only filter the cached pool. Set to 1 for search-on-first-keystroke.
+  if entry.min_query ~= nil then
+    if
+      type(entry.min_query) ~= "number"
+      or entry.min_query < 1
+      or entry.min_query ~= math.floor(entry.min_query)
+    then
+      error("worklog: source '" .. name .. "'.min_query must be a positive integer")
+    end
+    result.min_query = entry.min_query
+  else
+    result.min_query = SOURCE_DEFAULT_MIN_QUERY
   end
 
   return result

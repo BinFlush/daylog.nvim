@@ -645,6 +645,7 @@ function M.insert_from_source(name)
       require("worklog.telescope").live_pick(source, {
         initial_items = items,
         prompt = "Worklog: " .. name,
+        min_query = sources[name] and sources[name].min_query,
         on_pick = insert_choice,
         on_cancel = function()
           apply_insert_time(time)

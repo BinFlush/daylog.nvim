@@ -37,7 +37,11 @@ happen, but they are called out clearly in this changelog.
   `:WorklogInsert {source}` searches the tracker as you type (debounced), showing
   your cached items at an empty prompt; without Telescope it uses the offline
   `vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
-  project-wide; custom sources opt in via `search(query, cb)`.
+  project-wide; custom sources opt in via `search(query, cb)`. Live search waits
+  until the prompt reaches `min_query` characters (default 3; set to 1 for
+  search-on-first-keystroke) so short prompts only filter the cached set, shows at
+  most 200 matches with a "showing first N of M" notice when truncated, and
+  reports a `worklog:` warning if a search fails.
 - Documented the custom-source contract for third-party integrations
   (`:help worklog-custom-source`) with callback/item shapes and a worked example.
   Inserted activity text is now sanitized centrally, so any source is safe from

@@ -40,4 +40,16 @@ return function(t)
     t.eq(picker.should_query("", nil), false)
     t.eq(picker.should_query("foo", "foo"), false)
   end)
+
+  t.test("should_query honors a minimum query length", function()
+    t.eq(picker.should_query("ab", nil, 3), false)
+    t.eq(picker.should_query("abc", nil, 3), true)
+    t.eq(picker.should_query("abc", "abc", 3), false)
+    t.eq(picker.should_query("", nil, 3), false)
+    t.eq(picker.should_query("a", nil, 1), true)
+    -- A missing or sub-1 minimum clamps to 1: any non-empty, changed prompt.
+    t.eq(picker.should_query("a", nil, nil), true)
+    t.eq(picker.should_query("a", nil, 0), true)
+    t.eq(picker.should_query("", nil, 0), false)
+  end)
 end

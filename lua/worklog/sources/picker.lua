@@ -21,11 +21,18 @@ function M.merge(initial, extra)
   return out
 end
 
--- Whether a prompt change should trigger a fresh server search: non-empty and
--- different from the last query we issued. A picker refresh re-fires the input hook
--- with the same prompt, so the last_query check breaks that loop.
-function M.should_query(prompt, last_query)
-  return prompt ~= "" and prompt ~= last_query
+-- Whether a prompt change should trigger a fresh server search: at least min_len
+-- characters and different from the last query we issued. min_len gates the
+-- network so short, broad prompts only filter the cached pool client-side; it
+-- defaults to 1 and is clamped to >= 1 so an empty prompt never searches. A picker
+-- refresh re-fires the input hook with the same prompt, so the last_query check
+-- breaks that loop.
+function M.should_query(prompt, last_query, min_len)
+  min_len = min_len or 1
+  if min_len < 1 then
+    min_len = 1
+  end
+  return #prompt >= min_len and prompt ~= last_query
 end
 
 return M

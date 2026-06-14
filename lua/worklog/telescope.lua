@@ -46,7 +46,7 @@ function M.live_pick(source, opts)
   -- last_query (a refresh re-fires this with the same prompt -> skip; no loop) and
   -- seq (drop stale responses).
   local function on_input_filter_cb(prompt)
-    if source.search and picker_helpers.should_query(prompt, last_query) then
+    if source.search and picker_helpers.should_query(prompt, last_query, opts.min_query) then
       last_query = prompt
       seq = seq + 1
       local mine = seq
@@ -56,16 +56,33 @@ function M.live_pick(source, opts)
           return
         end
 
-        source.search(prompt, function(items, err)
+        source.search(prompt, function(items, err, total)
           vim.schedule(function()
             if mine ~= seq or not picker then
               return
             end
-            if not err and items then
+            if err then
+              local message = err:match("^worklog:") and err or ("worklog: " .. err)
+              vim.notify(message, vim.log.levels.WARN)
+              return
+            end
+            if items then
               picker:refresh(
                 finder_for(picker_helpers.merge(initial, items)),
                 { reset_prompt = false }
               )
+              -- The source hydrates a bounded slice; if more matched, say so rather
+              -- than silently showing a truncated set.
+              if total and total > #items then
+                vim.notify(
+                  string.format(
+                    "worklog: showing first %d of %d matches; refine your search",
+                    #items,
+                    total
+                  ),
+                  vim.log.levels.INFO
+                )
+              end
             end
           end)
         end)

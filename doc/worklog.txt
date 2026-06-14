@@ -432,8 +432,9 @@ Configure sources in `setup{}`:
         -- optional:
         -- query_id = '<saved query GUID>',   -- run a saved ADO query
         -- query    = '<raw WIQL>',           -- or your own WIQL
-        -- template = '{id} {title}',         -- inserted activity text
-        -- ttl      = 1800,                   -- cache lifetime, seconds
+        -- template  = '{id} {title}',        -- inserted activity text
+        -- ttl       = 1800,                  -- cache lifetime, seconds
+        -- min_query = 3,                     -- chars before live search runs
       },
     },
   })
@@ -452,6 +453,9 @@ Configure sources in `setup{}`:
   current time. The template fills `{id}`, `{title}`, `{type}`, and `{state}`
   from the work item; any other `{name}` placeholder is left unchanged. The
   title is sanitized so it can never form trailing metadata.
+- Live search waits until the prompt is `min_query` characters (default 3);
+  below that only the cached items are filtered, with no request. Set
+  `min_query = 1` to search from the first keystroke.
 
 Picking is offline and instant: it reads a per-source cache at
 `stdpath('cache')/worklog/sources/<name>.json` and filters it locally. The cache
@@ -461,9 +465,12 @@ network.
 
 With Telescope installed and a source that supports search, |:WorklogInsert|
 {source} opens a Telescope picker that searches the tracker live as you type
-(debounced), with your cached items shown at an empty prompt. Without Telescope it
-uses the offline `vim.ui.select` cache picker. The Azure DevOps source searches
-work-item titles across the project.
+(debounced, once the prompt reaches `min_query` characters), with your cached
+items shown at an empty prompt. Without Telescope it uses the offline
+`vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
+across the project and hydrates at most 200 matches; if more match, the picker
+notes "showing first N of M matches" so you can refine. A failed search reports a
+`worklog:` warning instead of silently doing nothing.
 
                                                   *worklog-custom-source*
 You can register your own source (e.g. Jira, GitHub Issues) with:
@@ -489,7 +496,9 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
   source.search(query, cb)   (optional)
       Live search. When present and Telescope is installed, it is called as you
       type in |:WorklogInsert| {source}, with the same cb(items, err) shape as
-      fetch. Omit it to filter only the cached items.
+      fetch. cb may take an optional third argument -- the total number of
+      matches before any local cap -- so the picker can flag a truncated set.
+      Omit search to filter only the cached items.
 
 An `item` is a table: `id` and `title` are required; `type`, `state`, and `url`
 are optional (shown in the default picker line).
