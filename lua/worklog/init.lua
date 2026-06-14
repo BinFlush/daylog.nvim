@@ -11,7 +11,6 @@ local order_worklogs = require("worklog.usecases.order_worklogs")
 local refresh_summaries = require("worklog.usecases.refresh_summaries")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
-local sources_cache = require("worklog.sources.cache")
 local sources_http = require("worklog.sources.http")
 local sources_registry = require("worklog.sources.registry")
 local sources_sync = require("worklog.sources.sync")
@@ -604,7 +603,7 @@ end
 -- vim.ui.select (Telescope/fzf/snacks take over if installed). On pick the
 -- configured "{id} {title}" template is inserted; cancelling falls back to a bare
 -- timestamp, exactly like :WorklogInsert with no argument.
-function M.insert_from_source(name, query)
+function M.insert_from_source(name)
   if guard_current_time("insert") then
     return
   end
@@ -638,15 +637,13 @@ function M.insert_from_source(name, query)
   local has_telescope = pcall(require, "telescope")
 
   sources_sync.ensure_fresh(name, ttl, function(items)
-    local candidates = sources_cache.filter(items, query)
-
     -- With Telescope and a searchable source, type-as-you-search across the whole
     -- tracker (cached items show at an empty prompt). Otherwise the offline cache
     -- via vim.ui.select. Both insert through insert_choice; cancelling leaves a
     -- bare timestamp, like a plain :WorklogInsert.
     if has_telescope and source.search then
       require("worklog.telescope").live_pick(source, {
-        initial_items = candidates,
+        initial_items = items,
         prompt = "Worklog: " .. name,
         on_pick = insert_choice,
         on_cancel = function()
@@ -656,7 +653,7 @@ function M.insert_from_source(name, query)
       return
     end
 
-    vim.ui.select(candidates, {
+    vim.ui.select(items, {
       prompt = "Worklog: pick " .. name .. " item",
       format_item = function(item)
         return source.format_item(item)
@@ -997,23 +994,16 @@ function M.setup(options)
   instantiate_sources()
 
   ensure_user_command("WorklogInsert", function(args)
-    local fargs = args.fargs
-    if #fargs == 0 then
+    local name = args.fargs[1]
+    if not name then
       M.insert_now()
       return
     end
 
-    local name = fargs[1]
-    local query = #fargs > 1 and table.concat({ unpack(fargs, 2) }, " ") or nil
-    M.insert_from_source(name, query)
+    M.insert_from_source(name)
   end, {
-    nargs = "*",
-    complete = function(arglead, cmdline)
-      -- Complete the source name (the first argument) only.
-      local after = cmdline:match("^%s*WorklogInsert%s+(.*)$") or ""
-      if after:match("%S%s") then
-        return {}
-      end
+    nargs = "?",
+    complete = function(arglead)
       return source_complete(arglead)
     end,
   })

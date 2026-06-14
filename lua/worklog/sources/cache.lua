@@ -49,33 +49,4 @@ function M.is_stale(cache, now, ttl)
   return (now - (cache.fetched_at or 0)) >= ttl
 end
 
-local function haystack(item)
-  return string.lower(table.concat({
-    tostring(item.id or ""),
-    item.title or "",
-    item.type or "",
-    item.state or "",
-  }, " "))
-end
-
--- Narrow items by a case-insensitive substring across id/title/type/state. An
--- empty or nil query returns every item -- this only pre-seeds the picker, which
--- does the interactive fuzzy matching itself.
-function M.filter(items, query)
-  if query == nil or query == "" then
-    return items
-  end
-
-  local needle = string.lower(query)
-  local result = {}
-
-  for _, item in ipairs(items) do
-    if string.find(haystack(item), needle, 1, true) then
-      table.insert(result, item)
-    end
-  end
-
-  return result
-end
-
 return M

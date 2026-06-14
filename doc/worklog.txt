@@ -313,8 +313,7 @@ instead opens a picker of that source's work items and inserts the chosen one as
 supports live search, this is a search-as-you-type Telescope picker (see
 |worklog-sources|). Otherwise it is `vim.ui.select`, which Telescope, fzf-lua,
 snacks, or mini.pick take over when installed. Cancelling the picker falls
-back to the plain bare timestamp. An optional further argument pre-seeds the
-picker's filter.
+back to the plain bare timestamp.
 
 When the buffer is a journal file (see |worklog-config|) dated for a day other
 than today, inserting the current time is refused, since stamping "now" into
@@ -494,8 +493,7 @@ An `item` is a table: `id` and `title` are required; `type`, `state`, and `url`
 are optional (shown in the default picker line).
 
 A custom source does its own HTTP, JSON, and token handling. You may reuse the
-built-in helpers `worklog.sources.http` (curl `request(opts, cb)`) and
-`worklog.sources.cache` (`filter(items, query)`).
+built-in `worklog.sources.http` helper (curl `request(opts, cb)`).
 
 Example:
 

@@ -26,18 +26,4 @@ return function(t)
     t.eq(cache.is_stale({ fetched_at = 100 }, 130, 60), false)
     t.eq(cache.is_stale({ fetched_at = 100 }, 160, 60), true)
   end)
-
-  t.test("cache filter matches across fields and returns all on empty", function()
-    local items = {
-      { id = "10", title = "Fix login", type = "Bug", state = "Active" },
-      { id = "20", title = "Update docs", type = "Task", state = "New" },
-    }
-
-    t.eq(cache.filter(items, ""), items)
-    t.eq(cache.filter(items, nil), items)
-    t.eq(cache.filter(items, "LOGIN"), { items[1] })
-    t.eq(cache.filter(items, "20"), { items[2] })
-    t.eq(cache.filter(items, "task"), { items[2] })
-    t.eq(cache.filter(items, "zzz"), {})
-  end)
 end
