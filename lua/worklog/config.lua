@@ -115,6 +115,186 @@ local function normalize_auto_summary(value)
   return value
 end
 
+local SOURCE_DEFAULT_TTL = 1800
+local SOURCE_DEFAULT_TEMPLATE = "{id} {title}"
+local SOURCE_DEFAULT_MIN_QUERY = 3
+-- A generous sanity cap: a single WIQL filters all listed projects, so an
+-- unreasonably long list risks Azure DevOps' query-size limit. Use a saved
+-- query/query_id for larger sets.
+local SOURCE_MAX_PROJECTS = 100
+
+local function normalize_azure_devops(name, entry)
+  local function required_string(field)
+    local value = entry[field]
+    if type(value) ~= "string" or value == "" then
+      error("worklog: source '" .. name .. "'." .. field .. " must be a non-empty string")
+    end
+    return value
+  end
+
+  local result = {
+    organization = required_string("organization"),
+  }
+
+  -- A source targets a single `project` (project-scoped requests) or a `projects`
+  -- list (organization-scoped, filtered to those team projects) -- exactly one.
+  if entry.project ~= nil and entry.projects ~= nil then
+    error("worklog: source '" .. name .. "' must not set both project and projects")
+  elseif entry.projects ~= nil then
+    if type(entry.projects) ~= "table" or #entry.projects == 0 then
+      error("worklog: source '" .. name .. "'.projects must be a non-empty list of strings")
+    end
+    if #entry.projects > SOURCE_MAX_PROJECTS then
+      error(
+        "worklog: source '"
+          .. name
+          .. "' has too many projects (max "
+          .. SOURCE_MAX_PROJECTS
+          .. "); use a saved query or raw WIQL instead"
+      )
+    end
+    local projects = {}
+    for _, project in ipairs(entry.projects) do
+      if type(project) ~= "string" or project == "" then
+        error("worklog: source '" .. name .. "'.projects must be a non-empty list of strings")
+      end
+      projects[#projects + 1] = project
+    end
+    result.projects = projects
+  elseif entry.project ~= nil then
+    result.project = required_string("project")
+  else
+    error("worklog: source '" .. name .. "' must set 'project' or 'projects'")
+  end
+
+  -- The PAT is a function so it is resolved lazily at fetch time and never stored
+  -- as plaintext in setup{} or a config dump. It is never called during setup.
+  if type(entry.token) ~= "function" then
+    error("worklog: source '" .. name .. "'.token must be a function")
+  end
+  result.token = entry.token
+
+  if entry.query ~= nil and entry.query_id ~= nil then
+    error("worklog: source '" .. name .. "' must not set both query and query_id")
+  end
+
+  if entry.query ~= nil then
+    if type(entry.query) ~= "string" or entry.query == "" then
+      error("worklog: source '" .. name .. "'.query must be a non-empty string")
+    end
+    result.query = entry.query
+  end
+
+  if entry.query_id ~= nil then
+    if type(entry.query_id) ~= "string" or entry.query_id == "" then
+      error("worklog: source '" .. name .. "'.query_id must be a non-empty string")
+    end
+    result.query_id = entry.query_id
+  end
+
+  -- A custom query/query_id carries its own scope (and a saved query is itself
+  -- project-scoped), so it can't be combined with a cross-project `projects` list.
+  if result.projects ~= nil and (result.query ~= nil or result.query_id ~= nil) then
+    error("worklog: source '" .. name .. "' cannot combine projects with query or query_id")
+  end
+
+  if entry.api_version ~= nil then
+    if type(entry.api_version) ~= "string" or entry.api_version == "" then
+      error("worklog: source '" .. name .. "'.api_version must be a non-empty string")
+    end
+    result.api_version = entry.api_version
+  else
+    result.api_version = "7.0"
+  end
+
+  if entry.format_item ~= nil then
+    if type(entry.format_item) ~= "function" then
+      error("worklog: source '" .. name .. "'.format_item must be a function")
+    end
+    result.format_item = entry.format_item
+  end
+
+  return result
+end
+
+local SOURCE_TYPES = {
+  azure_devops = normalize_azure_devops,
+}
+
+local function normalize_source(name, entry)
+  if type(entry) ~= "table" then
+    error("worklog: source '" .. name .. "' must be a table")
+  end
+
+  local normalize_type = type(entry.type) == "string" and SOURCE_TYPES[entry.type]
+  if not normalize_type then
+    error("worklog: source '" .. name .. "' has unknown type")
+  end
+
+  local result = normalize_type(name, entry)
+  result.type = entry.type
+
+  if entry.ttl ~= nil then
+    if type(entry.ttl) ~= "number" or entry.ttl <= 0 or entry.ttl ~= math.floor(entry.ttl) then
+      error("worklog: source '" .. name .. "'.ttl must be a positive integer")
+    end
+    result.ttl = entry.ttl
+  else
+    result.ttl = SOURCE_DEFAULT_TTL
+  end
+
+  if entry.template ~= nil then
+    if type(entry.template) ~= "string" or entry.template == "" then
+      error("worklog: source '" .. name .. "'.template must be a non-empty string")
+    end
+    result.template = entry.template
+  else
+    result.template = SOURCE_DEFAULT_TEMPLATE
+  end
+
+  -- Minimum prompt length before a live search hits the network; shorter prompts
+  -- only filter the cached pool. Set to 1 for search-on-first-keystroke.
+  if entry.min_query ~= nil then
+    if
+      type(entry.min_query) ~= "number"
+      or entry.min_query < 1
+      or entry.min_query ~= math.floor(entry.min_query)
+    then
+      error("worklog: source '" .. name .. "'.min_query must be a positive integer")
+    end
+    result.min_query = entry.min_query
+  else
+    result.min_query = SOURCE_DEFAULT_MIN_QUERY
+  end
+
+  return result
+end
+
+-- Optional external work-item sources, keyed by a name used as a command
+-- argument and cache filename. Each entry declares a built-in `type` plus its
+-- per-type fields; omitted entirely when no sources are configured.
+local function normalize_sources(sources)
+  if sources == nil then
+    return nil
+  end
+
+  if type(sources) ~= "table" then
+    error("worklog: setup sources must be a table")
+  end
+
+  local result = {}
+
+  for name, entry in pairs(sources) do
+    if type(name) ~= "string" or name:match("^[%w_%-]+$") == nil then
+      error("worklog: source names must use only letters, digits, underscores, or hyphens")
+    end
+
+    result[name] = normalize_source(name, entry)
+  end
+
+  return result
+end
+
 local function normalize_config(options)
   if options == nil then
     return {
@@ -135,6 +315,11 @@ local function normalize_config(options)
   local journal = normalize_journal(options.journal)
   if journal ~= nil then
     result.journal = journal
+  end
+
+  local sources = normalize_sources(options.sources)
+  if sources ~= nil then
+    result.sources = sources
   end
 
   return result

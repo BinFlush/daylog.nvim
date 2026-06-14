@@ -1,0 +1,40 @@
+return function(t)
+  local http = require("worklog.sources.http")
+
+  t.test("parse_response splits the trailing status line from the body", function()
+    local resp, err = http.parse_response(0, { '{"ok":true}', "200" }, {})
+    t.eq(err, nil)
+    t.eq(resp.status, 200)
+    t.eq(resp.body, '{"ok":true}')
+  end)
+
+  t.test("parse_response keeps newlines embedded in the body", function()
+    local resp = http.parse_response(0, { "line1", "line2", "204" }, {})
+    t.eq(resp.status, 204)
+    t.eq(resp.body, "line1\nline2")
+  end)
+
+  t.test("parse_response handles an empty body", function()
+    local resp = http.parse_response(0, { "", "200" }, {})
+    t.eq(resp.status, 200)
+    t.eq(resp.body, "")
+  end)
+
+  t.test("parse_response surfaces stderr on a non-zero exit", function()
+    local resp, err = http.parse_response(7, {}, { "curl: (7) Failed to connect" })
+    t.eq(resp, nil)
+    t.eq(err, "curl: (7) Failed to connect")
+  end)
+
+  t.test("parse_response falls back to the exit code when stderr is empty", function()
+    local resp, err = http.parse_response(28, {}, {})
+    t.eq(resp, nil)
+    t.eq(err, "curl exited with code 28")
+  end)
+
+  t.test("parse_response errors when there is no numeric status line", function()
+    local resp, err = http.parse_response(0, { "justbody" }, {})
+    t.eq(resp, nil)
+    t.eq(err, "curl returned no HTTP status")
+  end)
+end

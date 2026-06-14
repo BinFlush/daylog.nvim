@@ -1,14 +1,12 @@
 # worklog.nvim
 
-A Neovim plugin for structured plain-text worklogs.
+Keep a plain-text log of your day in Neovim, and let it handle the timesheet math.
 
-`worklog.nvim` helps you keep a plain-text log of what you did during the day,
-then derive clean summaries for reporting.
+You note the time and what you're doing. worklog reads the gap between each
+timestamp as a duration and keeps a tidy summary underneath — always current, and
+ready to copy into whatever system you report to.
 
-## Basic example
-
-Write timestamped entries as the day happens. Each entry runs until the next
-timestamp; the final `done` line simply closes the last interval.
+## A quick look
 
 ```text
 --- worklog ---
@@ -20,7 +18,7 @@ timestamp; the final `done` line simply closes the last interval.
 12:02 done
 ```
 
-A summary is automatically kept underneath the worklog:
+worklog keeps a summary right below it, refreshed as you type:
 
 ```text
 --- summary q=15 d=dec ---
@@ -32,14 +30,13 @@ A summary is automatically kept underneath the worklog:
 3.75h (+7m) workday
 ```
 
-Identical work items are summed automatically. Durations round to 15-minute
-buckets by default (set `q=1` in the header for exact figures). The
-`(+Nm)` beside a row is the rounding difference from the exact time: `+` when
-rounded down, `-` when rounded up, `(+0m)` when exact. Here the exact day is
-3h52m, so the rounded 3.75h total (equalling 3h45m) shows `(+7m)`.
+Repeated tasks are added together, and durations round to tidy buckets (15
+minutes by default, or `q=1` for exact figures). The small `(+Nm)` on each row is
+the rounding difference. The full format lives in `:help worklog.nvim`.
 
-## Basic setup
-**Install and point it at a journal folder.** With `lazy.nvim`:
+## Install
+
+With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
@@ -47,29 +44,36 @@ rounded down, `-` when rounded up, `(+0m)` when exact. Here the exact day is
   config = function()
     require("worklog").setup({
       journal = { root = "~/worklog" }, -- where your dated files live
-      auto_summary = "change",            -- keep the summary up to date for you
     })
   end,
 }
 ```
 
-Restart Neovim and run `:Lazy sync`. See [Install](#install) for every option
-and suggested keymaps.
+Restart Neovim and run `:Lazy sync`. Everything is optional — see
+[Configuration](#configuration) or `:help worklog-config`. Needs Neovim 0.8+ (and
+`curl`, only if you use external [sources](#sources)).
+
+worklog sets no keymaps; map the commands you use, for example:
+
+```lua
+vim.keymap.set("n", "<leader>wt", "<cmd>WorklogToday<cr>", { desc = "Worklog: today" })
+vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>", { desc = "Worklog: insert time" })
+vim.keymap.set("n", "<leader>ww", "<cmd>WorklogWeek<cr>", { desc = "Worklog: week report" })
+```
 
 ## A typical day
 
-**1. Start the day `:WorklogToday`.** Opens (or creates) today's dated file.
-On a fresh day it adds the header, stamps the current time, and drops you into
-insert mode. Type what you are starting on:
+**Start the day — `:WorklogToday`.** Opens (or creates) today's file, stamps the
+time, and drops you into insert mode. Type what you're starting on:
 
 ```text
 --- worklog ---
 09:00 planning
 ```
 
-**2. Switch tasks `:WorklogInsert`.** When you move on to something else, run
-it to stamp the current time on a new line, then type the new task. Every line
-means "from this time, I was doing this":
+**Switch tasks — `:WorklogInsert`.** Stamps the current time on a new line for the
+next task. You never type durations; the gap between two lines is how long the
+first one took.
 
 ```text
 --- worklog ---
@@ -77,81 +81,29 @@ means "from this time, I was doing this":
 10:30 fixing the login bug
 ```
 
-You never type durations. The gap between two lines is how long the first task
-took.
+**Repeat something — `:WorklogRepeat`.** Put the cursor on an earlier entry and run
+it to copy that activity to now — handy for recurring work like a standup or a
+client call.
 
-**3. Pick up a task you already have `:WorklogRepeat`.** Put the cursor on an
-earlier entry and run it. It copies that activity to the current time, so
-recurring work (a standup, email, a client) is one keystroke instead of
-retyping:
+**Stop the clock.** The last timestamp just closes the task before it, so end the
+day with `:WorklogInsert` and type `done`.
 
-```text
---- worklog ---
-09:00 planning              <- at 11:15 you run :WorklogRepeat while cursor on this line
-10:30 fixing the login bug
-11:15 planning              <- makes this appear
-```
+**Mark what you've reported — `:WorklogLog`.** Once you've entered a block of time
+into another system, put the cursor on its summary row and run it. worklog marks
+the underlying entries with `!L` so you can see what's already logged; run it again
+to unmark.
 
-**4. Stop the clock.** The last timestamp only closes the task before it, so end
-the day with `:WorklogInsert` and type `done` (or leave it blank/anything):
+**Review — `:WorklogWeek`.** A read-only report of the whole week (`:WorklogDays 7`
+for the last seven days). It stays live as you edit the days it covers.
 
-```text
---- worklog ---
-09:00 planning
-10:30 fixing the login bug
-11:15 planning
-12:03 done
-```
+In short: open today, `Insert` / `Repeat` as you work, watch the live summary,
+`Log` rows as you report them, and `Week` to review.
 
-**5. See your totals.** The summary lives at the bottom of the worklog and
-updates as you type (`auto_summary` defaults to `change`), so totals are always
-there:
+## Tags and locations
 
-```text
---- summary q=15 d=dec ---
-2.25h (+3m) planning
-0.75h (+0m) fixing the login bug
+Add a reporting tag (`#tag`), a location (`@location`), or a per-block rounding
+bucket (`q=`) in the header or on any entry:
 
---- totals ---
-3.00h (+3m) workday
-```
-
-**6. Mark what you have logged elsewhere `:WorklogLog`.** Once you have entered
-a chunk of time into some external system, put the cursor on that summary row and
-run it. It marks the underlying time with `!L` so you can see what is already
-logged and not enter it twice. Run it again to unmark.
-
-```text
---- worklog ---
-09:00 planning !L
-10:30 fixing the login bug
-11:15 planning !L
-12:03 done
-
---- summary q=15 d=dec ---
-2.25h (+3m) planning !L             <- :WorklogLog while cursor here marks
-0.75h (+0m) fixing the login bug        the above entries and creates the
-                                        --- logged --- block below
---- logged ---
-2.25h (+3m) logged
-0.75h (+0m) unlogged
-
---- totals ---
-3.00h (+3m) workday
-```
-
-**7. Review the week `:WorklogWeek`.** Opens a read-only report totalling every
-day this week. `:WorklogDays 7` does the last seven days; add `!` (e.g.
-`:WorklogWeek!`) for just the grand totals. With `auto_summary` on it stays live,
-rebuilding as you edit the days it covers (including unsaved buffers).
-
-In short: **open today, `Insert` / `Repeat` as you work, glance at the live
-summary, `Log` rows as you report them, and `Week` to review.**
-
-## Tags, locations, and reporting metadata
-
-You can add reporting tags, locations, and a custom quantization bucket.
-Example where each task is rounded to nearest half hour:
 ```text
 --- worklog #ClientA @office q=30 ---
 08:00 planning
@@ -161,213 +113,101 @@ Example where each task is rounded to nearest half hour:
 17:00 done
 ```
 
-`#tag` and `@location` are sticky. When an entry omits one of them, it inherits
-the previous value:
-
-```text
-08:00-10:00 planning          #ClientA   @office
-10:00-13:00 implementation    #ClientA   @home
-13:00-14:00 internal meeting  #internal  @home
-14:00-17:00 client followup   #ClientA   @client
-```
-
-Useful syntax:
-
-```text
-#ClientA       reporting tag
-@office        work location
-#ooo           out of office; counts as activity, not workday
-!L             interval starting here was logged externally
-#-             clear current tag (only useful if untagged items are explicitly needed)
-@-             clear current location (only useful if unlocated items are explicitly needed)
-q=30    round summaries to 30-minute buckets
-d=hm  render summary durations as hours:minutes rather than decimal notation
-```
+Tags and locations are sticky — an entry that omits one inherits the previous
+value. The rest of the grammar (clearing with `#-` / `@-`, out-of-office `#ooo`,
+the `!L` marker, the `d=hm` duration format) is in `:help worklog-format`.
 
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| `:WorklogToday [offset]` | Open today's journal, creating it on first use; a nonzero offset only navigates to another day (never creates it) |
-| `:WorklogNextDay [count]` | Step forward `count` days (default 1) relative to the open journal file, falling back to today |
-| `:WorklogPrevDay [count]` | Step backward `count` days (default 1) relative to the open journal file, falling back to today |
-| `:WorklogDays[!] {count}` | Open the last N journal days report; `!` shows only the aggregate range summary |
-| `:WorklogWeek[!]` | Open this week's journal report; `!` shows only the aggregate weekly summary |
-| `:WorklogInsert` | Insert current time in order and enter insert mode |
-| `:WorklogRepeat` | Repeat the activity under the cursor at the current time; on another day's file, bring it into today instead |
-| `:WorklogCopy` | Append a normalized editable copy, with its own summary |
-| `:WorklogOrder` | Rewrite worklog blocks in chronological order |
-| `:WorklogLog` | Toggle the logged state of the main summary row under the cursor (add or remove `!L` on the contributing source entries) |
-| `:WorklogRefresh` | Rebuild every summary to match its entries, creating one for any worklog that lacks it |
+| `:WorklogToday [offset]` | Open today's journal (creating it on first use); a nonzero offset only navigates |
+| `:WorklogNextDay` / `:WorklogPrevDay [count]` | Step between journal days |
+| `:WorklogInsert [source]` | Stamp the current time; with a source name, pick a work item to insert (see [Sources](#sources)) |
+| `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
+| `:WorklogWeek[!]` / `:WorklogDays[!] {n}` | Open a week / last-N-days report (`!` for totals only) |
+| `:WorklogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
+| `:WorklogCopy` | Append a tidy, editable copy of the worklog |
+| `:WorklogOrder` | Rewrite the worklog in chronological order |
+| `:WorklogRefresh` | Rebuild every summary to match its entries |
+| `:WorklogSync [source]` | Refresh a source's cached work items |
 
-The active worklog is always the latest `--- worklog ... ---` block in the file.
+The exact rules for each are in `:help worklog-commands`.
 
-## Live summaries
+## Reports and live summaries
 
-Worklogs created by `:WorklogToday` and `:WorklogCopy` carry a summary from the
-start. By default (`auto_summary = "change"`) it stays live as you type. The same
-setting keeps open `:WorklogWeek` / `:WorklogDays` reports current, rebuilding in
-place as the days they cover change (including unsaved edits in open buffers).
+`:WorklogToday` and `:WorklogCopy` start a worklog with its summary attached, and
+by default it stays live as you type (`auto_summary = "change"`). The same setting
+keeps open `:WorklogWeek` / `:WorklogDays` reports current. Prefer to refresh by
+hand? Set `auto_summary = "off"` and use `:WorklogRefresh`. More in
+`:help worklog-summaries`.
 
-The summary header echoes the worklog's `q=`/`d=` as a read-only banner
-(`--- summary q=15 d=dec ---`); it is regenerated on refresh, so change the
-quantization or duration format on the worklog header, not the summary.
+## Sources
 
-| `auto_summary` | When summaries refresh |
-| --- | --- |
-| `"change"` (default) | Shortly after edits settle (debounced) |
-| `"idle"` | When you pause or leave insert mode |
-| `"save"` | On write (`:w`) |
-| `"off"` (or `false`) | Never automatically; use `:WorklogRefresh` |
-
-`:WorklogRefresh` rebuilds every summary in the buffer by hand, and creates one for
-any valid worklog that has none — so a summary you delete comes back. It never
-removes a summary. While a worklog is invalid (for example its timestamps are out of
-order) it is left alone rather than churned, and the problem is reported as a buffer
-diagnostic that clears once you fix it.
-
-## Limitations and syntax gotchas
-
-- The final timestamp closes the previous interval and has no duration of its own.
-- Entries use `HH:MM`; ranges, dates, and seconds are not supported.
-- Keep times ordered before summarizing; use `:WorklogOrder` to rewrite blocks.
-- `#tag` and `@location` are sticky until replaced or cleared with `#-` and `@-`.
-- Only trailing metadata tokens are parsed as metadata; multiple trailing tags or locations are invalid.
-- `#ooo` counts as activity but is excluded from workday totals.
-- Main summary rows do not split by location; locations are reported separately.
-- Each worklog has exactly one summary, always quantized to its `q=<minutes>` bucket (`q=1` for exact). It is regenerable derived output and owns the tail of its worklog, so keep notes on entries, not in the summary.
-
-## Requirements
-
-- Neovim 0.8.0 or newer
-
-## Install
-
-Example with `lazy.nvim`:
+Pull work items straight from a tracker into an entry. **Azure DevOps** is built
+in: configure a named source, then `:WorklogInsert <name>` opens a picker and
+inserts the chosen item as `{id} {title}`.
 
 ```lua
-return {
-  "BinFlush/worklog.nvim",
-  config = function()
-    require("worklog").setup({
-      defaults = {
-        tag = "ClientA",
-        location = "office",
-        quantize_minutes = 15,
-        duration_format = "dec",
-      },
-      journal = {
-        root = "~/timereg",
-        directory = "%Y/%V",
-      },
-      auto_summary = "change",
-    })
-  end,
-}
+require("worklog").setup({
+  sources = {
+    ADO = {
+      type = "azure_devops",
+      organization = "contoso",
+      project = "Platform",
+      token = function() -- returns your PAT (see the setup guide below)
+        return vim.trim(vim.fn.system({ "pass", "show", "worklog/ado-pat" }))
+      end,
+    },
+  },
+})
 ```
 
-Every option is optional. The default fields are `tag`, `location`,
-`quantize_minutes`, and `duration_format`. `auto_summary` (`"change"` by default,
-or `"idle"` / `"save"` / `"off"`) controls when summaries refresh automatically,
-see [Live summaries](#live-summaries).
+Picking is offline and instant — it reads a local cache, and only `:WorklogSync`
+touches the network. With Telescope installed you can search the whole tracker as
+you type; otherwise the picker is `vim.ui.select`, so fzf-lua / snacks / mini.pick
+work too.
 
-Journal settings are optional too. `journal.root` is the base directory for
-`:WorklogToday`; `journal.directory` is an optional `strftime` template under it;
-the filename is always `YYYY-MM-DD.wkl`. With the example above, `:WorklogToday`
-opens `~/timereg/2026/21/2026-05-18.wkl`. Use `%G/%V` instead of `%Y/%V` if you
-want ISO week-based trees that stay correct around new-year boundaries.
+- **Set up the token:** [docs/azure-devops.md](docs/azure-devops.md) covers creating
+  the PAT, where to keep it, and troubleshooting.
+- **All the options** — several projects at once, saved queries, custom insert
+  templates: `:help worklog-sources`.
+- **Your own tracker** (Jira, GitHub Issues, …): register a small table, see
+  `:help worklog-custom-source`.
 
-Drop this in a file such as `~/.config/nvim/lua/plugins/worklog.lua`, restart
-Neovim, and run `:Lazy sync`.
-
-`worklog.nvim` sets no keymaps by default. Map the commands however you like, for
-example:
+## Configuration
 
 ```lua
-vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>", { desc = "Worklog insert time" })
-vim.keymap.set("n", "<leader>wt", function()
-  vim.cmd("WorklogToday " .. vim.v.count)
-end, { desc = "Worklog open today / +N days" })
-vim.keymap.set("n", "<leader>wT", function()
-  vim.cmd("WorklogToday -" .. vim.v.count1)
-end, { desc = "Worklog open -N days" })
-vim.keymap.set("n", "<leader>wd", "<cmd>WorklogDays 7<cr>", { desc = "Worklog last 7 days" })
-vim.keymap.set("n", "<leader>wk", "<cmd>WorklogWeek<cr>", { desc = "Worklog week report" })
-vim.keymap.set("n", "<leader>wr", "<cmd>WorklogRepeat<cr>", { desc = "Worklog repeat activity" })
-vim.keymap.set("n", "<leader>ww", "<cmd>WorklogCopy<cr>", { desc = "Worklog copy block" })
-vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>", { desc = "Worklog order blocks" })
-vim.keymap.set("n", "<leader>wl", "<cmd>WorklogLog<cr>", { desc = "Worklog mark summary row as logged" })
-vim.keymap.set("n", "<leader>wR", "<cmd>WorklogRefresh<cr>", { desc = "Worklog refresh summaries" })
-vim.keymap.set("n", "]w", function()
-  vim.cmd("WorklogNextDay " .. vim.v.count1)
-end, { desc = "Worklog next day" })
-vim.keymap.set("n", "[w", function()
-  vim.cmd("WorklogPrevDay " .. vim.v.count1)
-end, { desc = "Worklog previous day" })
+require("worklog").setup({
+  defaults = { tag = "ClientA", location = "office", quantize_minutes = 15, duration_format = "dec" },
+  journal = { root = "~/timereg", directory = "%Y/%V" }, -- directory is an optional strftime template
+  auto_summary = "change", -- change | idle | save | off
+})
 ```
 
-With these maps a count picks the day: `3<leader>wt` opens three days ahead and
-`2<leader>wT` two days back (both relative to today), while `3]w` / `3[w` step
-three days forward or back relative to the file you are viewing (falling back to
-today off a non-journal buffer).
+Everything is optional. `defaults` seed each new day's header; `journal.root` is
+where `:WorklogToday` and the reports look (files are always `YYYY-MM-DD.wkl`). Full
+reference: `:help worklog-config`.
 
 ## Documentation
 
-- `:help worklog.nvim` for full format and command details.
-- `:checkhealth worklog` for integration diagnostics.
-- `docs/architecture.md` for internal design notes.
+- `:help worklog.nvim` — format, commands, and every option.
+- `:checkhealth worklog` — verify your setup.
+- [docs/azure-devops.md](docs/azure-devops.md) — set up the Azure DevOps source.
+- [docs/architecture.md](docs/architecture.md) — internal design notes.
 
-## Versioning and compatibility
+## Compatibility
 
-`main` is the active development branch. Tagged releases are the compatibility
-points for users who need reproducible `.wkl` parsing, summaries, and
-rendering.
+`worklog.nvim` is pre-1.0, so syntax or behavior may still change — anything
+breaking is called out in [CHANGELOG.md](CHANGELOG.md). The project keeps existing
+`.wkl` files working where it can; pin a tagged release if you need that
+guaranteed.
 
-- `worklog.nvim` is pre-1.0, so breaking syntax or semantic changes may still
-  happen, but they are called out clearly in `CHANGELOG.md`.
-- The project aims to preserve existing valid `.wkl` files where practical.
-- Unknown or unsupported header options are reported as diagnostics instead of
-  being silently ignored.
-- New trailing entry syntax such as `!L` may be treated as plain text or
-  rejected by older versions.
-- Patch releases may change derived results when they fix miscomputed
-  behavior; those changes are documented.
-- Compatibility applies to worklog blocks and their semantics. Generated
-  summary text is derived output, not canonical source data.
+## Contributing
 
-## Development
-
-Set up local tooling:
-
-```sh
-just install
-```
-
-This configures `git` to use the repository's `.githooks/` directory.
-
-Local checks are split into `just static-check` and `just nvim-check`. Run
-`just check` for the full local gate.
-
-For available convenience recipes, run `just --list` or inspect `justfile`.
-
-## Releasing
-
-Maintainers cut a release with one command:
-
-```sh
-just release 0.6.0
-```
-
-It checks the tree is clean and on `main`, renames the `## Unreleased` section of
-`CHANGELOG.md` to the version and today's date, commits as `Release 0.6.0`, and tags
-`v0.6.0`. Then:
-
-```sh
-git push origin main --follow-tags
-```
-
-publishes a GitHub Release whose notes are that changelog section, via
-`.github/workflows/release.yml` (triggered by the `v*` tag).
+`just install` sets up the git hooks, and `just check` runs the full local gate
+(format, lint, tests, health). See `:help worklog-development` or the `justfile`
+for the rest.
 
 ## License
 

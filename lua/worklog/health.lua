@@ -1,3 +1,7 @@
+local config = require("worklog.config")
+local sources_sync = require("worklog.sources.sync")
+local sources_registry = require("worklog.sources.registry")
+
 local M = {}
 
 local function start(name)
@@ -93,6 +97,7 @@ function M.check()
   check_command("WorklogOrder")
   check_command("WorklogLog")
   check_command("WorklogRefresh")
+  check_command("WorklogSync")
 
   start("Filetype")
   if vim.filetype.match({ filename = "example.wkl" }) == "worklog" then
@@ -110,6 +115,49 @@ function M.check()
     warn(":help worklog.nvim is unavailable", {
       "Run :helptags doc or just helptags.",
     })
+  end
+
+  -- Report every registered source -- built-in (declared in config) and custom
+  -- (registered directly) -- so the section reflects what actually works. Reads
+  -- config.get() only to label the declared type; never calls setup.
+  local config_sources = config.get().sources or {}
+  local names = sources_registry.names()
+  if #names > 0 then
+    start("Sources")
+
+    if vim.fn.executable("curl") == 1 then
+      ok("curl is available")
+    else
+      report_error("curl is not on PATH", {
+        "Install curl; worklog source sync uses curl for HTTP.",
+      })
+    end
+
+    for _, name in ipairs(names) do
+      local declared = config_sources[name]
+      ok(
+        string.format(
+          "source %s (%s) is configured",
+          name,
+          declared and declared.type or "registered"
+        )
+      )
+
+      if vim.fn.filereadable(sources_sync.cache_path(name)) == 1 then
+        local cache = sources_sync.read_cache(name)
+        if cache then
+          ok(string.format("source %s cache is readable (%d items)", name, #(cache.items or {})))
+        else
+          warn(string.format("source %s cache is unreadable or corrupt", name), {
+            "Run :WorklogSync " .. name .. " to rebuild it.",
+          })
+        end
+      else
+        warn(string.format("source %s has no cache yet", name), {
+          "Run :WorklogSync " .. name .. " or pick from it once.",
+        })
+      end
+    end
   end
 end
 

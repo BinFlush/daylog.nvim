@@ -22,6 +22,39 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- External work-item sources. Configure `sources` in `setup{}` (Azure DevOps is
+  built in) and run `:WorklogInsert {source}` to pick a work item from a fuzzy
+  picker and insert it as `{id} {title}` at the current time. The picker uses
+  `vim.ui.select`, so Telescope / fzf-lua / snacks / mini.pick take over its UI
+  when installed. Picking reads a per-source local cache, so it is instant and
+  works offline; `:WorklogSync [source]` and a periodic TTL refresh update the
+  cache. Syncing needs the `curl` executable. The Personal Access Token is a
+  function resolved only at sync time and never written to the cache. Plain
+  `:WorklogInsert` (no argument) is unchanged.
+- Live work-item search. With Telescope installed and a source that supports it,
+  `:WorklogInsert {source}` searches the tracker as you type (debounced), showing
+  your cached items at an empty prompt; without Telescope it uses the offline
+  `vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
+  project-wide; custom sources opt in via `search(query, cb)`. Live search waits
+  until the prompt reaches `min_query` characters (default 3; set to 1 for
+  search-on-first-keystroke) so short prompts only filter the cached set, shows at
+  most 200 matches with a "showing first N of M" notice when truncated, and
+  reports a `worklog:` warning if a search fails.
+- Documented the custom-source contract for third-party integrations
+  (`:help worklog-custom-source`) with callback/item shapes and a worked example.
+  Inserted activity text is now sanitized centrally, so any source is safe from
+  trailing-metadata injection without handling it itself, and
+  `require("worklog.sources.registry").register` validates a source up front.
+- Azure DevOps setup guide (`docs/azure-devops.md`), linked from the README:
+  creating a Work Items (Read) PAT, storing it (`pass` / env var / `0600` file),
+  wiring `token`, and troubleshooting.
+- Azure DevOps `projects` option: set a list of projects instead of a single
+  `project` to search a chosen subset across the organization at once. Results
+  are labelled by project and `{project}` is available in the insert template.
+  Mutually exclusive with `project`, `query`, and `query_id`.
+
 ### Changed
 
 - The day-navigation commands (`:WorklogPrevDay`, `:WorklogNextDay`, and

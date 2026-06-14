@@ -77,7 +77,8 @@ projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
 summary_block.lua -> locate a worklog's single generated summary region
 render.lua        -> output rendering
-usecases/         -> pure command operations
+usecases/         -> pure command operations (incl. insert_entry)
+sources/          -> external work-item sources (pure providers + shell IO/UI)
 init.lua          -> Neovim shell
 ```
 
@@ -253,6 +254,63 @@ lines)`. Indexes are zero-based to match the Neovim buffer API.
 reads buffer lines, cursor row, and current time, expands configured journal
 paths before calling pure journal helpers, calls usecases, applies edit scripts,
 and shows warnings. It contains no worklog semantics.
+
+The shell is a thin *layer*, not a single file. Alongside `init.lua`, the only
+code that touches Neovim, IO, or UI is `health.lua` (the `:checkhealth` probe) and
+the sources shell modules (`sources/http`, `sources/sync`, `sources/telescope`).
+The semantic core -- and even the source providers -- stay pure; see below.
+
+## Sources
+
+External work-item sources (e.g. Azure DevOps) let `:WorklogInsert <source>` pick a
+tracker item and insert it, while keeping the same pure-core discipline: the
+provider logic is pure and only IO/UI is shell.
+
+A source is a plain table implementing a small contract:
+
+```text
+fetch(cb)            -- async: cb(items|nil, err); the default item set
+format_item(item)    -- item -> picker display line
+to_entry_text(item)  -- item -> inserted activity text
+search(query, cb)    -- optional: async live search (cb(items|nil, err))
+```
+
+An item is `{ id, title, type?, state?, url? }` (`id`/`title` required). Built-in
+source types are declared in `setup{ sources = { ... } }`; custom sources register
+directly via `require("worklog.sources.registry").register(name, source)`, which
+validates the contract.
+
+Layering:
+
+```text
+sources/registry.lua      pure   contract, name registry, register/validate
+sources/cache.lua         pure   cache envelope codec + TTL staleness
+sources/azure_devops.lua  pure   the ADO provider (pure via injected deps)
+sources/http.lua          shell  the only networked file: curl via jobstart
+sources/sync.lua          shell  on-disk cache + lazy-TTL / :WorklogSync refresh
+sources/telescope.lua     shell  optional live type-as-you-search picker
+```
+
+The ADO provider stays pure through **dependency injection**: `init.lua` hands it
+`{ transport, json, token_resolver }`, so all HTTP/JSON/secret access goes through
+injected deps and the provider is unit-tested offline with a fake transport.
+
+Pick-time is offline and synchronous: read the per-source JSON cache
+(`stdpath('cache')/worklog/sources/<name>.json`) and open the picker. The cache is
+refreshed only by the occasional sync (in the background when stale, or via
+`:WorklogSync`), never in the hot path. The PAT is resolved lazily by
+`token_resolver` and never written to the cache.
+
+Insertion still flows through the pure `usecases/insert_entry` + an edit script, and
+`insert_entry` runs the text through `entry.sanitize_text` so a work-item title can
+never inject trailing `#tag` / `@location` / `!L` metadata -- no source has to
+remember to do it.
+
+Telescope is optional. `:WorklogInsert <source>` uses `vim.ui.select` (which any
+ui-select provider upgrades) by default; when Telescope is installed and the source
+implements `search`, it opens the live picker that searches the whole tracker as you
+type. Live whole-project search is the only Telescope-exclusive capability --
+everything else is picker-agnostic.
 
 ## Error philosophy
 

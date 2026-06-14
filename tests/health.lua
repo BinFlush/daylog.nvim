@@ -143,4 +143,85 @@ return function(t)
 
     worklog.setup()
   end)
+
+  t.test("health reports configured sources and a missing cache", function()
+    worklog.setup({
+      sources = {
+        ADO = {
+          type = "azure_devops",
+          organization = "contoso",
+          project = "Platform",
+          token = function()
+            return "pat"
+          end,
+        },
+      },
+    })
+
+    -- Point the cache dir at a fresh temp path so the "no cache yet" branch is
+    -- deterministic regardless of any real cache on the machine.
+    local old_stdpath = vim.fn.stdpath
+    vim.fn.stdpath = function(what)
+      if what == "cache" then
+        return vim.fn.tempname()
+      end
+      return old_stdpath(what)
+    end
+
+    local reports = capture_reports(modern_methods, function()
+      health.check()
+    end)
+
+    vim.fn.stdpath = old_stdpath
+
+    t.ok(includes(reports.start, "Sources"))
+    t.ok(includes(reports.ok, "source ADO (azure_devops) is configured"))
+    t.ok(includes(reports.ok, ":WorklogSync is available"))
+
+    local warned = false
+    for _, item in ipairs(reports.warn) do
+      if item.message == "source ADO has no cache yet" then
+        warned = true
+      end
+    end
+    t.ok(warned, "expected a 'no cache yet' warning for ADO")
+
+    worklog.setup()
+  end)
+
+  t.test("health reports a registered custom source", function()
+    local registry = require("worklog.sources.registry")
+    worklog.setup() -- clears the registry; no config sources declared
+
+    registry.register("Jira", {
+      fetch = function(cb)
+        cb({})
+      end,
+      format_item = function(item)
+        return item.id
+      end,
+      to_entry_text = function(item)
+        return item.id
+      end,
+    })
+
+    local old_stdpath = vim.fn.stdpath
+    vim.fn.stdpath = function(what)
+      if what == "cache" then
+        return vim.fn.tempname()
+      end
+      return old_stdpath(what)
+    end
+
+    local reports = capture_reports(modern_methods, function()
+      health.check()
+    end)
+
+    vim.fn.stdpath = old_stdpath
+
+    t.ok(includes(reports.start, "Sources"))
+    t.ok(includes(reports.ok, "source Jira (registered) is configured"))
+
+    worklog.setup() -- clear the registry again
+  end)
 end
