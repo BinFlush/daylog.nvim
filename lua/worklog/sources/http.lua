@@ -10,6 +10,32 @@ function M.is_available()
   return vim.fn.executable("curl") == 1
 end
 
+local function trim(s)
+  return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+-- Turn curl's exit code and buffered stdout/stderr line lists into
+-- { status = integer, body = string } or nil, err. Pure (no Neovim API), so the
+-- exit handling stays unit-testable. The status code rides on its own trailing
+-- line, appended via curl's --write-out, so it splits off cleanly from the body.
+function M.parse_response(code, stdout, stderr)
+  if code ~= 0 then
+    local message = trim(table.concat(stderr or {}, "\n"))
+    if message == "" then
+      message = "curl exited with code " .. tostring(code)
+    end
+    return nil, message
+  end
+
+  local output = table.concat(stdout or {}, "\n")
+  local body, status_text = output:match("^(.*)\n([^\n]*)$")
+  if not status_text then
+    body, status_text = "", output
+  end
+
+  return { status = tonumber(status_text) or 0, body = body }, nil
+end
+
 -- opts: { method, url, headers = { [name] = value }, body = string|nil,
 --         auth = "user:pass"|nil, timeout_ms = number|nil }
 -- cb(response, err) where response = { status = integer, body = string }.
@@ -53,21 +79,7 @@ function M.request(opts, cb)
   local stderr = {}
 
   local function on_exit(_, code)
-    if code ~= 0 then
-      local message = vim.trim(table.concat(stderr, "\n"))
-      if message == "" then
-        message = "curl exited with code " .. tostring(code)
-      end
-      return cb(nil, message)
-    end
-
-    local output = table.concat(stdout, "\n")
-    local body, status_text = output:match("^(.*)\n([^\n]*)$")
-    if not status_text then
-      body, status_text = "", output
-    end
-
-    cb({ status = tonumber(status_text) or 0, body = body }, nil)
+    cb(M.parse_response(code, stdout, stderr))
   end
 
   local job = vim.fn.jobstart(args, {

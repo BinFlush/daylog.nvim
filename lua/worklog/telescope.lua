@@ -24,6 +24,7 @@ function M.live_pick(source, opts)
   local conf = require("telescope.config").values
   local actions = require("telescope.actions")
   local action_state = require("telescope.actions.state")
+  local picker_helpers = require("worklog.sources.picker")
 
   local initial = opts.initial_items or {}
 
@@ -36,22 +37,6 @@ function M.live_pick(source, opts)
     return finders.new_table({ results = items or {}, entry_maker = entry_maker })
   end
 
-  -- Union of the cached/default items and server results, deduped by id, so live
-  -- search grows the pool without ever dropping cached items or emptying it.
-  local function merged(server_items)
-    local seen, out = {}, {}
-    for _, list in ipairs({ initial, server_items or {} }) do
-      for _, item in ipairs(list) do
-        local key = tostring(item.id)
-        if not seen[key] then
-          seen[key] = true
-          out[#out + 1] = item
-        end
-      end
-    end
-    return out
-  end
-
   local picker
   local seq = 0
   local last_query = nil
@@ -61,7 +46,7 @@ function M.live_pick(source, opts)
   -- last_query (a refresh re-fires this with the same prompt -> skip; no loop) and
   -- seq (drop stale responses).
   local function on_input_filter_cb(prompt)
-    if source.search and prompt ~= "" and prompt ~= last_query then
+    if source.search and picker_helpers.should_query(prompt, last_query) then
       last_query = prompt
       seq = seq + 1
       local mine = seq
@@ -77,7 +62,10 @@ function M.live_pick(source, opts)
               return
             end
             if not err and items then
-              picker:refresh(finder_for(merged(items)), { reset_prompt = false })
+              picker:refresh(
+                finder_for(picker_helpers.merge(initial, items)),
+                { reset_prompt = false }
+              )
             end
           end)
         end)
