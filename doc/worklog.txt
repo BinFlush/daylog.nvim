@@ -427,11 +427,12 @@ Configure sources in `setup{}`:
         organization = 'contoso',
         project = 'Platform',
         token = function()
-          return vim.trim(vim.fn.system({ 'pass', 'show', 'ado/pat' }))
+          return vim.trim(vim.fn.system({ 'pass', 'show', 'worklog/ado-pat' }))
         end,
         -- optional:
-        -- query_id = '<saved query GUID>',   -- run a saved ADO query
-        -- query    = '<raw WIQL>',           -- or your own WIQL
+        -- projects  = { 'A', 'B' },          -- a list, instead of project
+        -- query_id  = '<saved query GUID>',  -- run a saved ADO query
+        -- query     = '<raw WIQL>',          -- or your own WIQL
         -- template  = '{id} {title}',        -- inserted activity text
         -- ttl       = 1800,                  -- cache lifetime, seconds
         -- min_query = 3,                     -- chars before live search runs
@@ -449,10 +450,13 @@ Configure sources in `setup{}`:
 - By default the cache holds work items assigned to you that are active and
   recently changed. Override with a saved query (`query_id`) or raw WIQL
   (`query`).
+- Set `projects = { 'A', 'B' }` instead of `project` to search a chosen subset
+  of the organization's projects at once; results are labelled by project. It is
+  mutually exclusive with `project`, `query`, and `query_id`.
 - The picked item is inserted as `template` (default `{id} {title}`) at the
-  current time. The template fills `{id}`, `{title}`, `{type}`, and `{state}`
-  from the work item; any other `{name}` placeholder is left unchanged. The
-  title is sanitized so it can never form trailing metadata.
+  current time. The template fills `{id}`, `{title}`, `{type}`, `{state}`, and
+  `{project}` from the work item; any other `{name}` placeholder is left
+  unchanged. The title is sanitized so it can never form trailing metadata.
 - Live search waits until the prompt is `min_query` characters (default 3);
   below that only the cached items are filtered, with no request. Set
   `min_query = 1` to search from the first keystroke.
@@ -503,8 +507,8 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
       matches before any local cap -- so the picker can flag a truncated set.
       Omit search to filter only the cached items.
 
-An `item` is a table: `id` and `title` are required; `type`, `state`, and `url`
-are optional (shown in the default picker line).
+An `item` is a table: `id` and `title` are required; `type`, `state`, `project`,
+and `url` are optional (shown in the default picker line).
 
 A custom source does its own HTTP, JSON, and token handling. You may reuse the
 built-in `worklog.sources.http` helper (curl `request(opts, cb)`).

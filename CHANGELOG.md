@@ -50,6 +50,10 @@ happen, but they are called out clearly in this changelog.
 - Azure DevOps setup guide (`docs/azure-devops.md`), linked from the README:
   creating a Work Items (Read) PAT, storing it (`pass` / env var / `0600` file),
   wiring `token`, and troubleshooting.
+- Azure DevOps `projects` option: set a list of projects instead of a single
+  `project` to search a chosen subset across the organization at once. Results
+  are labelled by project and `{project}` is available in the insert template.
+  Mutually exclusive with `project`, `query`, and `query_id`.
 
 ### Changed
 

@@ -243,7 +243,8 @@ require("worklog").setup({
       token = function()
         return vim.trim(vim.fn.system({ "pass", "show", "worklog/ado-pat" }))
       end,
-      -- optional: query_id (a saved ADO query), query (raw WIQL), template, ttl
+      -- optional: projects (a list, instead of project), query_id (saved ADO
+      --           query), query (raw WIQL), template, ttl, min_query
     },
   },
 })
@@ -265,6 +266,10 @@ vim.keymap.set("n", "<leader>wa", "<cmd>WorklogInsert ADO<cr>", { desc = "Worklo
   cache — read it from the environment or a password manager.
 - **Scope is yours.** The default fetch is "assigned to me, active, recently
   changed"; point at a saved ADO query (`query_id`) or paste raw WIQL (`query`).
+- **Several projects at once.** Use `projects = { "Platform", "Data" }` instead of
+  `project` to search a chosen subset across the organization; results are labelled
+  by project and `{project}` is available in `template`. Mutually exclusive with
+  `project`, `query`, and `query_id`.
 - Cancelling the picker falls back to a plain bare timestamp, so
   `:WorklogInsert <name>` is a non-committal enhancement of `:WorklogInsert`.
 

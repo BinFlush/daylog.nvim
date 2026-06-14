@@ -48,6 +48,26 @@ return function(t)
     config.setup()
   end)
 
+  t.test("config accepts a projects list instead of a single project", function()
+    config.setup({
+      sources = {
+        ADO = {
+          type = "azure_devops",
+          organization = "contoso",
+          projects = { "Platform", "Data" },
+          token = function()
+            return "pat"
+          end,
+        },
+      },
+    })
+
+    local source = config.get().sources.ADO
+    t.eq(source.projects, { "Platform", "Data" })
+    t.eq(source.project, nil)
+    config.setup()
+  end)
+
   t.test("config validates sources", function()
     local function bad(options, pattern)
       local ok, err = pcall(config.setup, options)
@@ -77,13 +97,26 @@ return function(t)
     )
     bad(
       { sources = { ADO = { type = "azure_devops", organization = "O", token = function() end } } },
-      "project must be a non%-empty string"
+      "must set 'project' or 'projects'"
     )
     bad(azure({ token = "pat" }), "token must be a function")
     bad(azure({ query = "q", query_id = "id" }), "must not set both query and query_id")
     bad(azure({ ttl = -1 }), "ttl must be a positive integer")
     bad(azure({ min_query = 0 }), "min_query must be a positive integer")
     bad(azure({ min_query = 1.5 }), "min_query must be a positive integer")
+    bad(azure({ projects = { "A" } }), "must not set both project and projects")
+
+    local function ado(overrides)
+      local entry = { type = "azure_devops", organization = "O", token = function() end }
+      for key, value in pairs(overrides) do
+        entry[key] = value
+      end
+      return { sources = { ADO = entry } }
+    end
+
+    bad(ado({ projects = {} }), "projects must be a non%-empty list")
+    bad(ado({ projects = { "A", 2 } }), "projects must be a non%-empty list")
+    bad(ado({ projects = { "A" }, query_id = "x" }), "cannot combine projects with query")
 
     config.setup()
   end)

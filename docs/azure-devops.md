@@ -120,6 +120,22 @@ By default the source lists work items **assigned to you, active, and recently
 changed**. Point it at a saved query with `query_id`, or supply raw WIQL with
 `query` (the two are mutually exclusive).
 
+### Several projects
+
+To search a chosen subset of projects at once, replace `project` with a `projects`
+list:
+
+```lua
+projects = { "Platform", "Data Platform Product Area" },
+```
+
+worklog then queries at **organization scope** and filters to those team projects,
+so one search spans them; each result is labelled with its project, and `{project}`
+is available in `template`. `projects` is mutually exclusive with `project`,
+`query`, and `query_id`. A Work Items (Read) PAT can read every project in the
+organization you have access to — unless your org enforces project-scoped tokens, in
+which case make sure the PAT can reach each listed project.
+
 ## 4. Verify
 
 1. `:checkhealth worklog` — under **Sources**, confirms `curl` is on `PATH`, that the

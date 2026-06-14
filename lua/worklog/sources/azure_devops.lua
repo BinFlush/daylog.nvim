@@ -8,17 +8,9 @@ local M = {}
 -- The PAT is resolved lazily via deps.token_resolver and only ever placed in the
 -- request credentials -- never in an item or the cache.
 
-local DEFAULT_WIQL = table.concat({
-  "SELECT [System.Id] FROM WorkItems",
-  "WHERE [System.AssignedTo] = @Me",
-  "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'",
-  "AND [System.ChangedDate] >= @Today - 30",
-  "ORDER BY [System.ChangedDate] DESC",
-}, " ")
-
 -- Comma-separated field list and id list are passed literally (safe constants /
 -- digits); only opaque path segments are percent-encoded.
-local WORKITEM_FIELDS = "System.Id,System.Title,System.WorkItemType,System.State"
+local WORKITEM_FIELDS = "System.Id,System.Title,System.WorkItemType,System.State,System.TeamProject"
 local MAX_ITEMS = 200
 
 local function encode_segment(segment)
@@ -36,11 +28,36 @@ function M.new(_name, cfg, deps)
   local api_version = cfg.api_version or "7.0"
   local template = cfg.template or "{id} {title}"
 
-  local base = string.format(
-    "https://dev.azure.com/%s/%s/_apis/wit",
-    encode_segment(cfg.organization),
-    encode_segment(cfg.project)
-  )
+  -- A single `project` keeps the request project-scoped (URL segment). A `projects`
+  -- list goes organization-scoped and narrows the WIQL with a team-project filter
+  -- instead, so one query spans the chosen subset.
+  local base
+  local project_filter = ""
+  if cfg.projects then
+    base = string.format("https://dev.azure.com/%s/_apis/wit", encode_segment(cfg.organization))
+    local quoted = {}
+    for _, project in ipairs(cfg.projects) do
+      quoted[#quoted + 1] = "'" .. project:gsub("'", "''") .. "'"
+    end
+    project_filter = " AND [System.TeamProject] IN (" .. table.concat(quoted, ", ") .. ")"
+  else
+    base = string.format(
+      "https://dev.azure.com/%s/%s/_apis/wit",
+      encode_segment(cfg.organization),
+      encode_segment(cfg.project)
+    )
+  end
+
+  -- Default set: assigned to me, active, recently changed -- plus the team-project
+  -- filter when organization-scoped. The filter sits in the WHERE clause, before the
+  -- trailing ORDER BY; it is "" for a single project.
+  local default_wiql = table.concat({
+    "SELECT [System.Id] FROM WorkItems",
+    "WHERE [System.AssignedTo] = @Me",
+    "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'",
+    "AND [System.ChangedDate] >= @Today - 30" .. project_filter,
+    "ORDER BY [System.ChangedDate] DESC",
+  }, " ")
 
   local source = {}
 
@@ -100,6 +117,7 @@ function M.new(_name, cfg, deps)
           title = fields["System.Title"] or "",
           type = fields["System.WorkItemType"],
           state = fields["System.State"],
+          project = fields["System.TeamProject"],
           url = work_item.url,
         })
       end
@@ -159,21 +177,23 @@ function M.new(_name, cfg, deps)
         url = string.format("%s/wiql?api-version=%s", base, api_version),
         auth = auth,
         headers = { ["Content-Type"] = "application/json" },
-        body = json.encode({ query = cfg.query or DEFAULT_WIQL }),
+        body = json.encode({ query = cfg.query or default_wiql }),
       }
     end)
   end
 
-  -- Live, project-wide text search over work-item titles (used by the Telescope
-  -- live picker). The wiql endpoint is already project-scoped by the URL.
+  -- Live text search over work-item titles (used by the Telescope live picker),
+  -- scoped to the configured project(s) by the URL and/or the team-project filter.
   function source.search(query, cb)
     local escaped = (query or ""):gsub("'", "''")
     local wiql = string.format(
       "SELECT [System.Id] FROM WorkItems "
         .. "WHERE [System.Title] CONTAINS WORDS '%s' "
-        .. "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' "
-        .. "ORDER BY [System.ChangedDate] DESC",
-      escaped
+        .. "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'"
+        .. "%s"
+        .. " ORDER BY [System.ChangedDate] DESC",
+      escaped,
+      project_filter
     )
 
     collect(cb, function(auth)
@@ -192,6 +212,19 @@ function M.new(_name, cfg, deps)
       return cfg.format_item(item)
     end
 
+    -- Label the project only when several are configured, so single-project output
+    -- (and its test) stays unchanged.
+    if cfg.projects then
+      return string.format(
+        "#%s  %s  [%s/%s]  %s",
+        item.id,
+        item.title,
+        item.type or "?",
+        item.state or "?",
+        item.project or "?"
+      )
+    end
+
     return string.format(
       "#%s  %s  [%s/%s]",
       item.id,
@@ -207,6 +240,7 @@ function M.new(_name, cfg, deps)
       title = item.title or "",
       type = item.type or "",
       state = item.state or "",
+      project = item.project or "",
     }
 
     -- Plain template expansion; insert_entry sanitizes the result so the title

@@ -130,8 +130,29 @@ local function normalize_azure_devops(name, entry)
 
   local result = {
     organization = required_string("organization"),
-    project = required_string("project"),
   }
+
+  -- A source targets a single `project` (project-scoped requests) or a `projects`
+  -- list (organization-scoped, filtered to those team projects) -- exactly one.
+  if entry.project ~= nil and entry.projects ~= nil then
+    error("worklog: source '" .. name .. "' must not set both project and projects")
+  elseif entry.projects ~= nil then
+    if type(entry.projects) ~= "table" or #entry.projects == 0 then
+      error("worklog: source '" .. name .. "'.projects must be a non-empty list of strings")
+    end
+    local projects = {}
+    for _, project in ipairs(entry.projects) do
+      if type(project) ~= "string" or project == "" then
+        error("worklog: source '" .. name .. "'.projects must be a non-empty list of strings")
+      end
+      projects[#projects + 1] = project
+    end
+    result.projects = projects
+  elseif entry.project ~= nil then
+    result.project = required_string("project")
+  else
+    error("worklog: source '" .. name .. "' must set 'project' or 'projects'")
+  end
 
   -- The PAT is a function so it is resolved lazily at fetch time and never stored
   -- as plaintext in setup{} or a config dump. It is never called during setup.
@@ -156,6 +177,12 @@ local function normalize_azure_devops(name, entry)
       error("worklog: source '" .. name .. "'.query_id must be a non-empty string")
     end
     result.query_id = entry.query_id
+  end
+
+  -- A custom query/query_id carries its own scope (and a saved query is itself
+  -- project-scoped), so it can't be combined with a cross-project `projects` list.
+  if result.projects ~= nil and (result.query ~= nil or result.query_id ~= nil) then
+    error("worklog: source '" .. name .. "' cannot combine projects with query or query_id")
   end
 
   if entry.api_version ~= nil then

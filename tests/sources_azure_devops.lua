@@ -276,4 +276,61 @@ return function(t)
     t.eq(#result.items, 200)
     t.eq(result.total, 250)
   end)
+
+  t.test("a projects list runs org-scoped WIQL filtered by team project", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = { { id = 7 } } }) }
+      end
+      return {
+        status = 200,
+        body = vim.json.encode({
+          value = {
+            {
+              id = 7,
+              fields = {
+                ["System.Title"] = "Cross-project",
+                ["System.WorkItemType"] = "Bug",
+                ["System.State"] = "Active",
+                ["System.TeamProject"] = "Data",
+              },
+            },
+          },
+        }),
+      }
+    end)
+
+    local cfg = {
+      organization = "contoso",
+      projects = { "Platform", "Data" },
+      api_version = "7.0",
+      template = "{id} {title}",
+    }
+    local source = new_source(cfg, transport)
+    local result
+    source.search("cross", function(items, err)
+      result = { items = items, err = err }
+    end)
+
+    t.eq(result.err, nil)
+    t.eq(result.items, {
+      { id = "7", title = "Cross-project", type = "Bug", state = "Active", project = "Data" },
+    })
+
+    -- Organization-scoped: no /<project>/ segment before _apis on either request.
+    t.ok(
+      transport.seen[1].url:match("dev%.azure%.com/contoso/_apis/wit/wiql") ~= nil,
+      transport.seen[1].url
+    )
+    t.ok(
+      transport.seen[2].url:match("dev%.azure%.com/contoso/_apis/wit/workitems") ~= nil,
+      transport.seen[2].url
+    )
+
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("%[System%.TeamProject%] IN %('Platform', 'Data'%)") ~= nil, body.query)
+
+    -- format_item labels the project when several are configured.
+    t.eq(source.format_item(result.items[1]), "#7  Cross-project  [Bug/Active]  Data")
+  end)
 end
