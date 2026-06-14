@@ -58,9 +58,18 @@ function M.request(opts, cb)
     "\n%{http_code}",
   }
 
+  -- Pass credentials through a private curl config file rather than --user, which
+  -- would expose the token in the process argv (ps / /proc/<pid>/cmdline). The
+  -- file lives in Neovim's 0700 temp dir, is locked to the owner, and is removed
+  -- once curl exits. Escape backslashes and quotes so the quoted value is intact.
+  local config_file
   if opts.auth then
-    table.insert(args, "--user")
-    table.insert(args, opts.auth)
+    config_file = vim.fn.tempname()
+    local escaped = (opts.auth:gsub("\\", "\\\\"):gsub('"', '\\"'))
+    vim.fn.writefile({ 'user = "' .. escaped .. '"' }, config_file)
+    vim.fn.setfperm(config_file, "rw-------")
+    table.insert(args, "--config")
+    table.insert(args, config_file)
   end
 
   for header_name, value in pairs(opts.headers or {}) do
@@ -78,7 +87,15 @@ function M.request(opts, cb)
   local stdout = {}
   local stderr = {}
 
+  local function cleanup()
+    if config_file then
+      os.remove(config_file)
+      config_file = nil
+    end
+  end
+
   local function on_exit(_, code)
+    cleanup()
     cb(M.parse_response(code, stdout, stderr))
   end
 
@@ -95,6 +112,7 @@ function M.request(opts, cb)
   })
 
   if job <= 0 then
+    cleanup()
     return cb(nil, "failed to start curl")
   end
 
