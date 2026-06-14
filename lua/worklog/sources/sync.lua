@@ -49,7 +49,11 @@ function M.write_cache(name, items, now)
   local path = M.cache_path(name)
   local ok = pcall(function()
     vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
-    vim.fn.writefile({ vim.json.encode(cache.encode(items, now)) }, path)
+    -- Write to a temp file then rename, so a reader in another Neovim never sees a
+    -- half-written cache.
+    local tmp = path .. ".tmp"
+    vim.fn.writefile({ vim.json.encode(cache.encode(items, now)) }, tmp)
+    os.rename(tmp, path)
   end)
 
   if not ok then
@@ -121,8 +125,13 @@ function M.ensure_fresh(name, ttl, on_ready)
   end
 
   notify("worklog: syncing " .. name .. "…")
-  M.sync(name, { silent = true }, function()
-    on_ready(M.read_items(name))
+  M.sync(name, { silent = true }, function(ok)
+    -- Only open the picker when the initial fetch succeeded; on failure sync has
+    -- already warned, so don't surface an empty picker. A successful empty result
+    -- still opens.
+    if ok then
+      on_ready(M.read_items(name))
+    end
   end)
 end
 
