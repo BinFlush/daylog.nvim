@@ -430,7 +430,7 @@ Configure sources in `setup{}`:
           return vim.trim(vim.fn.system({ 'pass', 'show', 'worklog/ado-pat' }))
         end,
         -- optional:
-        -- projects  = { 'A', 'B' },          -- a list, instead of project
+        -- projects  = { 'A', 'B' },          -- search several projects at once
         -- query_id  = '<saved query GUID>',  -- run a saved ADO query
         -- query     = '<raw WIQL>',          -- or your own WIQL
         -- template  = '{id} {title}',        -- inserted activity text
@@ -475,9 +475,9 @@ With Telescope installed and a source that supports search, |:WorklogInsert|
 (debounced, once the prompt reaches `min_query` characters), with your cached
 items shown at an empty prompt. Without Telescope it uses the offline
 `vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
-across the project and hydrates at most 200 matches; if more match, the picker
-notes "showing first N of M matches" so you can refine. A failed search reports a
-`worklog:` warning instead of silently doing nothing.
+across your configured project(s) and hydrates at most 200 matches; if more match,
+the picker notes "showing first N of M matches" so you can refine. A failed search
+reports a `worklog:` warning.
 
                                                   *worklog-custom-source*
 You can register your own source (e.g. Jira, GitHub Issues) with:
@@ -510,14 +510,10 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
 An `item` is a table: `id` and `title` are required; `type`, `state`, `project`,
 and `url` are optional (shown in the default picker line).
 
-A registered source joins the same offline cache, lazy-TTL background refresh,
-live search, picker, completion, and |:checkhealth| listing as the built-in, and
-|:WorklogSync| {name} works on it. But unlike a built-in `type`, it is registered
-imperatively (not declared under `setup{ sources = ... }`), gets no config
-validation or defaults, and does its own HTTP, JSON, auth, and token storage. You
-may reuse the built-in `worklog.sources.http` helper (curl `request(opts, cb)`).
-Adding a first-class config `type` like `azure_devops` currently requires a
-change to worklog itself.
+A registered source gets the same cache, background refresh, live search, picker,
+completion, and |:checkhealth| listing as a built-in, and |:WorklogSync| {name}
+works on it. You supply its data, and so its own HTTP, JSON, and auth; you may
+reuse the `worklog.sources.http` helper (curl `request(opts, cb)`).
 
 Example:
 

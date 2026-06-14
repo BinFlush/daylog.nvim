@@ -40,9 +40,7 @@ pass insert worklog/ado-pat   # paste the PAT at the hidden prompt
 token = function()
   local pat = vim.fn.system({ "pass", "show", "worklog/ado-pat" })
   if vim.v.shell_error ~= 0 then
-    -- Store locked or failed: return nil so worklog reports a clean token error
-    -- instead of handing gpg's stderr to Azure DevOps as if it were the token.
-    return nil
+    return nil -- store locked or unavailable; worklog will report a clean error
   end
   return vim.trim(pat)
 end,
