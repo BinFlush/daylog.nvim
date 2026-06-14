@@ -110,16 +110,16 @@ function M.new(_name, cfg, deps)
     end)
   end
 
-  -- Step 1: run WIQL (raw query, saved query id, or the built-in default) for the
-  -- matching ids, then hydrate them.
-  function source.fetch(cb)
+  -- Resolve the token, run a WIQL request built by `build_request(auth)`, then
+  -- hydrate the matching ids into items. Shared by fetch and search.
+  local function collect(cb, build_request)
     local token, err = token_resolver(cfg)
     if not token then
       return cb(nil, err)
     end
     local auth = ":" .. token
 
-    local function on_wiql(decoded, wiql_err)
+    request(build_request(auth), function(decoded, wiql_err)
       if wiql_err then
         return cb(nil, wiql_err)
       end
@@ -132,22 +132,56 @@ function M.new(_name, cfg, deps)
       end
 
       hydrate(auth, ids, cb)
-    end
+    end)
+  end
 
-    if cfg.query_id then
-      local url =
-        string.format("%s/wiql/%s?api-version=%s", base, encode_segment(cfg.query_id), api_version)
-      request({ method = "GET", url = url, auth = auth }, on_wiql)
-    else
-      local url = string.format("%s/wiql?api-version=%s", base, api_version)
-      request({
+  -- The default set: raw query, saved query id, or the built-in default WIQL.
+  function source.fetch(cb)
+    collect(cb, function(auth)
+      if cfg.query_id then
+        return {
+          method = "GET",
+          url = string.format(
+            "%s/wiql/%s?api-version=%s",
+            base,
+            encode_segment(cfg.query_id),
+            api_version
+          ),
+          auth = auth,
+        }
+      end
+
+      return {
         method = "POST",
-        url = url,
+        url = string.format("%s/wiql?api-version=%s", base, api_version),
         auth = auth,
         headers = { ["Content-Type"] = "application/json" },
         body = json.encode({ query = cfg.query or DEFAULT_WIQL }),
-      }, on_wiql)
-    end
+      }
+    end)
+  end
+
+  -- Live, project-wide text search over work-item titles (used by the Telescope
+  -- live picker). The wiql endpoint is already project-scoped by the URL.
+  function source.search(query, cb)
+    local escaped = (query or ""):gsub("'", "''")
+    local wiql = string.format(
+      "SELECT [System.Id] FROM WorkItems "
+        .. "WHERE [System.Title] CONTAINS WORDS '%s' "
+        .. "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' "
+        .. "ORDER BY [System.ChangedDate] DESC",
+      escaped
+    )
+
+    collect(cb, function(auth)
+      return {
+        method = "POST",
+        url = string.format("%s/wiql?api-version=%s", base, api_version),
+        auth = auth,
+        headers = { ["Content-Type"] = "application/json" },
+        body = json.encode({ query = wiql }),
+      }
+    end)
   end
 
   function source.format_item(item)

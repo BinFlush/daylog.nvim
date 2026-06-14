@@ -624,8 +624,39 @@ function M.insert_from_source(name, query)
   local time = os.date("%H:%M")
   local target_buf = vim.api.nvim_get_current_buf()
 
+  -- Apply a chosen item into the originating buffer, guarding against the buffer
+  -- changing under the async picker.
+  local function insert_choice(item)
+    if vim.api.nvim_get_current_buf() ~= target_buf then
+      warn("worklog: buffer changed during selection; aborting insert")
+      return
+    end
+
+    apply_insert_entry(time, source.to_entry_text(item))
+  end
+
+  local has_telescope = pcall(require, "telescope")
+
   sources_sync.ensure_fresh(name, ttl, function(items)
-    vim.ui.select(sources_cache.filter(items, query), {
+    local candidates = sources_cache.filter(items, query)
+
+    -- With Telescope and a searchable source, type-as-you-search across the whole
+    -- tracker (cached items show at an empty prompt). Otherwise the offline cache
+    -- via vim.ui.select. Both insert through insert_choice; cancelling leaves a
+    -- bare timestamp, like a plain :WorklogInsert.
+    if has_telescope and source.search then
+      require("worklog.telescope").live_pick(source, {
+        initial_items = candidates,
+        prompt = "Worklog: " .. name,
+        on_pick = insert_choice,
+        on_cancel = function()
+          apply_insert_time(time)
+        end,
+      })
+      return
+    end
+
+    vim.ui.select(candidates, {
       prompt = "Worklog: pick " .. name .. " item",
       format_item = function(item)
         return source.format_item(item)
@@ -636,12 +667,7 @@ function M.insert_from_source(name, query)
         return
       end
 
-      if vim.api.nvim_get_current_buf() ~= target_buf then
-        warn("worklog: buffer changed during selection; aborting insert")
-        return
-      end
-
-      apply_insert_entry(time, source.to_entry_text(choice))
+      insert_choice(choice)
     end)
   end)
 end

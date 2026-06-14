@@ -309,10 +309,12 @@ Insert the current time into the worklog block under the cursor.
 
 With a `[source]` argument (a configured source name, see |worklog-sources|), it
 instead opens a picker of that source's work items and inserts the chosen one as
-`{id} {title}` at the current time. The picker uses `vim.ui.select`, so
-Telescope, fzf-lua, snacks, or mini.pick take over its UI when installed.
-Cancelling the picker falls back to the plain bare timestamp. An optional further
-argument pre-seeds the picker's filter.
+`{id} {title}` at the current time. With Telescope installed and a source that
+supports live search, this is a search-as-you-type Telescope picker (see
+|worklog-sources|). Otherwise it is `vim.ui.select`, which Telescope, fzf-lua,
+snacks, or mini.pick take over when installed. Cancelling the picker falls
+back to the plain bare timestamp. An optional further argument pre-seeds the
+picker's filter.
 
 When the buffer is a journal file (see |worklog-config|) dated for a day other
 than today, inserting the current time is refused, since stamping "now" into
@@ -456,8 +458,14 @@ refreshes in the background when older than `ttl` (default 1800 seconds) and on
 |:WorklogSync|. Syncing requires the `curl` executable; pick-time needs no
 network.
 
+With Telescope installed and a source that supports search, |:WorklogInsert|
+{source} opens a Telescope picker that searches the tracker live as you type
+(debounced), with your cached items shown at an empty prompt. Without Telescope it
+uses the offline `vim.ui.select` cache picker. The Azure DevOps source searches
+work-item titles across the project.
+
 Register a custom source object (with `fetch`, `format_item`, and
-`to_entry_text`) directly:
+`to_entry_text`, plus an optional `search(query, cb)` for live search) directly:
 
 >
   require('worklog.sources.registry').register('MySource', my_source)

@@ -173,4 +173,73 @@ return function(t)
       "#5  Fix  [Bug/Active]"
     )
   end)
+
+  t.test("search runs a WIQL CONTAINS WORDS query then hydrates", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = { { id = 55 } } }) }
+      end
+      return {
+        status = 200,
+        body = vim.json.encode({
+          value = {
+            {
+              id = 55,
+              fields = {
+                ["System.Title"] = "Login flow",
+                ["System.WorkItemType"] = "Bug",
+                ["System.State"] = "Active",
+              },
+            },
+          },
+        }),
+      }
+    end)
+
+    local source = new_source(base_cfg(), transport)
+    local result
+    source.search("login", function(items, err)
+      result = { items = items, err = err }
+    end)
+
+    t.eq(result.err, nil)
+    t.eq(result.items, { { id = "55", title = "Login flow", type = "Bug", state = "Active" } })
+
+    t.eq(transport.seen[1].method, "POST")
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("CONTAINS WORDS 'login'") ~= nil, body.query)
+  end)
+
+  t.test("search escapes single quotes in the query", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = {} }) }
+      end
+      return { status = 200, body = vim.json.encode({ value = {} }) }
+    end)
+
+    local source = new_source(base_cfg(), transport)
+    source.search("o'brien", function() end)
+
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("CONTAINS WORDS 'o''brien'") ~= nil, body.query)
+  end)
+
+  t.test("search reports a token failure without calling the transport", function()
+    local transport = fake_transport(function()
+      return { status = 200, body = "{}" }
+    end)
+    local source = new_source(base_cfg(), transport, function()
+      return nil, "worklog: token missing"
+    end)
+
+    local captured
+    source.search("x", function(items, err)
+      captured = { items = items, err = err }
+    end)
+
+    t.eq(captured.items, nil)
+    t.eq(captured.err, "worklog: token missing")
+    t.eq(#transport.seen, 0)
+  end)
 end

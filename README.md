@@ -257,6 +257,10 @@ vim.keymap.set("n", "<leader>wa", "<cmd>WorklogInsert ADO<cr>", { desc = "Worklo
 - **Picking is offline and instant.** It reads a per-source cache; the cache
   refreshes in the background when stale and on `:WorklogSync`. Only syncing
   touches the network (via `curl`).
+- **Live search with Telescope.** When Telescope is installed, typing in the
+  picker searches the whole tracker as you go (debounced); your cached items show
+  at an empty prompt. Without it, the picker filters your cached items. Custom
+  sources opt in via `search(query, cb)`.
 - **Your PAT is a function**, resolved only at sync time and never written to the
   cache — read it from the environment or a password manager.
 - **Scope is yours.** The default fetch is "assigned to me, active, recently

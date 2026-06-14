@@ -33,6 +33,11 @@ happen, but they are called out clearly in this changelog.
   cache. Syncing needs the `curl` executable. The Personal Access Token is a
   function resolved only at sync time and never written to the cache. Plain
   `:WorklogInsert` (no argument) is unchanged.
+- Live work-item search. With Telescope installed and a source that supports it,
+  `:WorklogInsert {source}` searches the tracker as you type (debounced), showing
+  your cached items at an empty prompt; without Telescope it uses the offline
+  `vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
+  project-wide; custom sources opt in via `search(query, cb)`.
 
 ### Changed
 
