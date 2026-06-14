@@ -84,4 +84,20 @@ return function(t)
     t.eq(result, nil)
     t.ok(err ~= nil)
   end)
+
+  t.test("insert_entry sanitizes text so a title cannot inject trailing metadata", function()
+    local result = insert_entry.run({
+      "--- worklog ---",
+      "08:00 first",
+      "09:00 done",
+    }, 1, "08:30", "5 Investigate #flaky")
+
+    t.eq(result.edits, {
+      {
+        start_index = 2,
+        end_index = 2,
+        lines = { "08:30 5 Investigate (#flaky)" },
+      },
+    })
+  end)
 end

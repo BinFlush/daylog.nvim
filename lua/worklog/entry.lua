@@ -59,4 +59,43 @@ function M.parse(line, current_tag, current_location)
   return analyze.copy_fields(entry)
 end
 
+local function is_dangerous_token(token)
+  if token == syntax.TAG_CLEAR_TOKEN or token == syntax.LOCATION_CLEAR_TOKEN then
+    return true
+  end
+
+  if token:match("^#[%w_%-]+$") or token:match("^@[%w_%-]+$") then
+    return true
+  end
+
+  return token == syntax.LOGGED_TOKEN
+end
+
+-- Make `text` safe to use as an entry's activity text so it can never grow
+-- trailing metadata. The parser peels metadata by scanning whitespace tokens from
+-- the end while they are control tokens (#tag, @loc, #-, @-, !L); wrap each token
+-- in the trailing run of such tokens in parentheses so the scan stops at a plain
+-- word. Mid-text tokens (e.g. "fix #flaky tests") are left untouched.
+function M.sanitize_text(text)
+  text = text:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+  if text == "" then
+    return text
+  end
+
+  local tokens = {}
+  for token in text:gmatch("%S+") do
+    table.insert(tokens, token)
+  end
+
+  for i = #tokens, 1, -1 do
+    if is_dangerous_token(tokens[i]) then
+      tokens[i] = "(" .. tokens[i] .. ")"
+    else
+      break
+    end
+  end
+
+  return table.concat(tokens, " ")
+end
+
 return M

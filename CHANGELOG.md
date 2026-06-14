@@ -38,6 +38,11 @@ happen, but they are called out clearly in this changelog.
   your cached items at an empty prompt; without Telescope it uses the offline
   `vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
   project-wide; custom sources opt in via `search(query, cb)`.
+- Documented the custom-source contract for third-party integrations
+  (`:help worklog-custom-source`) with callback/item shapes and a worked example.
+  Inserted activity text is now sanitized centrally, so any source is safe from
+  trailing-metadata injection without handling it itself, and
+  `require("worklog.sources.registry").register` validates a source up front.
 
 ### Changed
 

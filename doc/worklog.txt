@@ -464,12 +464,60 @@ With Telescope installed and a source that supports search, |:WorklogInsert|
 uses the offline `vim.ui.select` cache picker. The Azure DevOps source searches
 work-item titles across the project.
 
-Register a custom source object (with `fetch`, `format_item`, and
-`to_entry_text`, plus an optional `search(query, cb)` for live search) directly:
+                                                  *worklog-custom-source*
+You can register your own source (e.g. Jira, GitHub Issues) with:
 
 >
-  require('worklog.sources.registry').register('MySource', my_source)
+  require('worklog.sources.registry').register('MySource', source)
 <
+
+`source` is a table implementing this contract:
+
+  source.fetch(cb)
+      Asynchronously produce the default item set, then call cb(items, err):
+      cb(items, nil) on success, cb(nil, "message") on failure.
+
+  source.format_item(item) -> string
+      The line shown for one item in the picker.
+
+  source.to_entry_text(item) -> string
+      The activity text inserted after "HH:MM ". You do NOT need to sanitize it;
+      worklog makes it safe automatically, so a title cannot inject trailing
+      metadata.
+
+  source.search(query, cb)   (optional)
+      Live search. When present and Telescope is installed, it is called as you
+      type in |:WorklogInsert| {source}, with the same cb(items, err) shape as
+      fetch. Omit it to filter only the cached items.
+
+An `item` is a table: `id` and `title` are required; `type`, `state`, and `url`
+are optional (shown in the default picker line).
+
+A custom source does its own HTTP, JSON, and token handling. You may reuse the
+built-in helpers `worklog.sources.http` (curl `request(opts, cb)`) and
+`worklog.sources.cache` (`filter(items, query)`).
+
+Example:
+
+>
+  local source = {
+    fetch = function(cb)
+      cb({
+        { id = 'T-1', title = 'Task one' },
+        { id = 'T-2', title = 'Task two' },
+      })
+    end,
+    format_item = function(item)
+      return item.id .. '  ' .. item.title
+    end,
+    to_entry_text = function(item)
+      return item.id .. ' ' .. item.title
+    end,
+  }
+  require('worklog.sources.registry').register('MyTasks', source)
+<
+
+Then |:WorklogInsert| MyTasks opens a picker of your items.
 
 ==============================================================================
 CONFIGURATION                                                  *worklog-config*

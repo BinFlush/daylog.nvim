@@ -271,6 +271,12 @@ vim.keymap.set("n", "<leader>wa", "<cmd>WorklogInsert ADO<cr>", { desc = "Worklo
 Multiple sources can coexist (several ADO orgs, plus your own). See
 `:help worklog-sources` for the full reference.
 
+**Write your own source** (Jira, GitHub Issues, …) by registering a table with
+`fetch` / `format_item` / `to_entry_text` (and an optional `search`):
+`require("worklog.sources.registry").register("MySource", source)`. Inserted text
+is sanitized for you, so a title can't corrupt the worklog. See
+`:help worklog-custom-source` for the contract and a worked example.
+
 ## Limitations and syntax gotchas
 
 - The final timestamp closes the previous interval and has no duration of its own.

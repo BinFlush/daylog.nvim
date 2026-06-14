@@ -1,5 +1,3 @@
-local registry = require("worklog.sources.registry")
-
 local M = {}
 
 -- Azure DevOps work-item source.
@@ -206,11 +204,13 @@ function M.new(_name, cfg, deps)
       state = item.state or "",
     }
 
-    local text = template:gsub("{(%w+)}", function(key)
-      return map[key] ~= nil and map[key] or ("{" .. key .. "}")
-    end)
-
-    return registry.sanitize_text(text)
+    -- Plain template expansion; insert_entry sanitizes the result so the title
+    -- cannot inject trailing metadata.
+    return (
+      template:gsub("{(%w+)}", function(key)
+        return map[key] ~= nil and map[key] or ("{" .. key .. "}")
+      end)
+    )
   end
 
   return source

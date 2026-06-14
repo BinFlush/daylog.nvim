@@ -4,11 +4,11 @@ local support = require("worklog.usecases.support")
 local M = {}
 
 -- Insert a fully-formed "HH:MM <text>" entry into the worklog containing the
--- cursor. `text` is the already-resolved activity string (no leading timestamp,
--- no metadata tokens); callers that build it from external data are responsible
--- for sanitizing it so it cannot form trailing metadata (see
--- worklog.sources.registry.sanitize_text). This is a sibling of insert_now: that
--- one stamps a bare timestamp, this one stamps a timestamp plus an activity.
+-- cursor. `text` is the resolved activity string (no leading timestamp); it is
+-- sanitized here (entry.sanitize_text) so a value built from external data -- e.g.
+-- a work-item title ending in #x / @x / !L -- can never form trailing metadata,
+-- regardless of the source. A sibling of insert_now: that one stamps a bare
+-- timestamp, this one stamps a timestamp plus an activity.
 
 function M.run(lines, row, time, text)
   local ctx, err = support.get_validated_at_row(lines, row)
@@ -30,7 +30,7 @@ function M.run(lines, row, time, text)
   local state = support.get_insert_state(ctx.block, minutes)
   local inserted_line = entry.format({
     minutes = minutes,
-    text = text,
+    text = entry.sanitize_text(text),
     tag = state.tag,
     location = state.location,
     logged = false,

@@ -15,6 +15,7 @@ worklog-commands	worklog.txt	/*worklog-commands*
 worklog-compatibility	worklog.txt	/*worklog-compatibility*
 worklog-config	worklog.txt	/*worklog-config*
 worklog-contents	worklog.txt	/*worklog-contents*
+worklog-custom-source	worklog.txt	/*worklog-custom-source*
 worklog-development	worklog.txt	/*worklog-development*
 worklog-format	worklog.txt	/*worklog-format*
 worklog-gotchas	worklog.txt	/*worklog-gotchas*
