@@ -118,6 +118,10 @@ end
 local SOURCE_DEFAULT_TTL = 1800
 local SOURCE_DEFAULT_TEMPLATE = "{id} {title}"
 local SOURCE_DEFAULT_MIN_QUERY = 3
+-- A generous sanity cap: a single WIQL filters all listed projects, so an
+-- unreasonably long list risks Azure DevOps' query-size limit. Use a saved
+-- query/query_id for larger sets.
+local SOURCE_MAX_PROJECTS = 100
 
 local function normalize_azure_devops(name, entry)
   local function required_string(field)
@@ -139,6 +143,15 @@ local function normalize_azure_devops(name, entry)
   elseif entry.projects ~= nil then
     if type(entry.projects) ~= "table" or #entry.projects == 0 then
       error("worklog: source '" .. name .. "'.projects must be a non-empty list of strings")
+    end
+    if #entry.projects > SOURCE_MAX_PROJECTS then
+      error(
+        "worklog: source '"
+          .. name
+          .. "' has too many projects (max "
+          .. SOURCE_MAX_PROJECTS
+          .. "); use a saved query or raw WIQL instead"
+      )
     end
     local projects = {}
     for _, project in ipairs(entry.projects) do

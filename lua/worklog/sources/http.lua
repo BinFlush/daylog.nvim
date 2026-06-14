@@ -33,7 +33,14 @@ function M.parse_response(code, stdout, stderr)
     body, status_text = "", output
   end
 
-  return { status = tonumber(status_text) or 0, body = body }, nil
+  -- curl always appends %{http_code}; a non-numeric tail means no usable response,
+  -- so report that rather than fabricating a status 0.
+  local status = tonumber(status_text)
+  if not status then
+    return nil, "curl returned no HTTP status"
+  end
+
+  return { status = status, body = body }, nil
 end
 
 -- opts: { method, url, headers = { [name] = value }, body = string|nil,

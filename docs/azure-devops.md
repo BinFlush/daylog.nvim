@@ -136,6 +136,10 @@ is available in `template`. `projects` is mutually exclusive with `project`,
 organization you have access to — unless your org enforces project-scoped tokens, in
 which case make sure the PAT can reach each listed project.
 
+The list is capped at 100 projects (one WIQL filters them all, so a very long list
+would hit Azure DevOps' query-size limit); for larger sets use a saved `query_id` or
+raw `query`.
+
 ## 4. Verify
 
 1. `:checkhealth worklog` — under **Sources**, confirms `curl` is on `PATH`, that the

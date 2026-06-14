@@ -32,9 +32,9 @@ return function(t)
     t.eq(err, "curl exited with code 28")
   end)
 
-  t.test("parse_response tolerates output with no trailing status line", function()
-    local resp = http.parse_response(0, { "justbody" }, {})
-    t.eq(resp.status, 0)
-    t.eq(resp.body, "")
+  t.test("parse_response errors when there is no numeric status line", function()
+    local resp, err = http.parse_response(0, { "justbody" }, {})
+    t.eq(resp, nil)
+    t.eq(err, "curl returned no HTTP status")
   end)
 end

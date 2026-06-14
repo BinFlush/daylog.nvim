@@ -118,6 +118,12 @@ return function(t)
     bad(ado({ projects = { "A", 2 } }), "projects must be a non%-empty list")
     bad(ado({ projects = { "A" }, query_id = "x" }), "cannot combine projects with query")
 
+    local too_many = {}
+    for i = 1, 101 do
+      too_many[i] = "P" .. i
+    end
+    bad(ado({ projects = too_many }), "too many projects")
+
     config.setup()
   end)
 end
