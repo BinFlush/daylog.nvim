@@ -1,5 +1,6 @@
 local config = require("worklog.config")
 local sources_sync = require("worklog.sources.sync")
+local sources_registry = require("worklog.sources.registry")
 
 local M = {}
 
@@ -116,10 +117,12 @@ function M.check()
     })
   end
 
-  -- Only report on sources when some are configured, so the default install stays
-  -- clean. Reads config.get() (never calls setup), matching the section above.
-  local sources = config.get().sources
-  if sources and next(sources) then
+  -- Report every registered source -- built-in (declared in config) and custom
+  -- (registered directly) -- so the section reflects what actually works. Reads
+  -- config.get() only to label the declared type; never calls setup.
+  local config_sources = config.get().sources or {}
+  local names = sources_registry.names()
+  if #names > 0 then
     start("Sources")
 
     if vim.fn.executable("curl") == 1 then
@@ -130,14 +133,15 @@ function M.check()
       })
     end
 
-    local names = {}
-    for name in pairs(sources) do
-      table.insert(names, name)
-    end
-    table.sort(names)
-
     for _, name in ipairs(names) do
-      ok(string.format("source %s (%s) is configured", name, sources[name].type))
+      local declared = config_sources[name]
+      ok(
+        string.format(
+          "source %s (%s) is configured",
+          name,
+          declared and declared.type or "registered"
+        )
+      )
 
       if vim.fn.filereadable(sources_sync.cache_path(name)) == 1 then
         local cache = sources_sync.read_cache(name)

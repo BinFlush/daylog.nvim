@@ -294,7 +294,11 @@ PAT, storage options and their trade-offs, and troubleshooting.
 **Write your own source** (Jira, GitHub Issues, …) by registering a table with
 `fetch` / `format_item` / `to_entry_text` (and an optional `search`):
 `require("worklog.sources.registry").register("MySource", source)`. Inserted text
-is sanitized for you, so a title can't corrupt the worklog. See
+is sanitized for you, so a title can't corrupt the worklog. A registered source
+gets the same cache, background refresh, live search, picker, completion, and
+`:checkhealth` visibility as the built-in, but it is registered imperatively (not
+under `setup{ sources = … }`) and handles its own auth — a first-class config
+`type` like `azure_devops` would need a change to the plugin. See
 `:help worklog-custom-source` for the contract and a worked example.
 
 ## Limitations and syntax gotchas

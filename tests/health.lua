@@ -188,4 +188,40 @@ return function(t)
 
     worklog.setup()
   end)
+
+  t.test("health reports a registered custom source", function()
+    local registry = require("worklog.sources.registry")
+    worklog.setup() -- clears the registry; no config sources declared
+
+    registry.register("Jira", {
+      fetch = function(cb)
+        cb({})
+      end,
+      format_item = function(item)
+        return item.id
+      end,
+      to_entry_text = function(item)
+        return item.id
+      end,
+    })
+
+    local old_stdpath = vim.fn.stdpath
+    vim.fn.stdpath = function(what)
+      if what == "cache" then
+        return vim.fn.tempname()
+      end
+      return old_stdpath(what)
+    end
+
+    local reports = capture_reports(modern_methods, function()
+      health.check()
+    end)
+
+    vim.fn.stdpath = old_stdpath
+
+    t.ok(includes(reports.start, "Sources"))
+    t.ok(includes(reports.ok, "source Jira (registered) is configured"))
+
+    worklog.setup() -- clear the registry again
+  end)
 end

@@ -510,8 +510,14 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
 An `item` is a table: `id` and `title` are required; `type`, `state`, `project`,
 and `url` are optional (shown in the default picker line).
 
-A custom source does its own HTTP, JSON, and token handling. You may reuse the
-built-in `worklog.sources.http` helper (curl `request(opts, cb)`).
+A registered source joins the same offline cache, lazy-TTL background refresh,
+live search, picker, completion, and |:checkhealth| listing as the built-in, and
+|:WorklogSync| {name} works on it. But unlike a built-in `type`, it is registered
+imperatively (not declared under `setup{ sources = ... }`), gets no config
+validation or defaults, and does its own HTTP, JSON, auth, and token storage. You
+may reuse the built-in `worklog.sources.http` helper (curl `request(opts, cb)`).
+Adding a first-class config `type` like `azure_devops` currently requires a
+change to worklog itself.
 
 Example:
 
@@ -528,6 +534,11 @@ Example:
     end,
     to_entry_text = function(item)
       return item.id .. ' ' .. item.title
+    end,
+    search = function(query, cb)
+      -- Optional: live results as you type (Telescope only), same cb shape as
+      -- fetch. A real source would query its API here.
+      cb({ { id = 'T-' .. query, title = 'Result for ' .. query } })
     end,
   }
   require('worklog.sources.registry').register('MyTasks', source)
