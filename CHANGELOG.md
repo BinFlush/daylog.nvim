@@ -47,6 +47,9 @@ happen, but they are called out clearly in this changelog.
   Inserted activity text is now sanitized centrally, so any source is safe from
   trailing-metadata injection without handling it itself, and
   `require("worklog.sources.registry").register` validates a source up front.
+- Azure DevOps setup guide (`docs/azure-devops.md`), linked from the README:
+  creating a Work Items (Read) PAT, storing it (`pass` / env var / `0600` file),
+  wiring `token`, and troubleshooting.
 
 ### Changed
 

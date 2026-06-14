@@ -457,6 +457,9 @@ Configure sources in `setup{}`:
   below that only the cached items are filtered, with no request. Set
   `min_query = 1` to search from the first keystroke.
 
+For a step-by-step Azure DevOps setup -- creating the PAT, where to store it, and
+troubleshooting -- see the guide at docs/azure-devops.md in the repository.
+
 Picking is offline and instant: it reads a per-source cache at
 `stdpath('cache')/worklog/sources/<name>.json` and filters it locally. The cache
 refreshes in the background when older than `ttl` (default 1800 seconds) and on

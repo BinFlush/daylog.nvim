@@ -241,7 +241,7 @@ require("worklog").setup({
       organization = "contoso",
       project = "Platform",
       token = function()
-        return vim.trim(vim.fn.system({ "pass", "show", "ado/pat" }))
+        return vim.trim(vim.fn.system({ "pass", "show", "worklog/ado-pat" }))
       end,
       -- optional: query_id (a saved ADO query), query (raw WIQL), template, ttl
     },
@@ -270,6 +270,21 @@ vim.keymap.set("n", "<leader>wa", "<cmd>WorklogInsert ADO<cr>", { desc = "Worklo
 
 Multiple sources can coexist (several ADO orgs, plus your own). See
 `:help worklog-sources` for the full reference.
+
+### Setting up the Azure DevOps PAT
+
+Only needed for the Azure DevOps source — the core plugin needs no token. In short:
+
+1. In Azure DevOps, create a Personal Access Token scoped to **Work Items → Read**
+   with an expiry (User settings → Personal access tokens → New Token).
+2. Store it where your `token` function can read it — `pass` (recommended), an
+   environment variable, or a `0600` file.
+3. Set `organization`/`project` to match `https://dev.azure.com/<org>/<project>` and
+   point `token` at your store (as in the config above).
+4. Run `:WorklogSync ADO`, then `:WorklogInsert ADO`.
+
+**Full walkthrough:** [docs/azure-devops.md](docs/azure-devops.md) — creating the
+PAT, storage options and their trade-offs, and troubleshooting.
 
 **Write your own source** (Jira, GitHub Issues, …) by registering a table with
 `fetch` / `format_item` / `to_entry_text` (and an optional `search`):
@@ -367,6 +382,7 @@ today off a non-journal buffer).
 
 - `:help worklog.nvim` for full format and command details.
 - `:checkhealth worklog` for integration diagnostics.
+- [docs/azure-devops.md](docs/azure-devops.md) to set up the Azure DevOps source.
 - `docs/architecture.md` for internal design notes.
 
 ## Versioning and compatibility
