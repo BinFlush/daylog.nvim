@@ -449,7 +449,9 @@ Configure sources in `setup{}`:
   recently changed. Override with a saved query (`query_id`) or raw WIQL
   (`query`).
 - The picked item is inserted as `template` (default `{id} {title}`) at the
-  current time. The title is sanitized so it can never form trailing metadata.
+  current time. The template fills `{id}`, `{title}`, `{type}`, and `{state}`
+  from the work item; any other `{name}` placeholder is left unchanged. The
+  title is sanitized so it can never form trailing metadata.
 
 Picking is offline and instant: it reads a per-source cache at
 `stdpath('cache')/worklog/sources/<name>.json` and filters it locally. The cache
