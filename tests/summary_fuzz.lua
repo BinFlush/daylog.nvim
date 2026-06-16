@@ -129,7 +129,5 @@ return function(t)
     end
   end
 
-  -- xfail: RED until the decimal display-footing fix lands. Flip to t.test then;
-  -- if you forget, this "unexpectedly passes" and fails the suite as a reminder.
-  t.xfail("summary display footing holds across random worklogs (fuzz)", run_fuzz)
+  t.test("summary display footing holds across random worklogs (fuzz)", run_fuzz)
 end

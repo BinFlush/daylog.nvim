@@ -31,6 +31,71 @@ local function duration_string(minutes, duration_format)
   return decimal_hours_string(minutes)
 end
 
+-- Distribute the 2-decimal-hour (centihour) display of a section's durations with
+-- the largest-remainder method -- the same approach quantize.lua uses for minutes
+-- -- so the rendered rows sum exactly to the section's displayed total
+-- `round(total_minutes / 60, 2)`. Every duration is a whole minute, so each row's
+-- centihour value `m*100/60` has remainder 0, 1/3, or 2/3 (ranked by `(m*5) mod 3`,
+-- integer and tie-broken by first-seen order). When the naive per-row rounding
+-- already foots, this returns the identical centihours -- so it is a no-op for any
+-- already-footing summary and only corrects the broken ones.
+local function foot_decimal_centihours(durations, total_minutes)
+  local target = math.floor(total_minutes * 100 / 60 + 0.5)
+  local centi = {}
+  local ranked = {}
+  local base_sum = 0
+
+  for i, minutes in ipairs(durations) do
+    local floored = math.floor(minutes * 100 / 60)
+    centi[i] = floored
+    base_sum = base_sum + floored
+    ranked[i] = { index = i, residue = (minutes * 5) % 3 }
+  end
+
+  table.sort(ranked, function(a, b)
+    if a.residue == b.residue then
+      return a.index < b.index
+    end
+    return a.residue > b.residue
+  end)
+
+  for i = 1, target - base_sum do
+    local row = ranked[i]
+    if row then
+      centi[row.index] = centi[row.index] + 1
+    end
+  end
+
+  return centi
+end
+
+-- The displayed duration string for each item in one section. `hm` minutes are
+-- exact and already foot; `dec` rows are footed (above) so they sum to the
+-- displayed section total. The items' minute durations sum to `total_minutes` by
+-- construction (the quantization invariant).
+local function section_duration_strings(items, total_minutes, format)
+  local strings = {}
+
+  if format == syntax.DURATION_HM then
+    for i, item in ipairs(items) do
+      strings[i] = hhmm_string(item.duration)
+    end
+    return strings
+  end
+
+  local durations = {}
+  for i, item in ipairs(items) do
+    durations[i] = item.duration
+  end
+
+  local centi = foot_decimal_centihours(durations, total_minutes)
+  for i = 1, #items do
+    strings[i] = string.format("%.2fh", centi[i] / 100)
+  end
+
+  return strings
+end
+
 local function summary_item_label(item, show_tag)
   local parts = {}
 
@@ -155,19 +220,16 @@ local function section_headers(format, options)
   }
 end
 
-local function summary_item_line(item, format, show_tag)
+local function summary_item_line(item, duration_str, show_tag)
   return summary_line(
-    string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
+    string.format("%s (%+dm)", duration_str, item.error_minutes or 0),
     item,
     show_tag
   )
 end
 
-local function metadata_line(item, format, line_builder)
-  return line_builder(
-    string.format("%s (%+dm)", duration_string(item.duration, format), item.error_minutes or 0),
-    item
-  )
+local function metadata_line(item, duration_str, line_builder)
+  return line_builder(string.format("%s (%+dm)", duration_str, item.error_minutes or 0), item)
 end
 
 -- Build a structured summary layout that records both rendered text and the
@@ -187,11 +249,13 @@ local function build_summary_layout(summary, duration_format, options)
 
   table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "summary", line = headers.summary })
 
-  for _, item in ipairs(summary.summary_items) do
+  local summary_durations =
+    section_duration_strings(summary.summary_items, summary.activity_total, format)
+  for i, item in ipairs(summary.summary_items) do
     table.insert(layout, {
       kind = LAYOUT_KIND.SUMMARY_ITEM,
       section = "summary",
-      line = summary_item_line(item, format, conflicts[item.text]),
+      line = summary_item_line(item, summary_durations[i], conflicts[item.text]),
       item = item,
     })
   end
@@ -201,11 +265,13 @@ local function build_summary_layout(summary, duration_format, options)
   if has_metadata_items(summary.tag_totals, "tag") then
     table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "tag", line = headers.tag })
 
-    for _, item in ipairs(summary.tag_totals or {}) do
+    local tag_durations =
+      section_duration_strings(summary.tag_totals or {}, summary.activity_total, format)
+    for i, item in ipairs(summary.tag_totals or {}) do
       table.insert(layout, {
         kind = LAYOUT_KIND.TAG_TOTAL,
         section = "tag",
-        line = metadata_line(item, format, tag_line),
+        line = metadata_line(item, tag_durations[i], tag_line),
         item = item,
       })
     end
@@ -219,11 +285,13 @@ local function build_summary_layout(summary, duration_format, options)
       { kind = LAYOUT_KIND.HEADER, section = "location", line = headers.location }
     )
 
-    for _, item in ipairs(summary.location_totals or {}) do
+    local location_durations =
+      section_duration_strings(summary.location_totals or {}, summary.activity_total, format)
+    for i, item in ipairs(summary.location_totals or {}) do
       table.insert(layout, {
         kind = LAYOUT_KIND.LOCATION_TOTAL,
         section = "location",
-        line = metadata_line(item, format, location_line),
+        line = metadata_line(item, location_durations[i], location_line),
         item = item,
       })
     end
@@ -234,11 +302,13 @@ local function build_summary_layout(summary, duration_format, options)
   if summary.logged_totals and #summary.logged_totals > 0 then
     table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "logged", line = headers.logged })
 
-    for _, item in ipairs(summary.logged_totals) do
+    local logged_durations =
+      section_duration_strings(summary.logged_totals, summary.workday_total, format)
+    for i, item in ipairs(summary.logged_totals) do
       table.insert(layout, {
         kind = LAYOUT_KIND.LOGGED_TOTAL,
         section = "logged",
-        line = metadata_line(item, format, logged_line),
+        line = metadata_line(item, logged_durations[i], logged_line),
         item = item,
       })
     end

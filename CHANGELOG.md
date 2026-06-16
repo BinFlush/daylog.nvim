@@ -31,6 +31,12 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- Decimal-hour (`d=dec`) summary and report rows now always sum to the displayed
+  section total. Each row was rounded to two decimals independently, so several
+  fractional rows could read e.g. `0.99h` against a `1.00h` total; the displayed
+  values are now distributed with the same largest-remainder method used for
+  minute quantization, so every visible column foots. `d=hm` is exact and
+  unchanged, and footing values render identically to before.
 - `:WorklogInsert {source}` now refuses up front when the cursor is outside a
   worklog, with the same error as plain `:WorklogInsert`, instead of opening the
   picker and only failing after an item is chosen.
