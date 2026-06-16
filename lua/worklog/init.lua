@@ -418,8 +418,9 @@ end
 -- Roll a task that ran across midnight into today: close the previous day at
 -- 24:00, open/create today, continue the activity from 00:00, then apply the
 -- originating command at the current time. Returns true when it took over the
--- request (carried over, declined, or intentionally refused), false when this
--- is not a carryover situation and the caller should hard-block instead.
+-- request (carried over, declined, or intentionally refused), false when this is
+-- not a carryover situation -- leaving guard_current_time to fall back to the
+-- cross-day repeat (:WorklogRepeat) or to hard-block (:WorklogInsert).
 local function run_carryover(settings, command, now)
   local lines = buffer_lines()
 
@@ -439,8 +440,17 @@ local function run_carryover(settings, command, now)
     end
   end
 
+  -- A today that already holds content has no room for a fresh 00:00 carry-over.
+  -- For :WorklogRepeat, decline (return false) so guard_current_time falls through
+  -- to the normal cross-day repeat, inserting the cursor activity into the existing
+  -- today -- exactly as repeating from any other day does. There is nothing to
+  -- carry for :WorklogInsert, so it still points the user at :WorklogToday.
   local today_path = journal.path_for_date(settings, now)
   if journal_path_has_content(today_path) then
+    if command == "repeat" then
+      return false
+    end
+
     warn("worklog: today's worklog already exists; open it with :WorklogToday")
     return true
   end

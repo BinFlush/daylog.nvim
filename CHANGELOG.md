@@ -27,6 +27,11 @@ happen, but they are called out clearly in this changelog.
 - `:WorklogInsert {source}` now refuses up front when the cursor is outside a
   worklog, with the same error as plain `:WorklogInsert`, instead of opening the
   picker and only failing after an item is chosen.
+- `:WorklogRepeat` on yesterday's worklog now brings the cursor entry into today
+  when today already exists, instead of refusing with "today's worklog already
+  exists". Previously a still-running task at the end of yesterday routed the
+  command through the past-midnight carryover, which refuses once today exists;
+  it now falls back to the normal cross-day repeat like any other past day.
 
 ## 0.7.0 - 2026-06-14
 

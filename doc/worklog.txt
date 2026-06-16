@@ -342,8 +342,9 @@ On another day's journal file, the entry under the cursor is brought into today
 instead of refused: today's file is opened (created if needed), the activity is
 inserted at the current time, and the window switches to today; the browsed day is
 left unchanged. The past-midnight carryover still applies on yesterday's file with
-a still-running task (that task continues from `00:00`). |:WorklogInsert| still
-refuses on another day's file.
+a still-running task, but only while today does not exist yet (the task continues
+from `00:00`); once today already exists, the entry is brought into it like any
+other day. |:WorklogInsert| still refuses on another day's file.
 
                                                         *:WorklogCopy*
 :WorklogCopy

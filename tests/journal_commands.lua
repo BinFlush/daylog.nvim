@@ -2160,4 +2160,100 @@ return function(t)
       t.eq(vim.fn.filereadable(today_path), 0)
     end)
   end)
+
+  t.test("repeat past midnight inserts the cursor entry into an existing today on disk", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    -- Yesterday ends with a still-running task, so without the fix this would take
+    -- the carryover branch and refuse because today already exists.
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "20:00 standup",
+      "22:30 writing report",
+    })
+    local today_path = write_journal_file(root, "%Y", now, {
+      "--- worklog #ClientA @office ---",
+      "08:00 morning sync",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(2, 0)
+
+      -- No confirm is mocked: the carryover prompt must never appear, since this is
+      -- a plain cross-day repeat into the existing today.
+      with_mocked_time(now, function()
+        vim.cmd("WorklogRepeat")
+      end)
+
+      -- Switched to today, with the cursor entry brought in at the current time.
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      local lines = t.get_lines()
+      t.eq(lines[1], "--- worklog #ClientA @office ---")
+      t.eq(lines[2], "08:00 morning sync")
+      t.eq(lines[3], "09:00 done")
+      t.eq(lines[4], "10:00 standup")
+
+      -- Yesterday is left untouched -- not closed at 24:00, not saved -- proving the
+      -- cross-day repeat ran rather than the carryover.
+      t.eq(vim.fn.readfile(yesterday_path), {
+        "--- worklog #ClientA @office ---",
+        "20:00 standup",
+        "22:30 writing report",
+      })
+    end)
+  end)
+
+  t.test("repeat past midnight inserts the cursor entry into an unsaved today buffer", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local yesterday_path = write_journal_file(root, "%Y", yesterday, {
+      "--- worklog #ClientA @office ---",
+      "20:00 standup",
+      "22:30 writing report",
+    })
+    local today_path = root .. "/2026/2026-05-22.wkl"
+
+    with_worklog_setup({
+      defaults = { tag = "ClientA", location = "office" },
+      journal = { root = root, directory = "%Y" },
+    }, function()
+      -- Today exists only as an unsaved buffer, never written to disk.
+      vim.cmd("edit " .. vim.fn.fnameescape(today_path))
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "--- worklog #ClientA @office ---",
+        "08:00 morning sync",
+        "09:00 done",
+      })
+
+      vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
+      t.set_cursor(2, 0)
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogRepeat")
+      end)
+
+      -- Switched to the unsaved today buffer, with the entry inserted there.
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      local lines = t.get_lines()
+      t.eq(lines[2], "08:00 morning sync")
+      t.eq(lines[3], "09:00 done")
+      t.eq(lines[4], "10:00 standup")
+
+      -- The unsaved today was edited in place; nothing was persisted to disk, and
+      -- yesterday is untouched.
+      t.eq(vim.fn.filereadable(today_path), 0)
+      t.eq(vim.fn.readfile(yesterday_path), {
+        "--- worklog #ClientA @office ---",
+        "20:00 standup",
+        "22:30 writing report",
+      })
+    end)
+  end)
 end
