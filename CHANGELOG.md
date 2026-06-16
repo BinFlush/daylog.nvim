@@ -20,6 +20,14 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to worklog blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Fixed
+
+- `:WorklogInsert {source}` now refuses up front when the cursor is outside a
+  worklog, with the same error as plain `:WorklogInsert`, instead of opening the
+  picker and only failing after an item is chosen.
+
 ## 0.7.0 - 2026-06-14
 
 ### Added

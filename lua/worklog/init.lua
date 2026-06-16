@@ -14,6 +14,7 @@ local repeat_current = require("worklog.usecases.repeat_current")
 local sources_http = require("worklog.sources.http")
 local sources_registry = require("worklog.sources.registry")
 local sources_sync = require("worklog.sources.sync")
+local support = require("worklog.usecases.support")
 local week = require("worklog.week")
 
 local M = {}
@@ -611,6 +612,16 @@ function M.insert_from_source(name)
   local source = sources_registry.get(name)
   if not source then
     warn("worklog: unknown source '" .. name .. "'")
+    return
+  end
+
+  -- Refuse a cursor outside a worklog now, before opening the async picker
+  -- (cache read, optional network, a UI round trip), exactly as :WorklogInsert
+  -- with no argument refuses up front. insert_entry re-validates at apply time
+  -- too, since the buffer can change under the picker -- this is the fail-fast.
+  local cursor_ctx, cursor_err = support.get_validated_at_row(buffer_lines(), cursor_row())
+  if not cursor_ctx then
+    warn(cursor_err)
     return
   end
 

@@ -96,6 +96,56 @@ return function(t)
     })
   end)
 
+  t.test("WorklogInsert <source> errors without opening the picker outside a worklog", function()
+    register_fake()
+    t.reset({
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 first",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h first",
+    })
+    t.set_cursor(5, 0) -- on the summary header, outside the worklog block
+
+    -- Detect whether the (stubbed) picker is ever reached. The fix must bail
+    -- before this, just like a bare :WorklogInsert outside a worklog.
+    local picker_opened = false
+    local old_ensure = sync.ensure_fresh
+    sync.ensure_fresh = function()
+      picker_opened = true
+    end
+
+    local captured
+    local ok, err = xpcall(function()
+      with_captured_notify(function(messages)
+        vim.cmd("WorklogInsert FAKE")
+        captured = messages
+      end)
+    end, debug.traceback)
+
+    sync.ensure_fresh = old_ensure
+    if not ok then
+      error(err, 0)
+    end
+
+    t.ok(not picker_opened, "picker must not open when the cursor is outside a worklog")
+    t.eq(captured, {
+      {
+        message = "worklog: current line is not inside a worklog block",
+        level = vim.log.levels.WARN,
+      },
+    })
+    t.eq(t.get_lines(), {
+      "--- worklog #ProjectOrion @office ---",
+      "08:00 first",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h first",
+    })
+  end)
+
   t.test("WorklogInsert with an unknown source warns and inserts nothing", function()
     t.reset({
       "--- worklog ---",
