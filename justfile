@@ -20,6 +20,11 @@ test:
       "+lua dofile('tests/run.lua')" \
       +qa!
 
+# Run the full property-fuzz sweep (5000 worklogs/mode); the always-on `test`
+# runs a fast sample of the same fuzz.
+fuzz:
+    WORKLOG_FUZZ=full just test
+
 health:
     nvim --headless -u NONE \
       "+set rtp+=." \
