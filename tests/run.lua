@@ -83,6 +83,21 @@ function t.test(name, fn)
   end
 end
 
+-- Expected-failure test (TDD "red"): passes iff `fn` raises. If `fn` unexpectedly
+-- succeeds, the suite fails -- a reminder to flip t.xfail back to t.test once the
+-- bug it pins down is fixed.
+function t.xfail(name, fn)
+  tests_run = tests_run + 1
+  local ok = xpcall(fn, debug.traceback)
+
+  if ok then
+    table.insert(
+      failures,
+      string.format("%s\n  xfail unexpectedly PASSED -- flip t.xfail to t.test", name)
+    )
+  end
+end
+
 local root = vim.fn.getcwd()
 
 dofile(root .. "/tests/entry.lua")(t)
@@ -114,6 +129,7 @@ dofile(root .. "/tests/sources_config.lua")(t)
 dofile(root .. "/tests/sources_commands.lua")(t)
 dofile(root .. "/tests/compat.lua")(t)
 dofile(root .. "/tests/invariants.lua")(t)
+dofile(root .. "/tests/summary_fuzz.lua")(t)
 
 restore_output()
 
