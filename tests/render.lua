@@ -541,6 +541,71 @@ return function(t)
     )
   end)
 
+  t.test("render labels each day section with its own q= and leaves the aggregate bare", function()
+    t.eq(
+      render.week_report_lines({
+        period_label = "2026-W21",
+        days = {
+          {
+            date_label = "2026-05-18",
+            quantize_minutes = 30,
+            summary = {
+              summary_items = {
+                {
+                  text = "plan",
+                  tag = nil,
+                  duration = 60,
+                  unrounded_duration = 68,
+                  error_minutes = 8,
+                  workday_excluded = false,
+                },
+              },
+              tag_totals = {},
+              location_totals = {},
+              activity_total = 60,
+              workday_total = 60,
+              activity_error_minutes = 8,
+              workday_error_minutes = 8,
+            },
+          },
+        },
+        summary = {
+          summary_items = {
+            {
+              text = "plan",
+              tag = nil,
+              duration = 60,
+              unrounded_duration = 68,
+              error_minutes = 8,
+              workday_excluded = false,
+            },
+          },
+          tag_totals = {},
+          location_totals = {},
+          activity_total = 60,
+          workday_total = 60,
+          activity_error_minutes = 8,
+          workday_error_minutes = 8,
+        },
+      }, "hm"),
+      {
+        -- The day header carries that day's own bucket...
+        "--- day summary 2026-05-18 q=30 ---",
+        "1:00 (+8m) plan",
+        "",
+        "--- day totals 2026-05-18 ---",
+        "1:00 (+8m) workday",
+        "",
+        -- ...while the aggregate header stays bare (no q= token).
+        "--- week summary 2026-W21 ---",
+        "1:00 (+8m) plan",
+        "",
+        "--- week totals 2026-W21 ---",
+        "1:00 (+8m) workday",
+      }
+    )
+  end)
+
   t.test("render can omit day sections for a weekly aggregate-only report", function()
     t.eq(
       render.week_report_lines(

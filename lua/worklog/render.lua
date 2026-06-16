@@ -338,12 +338,29 @@ function M.summary_layout(summary, duration_format, options)
   return build_summary_layout(summary, duration_format, options)
 end
 
+-- The trailing ` q=N` token on a per-day report summary header, so a multi-day
+-- report shows each day's own quantization bucket. Nothing is added when
+-- `quantize_minutes` is nil (e.g. the aggregate section).
+local function quantize_suffix(quantize_minutes)
+  if not quantize_minutes then
+    return ""
+  end
+
+  return string.format(" q=%d", quantize_minutes)
+end
+
 -- Build the labeled section headers for one report section. `prefix` selects the
 -- scope (day, week, range) and `label` is the date or period appended to each.
-local function report_headers(prefix, label, leading_blank)
+-- `quantize_minutes` annotates the summary header with that section's bucket.
+local function report_headers(prefix, label, leading_blank, quantize_minutes)
   return {
     leading_blank = leading_blank,
-    summary_header = string.format("--- %s summary %s ---", prefix, label),
+    summary_header = string.format(
+      "--- %s summary %s%s ---",
+      prefix,
+      label,
+      quantize_suffix(quantize_minutes)
+    ),
     tag_header = string.format("--- %s tags %s ---", prefix, label),
     location_header = string.format("--- %s locations %s ---", prefix, label),
     logged_header = string.format("--- %s logged %s ---", prefix, label),
@@ -364,7 +381,7 @@ local function period_report_lines(report, duration_format, options, aggregate_p
         lines,
         day.summary,
         duration_format,
-        report_headers("day", day.date_label, index > 1)
+        report_headers("day", day.date_label, index > 1, day.quantize_minutes)
       )
     end
   end

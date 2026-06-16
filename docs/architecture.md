@@ -114,7 +114,9 @@ no insert-mode timing to manage. The reporting core (`summary.lua`, `render.lua`
 stays pure so the journal reports (`:WorklogWeek` / `:WorklogDays`) share it
 unchanged; an open report re-derives on the same `auto_summary` autocmds,
 rebuilding from a spec stored on its buffer so it tracks its source days the way
-an in-file summary tracks its entries.
+an in-file summary tracks its entries. Each day section in a report labels its
+header with that day's own `q=` bucket (`week.lua` carries `quantize_minutes`
+per day; the aggregate header stays bare).
 
 ## Parsing and semantics
 

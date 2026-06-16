@@ -22,6 +22,13 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- Week/days reports (`:WorklogWeek` / `:WorklogDays`) now show each day's own `q=`
+  bucket in its section header (e.g. `--- day summary 2026-05-18 q=30 ---`), so a
+  period mixing different quanta stays legible. The aggregate summary header is
+  unchanged.
+
 ### Fixed
 
 - `:WorklogInsert {source}` now refuses up front when the cursor is outside a

@@ -917,7 +917,7 @@ return function(t)
       t.ok(not vim.bo.modifiable)
       t.ok(not vim.bo.modified)
       t.eq(t.get_lines(), {
-        "--- day summary 2026-05-18 ---",
+        "--- day summary 2026-05-18 q=30 ---",
         "0:30 (+10m) implementation",
         "0:30 (-10m) plan",
         "",
@@ -931,7 +931,7 @@ return function(t)
         "--- day totals 2026-05-18 ---",
         "1:00 (+0m) workday",
         "",
-        "--- day summary 2026-05-22 ---",
+        "--- day summary 2026-05-22 q=60 ---",
         "1:00 (-20m) retro",
         "",
         "--- day tags 2026-05-22 ---",
@@ -1123,7 +1123,7 @@ return function(t)
         end)
 
         t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21.wkl")
-        t.eq(t.get_lines()[1], "--- day summary 2026-05-18 ---")
+        t.eq(t.get_lines()[1], "--- day summary 2026-05-18 q=15 ---")
 
         vim.cmd("silent! only!")
       end)
@@ -1273,7 +1273,7 @@ return function(t)
         "worklog-days-2026-05-19..2026-05-22.wkl"
       )
       t.eq(t.get_lines(), {
-        "--- day summary 2026-05-20 ---",
+        "--- day summary 2026-05-20 q=30 ---",
         "0:30 (+10m) implementation",
         "0:30 (-10m) plan",
         "",
@@ -1287,7 +1287,7 @@ return function(t)
         "--- day totals 2026-05-20 ---",
         "1:00 (+0m) workday",
         "",
-        "--- day summary 2026-05-22 ---",
+        "--- day summary 2026-05-22 q=60 ---",
         "1:00 (-20m) retro",
         "",
         "--- day tags 2026-05-22 ---",

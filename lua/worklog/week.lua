@@ -52,10 +52,15 @@ local function analyze_day(day)
     return nil, prefixed_file_error(day.path, err)
   end
 
+  -- Expose the day's own quantization bucket so the multi-day report can label
+  -- each day section with its `q=`.
+  local block = analyze.get_active_worklog(analysis)
+
   return {
     date_label = day.date_label,
     path = day.path,
-    summary = summary.summarize_block(analyze.get_active_worklog(analysis)),
+    summary = summary.summarize_block(block),
+    quantize_minutes = block.quantize_minutes,
   },
     nil
 end

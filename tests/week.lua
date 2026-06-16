@@ -28,6 +28,7 @@ return function(t)
         {
           date_label = "2026-05-18",
           path = "/tmp/2026-05-18.wkl",
+          quantize_minutes = 30,
           summary = {
             summary_items = {
               {
@@ -65,6 +66,7 @@ return function(t)
         {
           date_label = "2026-05-19",
           path = "/tmp/2026-05-19.wkl",
+          quantize_minutes = 60,
           summary = {
             summary_items = {
               {

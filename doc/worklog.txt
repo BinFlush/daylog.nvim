@@ -269,6 +269,9 @@ Open a scratch report for the current ISO week from
 - Existing rendered summaries are ignored.
 - The report shows each included day's summary first, then one weekly summary
   built by summing those daily results.
+- Each day's summary header carries that day's own `q=` bucket (e.g.
+  `--- day summary 2026-05-18 q=30 ---`), so a period mixing different quanta
+  stays legible. The weekly summary header has no bucket token.
 - While open, the report refreshes as its source files and buffers change,
   following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
@@ -290,6 +293,9 @@ Open a scratch report for the last N journal dates from
 - Existing rendered summaries are ignored.
 - The report shows each included day's summary first, then one range summary
   built by summing those daily results.
+- Each day's summary header carries that day's own `q=` bucket (e.g.
+  `--- day summary 2026-05-18 q=30 ---`), so a period mixing different quanta
+  stays legible. The range summary header has no bucket token.
 - While open, the report refreshes as its source files and buffers change,
   following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
