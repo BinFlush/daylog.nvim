@@ -39,6 +39,17 @@ happen, but they are called out clearly in this changelog.
   bucket in its section header (e.g. `--- day summary 2026-05-18 q=30 ---`), so a
   period mixing different quanta stays legible. The aggregate summary header is
   unchanged.
+- The `:WorklogWeek` / `:WorklogDays` report buffers are now syntax-highlighted,
+  including the labeled multi-day section headers and their duration rows.
+
+### Changed
+
+- Syntax highlighting is now derived from the worklog parser and applied as
+  extmarks, replacing the separate Vimscript syntax file. Highlighting therefore
+  always matches how the plugin parses a file (one grammar, not two) and no longer
+  depends on `:syntax on`. The highlight group names are unchanged (`WorklogTag`,
+  `WorklogDuration`, `WorklogOoo`, ...), so existing `highlight` overrides keep
+  working.
 
 ### Fixed
 

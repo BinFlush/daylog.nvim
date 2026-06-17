@@ -164,8 +164,7 @@ end
 local function parse_header(line, row)
   -- "worklog" must be its own word: followed by whitespace (before any options)
   -- or by the closing dashes directly. This rejects "--- worklogs ---" and
-  -- "--- worklog#sales ---" (they fall through to a generic block header),
-  -- matching the highlighter in syntax/worklog.vim.
+  -- "--- worklog#sales ---" (they fall through to a generic block header).
   local options_text = line:match("^%-%-%- worklog%s+(.-)%s*%-%-%-$")
   if options_text == nil and line:match("^%-%-%- worklog%-%-%-$") then
     options_text = ""
@@ -204,10 +203,9 @@ local function parse_entry(line, row)
   end
 
   -- A summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp plus a
-  -- (+Nm) rounding marker; treat it as a note, not an entry -- mirroring the
-  -- highlighter's `\ze ([+-]\d+m)` rule. This keeps a d=hm summary row that leaks into
-  -- a worklog body (e.g. after its summary header is deleted) from being miscounted as
-  -- a real entry.
+  -- (+Nm) rounding marker; treat it as a note, not an entry. This keeps a d=hm summary
+  -- row that leaks into a worklog body (e.g. after its summary header is deleted) from
+  -- being miscounted as a real entry; the highlighter (highlight.lua) shares the rule.
   if rest:match("^%s+%([%+%-]%d+m%)") then
     return nil
   end
@@ -287,6 +285,12 @@ local function parse_line(line, row)
     text = line,
   }
 end
+
+-- Classify a single whitespace-delimited token as worklog metadata: returns
+-- (kind, value, clear) for a #tag / @location / #- / @- / !L, or nil otherwise.
+-- Exposed so the highlighter (highlight.lua) classifies trailing-run and header
+-- tokens with the very same grammar the parser uses, rather than a second copy.
+M.classify_control_token = parse_entry_control_token
 
 function M.parse_line(line, row)
   return parse_line(line, row or 1)

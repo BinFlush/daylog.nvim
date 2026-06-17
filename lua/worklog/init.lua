@@ -2,6 +2,7 @@ local filetype = require("worklog.filetype")
 local append_copy = require("worklog.usecases.append_copy")
 local carryover = require("worklog.usecases.carryover")
 local config = require("worklog.config")
+local highlight = require("worklog.highlight")
 local insert_entry = require("worklog.usecases.insert_entry")
 local insert_now = require("worklog.usecases.insert_now")
 local journal = require("worklog.journal")
@@ -65,6 +66,49 @@ local refreshing = false
 
 local diagnostic_namespace = vim.api.nvim_create_namespace("worklog")
 
+local highlight_namespace = vim.api.nvim_create_namespace("worklog-highlight")
+local highlight_groups_defined = false
+
+-- Register the worklog highlight groups as default links (so a user's own
+-- highlight overrides win). Done lazily on first highlight so it works whether or
+-- not setup() ran.
+local function ensure_highlight_groups()
+  if highlight_groups_defined then
+    return
+  end
+
+  for group, link in pairs(highlight.GROUPS) do
+    vim.api.nvim_set_hl(0, group, { link = link, default = true })
+  end
+
+  highlight_groups_defined = true
+end
+
+-- Apply the parser-driven highlight spans to a buffer as extmarks, replacing the
+-- previous set. This is the single highlighting path: worklog files attach it via
+-- the ftplugin, the report buffers call it directly, and the edit-applying shell
+-- refreshes it after programmatic edits (which do not fire change autocmds). The
+-- narrower token spans carry a higher priority than the whole-line base ones, so
+-- a tag inside a header wins at its cells.
+function M.highlight_buffer(buf)
+  buf = buf or 0
+  if not vim.api.nvim_buf_is_valid(buf) then
+    return
+  end
+
+  ensure_highlight_groups()
+  vim.api.nvim_buf_clear_namespace(buf, highlight_namespace, 0, -1)
+
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  for _, span in ipairs(highlight.spans(lines)) do
+    vim.api.nvim_buf_set_extmark(buf, highlight_namespace, span.line, span.col_start, {
+      end_col = span.col_end,
+      hl_group = span.group,
+      priority = span.priority,
+    })
+  end
+end
+
 -- Publish the worklog's problems (e.g. out-of-order timestamps) as buffer
 -- diagnostics. They are recomputed and replace the previous set on every refresh,
 -- so they clear themselves as soon as the worklog is valid again -- however it
@@ -108,6 +152,12 @@ local function apply_result(result)
   -- own analysis (and sets `refreshing` around its edit), so skip while it runs.
   if not refreshing then
     refresh_diagnostics()
+  end
+
+  -- Programmatic edits do not fire the change autocmds the ftplugin highlighter
+  -- listens on, so refresh highlights from this single edit choke point too.
+  if vim.bo.filetype == "worklog" then
+    M.highlight_buffer(0)
   end
 end
 
@@ -331,6 +381,11 @@ local function open_report_buffer(lines, name)
   vim.api.nvim_win_set_cursor(0, { 1, 0 })
   vim.bo.modified = false
   vim.bo.modifiable = false
+
+  -- Reports are scratch buffers (no worklog filetype, so no ftplugin), so apply
+  -- the parser-driven highlighter directly. The same recognizer handles the
+  -- labeled multi-day section headers and their duration rows.
+  M.highlight_buffer(0)
 end
 
 local function can_abandon_current_buffer()
@@ -931,6 +986,7 @@ local function refresh_report_windows()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
         vim.bo[buf].modified = false
         vim.bo[buf].modifiable = false
+        M.highlight_buffer(buf)
 
         local line_count = vim.api.nvim_buf_line_count(buf)
         local row = math.min(cursor[1], line_count)

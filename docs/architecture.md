@@ -77,9 +77,11 @@ projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
 summary_block.lua -> locate a worklog's single generated summary region
 render.lua        -> output rendering
+highlight.lua     -> parser-driven highlight spans (pure)
 usecases/         -> pure command operations (incl. insert_entry)
 sources/          -> external work-item sources (pure providers + shell IO/UI)
 init.lua          -> Neovim shell
+ftplugin/worklog.lua -> shell: attach the highlighter to worklog buffers
 ```
 
 ## Summary model
@@ -231,6 +233,29 @@ omit placeholder-only tag/location sections, omit `activity` when it equals
 `(no location)`, and hide main-summary tags unless needed for disambiguation. It
 does not decide reporting semantics or ordering.
 
+## Highlighting
+
+Highlighting is parser-driven, so there is no second grammar to keep in sync.
+`highlight.lua` (pure) runs the same `document`/`analyze` parse the rest of the
+plugin uses and turns it into highlight spans -- `{ line, col_start, col_end,
+group, priority }`, 0-based byte columns matching the extmark API. Worklog
+headers, entries, and trailing metadata are classified straight from the parse
+(token kinds via `document.classify_control_token`); summary rows -- derived
+output, not source -- are recognized by the shapes `render.lua` emits (a leading
+duration, `(+Nm)` markers, trailing metadata), and a summary section runs from a
+generated section header to the blank line that ends it. The same recognizer
+handles the labeled multi-day report headers (`--- day summary <date> q=N ---`),
+so the `:WorklogWeek` / `:WorklogDays` reports highlight too. Whole-line "base"
+spans (a header, a note) sit at a lower priority than the narrower token spans
+layered over them, so a `#tag` inside a header wins at its own cells.
+
+The shell applies the spans as extmarks in a dedicated namespace:
+`ftplugin/worklog.lua` attaches the highlighter to any worklog buffer (so it works
+without `setup()`) and refreshes it on change, the report buffers highlight
+themselves on build/refresh, and the edit-applying path re-highlights after the
+programmatic edits that do not fire change autocmds. `init.lua` registers the
+highlight groups as default links, so a user's own `highlight` overrides win.
+
 ## Usecases, edit scripts, and the shell
 
 A usecase is a pure command operation: it accepts plain Lua input, calls
@@ -255,12 +280,14 @@ lines)`. Indexes are zero-based to match the Neovim buffer API.
 `init.lua` is the Neovim shell: it registers filetype support and user commands,
 reads buffer lines, cursor row, and current time, expands configured journal
 paths before calling pure journal helpers, calls usecases, applies edit scripts,
-and shows warnings. It contains no worklog semantics.
+applies highlight spans as extmarks, and shows warnings. It contains no worklog
+semantics.
 
 The shell is a thin *layer*, not a single file. Alongside `init.lua`, the only
-code that touches Neovim, IO, or UI is `health.lua` (the `:checkhealth` probe) and
-the sources shell modules (`sources/http`, `sources/sync`, `sources/telescope`).
-The semantic core -- and even the source providers -- stay pure; see below.
+code that touches Neovim, IO, or UI is `health.lua` (the `:checkhealth` probe),
+`ftplugin/worklog.lua` (attaches the highlighter), and the sources shell modules
+(`sources/http`, `sources/sync`, `sources/telescope`). The semantic core -- and
+even the source providers and the highlighter -- stay pure; see below.
 
 ## Sources
 
@@ -325,15 +352,16 @@ while counting it in activity — rather than silently turning untagged work int
 
 Core areas under test: syntax parsing; sticky tag/location inheritance; `#-` and
 `@-`; `#ooo`; summaries and quantization (including `q=1` exactness); tag
-and location totals; copy, order, repeat, and insert behavior; equal-timestamp
-insertion; and quantized summary invariants.
+and location totals; copy, order, repeat (incl. from a summary row), rename, and
+insert behavior; equal-timestamp insertion; quantized summary invariants; and the
+parser-driven highlight spans (`tests/highlight.lua` is a contract test that the
+highlighter agrees with the grammar `document.lua` parses).
 
 Tooling and the local gate (`just install`, `just check`, `just --list`, and the
 raw headless test/health commands) are documented in the README and `justfile`.
 
 ## Future ideas
 
-- Tree-sitter syntax highlighting
 - export formats
 - richer reports
 - validation command

@@ -1,28 +1,45 @@
 return function(t)
-  -- Contract test for syntax/worklog.vim. It guards against the highlighter
-  -- drifting from the grammar that document.lua parses: every canonical token
-  -- below must classify as the expected syntax group. When a new token is added
-  -- to the parser, add it here too.
+  -- Contract test for the parser-driven highlighter (lua/worklog/highlight.lua).
+  -- Highlighting is derived from the same parse the plugin reads a file with, so
+  -- this guards that every canonical token classifies as the expected group. When
+  -- a new token is added to the parser, add it here too.
+  local highlight = require("worklog.highlight")
 
+  local current_spans = {}
+  local current_lines = {}
+
+  local function load(lines)
+    current_lines = lines
+    current_spans = highlight.spans(lines)
+  end
+
+  -- The highlight group at a 1-based line/column (matching the old synID-based
+  -- harness): the highest-priority span covering that byte, or "" when none does.
+  -- Narrower token spans carry a higher priority than the whole-line base they sit
+  -- on, so a tag inside a header wins at its own cells.
   local function group_at(lnum, col)
-    return vim.fn.synIDattr(vim.fn.synID(lnum, col, 1), "name")
+    local line = lnum - 1
+    local byte = col - 1
+    local best, best_priority
+    for _, span in ipairs(current_spans) do
+      if span.line == line and byte >= span.col_start and byte < span.col_end then
+        if not best or span.priority >= best_priority then
+          best = span.group
+          best_priority = span.priority
+        end
+      end
+    end
+    return best or ""
   end
 
   local function col_of(lnum, needle)
-    local found = vim.fn.getline(lnum):find(needle, 1, true)
+    local found = current_lines[lnum]:find(needle, 1, true)
     assert(found, string.format("token %q not found on line %d", needle, lnum))
     return found
   end
 
-  local function load_worklog_syntax(lines)
-    vim.cmd("syntax enable")
-    t.reset(lines)
-    vim.bo.filetype = "worklog"
-    vim.bo.syntax = "worklog"
-  end
-
-  t.test("syntax/worklog.vim classifies canonical tokens", function()
-    load_worklog_syntax({
+  t.test("the highlighter classifies canonical tokens", function()
+    load({
       "--- worklog #ClientA @office q=30 ---",
       "08:00 planning #ClientA @office",
       "10:00 meeting #ooo",
@@ -59,13 +76,13 @@ return function(t)
     -- Logged marker.
     t.eq(group_at(5, col_of(5, "!L")), "WorklogLogged")
 
-    -- Generated section header (non-worklog) and quantized summary row. The row
-    -- sits inside the WorklogSummaryBlock region, ended by the blank line below.
+    -- Generated section header and quantized summary row. The row sits inside the
+    -- summary section, ended by the blank line below.
     t.eq(group_at(6, 1), "WorklogBlockHeader")
     t.eq(group_at(7, 1), "WorklogDuration")
     t.eq(group_at(7, col_of(7, "(+2m)")), "WorklogQuantError")
 
-    -- Free-form note line (outside the summary region).
+    -- Free-form note line (after the summary section's terminating blank).
     t.eq(group_at(9, 1), "WorklogNote")
 
     -- A '#' that is not part of the trailing metadata run is plain text, never a
@@ -79,8 +96,7 @@ return function(t)
     -- 24:00 is a valid end-of-day boundary and still highlights as a timestamp.
     t.eq(group_at(11, 1), "WorklogTimestamp")
 
-    -- Out-of-range times mirror the parser's rejection: 99:99 is not a
-    -- timestamp, so it falls through to a free-form note.
+    -- Out-of-range times mirror the parser's rejection: 99:99 is not a timestamp.
     t.ok(
       group_at(12, 1) ~= "WorklogTimestamp",
       "out-of-range 99:99 must not highlight as a timestamp"
@@ -94,7 +110,7 @@ return function(t)
   t.test(
     "trailing metadata tolerates trailing whitespace, any order, and rejects text after",
     function()
-      load_worklog_syntax({
+      load({
         "08:00 task #tag ",
         "09:00 task @home #tag  ",
         "10:00 task #tag note",
@@ -116,7 +132,7 @@ return function(t)
   )
 
   t.test("a trailing run with a repeated kind highlights nothing, like the parser", function()
-    load_worklog_syntax({
+    load({
       "08:00 task #a #b",
       "09:00 task @a @b",
       "10:00 task #a !L #b",
@@ -150,7 +166,7 @@ return function(t)
   end)
 
   t.test("a header with a repeated tag or location is not a worklog header", function()
-    load_worklog_syntax({
+    load({
       "--- worklog #a #b ---",
       "--- worklog @a @b ---",
       "--- worklog #a @b q=30 ---",
@@ -180,7 +196,7 @@ return function(t)
   end)
 
   t.test("only valid header options highlight; the parser's rejects fall back", function()
-    load_worklog_syntax({
+    load({
       "--- worklog q=30 ---", -- 1 valid quantize
       "--- worklog d=dec ---", -- 2 valid duration
       "--- worklog d=hm ---", -- 3 valid duration
@@ -229,7 +245,7 @@ return function(t)
   end)
 
   t.test("a line with an invalid timestamp does not highlight trailing metadata", function()
-    load_worklog_syntax({
+    load({
       "25:00 task #tag", -- out-of-range time: not an entry for the parser
       "12:34xyz #tag", -- time glued to text: not an entry either
     })
@@ -247,7 +263,7 @@ return function(t)
   end)
 
   t.test("hhmm summary rows highlight as durations, not timestamps or notes", function()
-    load_worklog_syntax({
+    load({
       "0:30 (+4m) planning",
       "16:00 (-20m) workday",
       "1:30 planning",
@@ -258,7 +274,7 @@ return function(t)
     t.eq(group_at(1, 1), "WorklogDuration")
     t.eq(group_at(1, col_of(1, "(+4m)")), "WorklogQuantError")
 
-    -- A two-digit-hour quantized row beats the timestamp match.
+    -- A two-digit-hour row directly before a (+Nm) marker beats the timestamp.
     t.eq(group_at(2, 1), "WorklogDuration")
 
     -- An exact single-digit-hour duration, which can never be an entry.
@@ -269,7 +285,7 @@ return function(t)
   end)
 
   t.test("two-digit-hour hhmm summary rows highlight as durations via block context", function()
-    load_worklog_syntax({
+    load({
       "--- worklog d=hm ---",
       "08:00 deep work",
       "",
@@ -296,5 +312,32 @@ return function(t)
     -- Single-digit-hour rows and trailing metadata still highlight inside it.
     t.eq(group_at(6, 1), "WorklogDuration")
     t.eq(group_at(5, col_of(5, "#ClientA")), "WorklogTag")
+  end)
+
+  t.test("a labeled multi-day report section highlights its rows", function()
+    -- :WorklogWeek / :WorklogDays produce labeled headers the old syntax file did
+    -- not recognize; the parser-driven highlighter does, so report rows highlight.
+    load({
+      "--- day summary 2026-05-18 q=30 ---",
+      "2.00h (+0m) planning #ClientA",
+      "",
+      "--- day totals 2026-05-18 ---",
+      "8.00h (+0m) workday",
+      "",
+      "--- week summary 2026-W21 ---",
+      "16:00 (+0m) workday",
+    })
+
+    -- Labeled report headers are block headers.
+    t.eq(group_at(1, 1), "WorklogBlockHeader")
+    t.eq(group_at(4, 1), "WorklogBlockHeader")
+    t.eq(group_at(7, 1), "WorklogBlockHeader")
+
+    -- Their rows are summary durations with rounding markers and trailing metadata.
+    t.eq(group_at(2, 1), "WorklogDuration")
+    t.eq(group_at(2, col_of(2, "(+0m)")), "WorklogQuantError")
+    t.eq(group_at(2, col_of(2, "#ClientA")), "WorklogTag")
+    t.eq(group_at(5, 1), "WorklogDuration")
+    t.eq(group_at(8, 1), "WorklogDuration")
   end)
 end

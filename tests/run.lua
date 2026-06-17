@@ -3,6 +3,13 @@ local failures = {}
 
 vim.o.hidden = true
 
+-- Enable filetype detection and ftplugins so opening a `.wkl` file sets
+-- filetype=worklog, exactly as in a real session. The journal/report commands
+-- rely on this (their auto-summary autocmds key off the worklog filetype) and the
+-- ftplugin-driven highlighter attaches the same way; `-u NONE` otherwise leaves
+-- detection off, which previously only worked by accident of test ordering.
+vim.cmd("filetype plugin on")
+
 local original_notify = vim.notify
 local original_err_writeln = vim.api.nvim_err_writeln
 
