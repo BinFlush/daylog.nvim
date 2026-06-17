@@ -58,6 +58,12 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- Refreshing a worklog whose summary shrank to (almost) nothing -- e.g. after
+  deleting all but one entry, leaving no completed interval -- no longer stacks a
+  second summary below the stale one. The summary region is now located by the
+  union of content alignment and structural recognition, so refresh replaces the
+  existing summary in place, and a buffer already jumbled by the old behavior
+  collapses back to a single summary on the next refresh.
 - Decimal-hour (`d=dec`) summary and report rows now always sum to the displayed
   section total. Each row was rounded to two decimals independently, so several
   fractional rows could read e.g. `0.99h` against a `1.00h` total; the displayed

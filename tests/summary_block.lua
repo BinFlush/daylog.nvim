@@ -216,6 +216,68 @@ return function(t)
     )
   end)
 
+  t.test("summary_block locates a summary when the worklog has no completed interval", function()
+    -- One entry -> no intervals -> an empty fresh summary that alignment cannot
+    -- anchor; structural recognition still locates the stale summary to rewrite, so
+    -- a refresh replaces it instead of stacking a second summary below it.
+    t.eq(
+      locate({
+        "--- worklog ---",
+        "08:00 plan",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) plan",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      }),
+      { start_row = 4, end_row = 9 }
+    )
+  end)
+
+  t.test("summary_block spans a jumble of duplicated generated summaries", function()
+    -- Two stacked generated summaries (an earlier bad regeneration) are located as
+    -- one region, so a refresh collapses them.
+    t.eq(
+      locate({
+        "--- worklog ---",
+        "08:00 plan",
+        "",
+        "--- summary q=15 d=dec ---",
+        "",
+        "--- totals ---",
+        "0.00h (+0m) workday",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) plan",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      }),
+      { start_row = 4, end_row = 14 }
+    )
+  end)
+
+  t.test("summary_block leaves a trailing note outside the located region", function()
+    -- A note written below the summary is not swallowed into the region.
+    t.eq(
+      locate({
+        "--- worklog ---",
+        "08:00 plan",
+        "09:00 done",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) plan",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+        "",
+        "a note after the summary",
+      }),
+      { start_row = 5, end_row = 10 }
+    )
+  end)
+
   t.test("summary_block returns nil when there is no summary", function()
     t.eq(locate({ "--- worklog ---", "08:00 plan", "09:00 done" }), nil)
   end)

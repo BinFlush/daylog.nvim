@@ -5,14 +5,26 @@ local M = {}
 -- Locator for a worklog's generated summary region.
 --
 -- A worklog has at most one summary, and it is derived output -- always exactly
--- `render(summarize(entries))`. Rather than recognize summary header strings (which
--- break the moment a header is edited or deleted), this module aligns the freshly
--- rendered expected summary against the worklog's tail -- a Needleman-Wunsch fitting
--- alignment (see `fit_align`) -- and reports the best-matching span. That keeps it
--- format-agnostic -- nothing here changes when the summary layout
--- does -- and lets the summary usecases rewrite an edited or partly deleted summary in
--- place: a mangled header or a deleted row is folded into the matched span. It owns no
--- presentation or reporting logic.
+-- `render(summarize(entries))`. The region is located two ways and the union is
+-- returned, so each covers the other's blind spot:
+--
+--   * Content alignment (`align_find`, a Needleman-Wunsch fitting alignment, see
+--     `fit_align`): line up the freshly rendered expected summary against the
+--     worklog's tail. Format-agnostic and tolerant of edits -- a mangled header or
+--     a deleted row is folded into the matched span -- but it needs a few
+--     distinctive lines to anchor, so it fails when the fresh summary is nearly
+--     empty (a worklog with no completed interval).
+--   * Structural recognition (`structural_find`): the contiguous run of generated
+--     summary lines in the tail -- section headers (`syntax.is_summary_section_header`)
+--     and `<duration> (+Nm)` rows -- separated by blanks. This finds an empty
+--     summary (the headers are still there) and, crucially, spans a *jumble* of
+--     duplicated/stale generated sections so a refresh collapses them into one,
+--     while stopping at the first real note so trailing prose is preserved.
+--
+-- Taking the union means a clean summary resolves identically to before, an
+-- edited/partly-deleted one is still found by alignment, and an empty or
+-- duplicated one is found (and collapsed) structurally. It owns no presentation or
+-- reporting logic.
 
 -- Needleman-Wunsch fitting alignment (a.k.a. semi-global): line up *all* of `expected`
 -- against a contiguous span of `actual`, with the actual prefix and suffix outside the
@@ -136,11 +148,11 @@ local function tail_bounds(analysis, worklog_block)
   return tail_start, stop_row
 end
 
--- Locate `worklog_block`'s generated summary by aligning `expected_lines` (the freshly
--- rendered summary) against the worklog's tail. Returns { start_row, end_row } (1-based,
--- end_row exclusive) when enough of the summary is present to be sure it is this
--- summary, or nil when there is none to rewrite.
-function M.find(analysis, worklog_block, expected_lines)
+-- Locate the summary by aligning `expected_lines` (the freshly rendered summary)
+-- against the worklog's tail. Returns { start_row, end_row } (1-based, end_row
+-- exclusive) or nil. Strong against edits, weak when `expected_lines` is nearly
+-- empty (too few distinctive lines to anchor).
+local function align_find(analysis, worklog_block, expected_lines)
   if not expected_lines or #expected_lines == 0 then
     return nil
   end
@@ -181,6 +193,75 @@ function M.find(analysis, worklog_block, expected_lines)
   return {
     start_row = tail_start + span.start - 1,
     end_row = tail_start + span.stop,
+  }
+end
+
+-- A generated summary line continuing an already-started run: a bare in-file
+-- section header or a `<duration> (+Nm) ...` row. The row form requires a leading
+-- duration token so an ordinary note that merely contains a `(+Nm)`-shaped fragment
+-- is not mistaken for a summary row.
+local function is_generated_summary_line(raw)
+  return syntax.is_infile_summary_header(raw) or raw:match("^%d%S*%s+%([%+%-]%d+m%)") ~= nil
+end
+
+-- Locate the summary as the contiguous run of generated summary lines in the
+-- worklog's tail. The run is *anchored* on the first bare in-file summary header
+-- (the banner or a bare tags/locations/logged/totals), then extends over the
+-- following section headers, `(+Nm)` rows, and the blanks between them, ending at
+-- the first real note / the next worklog / EOF. Anchoring on a header (not a lone
+-- row) keeps a leaked summary-shaped note from being grabbed -- a deleted header is
+-- instead recovered by content alignment. This finds an empty summary (its headers
+-- survive) and spans a jumble of duplicated or stale generated sections, while
+-- leaving trailing prose outside.
+local function structural_find(analysis, worklog_block)
+  local tail_start, stop_row = tail_bounds(analysis, worklog_block)
+  if not tail_start then
+    return nil
+  end
+
+  local nodes = analysis.document.nodes
+  local start, stop
+  for row = tail_start, stop_row - 1 do
+    local raw = (nodes[row] and nodes[row].raw) or ""
+    if not start then
+      if syntax.is_infile_summary_header(raw) then
+        start, stop = row, row
+      end
+    elseif is_generated_summary_line(raw) then
+      stop = row
+    elseif raw ~= "" then
+      -- The first real (non-blank, non-generated) line after the run ends it, so a
+      -- note written below the summary is preserved.
+      break
+    end
+  end
+
+  if not start then
+    return nil
+  end
+
+  return { start_row = start, end_row = stop + 1 }
+end
+
+-- Locate `worklog_block`'s generated summary region, returning { start_row,
+-- end_row } (1-based, end_row exclusive) or nil. The union of content alignment
+-- and structural recognition (see the module comment): alignment handles edited
+-- summaries, structural recognition handles empty ones and collapses a jumble of
+-- duplicated/stale generated sections into the single region a refresh rewrites.
+function M.find(analysis, worklog_block, expected_lines)
+  local aligned = align_find(analysis, worklog_block, expected_lines)
+  local structural = structural_find(analysis, worklog_block)
+
+  if not aligned then
+    return structural
+  end
+  if not structural then
+    return aligned
+  end
+
+  return {
+    start_row = math.min(aligned.start_row, structural.start_row),
+    end_row = math.max(aligned.end_row, structural.end_row),
   }
 end
 

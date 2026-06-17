@@ -97,7 +97,12 @@ Keeping authored content out of the summary is what makes regeneration safe. The
 `refresh_summaries` usecase exploits this: it ensures *every* valid worklog has a
 current summary — updating a stale one, creating a missing one, never removing one —
 not just the active one, skipping invalid worklogs and emitting no edit where a
-summary is already current. Alongside the edits it
+summary is already current. To update rather than duplicate, it must reliably find
+the existing summary even when the fresh one is tiny (a worklog with no completed
+interval renders an almost-empty summary) — so `summary_block` locates the region
+by the union of content alignment and structural recognition (see its module
+comment), which also lets a refresh collapse a jumble of stale or duplicated
+generated sections back into one summary. Alongside the edits it
 returns `warnings` (each `{ row, message }`) for every problem the analyzer can
 see — a broken or absent header, out-of-order timestamps, an invalid entry —
 whether or not the worklog has a summary, and even for a structurally broken

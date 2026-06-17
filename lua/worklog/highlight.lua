@@ -42,14 +42,6 @@ local TOKEN_PRIORITY = 110
 -- The timestamp is always a zero-padded HH:MM (5 bytes); 24:00 included.
 local TIMESTAMP_WIDTH = 5
 
-local SECTION_WORDS = {
-  [syntax.SECTION.SUMMARY] = true,
-  [syntax.SECTION.TAGS] = true,
-  [syntax.SECTION.LOCATIONS] = true,
-  [syntax.SECTION.LOGGED] = true,
-  [syntax.SECTION.TOTALS] = true,
-}
-
 -- Header-token diagnostics that make a worklog header invalid (so it renders as a
 -- plain block header with no token highlighting), as opposed to INVALID_FIRST_HEADER,
 -- which is about document position, not the header line's own validity.
@@ -58,20 +50,6 @@ local HEADER_TOKEN_DIAGNOSTICS = {
   [syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA] = true,
   [syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN] = true,
 }
-
--- A generated summary-section header, in-file (`--- summary q=.. d=.. ---`,
--- `--- tags ---`, ...) or in a report (`--- day summary <label> ---`,
--- `--- week totals <label> ---`, ...). Recognized by a section word appearing as
--- the first or second word -- exactly the shapes render.lua emits.
-local function is_summary_section_header(raw)
-  local content = raw:match("^%-%-%- (.+) %-%-%-$")
-  if not content then
-    return false
-  end
-
-  local first, second = content:match("^(%S+)%s*(%S*)")
-  return SECTION_WORDS[first] == true or SECTION_WORDS[second] == true
-end
 
 -- The worklog header rows the analyzer flagged for bad tokens (so the highlighter
 -- demotes them to a block header).
@@ -93,7 +71,10 @@ local function summary_section_rows(analysis)
   local in_summary = {}
 
   for _, block in ipairs(analysis.blocks) do
-    if block.kind == syntax.BLOCK_KIND.GENERIC and is_summary_section_header(block.header.raw) then
+    if
+      block.kind == syntax.BLOCK_KIND.GENERIC
+      and syntax.is_summary_section_header(block.header.raw)
+    then
       for row = block.body_start_row, block.end_row - 1 do
         if nodes[row].kind == syntax.NODE_KIND.BLANK_LINE then
           break

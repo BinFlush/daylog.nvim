@@ -48,6 +48,81 @@ return function(t)
     })
   end)
 
+  t.test("refresh collapses a stale summary when the worklog shrinks to empty", function()
+    -- Removing the only completed interval leaves one entry (no intervals), so the
+    -- fresh summary is empty. The large stale summary is still located
+    -- (structurally) and replaced in place, instead of a second summary being added.
+    local result = refresh_summaries.run({
+      "--- worklog #ClientA @office ---",
+      "08:40 standup",
+      "",
+      "--- summary q=15 d=dec ---",
+      "0.25h (+5m) standup",
+      "",
+      "--- tags ---",
+      "0.25h (+5m) #ClientA",
+      "",
+      "--- locations ---",
+      "0.25h (+5m) @office",
+      "",
+      "--- totals ---",
+      "0.25h (+5m) workday",
+    })
+
+    t.eq(result.edits, {
+      {
+        start_index = 3,
+        end_index = 14,
+        lines = {
+          "--- summary q=15 d=dec ---",
+          "",
+          "--- totals ---",
+          "0.00h (+0m) workday",
+        },
+      },
+    })
+  end)
+
+  t.test("refresh collapses a jumble of duplicated generated summaries into one", function()
+    -- A buffer left jumbled by an earlier bad regeneration (two stacked generated
+    -- summaries) is recognized as one summary region and rewritten to a single
+    -- summary, removing the junk.
+    local result = refresh_summaries.run({
+      "--- worklog #ClientA @office ---",
+      "08:40 standup",
+      "",
+      "--- summary q=15 d=dec ---",
+      "",
+      "--- totals ---",
+      "0.00h (+0m) workday",
+      "",
+      "--- summary q=15 d=dec ---",
+      "0.25h (+5m) standup",
+      "",
+      "--- tags ---",
+      "0.25h (+5m) #ClientA",
+      "",
+      "--- locations ---",
+      "0.25h (+5m) @office",
+      "",
+      "--- totals ---",
+      "0.25h (+5m) workday",
+    })
+
+    t.eq(result.edits, {
+      {
+        start_index = 3,
+        end_index = 19,
+        lines = {
+          "--- summary q=15 d=dec ---",
+          "",
+          "--- totals ---",
+          "0.00h (+0m) workday",
+        },
+      },
+    })
+  end)
+
   t.test("refresh restores an edited section header (no orphan)", function()
     local result = refresh_summaries.run({
       "--- worklog ---",

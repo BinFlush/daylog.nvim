@@ -102,4 +102,46 @@ function M.summary_header(quantize_minutes, duration_format)
   )
 end
 
+-- The section words that head a generated summary section. Shared so the
+-- highlighter and the summary-region locator recognize the same headers.
+M.SUMMARY_SECTION_WORDS = {
+  [M.SECTION.SUMMARY] = true,
+  [M.SECTION.TAGS] = true,
+  [M.SECTION.LOCATIONS] = true,
+  [M.SECTION.LOGGED] = true,
+  [M.SECTION.TOTALS] = true,
+}
+
+-- Whether a line is a generated summary-section header, in-file
+-- (`--- summary q=.. d=.. ---`, `--- tags ---`, ...) or in a multi-day report
+-- (`--- day summary <label> ---`, `--- week totals <label> ---`, ...): a section
+-- word appears as the first or second word, which is exactly what render.lua emits.
+-- Used by the highlighter, which highlights report sections too.
+function M.is_summary_section_header(raw)
+  local content = raw:match("^%-%-%- (.+) %-%-%-$")
+  if not content then
+    return false
+  end
+
+  local first, second = content:match("^(%S+)%s*(%S*)")
+  return M.SUMMARY_SECTION_WORDS[first] == true or M.SUMMARY_SECTION_WORDS[second] == true
+end
+
+-- Whether a line is one of the bare *in-file* summary-section headers a worklog's
+-- own summary is built from: the `--- summary q=N d=fmt ---` banner, or a bare
+-- `--- tags ---` / `--- locations ---` / `--- logged ---` / `--- totals ---`.
+-- Stricter than is_summary_section_header on purpose: a labeled report header
+-- (`--- day summary <date> ---`, legacy `--- summary exact ---`) is NOT a worklog's
+-- in-file summary, so the summary-region locator must not anchor on one.
+function M.is_infile_summary_header(raw)
+  if raw:match("^%-%-%- summary q=%d+ d=%a+ %-%-%-$") then
+    return true
+  end
+
+  local content = raw:match("^%-%-%- (%S+) %-%-%-$")
+  return content ~= nil
+    and content ~= M.SECTION.SUMMARY
+    and M.SUMMARY_SECTION_WORDS[content] == true
+end
+
 return M
