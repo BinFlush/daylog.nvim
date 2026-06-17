@@ -19,6 +19,7 @@ local M = {}
 ---@class WorklogSource
 ---@field fetch fun(cb: fun(items: WorklogItem[]|nil, err: string|nil)) Async: the default item set.
 ---@field format_item fun(item: WorklogItem): string Display line for the picker.
+---@field format_items? fun(items: WorklogItem[]): string[] Optional: aligned display lines for the whole list.
 ---@field to_entry_text fun(item: WorklogItem): string Inserted activity text (sanitized automatically at insert).
 ---@field search? fun(query: string, cb: fun(items: WorklogItem[]|nil, err: string|nil)) Optional live search.
 
@@ -46,6 +47,10 @@ local function validate(name, source)
 
   if source.search ~= nil and type(source.search) ~= "function" then
     return "worklog: source '" .. name .. "'.search must be a function"
+  end
+
+  if source.format_items ~= nil and type(source.format_items) ~= "function" then
+    return "worklog: source '" .. name .. "'.format_items must be a function"
   end
 
   return nil

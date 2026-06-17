@@ -525,6 +525,12 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
   source.format_item(item) -> string
       The line shown for one item in the picker.
 
+  source.format_items(items) -> string[]   (optional)
+      Display lines for the whole list at once, one per item in order. Use it to
+      align columns across items so the picker reads as neat columns rather than a
+      ragged trailing field; `worklog.sources.picker.align` does this for you
+      (pad every column but the last). When omitted, format_item is used per item.
+
   source.to_entry_text(item) -> string
       The activity text inserted after "HH:MM ". You do NOT need to sanitize it;
       worklog makes it safe automatically, so a title cannot inject trailing

@@ -28,13 +28,28 @@ function M.live_pick(source, opts)
 
   local initial = opts.initial_items or {}
 
-  local function entry_maker(item)
-    local display = source.format_item(item)
-    return { value = item, display = display, ordinal = display }
-  end
-
+  -- Build a finder over `items`, aligning the whole pool into columns when the
+  -- source supports it (so the type/state and other trailing columns line up
+  -- despite differing title lengths). The alignment is recomputed per finder, so a
+  -- live-search refresh that grows the pool re-aligns to the new widths. The
+  -- ordinal stays the full display so fuzzy matching still sees every column.
   local function finder_for(items)
-    return finders.new_table({ results = items or {}, entry_maker = entry_maker })
+    items = items or {}
+
+    local display_lines = source.format_items and source.format_items(items)
+    local display_by_item = {}
+    if display_lines then
+      for index, item in ipairs(items) do
+        display_by_item[item] = display_lines[index]
+      end
+    end
+
+    local function entry_maker(item)
+      local display = display_by_item[item] or source.format_item(item)
+      return { value = item, display = display, ordinal = display }
+    end
+
+    return finders.new_table({ results = items, entry_maker = entry_maker })
   end
 
   local picker

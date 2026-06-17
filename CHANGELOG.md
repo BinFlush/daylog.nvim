@@ -50,6 +50,11 @@ happen, but they are called out clearly in this changelog.
   depends on `:syntax on`. The highlight group names are unchanged (`WorklogTag`,
   `WorklogDuration`, `WorklogOoo`, ...), so existing `highlight` overrides keep
   working.
+- The `:WorklogInsert {source}` picker now renders work items as aligned columns
+  -- the id, `[type/state]`, and (for multi-project sources) the project line up,
+  with the variable-width title last -- instead of a ragged trailing column when
+  titles differ in length. Sources can opt in via a new optional `format_items`
+  contract method (`worklog.sources.picker.align` does the column padding).
 
 ### Fixed
 

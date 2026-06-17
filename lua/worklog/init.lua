@@ -731,10 +731,20 @@ function M.insert_from_source(name)
       return
     end
 
+    -- Align the whole list into columns when the source supports it, mapping each
+    -- item to its precomputed line; otherwise fall back to per-item formatting.
+    local display_lines = source.format_items and source.format_items(items)
+    local display_by_item = {}
+    if display_lines then
+      for index, item in ipairs(items) do
+        display_by_item[item] = display_lines[index]
+      end
+    end
+
     vim.ui.select(items, {
       prompt = "Worklog: pick " .. name .. " item",
       format_item = function(item)
-        return source.format_item(item)
+        return display_by_item[item] or source.format_item(item)
       end,
     }, function(choice)
       if not choice then

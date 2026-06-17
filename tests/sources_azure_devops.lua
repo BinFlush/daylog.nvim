@@ -166,11 +166,26 @@ return function(t)
     t.eq(source.to_entry_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
   end)
 
-  t.test("format_item defaults include id, title, type and state", function()
+  t.test("format_item defaults include id, type, state and title", function()
+    -- The variable-width title is last so a list of items aligns into columns.
     local source = new_source(base_cfg(), fake_transport(function() end))
     t.eq(
       source.format_item({ id = "5", title = "Fix", type = "Bug", state = "Active" }),
-      "#5  Fix  [Bug/Active]"
+      "#5  [Bug/Active]  Fix"
+    )
+  end)
+
+  t.test("format_items aligns the leading columns and the titles", function()
+    local source = new_source(base_cfg(), fake_transport(function() end))
+    t.eq(
+      source.format_items({
+        { id = "5", title = "Fix login", type = "Bug", state = "Active" },
+        { id = "1234", title = "Refactor", type = "Task", state = "New" },
+      }),
+      {
+        "#5     [Bug/Active]  Fix login",
+        "#1234  [Task/New]    Refactor",
+      }
     )
   end)
 
@@ -330,8 +345,8 @@ return function(t)
     local body = vim.json.decode(transport.seen[1].body)
     t.ok(body.query:match("%[System%.TeamProject%] IN %('Platform', 'Data'%)") ~= nil, body.query)
 
-    -- format_item labels the project when several are configured.
-    t.eq(source.format_item(result.items[1]), "#7  Cross-project  [Bug/Active]  Data")
+    -- format_item labels the project when several are configured (title last).
+    t.eq(source.format_item(result.items[1]), "#7  [Bug/Active]  Data  Cross-project")
   end)
 
   t.test("a project name with a single quote is escaped in the WIQL", function()

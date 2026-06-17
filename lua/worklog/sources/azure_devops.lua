@@ -1,3 +1,5 @@
+local picker = require("worklog.sources.picker")
+
 local M = {}
 
 -- Azure DevOps work-item source.
@@ -213,31 +215,51 @@ function M.new(_name, cfg, deps)
     end)
   end
 
+  -- The fixed-width leading cells for one item: id, then [type/state], then the
+  -- project when several are configured. The free-flowing title is appended last by
+  -- the callers, so format_items can pad these into aligned columns while the title
+  -- (the one variable-width field) needs no padding.
+  local function lead_cells(item)
+    local cells = {
+      "#" .. tostring(item.id),
+      string.format("[%s/%s]", item.type or "?", item.state or "?"),
+    }
+    if cfg.projects then
+      cells[#cells + 1] = item.project or "?"
+    end
+    return cells
+  end
+
   function source.format_item(item)
     if cfg.format_item then
       return cfg.format_item(item)
     end
 
-    -- Label the project only when several are configured, so single-project output
-    -- (and its test) stays unchanged.
-    if cfg.projects then
-      return string.format(
-        "#%s  %s  [%s/%s]  %s",
-        item.id,
-        item.title,
-        item.type or "?",
-        item.state or "?",
-        item.project or "?"
-      )
+    local cells = lead_cells(item)
+    cells[#cells + 1] = item.title or ""
+    return (table.concat(cells, "  "):gsub("%s+$", ""))
+  end
+
+  -- The whole item list as aligned picker lines: the id, [type/state], and project
+  -- columns line up, and the titles all start at the same column, so a list of items
+  -- of differing lengths reads as neat columns instead of a ragged trailing field. A
+  -- user-supplied cfg.format_item is per-item, so it is mapped without alignment.
+  function source.format_items(items)
+    if cfg.format_item then
+      local lines = {}
+      for index, item in ipairs(items) do
+        lines[index] = cfg.format_item(item)
+      end
+      return lines
     end
 
-    return string.format(
-      "#%s  %s  [%s/%s]",
-      item.id,
-      item.title,
-      item.type or "?",
-      item.state or "?"
-    )
+    local rows = {}
+    for index, item in ipairs(items) do
+      local cells = lead_cells(item)
+      cells[#cells + 1] = item.title or ""
+      rows[index] = cells
+    end
+    return picker.align(rows)
   end
 
   function source.to_entry_text(item)

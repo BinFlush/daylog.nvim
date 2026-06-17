@@ -34,6 +34,25 @@ return function(t)
     t.eq(only_extra[1].id, "9")
   end)
 
+  t.test("align pads every column but the last to its widest cell", function()
+    t.eq(
+      picker.align({
+        { "#5", "[Bug/Active]", "Fix login" },
+        { "#1234", "[Task/New]", "Refactor" },
+      }),
+      {
+        "#5     [Bug/Active]  Fix login",
+        "#1234  [Task/New]    Refactor",
+      }
+    )
+  end)
+
+  t.test("align trims a trailing empty last cell and tolerates one column", function()
+    t.eq(picker.align({ { "#5", "" }, { "#1234", "" } }), { "#5", "#1234" })
+    t.eq(picker.align({ { "only" } }), { "only" })
+    t.eq(picker.align({}), {})
+  end)
+
   t.test("should_query fires only for a non-empty, changed prompt", function()
     t.eq(picker.should_query("foo", nil), true)
     t.eq(picker.should_query("foo", "bar"), true)
