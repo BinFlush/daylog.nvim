@@ -240,19 +240,25 @@ does not decide reporting semantics or ordering.
 
 ## Highlighting
 
-Highlighting is parser-driven, so there is no second grammar to keep in sync.
-`highlight.lua` (pure) runs the same `document`/`analyze` parse the rest of the
-plugin uses and turns it into highlight spans -- `{ line, col_start, col_end,
-group, priority }`, 0-based byte columns matching the extmark API. Worklog
-headers, entries, and trailing metadata are classified straight from the parse
-(token kinds via `document.classify_control_token`); summary rows -- derived
-output, not source -- are recognized by the shapes `render.lua` emits (a leading
-duration, `(+Nm)` markers, trailing metadata), and a summary section runs from a
-generated section header to the blank line that ends it. The same recognizer
-handles the labeled multi-day report headers (`--- day summary <date> q=N ---`),
-so the `:WorklogWeek` / `:WorklogDays` reports highlight too. Whole-line "base"
-spans (a header, a note) sit at a lower priority than the narrower token spans
-layered over them, so a `#tag` inside a header wins at its own cells.
+Highlighting is parser-driven, so there is one grammar, not two. `highlight.lua`
+(pure) owns **no patterns of its own**: every recognition decision comes from the
+parser layer, and this module only chooses which highlight group each parsed token
+gets. It turns the parse into spans -- `{ line, col_start, col_end, group,
+priority }`, 0-based byte columns matching the extmark API. Token positions and
+shapes come from `document` (`document.tokens`, `document.classify_control_token`,
+`document.quant_error_spans`, `document.summary_duration_length`,
+`document.is_option_token` -- the only place these patterns live); header validity
+and the rows inside a summary section come from `analyze`; the generated
+section-header predicate is `syntax.is_summary_section_header` (shared with the
+summary locator). Worklog headers, entries, and trailing metadata are classified
+straight from the parse. Summary rows -- derived output, not source -- are
+recognized by the shapes `render.lua` emits (a leading duration, `(+Nm)` markers,
+trailing metadata); a summary section runs from a generated section header to the
+blank line that ends it, and the same predicate matches the labeled multi-day
+report headers (`--- day summary <date> q=N ---`), so the `:WorklogWeek` /
+`:WorklogDays` reports highlight too. Whole-line "base" spans (a header, a note)
+sit at a lower priority than the narrower token spans layered over them, so a
+`#tag` inside a header wins at its own cells.
 
 The shell applies the spans as extmarks in a dedicated namespace:
 `ftplugin/worklog.lua` attaches the highlighter to any worklog buffer (so it works

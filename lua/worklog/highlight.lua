@@ -6,13 +6,14 @@ local M = {}
 
 -- Parser-driven highlight spans (PURE).
 --
--- This is the single source of highlighting truth. document.lua / analyze.lua
--- classify the buffer, and this module turns that classification into highlight
--- spans; the shell applies them as extmarks. There is no separate regex grammar
--- to keep in sync: worklog headers, entries, and trailing metadata are
--- highlighted from the very parse the plugin reads a file with (token kinds come
--- from document.classify_control_token), and summary rows -- which are derived
--- output, not source -- are recognized by the shapes render.lua produces.
+-- This module owns no grammar of its own: it maps the parse into highlight spans
+-- and nothing more. Every recognition decision comes from the parser layer --
+-- node kinds and token spans from document.lua (document.tokens,
+-- document.classify_control_token, document.quant_error_spans,
+-- document.summary_duration_length, document.is_option_token), header validity and
+-- summary-section context from analyze.lua, and the section-header predicate from
+-- syntax.lua. There are no patterns here, so there is a single source of truth for
+-- what a token is; this file only decides which highlight group each token gets.
 --
 -- A span is { line, col_start, col_end, group, priority }: 0-based byte columns,
 -- end exclusive, matching the extmark API. Whole-line "base" spans (a worklog
@@ -87,15 +88,6 @@ local function summary_section_rows(analysis)
   return in_summary
 end
 
--- The whitespace-delimited tokens of a line with 0-based byte spans.
-local function tokens_with_spans(line)
-  local tokens = {}
-  for start, text in line:gmatch("()(%S+)") do
-    tokens[#tokens + 1] = { start = start - 1, stop = start - 1 + #text, text = text }
-  end
-  return tokens
-end
-
 -- The highlight group for a trailing-metadata / header token (a #tag, @location,
 -- clear, or !L), or nil when the token is not metadata. #ooo is distinguished.
 local function control_group(token)
@@ -124,11 +116,11 @@ local function push(spans, line, col_start, col_end, group, priority)
 end
 
 -- Highlight the trailing run of metadata tokens (#tag / @location / !L, any order,
--- each kind at most once) that the parser would peel off the end of a line. Shared
--- by entries and summary rows. A run that the parser rejects is never reached: the
--- caller only invokes this for valid entries and for summary rows.
+-- each kind at most once) that the parser peels off the end of a line. Shared by
+-- entries and summary rows. The caller only invokes it for valid entries and for
+-- summary rows, so a run the parser rejects is never reached.
 local function push_trailing_metadata(spans, row, line)
-  local tokens = tokens_with_spans(line)
+  local tokens = document.tokens(line)
 
   local first = #tokens + 1
   for i = #tokens, 1, -1 do
@@ -140,32 +132,30 @@ local function push_trailing_metadata(spans, row, line)
   end
 
   for i = first, #tokens do
-    push(spans, row, tokens[i].start, tokens[i].stop, control_group(tokens[i].text), TOKEN_PRIORITY)
+    push(
+      spans,
+      row,
+      tokens[i].col_start,
+      tokens[i].col_end,
+      control_group(tokens[i].text),
+      TOKEN_PRIORITY
+    )
   end
 end
 
 -- Every (+Nm) / (-Nm) rounding marker on the line.
 local function push_quant_errors(spans, row, line)
-  for start, text in line:gmatch("()(%([%+%-]%d+m%))") do
-    push(spans, row, start - 1, start - 1 + #text, "WorklogQuantError", TOKEN_PRIORITY)
+  for _, span in ipairs(document.quant_error_spans(line)) do
+    push(spans, row, span.col_start, span.col_end, "WorklogQuantError", TOKEN_PRIORITY)
   end
 end
 
--- The byte length of a leading duration: decimal "2.00h" or hh:mm "16:00"/"2:00".
-local function leading_duration_length(line)
-  local decimal = line:match("^%d+%.%d+h")
-  if decimal then
-    return #decimal
-  end
-
-  local hhmm = line:match("^%d+:%d%d")
-  return hhmm and #hhmm or nil
-end
-
--- A row inside a summary section: a leading duration, its rounding marker(s), and
--- any trailing #tag / @location the row still carries (e.g. a disambiguated row).
-local function push_summary_row(spans, row, line)
-  local duration = leading_duration_length(line)
+-- A row inside a summary section: its leading duration, rounding marker(s), and any
+-- trailing #tag / @location the row still carries. The leading field is an entry's
+-- timestamp (a `16:00 ...` row that carried no marker) or a rendered duration token.
+local function push_summary_row(spans, row, line, kind)
+  local duration = kind == syntax.NODE_KIND.ENTRY and TIMESTAMP_WIDTH
+    or document.summary_duration_length(line)
   if duration then
     push(spans, row, 0, duration, "WorklogDuration", TOKEN_PRIORITY)
   end
@@ -173,34 +163,29 @@ local function push_summary_row(spans, row, line)
   push_trailing_metadata(spans, row, line)
 end
 
--- A free note. A summary row that has leaked outside a section (a decimal
--- duration, a single-digit-hour hh:mm that can never be an entry, or any hh:mm
--- directly before a (+Nm) marker) still gets its duration/marker highlighted over
--- the note base, matching how such rows read inside a section.
+-- A free note, with any leaked summary-row shape (a duration / rounding marker)
+-- still highlighted over the note base so such a row reads the same outside a
+-- section as inside one.
 local function push_note(spans, row, line)
   push(spans, row, 0, #line, "WorklogNote", BASE_PRIORITY)
 
-  local decimal = line:match("^%d+%.%d+h")
-  local hhmm = line:match("^%d+:%d%d")
-  if decimal then
-    push(spans, row, 0, #decimal, "WorklogDuration", TOKEN_PRIORITY)
-  elseif hhmm and (line:match("^%d:%d%d") or line:match("^%d+:%d%d%s+%([%+%-]%d+m%)")) then
-    push(spans, row, 0, #hhmm, "WorklogDuration", TOKEN_PRIORITY)
+  local duration = document.summary_duration_length(line)
+  if duration then
+    push(spans, row, 0, duration, "WorklogDuration", TOKEN_PRIORITY)
   end
-
   push_quant_errors(spans, row, line)
 end
 
 local function push_worklog_header(spans, row, line)
   push(spans, row, 0, #line, "WorklogHeader", BASE_PRIORITY)
 
-  for _, token in ipairs(tokens_with_spans(line)) do
+  for _, token in ipairs(document.tokens(line)) do
     local group = control_group(token.text)
-    if not group and token.text:match("^[%w_%-]+=") then
+    if not group and document.is_option_token(token.text) then
       group = "WorklogOption"
     end
     if group then
-      push(spans, row, token.start, token.stop, group, TOKEN_PRIORITY)
+      push(spans, row, token.col_start, token.col_end, group, TOKEN_PRIORITY)
     end
   end
 end
@@ -215,21 +200,22 @@ function M.spans(lines)
 
   for row, line in ipairs(lines) do
     if line ~= "" then
+      local index = row - 1
       local kind = parsed.nodes[row].kind
 
       if kind == syntax.NODE_KIND.WORKLOG_HEADER and not invalid_headers[row] then
-        push_worklog_header(spans, row - 1, line)
+        push_worklog_header(spans, index, line)
       elseif kind == syntax.NODE_KIND.WORKLOG_HEADER or kind == syntax.NODE_KIND.BLOCK_HEADER then
-        push(spans, row - 1, 0, #line, "WorklogBlockHeader", BASE_PRIORITY)
+        push(spans, index, 0, #line, "WorklogBlockHeader", BASE_PRIORITY)
       elseif in_summary[row] then
-        push_summary_row(spans, row - 1, line)
+        push_summary_row(spans, index, line, kind)
       elseif kind == syntax.NODE_KIND.ENTRY then
-        push(spans, row - 1, 0, TIMESTAMP_WIDTH, "WorklogTimestamp", TOKEN_PRIORITY)
-        push_trailing_metadata(spans, row - 1, line)
+        push(spans, index, 0, TIMESTAMP_WIDTH, "WorklogTimestamp", TOKEN_PRIORITY)
+        push_trailing_metadata(spans, index, line)
       else
         -- A NOTE_LINE, or an INVALID_ENTRY whose time the parser rejected (so it is
         -- not a timestamp): a free note, with any leaked duration shape highlighted.
-        push_note(spans, row - 1, line)
+        push_note(spans, index, line)
       end
     end
   end

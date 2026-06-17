@@ -292,6 +292,55 @@ end
 -- tokens with the very same grammar the parser uses, rather than a second copy.
 M.classify_control_token = parse_entry_control_token
 
+-- The remaining functions expose this parser's token grammar with byte positions,
+-- so the highlighter is a pure projection of the parse and owns no patterns of its
+-- own -- there is one grammar, here.
+
+-- The whitespace-delimited tokens of a line, each with 0-based byte spans:
+-- { col_start, col_end, text }. The split matches every other token scan here.
+function M.tokens(line)
+  local result = {}
+  for start, text in line:gmatch("()(%S+)") do
+    result[#result + 1] = { col_start = start - 1, col_end = start - 1 + #text, text = text }
+  end
+  return result
+end
+
+-- The (+Nm) / (-Nm) rounding markers on a line as 0-based byte spans. This is the
+-- same marker shape parse_entry refuses to read as an entry (so a summary row never
+-- counts as one); reusing it keeps the reader and the highlighter in lockstep.
+function M.quant_error_spans(line)
+  local spans = {}
+  for start, text in line:gmatch("()(%([%+%-]%d+m%))") do
+    spans[#spans + 1] = { col_start = start - 1, col_end = start - 1 + #text }
+  end
+  return spans
+end
+
+-- The byte length of a line's leading summary-duration token, or nil. A decimal
+-- ("2.00h") or a single-digit-hour h:mm ("0:30") is always a duration (neither can
+-- be an entry timestamp, which is a zero-padded HH:MM). A two-digit-hour HH:MM
+-- ("16:00") is a duration only immediately before a rounding marker -- otherwise it
+-- is an entry timestamp -- mirroring the entry/summary split parse_entry makes.
+function M.summary_duration_length(line)
+  local decimal = line:match("^%d+%.%d+h")
+  if decimal then
+    return #decimal
+  end
+
+  local hhmm = line:match("^%d+:%d%d")
+  if hhmm and (line:match("^%d:%d%d") or line:match("^%d+:%d%d%s+%([%+%-]%d+m%)")) then
+    return #hhmm
+  end
+
+  return nil
+end
+
+-- Whether a token is a key=value option (only meaningful in a worklog header).
+function M.is_option_token(text)
+  return text:match("^[%w_%-]+=") ~= nil
+end
+
 function M.parse_line(line, row)
   return parse_line(line, row or 1)
 end
