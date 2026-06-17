@@ -389,6 +389,37 @@ return function(t)
     end
   )
 
+  t.test("repeat from a summary row inserts the activity at the current time", function()
+    t.reset({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning",
+      "10:00 implementation @home",
+      "11:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) planning",
+      "1.00h (+0m) implementation",
+      "",
+      "--- tags ---",
+      "3.00h (+0m) #ClientA",
+      "",
+      "--- locations ---",
+      "2.00h (+0m) @office",
+      "1.00h (+0m) @home",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
+    })
+    t.set_cursor(8, 0) -- the "implementation" main summary row
+
+    with_mocked_date("11:30", function()
+      vim.cmd("WorklogRepeat")
+    end)
+
+    -- The repeated entry is inserted into the worklog body, after "11:00 done".
+    t.eq(t.get_lines()[5], "11:30 implementation")
+  end)
+
   t.test("insert orders into explicit worklog block after equal timestamps", function()
     t.reset({
       "--- worklog #ProjectOrion @office ---",

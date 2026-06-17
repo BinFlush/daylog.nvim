@@ -24,6 +24,10 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- `:WorklogRepeat` now works from the summary: with the cursor on a main summary
+  row, it repeats the latest source entry that produced that row, so an activity
+  can be resumed straight from the summary (including across days). Tag, location,
+  and total rows are not eligible. Repeating a timestamped entry is unchanged.
 - Week/days reports (`:WorklogWeek` / `:WorklogDays`) now show each day's own `q=`
   bucket in its section header (e.g. `--- day summary 2026-05-18 q=30 ---`), so a
   period mixing different quanta stays legible. The aggregate summary header is

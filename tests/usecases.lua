@@ -357,6 +357,146 @@ return function(t)
     t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
+  t.test("repeat_current repeats the activity behind a main summary row", function()
+    -- Cursor on the "planning" summary row (line 7) repeats it into the worklog,
+    -- exactly as if the cursor were on its source entry. The sticky location has
+    -- since moved to @home, so the replay re-emits @office to preserve meaning.
+    local result = repeat_current.run({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning",
+      "10:00 implementation @home",
+      "11:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) planning",
+      "1.00h (+0m) implementation",
+      "",
+      "--- tags ---",
+      "3.00h (+0m) #ClientA",
+      "",
+      "--- locations ---",
+      "2.00h (+0m) @office",
+      "1.00h (+0m) @home",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
+    }, 7, "11:30")
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 4,
+          end_index = 4,
+          lines = { "11:30 planning @office" },
+        },
+      },
+    })
+  end)
+
+  t.test("repeat_current repeats the latest source entry behind a summary row", function()
+    -- "implementation" is logged at @home then later at @office; repeating the
+    -- summary row must replay the latest occurrence (@office), which matches the
+    -- sticky location at insert time and so needs no @location token.
+    local result = repeat_current.run({
+      "--- worklog ---",
+      "08:00 implementation @home",
+      "09:00 meeting",
+      "10:00 implementation @office",
+      "11:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) implementation",
+      "1.00h (+0m) meeting",
+      "",
+      "--- locations ---",
+      "2.00h (+0m) @home",
+      "1.00h (+0m) @office",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
+    }, 8, "11:30")
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 5,
+          end_index = 5,
+          lines = { "11:30 implementation" },
+        },
+      },
+    })
+  end)
+
+  t.test("repeat_current refuses a non-main summary row", function()
+    local result, err = repeat_current.run({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning",
+      "10:00 implementation @home",
+      "11:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) planning",
+      "1.00h (+0m) implementation",
+      "",
+      "--- tags ---",
+      "3.00h (+0m) #ClientA",
+      "",
+      "--- locations ---",
+      "2.00h (+0m) @office",
+      "1.00h (+0m) @home",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
+    }, 11, "11:30")
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: only a main summary row can be repeated")
+  end)
+
+  t.test("repeat_current refuses a stale summary row", function()
+    -- The region is locatable (the header, the "plan" row and the totals still
+    -- match), but the cursor row has drifted from source, so it is refused rather
+    -- than repeating the wrong activity.
+    local result, err = repeat_current.run({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 build",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) implementation",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    }, 8, "11:00")
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test("carryover.entry_at_row resolves a main summary row to its source entry", function()
+    -- The cross-day :WorklogRepeat path uses entry_at_row; a cursor on a summary
+    -- row maps back to the source entry so it works from the summary too.
+    local activity = carryover.entry_at_row({
+      "--- worklog #ClientA ---",
+      "08:00 planning",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) planning",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #ClientA",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    }, 6)
+
+    t.eq(activity.text, "planning")
+    t.eq(activity.tag, "ClientA")
+  end)
+
   t.test("order_worklogs sorts an unambiguous out-of-order worklog", function()
     local result = order_worklogs.run({
       "--- worklog #ClientA ---",

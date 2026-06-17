@@ -337,7 +337,10 @@ there. Decline the prompt to leave both files untouched.
 
 Repeat the activity under the cursor at the current time.
 
-- The cursor must be on a timestamped worklog entry.
+- The cursor must be on a timestamped worklog entry, or on a main summary row.
+- On a main summary row, the latest source entry that produced the row is
+  repeated, so an activity can be resumed straight from the summary. Tag, location,
+  and other total rows are not eligible.
 - The entry is inserted in chronological order.
 - Sticky tag and location meaning are preserved.
 - Clear tokens are emitted when needed.

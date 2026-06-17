@@ -1,4 +1,5 @@
 local entry = require("worklog.entry")
+local summary_cursor = require("worklog.usecases.summary_cursor")
 local support = require("worklog.usecases.support")
 local syntax = require("worklog.syntax")
 
@@ -43,21 +44,47 @@ function M.last_running_entry(lines)
   return activity_from_item(last)
 end
 
--- The activity of the entry on the given row, used to repeat it after the
--- buffer has switched to the new day.
-function M.entry_at_row(lines, row)
-  local ctx, err = support.get_validated_at_row(lines, row)
+-- The activity item on the given row, or nil. Only looks at real timestamped
+-- entries in the worklog block at `row`.
+local function item_at_row(lines, row)
+  local ctx = support.get_validated_at_row(lines, row)
   if not ctx then
-    return nil, err
+    return nil
   end
 
   for _, item in ipairs(ctx.block.entry_items) do
     if item.entry.row == row then
-      return activity_from_item(item)
+      return item
     end
   end
 
-  return nil, "worklog: current line is not a valid worklog entry"
+  return nil
+end
+
+-- The activity of the entry on the given row, used to repeat it after the
+-- buffer has switched to the new day. The cursor may instead be on a main summary
+-- row, in which case it is mapped back to the source entry it summarizes, so
+-- cross-day :WorklogRepeat works from the summary too.
+function M.entry_at_row(lines, row)
+  local item = item_at_row(lines, row)
+  if item then
+    return activity_from_item(item)
+  end
+
+  local entry_row, summary_err = summary_cursor.repeat_entry_row(lines, row)
+  if entry_row then
+    local resolved = item_at_row(lines, entry_row)
+    if resolved then
+      return activity_from_item(resolved)
+    end
+  end
+
+  if summary_err then
+    return nil, summary_err
+  end
+
+  local _, err = support.get_validated_at_row(lines, row)
+  return nil, err or "worklog: current line is not a valid worklog entry"
 end
 
 -- Insert one formatted entry for `activity` at `minutes` into the active

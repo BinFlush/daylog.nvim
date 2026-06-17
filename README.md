@@ -81,9 +81,9 @@ first one took.
 10:30 fixing the login bug
 ```
 
-**Repeat something — `:WorklogRepeat`.** Put the cursor on an earlier entry and run
-it to copy that activity to now — handy for recurring work like a standup or a
-client call.
+**Repeat something — `:WorklogRepeat`.** Put the cursor on an earlier entry (or on
+its main summary row) and run it to copy that activity to now — handy for recurring
+work like a standup or a client call.
 
 **Stop the clock.** The last timestamp just closes the task before it, so end the
 day with `:WorklogInsert` and type `done`.
@@ -124,7 +124,7 @@ the `!L` marker, the `d=hm` duration format) is in `:help worklog-format`.
 | `:WorklogToday [offset]` | Open today's journal (creating it on first use); a nonzero offset only navigates |
 | `:WorklogNextDay` / `:WorklogPrevDay [count]` | Step between journal days |
 | `:WorklogInsert [source]` | Stamp the current time; with a source name, pick a work item to insert (see [Sources](#sources)) |
-| `:WorklogRepeat` | Repeat the activity under the cursor at the current time |
+| `:WorklogRepeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
 | `:WorklogWeek[!]` / `:WorklogDays[!] {n}` | Open a week / last-N-days report (`!` for totals only) |
 | `:WorklogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
 | `:WorklogCopy` | Append a tidy, editable copy of the worklog |

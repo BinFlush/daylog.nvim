@@ -1,19 +1,33 @@
 local entry = require("worklog.entry")
+local summary_cursor = require("worklog.usecases.summary_cursor")
 local support = require("worklog.usecases.support")
 
 local M = {}
 
--- Build the edit script for repeating the current activity at a new time.
+-- Build the edit script for repeating the current activity at a new time. The
+-- cursor may sit on a timestamped entry or on a main summary row; the latter is
+-- mapped back to the source entry it summarizes (see summary_cursor).
 
 function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)
-  local current_item = nil
-  local minutes
 
   if not ctx then
-    return nil, err
+    -- The cursor may be on a main summary row; map it back to the source entry
+    -- and repeat that, into the worklog the summary belongs to. A nil summary
+    -- error means the cursor is not on the summary at all, so keep `err`.
+    local entry_row, summary_err = summary_cursor.repeat_entry_row(lines, row)
+    if not entry_row then
+      return nil, summary_err or err
+    end
+
+    row = entry_row
+    ctx, err = support.get_validated_at_row(lines, row)
+    if not ctx then
+      return nil, err
+    end
   end
 
+  local current_item = nil
   for _, item in ipairs(ctx.block.entry_items) do
     if item.entry.row == row then
       current_item = item
@@ -25,9 +39,9 @@ function M.run(lines, row, time)
     return nil, "worklog: current line is not a valid worklog entry"
   end
 
-  minutes, err = support.parse_clock_minutes(time)
+  local minutes, minutes_err = support.parse_clock_minutes(time)
   if not minutes then
-    return nil, err
+    return nil, minutes_err
   end
 
   local insertion_state = support.get_insert_state(ctx.block, minutes)
