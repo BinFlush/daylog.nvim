@@ -63,6 +63,21 @@ function M.with_worklog_setup(options, fn)
   end
 end
 
+function M.with_mocked_input(value, fn)
+  local old_input = vim.fn.input
+
+  vim.fn.input = function()
+    return value
+  end
+
+  local ok, err = xpcall(fn, debug.traceback)
+  vim.fn.input = old_input
+
+  if not ok then
+    error(err, 0)
+  end
+end
+
 function M.with_captured_notify(fn)
   local old_notify = vim.notify
   local messages = {}

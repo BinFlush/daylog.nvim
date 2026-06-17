@@ -24,6 +24,13 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- `:WorklogRename [name]` renames what the summary row under the cursor stands
+  for, propagating into the attached worklog and rebuilding the summary: a main
+  row renames the activity text of its source entries, a tag-total row renames
+  that `#tag`, and a location-total row renames that `@location`. Tag/location
+  renames rewrite only the header token and the explicit tokens that named the
+  old value, so sticky inheritance is preserved and unrelated lines are left
+  untouched. With no argument it prompts, seeded with the current value.
 - `:WorklogRepeat` now works from the summary: with the cursor on a main summary
   row, it repeats the latest source entry that produced that row, so an activity
   can be resumed straight from the summary (including across days). Tag, location,

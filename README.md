@@ -127,6 +127,7 @@ the `!L` marker, the `d=hm` duration format) is in `:help worklog-format`.
 | `:WorklogRepeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
 | `:WorklogWeek[!]` / `:WorklogDays[!] {n}` | Open a week / last-N-days report (`!` for totals only) |
 | `:WorklogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
+| `:WorklogRename [name]` | Rename the activity, tag, or location of the summary row under the cursor |
 | `:WorklogCopy` | Append a tidy, editable copy of the worklog |
 | `:WorklogOrder` | Rewrite the worklog in chronological order |
 | `:WorklogRefresh` | Rebuild every summary to match its entries |

@@ -9,6 +9,7 @@ local log_current = require("worklog.usecases.log_current")
 local new_worklog = require("worklog.usecases.new_worklog")
 local order_worklogs = require("worklog.usecases.order_worklogs")
 local refresh_summaries = require("worklog.usecases.refresh_summaries")
+local rename_summary = require("worklog.usecases.rename_summary")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
 local sources_http = require("worklog.sources.http")
@@ -735,6 +736,34 @@ function M.repeat_current()
   run_buffer_usecase(repeat_current.run, cursor_row(), os.date("%H:%M"))
 end
 
+local RENAME_PROMPT_LABEL = { item = "activity", tag = "tag", location = "location" }
+
+-- Rename what the summary row under the cursor stands for: an activity (main
+-- row), a #tag (tag total), or an @location (location total). The rename
+-- propagates into the attached worklog and rebuilds the summary. With no
+-- argument, prompt for the new value seeded with the current one; an empty or
+-- unchanged value is a no-op.
+function M.rename_summary(new_value)
+  local target, err = rename_summary.resolve(buffer_lines(), cursor_row())
+  if not target then
+    warn(err)
+    return
+  end
+
+  if new_value == nil then
+    new_value = vim.fn.input({
+      prompt = string.format("worklog: rename %s: ", RENAME_PROMPT_LABEL[target.kind]),
+      default = target.current,
+    })
+  end
+
+  if new_value == nil or new_value == "" or new_value == target.current then
+    return
+  end
+
+  run_buffer_usecase(rename_summary.run, cursor_row(), new_value)
+end
+
 function M.order_worklogs()
   local result, err = order_worklogs.run(buffer_lines())
   if not result then
@@ -1088,6 +1117,17 @@ function M.setup(options)
   ensure_user_command("WorklogRepeat", function()
     M.repeat_current()
   end)
+
+  ensure_user_command("WorklogRename", function(args)
+    local new_value = args.args
+    if new_value == "" then
+      new_value = nil
+    end
+
+    M.rename_summary(new_value)
+  end, {
+    nargs = "*",
+  })
 
   ensure_user_command("WorklogOrder", function()
     M.order_worklogs()

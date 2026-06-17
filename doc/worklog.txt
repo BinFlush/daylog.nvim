@@ -395,6 +395,26 @@ Toggle the logged state of the main summary row under the cursor.
 - Summary rows that no longer match the recomputed summary are refused; run
   |:WorklogRefresh| (or let `auto_summary` refresh) to bring them current.
 
+                                                        *:WorklogRename*
+:WorklogRename [name]
+
+Rename what the summary row under the cursor stands for, propagating into the
+attached worklog and rebuilding its summary.
+
+- On a main summary row, the activity text of its source entries is renamed.
+- On a tag-total row, that `#tag` is renamed everywhere it is effective -- the
+  worklog header and the explicit tokens that named it. Entries that only
+  inherited the tag are left untouched and follow the rename automatically.
+- On a location-total row, that `@location` is renamed the same way.
+- The logged and totals rows are not eligible, and the `(untagged)` /
+  `(no location)` placeholder groups cannot be renamed.
+- With no `[name]` argument you are prompted for the new value, seeded with the
+  current one. A tag or location name must be letters, digits, underscores, or
+  hyphens; activity text is sanitized so a rename can never grow trailing
+  metadata.
+- The cursor must be on the active worklog's summary; a row that no longer
+  matches the recomputed summary is refused (run |:WorklogRefresh| first).
+
                                                         *:WorklogRefresh*
 :WorklogRefresh
 

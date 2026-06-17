@@ -2,6 +2,7 @@ return function(t)
   local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
   local with_captured_notify = helpers.with_captured_notify
   local with_mocked_date = helpers.with_mocked_date
+  local with_mocked_input = helpers.with_mocked_input
 
   helpers.setup_worklog()
 
@@ -418,6 +419,79 @@ return function(t)
 
     -- The repeated entry is inserted into the worklog body, after "11:00 done".
     t.eq(t.get_lines()[5], "11:30 implementation")
+  end)
+
+  t.test("rename a tag from its tag-total row updates source, header, and summary", function()
+    t.reset({
+      "--- worklog #ClientA @office ---",
+      "08:00 planning",
+      "10:00 meeting #internal",
+      "11:00 done #ClientA",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) planning",
+      "1.00h (+0m) meeting",
+      "",
+      "--- tags ---",
+      "2.00h (+0m) #ClientA",
+      "1.00h (+0m) #internal",
+      "",
+      "--- locations ---",
+      "3.00h (+0m) @office",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
+    })
+    t.set_cursor(11, 0) -- the "#ClientA" tag total
+
+    vim.cmd("WorklogRename Globex")
+
+    local lines = t.get_lines()
+    t.eq(lines[1], "--- worklog #Globex @office ---")
+    t.eq(lines[4], "11:00 done #Globex")
+    t.eq(lines[11], "2.00h (+0m) #Globex")
+  end)
+
+  t.test("rename an activity from its summary row uses the prompt default", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    })
+    t.set_cursor(6, 0) -- the "implementation" main row
+
+    with_mocked_input("coding", function()
+      vim.cmd("WorklogRename")
+    end)
+
+    t.eq(t.get_lines()[2], "08:00 coding")
+    t.eq(t.get_lines()[6], "1.00h (+0m) coding")
+  end)
+
+  t.test("rename accepts a multi-word activity name as a command argument", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    })
+    t.set_cursor(6, 0)
+
+    vim.cmd("WorklogRename fix the build")
+
+    t.eq(t.get_lines()[2], "08:00 fix the build")
+    t.eq(t.get_lines()[6], "1.00h (+0m) fix the build")
   end)
 
   t.test("insert orders into explicit worklog block after equal timestamps", function()

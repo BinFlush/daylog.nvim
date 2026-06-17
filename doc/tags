@@ -6,6 +6,7 @@
 :WorklogOrder	worklog.txt	/*:WorklogOrder*
 :WorklogPrevDay	worklog.txt	/*:WorklogPrevDay*
 :WorklogRefresh	worklog.txt	/*:WorklogRefresh*
+:WorklogRename	worklog.txt	/*:WorklogRename*
 :WorklogRepeat	worklog.txt	/*:WorklogRepeat*
 :WorklogSync	worklog.txt	/*:WorklogSync*
 :WorklogToday	worklog.txt	/*:WorklogToday*
