@@ -1298,6 +1298,25 @@ local function instantiate_sources()
   end
 end
 
+-- Register a command whose single optional argument is parsed, warned-on, then
+-- dispatched. `parse(args.args) -> value | nil, err`; on a successful (non-nil) parse
+-- `dispatch(value)` runs, else the error is warned. The day-navigation commands share
+-- this shape -- the `== nil` check (not `not value`) keeps a 0 day-offset from being
+-- swallowed.
+local function register_parsed_command(name, parse, dispatch)
+  ensure_user_command(name, function(args)
+    local value, err = parse(args.args)
+    if value == nil then
+      warn(err)
+      return
+    end
+
+    dispatch(value)
+  end, {
+    nargs = "?",
+  })
+end
+
 function M.setup(options)
   config.setup(options)
   filetype.register()
@@ -1318,41 +1337,11 @@ function M.setup(options)
     end,
   })
 
-  ensure_user_command("WorklogToday", function(args)
-    local offset, err = parse_day_offset(args.args)
-    if offset == nil then
-      warn(err)
-      return
-    end
-
-    M.open_today(offset)
-  end, {
-    nargs = "?",
-  })
-
-  ensure_user_command("WorklogNextDay", function(args)
-    local count, err = parse_step_count(args.args)
-    if not count then
-      warn(err)
-      return
-    end
-
-    M.open_relative_day(count)
-  end, {
-    nargs = "?",
-  })
-
-  ensure_user_command("WorklogPrevDay", function(args)
-    local count, err = parse_step_count(args.args)
-    if not count then
-      warn(err)
-      return
-    end
-
+  register_parsed_command("WorklogToday", parse_day_offset, M.open_today)
+  register_parsed_command("WorklogNextDay", parse_step_count, M.open_relative_day)
+  register_parsed_command("WorklogPrevDay", parse_step_count, function(count)
     M.open_relative_day(-count)
-  end, {
-    nargs = "?",
-  })
+  end)
 
   ensure_user_command("WorklogWeek", function(args)
     M.open_week(args.bang)
