@@ -25,7 +25,7 @@ local M = {}
 -- user `highlight` overrides keep working unchanged.
 M.GROUPS = {
   WorklogHeader = "Title",
-  WorklogBlockHeader = "Comment",
+  WorklogBlockHeader = "NonText",
   WorklogTimestamp = "Statement",
   WorklogTag = "Identifier",
   WorklogOoo = "WarningMsg",

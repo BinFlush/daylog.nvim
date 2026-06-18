@@ -56,6 +56,10 @@ happen, but they are called out clearly in this changelog.
   working. A duration / `(+Nm)`-shaped line is highlighted as a summary row only
   inside a generated summary section; the same shape written as a free comment
   (outside a section) stays a note, so a comment can't masquerade as a summary item.
+  Generated section headers (`--- summary ---`, `--- tags ---`, `--- totals ---`,
+  ...) now link to `NonText` instead of `Comment`, so they read as a muted but
+  distinct colour rather than blending into notes; override `WorklogBlockHeader` to
+  taste.
 - The `:WorklogInsert {source}` picker now renders work items as aligned columns
   -- the id, `[type/state]`, and (for multi-project sources) the project line up,
   with the variable-width title last -- instead of a ragged trailing column when
