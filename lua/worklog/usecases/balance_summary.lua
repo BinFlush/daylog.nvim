@@ -154,6 +154,16 @@ local function entry_changes_for_rows(rows, row_changes, current_entry_nudge)
   return changes
 end
 
+-- Map each entry row to the nudge already on it (default 0), so a planned change can
+-- be compared against the current marker and only the genuine differences emitted.
+local function current_nudges(block)
+  local nudges = {}
+  for _, item in ipairs(block.entry_items) do
+    nudges[item.entry.row] = item.nudge or 0
+  end
+  return nudges
+end
+
 -- The net per-entry nudge changes for a cursor on a summary row: the calculator
 -- picks the rows to nudge and the source entries to mark. A delta of 0 clears every
 -- nudge contributing to the scope.
@@ -165,10 +175,7 @@ local function summary_entry_changes(block, layout_row, delta)
 
   local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
 
-  local current_entry_nudge = {}
-  for _, item in ipairs(block.entry_items) do
-    current_entry_nudge[item.entry.row] = item.nudge or 0
-  end
+  local current_entry_nudge = current_nudges(block)
 
   if delta == 0 then
     local changes = {}
@@ -199,10 +206,7 @@ end
 local function entry_direct_changes(block, cursor_row, delta)
   local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
 
-  local current_entry_nudge = {}
-  for _, item in ipairs(block.entry_items) do
-    current_entry_nudge[item.entry.row] = item.nudge or 0
-  end
+  local current_entry_nudge = current_nudges(block)
 
   for _, row in ipairs(rows) do
     for _, source_row in ipairs(row.source_entry_rows or {}) do
