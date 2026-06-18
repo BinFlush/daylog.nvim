@@ -72,24 +72,11 @@ function M.parse(line, current_tag, current_location, current_offset)
   return analyze.copy_fields(entry)
 end
 
+-- A control token is exactly what the parser peels from an entry's trailing run, so
+-- defer to the one grammar document exports rather than forking the patterns here --
+-- a future control token then stays parenthesized automatically.
 local function is_dangerous_token(token)
-  if token == syntax.TAG_CLEAR_TOKEN or token == syntax.LOCATION_CLEAR_TOKEN then
-    return true
-  end
-
-  if token:match("^#[%w_%-]+$") or token:match("^@[%w_%-]+$") then
-    return true
-  end
-
-  if syntax.parse_utc_offset(token) ~= nil then
-    return true
-  end
-
-  if syntax.parse_round_nudge(token) ~= nil then
-    return true
-  end
-
-  return token == syntax.LOGGED_TOKEN
+  return document.classify_control_token(token) ~= nil
 end
 
 -- Make `text` safe to use as an entry's activity text so it can never grow
