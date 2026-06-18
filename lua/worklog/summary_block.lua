@@ -196,23 +196,25 @@ local function align_find(analysis, worklog_block, expected_lines)
   }
 end
 
--- A generated summary line continuing an already-started run: a bare in-file
--- section header or a `<duration> (+Nm) ...` row. The row form requires a leading
--- duration token so an ordinary note that merely contains a `(+Nm)`-shaped fragment
--- is not mistaken for a summary row.
-local function is_generated_summary_line(raw)
-  return syntax.is_infile_summary_header(raw) or raw:match("^%d%S*%s+%([%+%-]%d+m%)") ~= nil
+-- A `<duration> (+Nm) ...` summary row. The leading duration token keeps an
+-- ordinary note that merely contains a `(+Nm)`-shaped fragment from matching.
+local function is_summary_row(raw)
+  return raw:match("^%d%S*%s+%([%+%-]%d+m%)") ~= nil
 end
 
 -- Locate the summary as the contiguous run of generated summary lines in the
 -- worklog's tail. The run is *anchored* on the first bare in-file summary header
--- (the banner or a bare tags/locations/logged/totals), then extends over the
--- following section headers, `(+Nm)` rows, and the blanks between them, ending at
--- the first real note / the next worklog / EOF. Anchoring on a header (not a lone
--- row) keeps a leaked summary-shaped note from being grabbed -- a deleted header is
--- instead recovered by content alignment. This finds an empty summary (its headers
--- survive) and spans a jumble of duplicated or stale generated sections, while
--- leaving trailing prose outside.
+-- (the banner or a bare tags/locations/logged/totals). It then extends over the
+-- following section headers and their `(+Nm)` rows, and the blanks separating
+-- sections -- but a `(+Nm)` row only continues the run while we are *inside a
+-- section* (a header has been seen since the last blank). A rendered summary always
+-- puts a section header after every blank, so a `(+Nm)`-shaped line that appears
+-- after a blank with no new header is a user note, not a summary row, and ends the
+-- run -- as does any other real note, the next worklog, or EOF. Anchoring on a
+-- header (not a lone row) likewise keeps a leaked summary-shaped note from starting
+-- a run; a genuinely deleted header is recovered by content alignment instead. This
+-- finds an empty summary (its headers survive) and spans a jumble of duplicated or
+-- stale generated sections, while leaving trailing prose outside.
 local function structural_find(analysis, worklog_block)
   local tail_start, stop_row = tail_bounds(analysis, worklog_block)
   if not tail_start then
@@ -220,18 +222,20 @@ local function structural_find(analysis, worklog_block)
   end
 
   local nodes = analysis.document.nodes
-  local start, stop
+  local start, stop, in_section
   for row = tail_start, stop_row - 1 do
     local raw = (nodes[row] and nodes[row].raw) or ""
-    if not start then
-      if syntax.is_infile_summary_header(raw) then
-        start, stop = row, row
-      end
-    elseif is_generated_summary_line(raw) then
+    if syntax.is_infile_summary_header(raw) then
+      start = start or row
       stop = row
-    elseif raw ~= "" then
-      -- The first real (non-blank, non-generated) line after the run ends it, so a
-      -- note written below the summary is preserved.
+      in_section = true
+    elseif start and in_section and is_summary_row(raw) then
+      stop = row
+    elseif raw == "" then
+      -- A blank ends a section's rows; the next non-blank must be a header to continue.
+      in_section = false
+    elseif start then
+      -- A real note -- or a stray summary-shaped row not inside a section -- ends the run.
       break
     end
   end

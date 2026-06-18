@@ -123,6 +123,29 @@ return function(t)
     })
   end)
 
+  t.test("refresh preserves a summary-shaped note written below the summary", function()
+    -- A note like "3.00h (+0m) billed ..." sits after the (current) summary. It is
+    -- not part of the summary region, so refresh emits no edit and never deletes it.
+    local result = refresh_summaries.run({
+      "--- worklog #A ---",
+      "08:00 a",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) a",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #A",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+      "",
+      "3.00h (+0m) billed to client X",
+    })
+
+    t.eq(result.edits, {})
+  end)
+
   t.test("refresh restores an edited section header (no orphan)", function()
     local result = refresh_summaries.run({
       "--- worklog ---",

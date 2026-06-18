@@ -278,6 +278,31 @@ return function(t)
     )
   end)
 
+  t.test("summary_block leaves a summary-shaped note below the summary outside it", function()
+    -- A note that merely starts like a summary row (a duration and a (+Nm) marker)
+    -- but sits after the summary's blank, with no section header of its own, is a
+    -- note -- it must not extend the region, or a refresh would delete it.
+    t.eq(
+      locate({
+        "--- worklog #A ---",
+        "08:00 a",
+        "09:00 done",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) a",
+        "",
+        "--- tags ---",
+        "1.00h (+0m) #A",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+        "",
+        "3.00h (+0m) billed to client X",
+      }),
+      { start_row = 5, end_row = 13 }
+    )
+  end)
+
   t.test("summary_block returns nil when there is no summary", function()
     t.eq(locate({ "--- worklog ---", "08:00 plan", "09:00 done" }), nil)
   end)
