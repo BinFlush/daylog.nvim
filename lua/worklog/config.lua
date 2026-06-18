@@ -22,6 +22,10 @@ local function is_duration_format(value)
   return syntax.DURATION_FORMATS[value] == true
 end
 
+local function positive_integer(value)
+  return type(value) == "number" and value > 0 and value == math.floor(value)
+end
+
 local function normalize_defaults(defaults)
   if defaults == nil then
     return {}
@@ -50,11 +54,7 @@ local function normalize_defaults(defaults)
   end
 
   if defaults.quantize_minutes ~= nil then
-    if
-      type(defaults.quantize_minutes) ~= "number"
-      or defaults.quantize_minutes <= 0
-      or defaults.quantize_minutes ~= math.floor(defaults.quantize_minutes)
-    then
+    if not positive_integer(defaults.quantize_minutes) then
       error("worklog: defaults.quantize_minutes must be a positive integer")
     end
 
@@ -254,7 +254,7 @@ local function normalize_source(name, entry)
   result.type = entry.type
 
   if entry.ttl ~= nil then
-    if type(entry.ttl) ~= "number" or entry.ttl <= 0 or entry.ttl ~= math.floor(entry.ttl) then
+    if not positive_integer(entry.ttl) then
       error("worklog: source '" .. name .. "'.ttl must be a positive integer")
     end
     result.ttl = entry.ttl
@@ -274,11 +274,7 @@ local function normalize_source(name, entry)
   -- Minimum prompt length before a live search hits the network; shorter prompts
   -- only filter the cached pool. Set to 1 for search-on-first-keystroke.
   if entry.min_query ~= nil then
-    if
-      type(entry.min_query) ~= "number"
-      or entry.min_query < 1
-      or entry.min_query ~= math.floor(entry.min_query)
-    then
+    if not positive_integer(entry.min_query) then
       error("worklog: source '" .. name .. "'.min_query must be a positive integer")
     end
     result.min_query = entry.min_query
