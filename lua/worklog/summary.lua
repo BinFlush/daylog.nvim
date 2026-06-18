@@ -248,6 +248,27 @@ local function logged_totals_from_quantized_items(items)
   return ordered_logged_totals(buckets)
 end
 
+-- Apply the shared summary tail: attach the manual-nudge totals sparsely (only when
+-- nonzero, so a worklog with no manual balancing produces the identical structure),
+-- derive and attach the logged totals from the main rows, and order every section.
+-- Both summarize_entries and combine_summaries finish through this so the
+-- sparse-nudge and logged-totals invariants are defined once.
+local function finalize_summary(summary, activity_nudge, workday_nudge)
+  if activity_nudge ~= 0 then
+    summary.activity_nudge = activity_nudge
+  end
+  if workday_nudge ~= 0 then
+    summary.workday_nudge = workday_nudge
+  end
+
+  local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
+  if logged_totals then
+    summary.logged_totals = logged_totals
+  end
+
+  return finalize_summary_order(summary)
+end
+
 -- Quantize grouped summary rows together.
 -- The overall activity total is rounded to the nearest configured bucket, each
 -- fine-grained row is rounded down to that bucket, and the remaining
@@ -289,21 +310,11 @@ function M.summarize_entries(entries, quantize_minutes)
     workday_error_minutes = unrounded_summary.workday_total - quantized_summary.workday_total,
   }
 
-  -- Manual nudge totals stay sparse: absent unless some entry was balanced, so a
-  -- worklog with no manual balancing produces the identical summary structure.
-  if quantized_summary.activity_nudge ~= 0 then
-    summary.activity_nudge = quantized_summary.activity_nudge
-  end
-  if quantized_summary.workday_nudge ~= 0 then
-    summary.workday_nudge = quantized_summary.workday_nudge
-  end
-
-  local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
-  if logged_totals then
-    summary.logged_totals = logged_totals
-  end
-
-  return finalize_summary_order(summary)
+  return finalize_summary(
+    summary,
+    quantized_summary.activity_nudge,
+    quantized_summary.workday_nudge
+  )
 end
 
 function M.summarize_block(block)
@@ -380,19 +391,7 @@ function M.combine_summaries(summaries)
     workday_error_minutes = workday_error_minutes,
   }
 
-  if activity_nudge ~= 0 then
-    summary.activity_nudge = activity_nudge
-  end
-  if workday_nudge ~= 0 then
-    summary.workday_nudge = workday_nudge
-  end
-
-  local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
-  if logged_totals then
-    summary.logged_totals = logged_totals
-  end
-
-  return finalize_summary_order(summary)
+  return finalize_summary(summary, activity_nudge, workday_nudge)
 end
 
 return M
