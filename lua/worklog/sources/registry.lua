@@ -2,8 +2,8 @@ local M = {}
 
 -- Source registry and the source contract.
 --
--- A source is a plain table { fetch, format_item, to_entry_text, search? } that
--- never touches the Neovim API or the buffer. Built-in source types are
+-- A source is a plain table { fetch, format_item, format_items?, to_entry_text,
+-- search? } that never touches the Neovim API or the buffer. Built-in source types are
 -- instantiated from declarative config (see worklog.config) by the shell, which
 -- injects an async transport, a JSON codec, and a token resolver; the resulting
 -- source objects (which hold functions) are registered here for lookup by name.

@@ -66,9 +66,12 @@ workday total    = sum(intervals where workday_excluded = false)
 ## Module overview
 
 ```text
+syntax.lua        -> shared vocabulary: node/token/block kinds, diagnostic codes, codecs
 document.lua      -> syntax-preserving parser
 analyze.lua       -> semantic analyzer
+context.lua       -> worklog block selection (active / at cursor row)
 diagnostics.lua   -> shared diagnostic messages
+config.lua        -> setup option validation and merge
 journal.lua       -> pure journal date/path helpers
 entry.lua         -> single-entry parser/formatter
 body.lua          -> body reconstruction
@@ -77,10 +80,15 @@ projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
 summary_block.lua -> locate a worklog's single generated summary region
 render.lua        -> output rendering
+week.lua          -> journal week/days report assembly (reuses the reporting core)
 highlight.lua     -> parser-driven highlight spans (pure)
+text.lua          -> small shared text predicates (e.g. is_empty)
 usecases/         -> pure command operations (incl. insert_entry)
 sources/          -> external work-item sources (pure providers + shell IO/UI)
+telescope.lua     -> shell: optional Telescope live-search picker (insert + rename)
+filetype.lua      -> filetype registration
 init.lua          -> Neovim shell
+health.lua        -> shell: the :checkhealth probe
 ftplugin/worklog.lua -> shell: attach the highlighter to worklog buffers
 ```
 
@@ -330,7 +338,7 @@ semantics.
 The shell is a thin *layer*, not a single file. Alongside `init.lua`, the only
 code that touches Neovim, IO, or UI is `health.lua` (the `:checkhealth` probe),
 `ftplugin/worklog.lua` (attaches the highlighter), and the sources shell modules
-(`sources/http`, `sources/sync`, `sources/telescope`). The semantic core -- and
+(`sources/http`, `sources/sync`, and the top-level `telescope`). The semantic core -- and
 even the source providers and the highlighter -- stay pure; see below.
 
 ## Sources
@@ -344,6 +352,7 @@ A source is a plain table implementing a small contract:
 ```text
 fetch(cb)            -- async: cb(items|nil, err); the default item set
 format_item(item)    -- item -> picker display line
+format_items(items)  -- optional: aligned display lines for the whole list
 to_entry_text(item)  -- item -> inserted activity text
 search(query, cb)    -- optional: async live search (cb(items|nil, err))
 ```
@@ -358,10 +367,11 @@ Layering:
 ```text
 sources/registry.lua      pure   contract, name registry, register/validate
 sources/cache.lua         pure   cache envelope codec + TTL staleness
+sources/picker.lua        pure   live-search helpers (align / merge / display / should_query)
 sources/azure_devops.lua  pure   the ADO provider (pure via injected deps)
 sources/http.lua          shell  the only networked file: curl via jobstart
 sources/sync.lua          shell  on-disk cache + lazy-TTL / :WorklogSync refresh
-sources/telescope.lua     shell  optional live type-as-you-search picker
+telescope.lua             shell  optional live picker (top-level; :WorklogInsert + :WorklogRename)
 ```
 
 The ADO provider stays pure through **dependency injection**: `init.lua` hands it
