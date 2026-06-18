@@ -371,4 +371,24 @@ return function(t)
     t.eq(group_at(5, 1), "WorklogDuration")
     t.eq(group_at(8, 1), "WorklogDuration")
   end)
+
+  t.test("utc offset tokens highlight as a muted offset group", function()
+    load({
+      "--- worklog @office utc+2 ---",
+      "11:00 resume utc-4",
+      "12:00 talk utc-x",
+    })
+
+    -- On the header and in an entry's trailing run, a valid utc token is its own
+    -- muted group, distinct from tag/location.
+    t.eq(group_at(1, col_of(1, "utc+2")), "WorklogOffset")
+    t.eq(group_at(2, col_of(2, "utc-4")), "WorklogOffset")
+
+    -- A malformed utc token is plain activity text, never an offset (it fails the
+    -- same parse the reader uses).
+    t.ok(
+      group_at(3, col_of(3, "utc-x")) ~= "WorklogOffset",
+      "a malformed utc token must not highlight as an offset"
+    )
+  end)
 end

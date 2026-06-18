@@ -122,4 +122,47 @@ return function(t)
       "08:00 reset #- @- !L"
     )
   end)
+
+  t.test("entry parse resolves the sticky utc offset", function()
+    local inherited = entry.parse("08:00 standup", "ClientA", "office", 120)
+    t.eq(inherited.offset, 120)
+    t.eq(inherited.explicit_offset, nil)
+
+    local explicit = entry.parse("11:00 resume utc-4", "ClientA", "office", 120)
+    t.eq(explicit.offset, -240)
+    t.eq(explicit.explicit_offset, -240)
+  end)
+
+  t.test("entry format emits the utc offset only when it changes, with no clear", function()
+    -- First set, from no offset.
+    t.eq(entry.format({ minutes = 480, text = "a", offset = 120 }, nil, nil, nil), "08:00 a utc+2")
+    -- Unchanged from the current offset: nothing emitted.
+    t.eq(entry.format({ minutes = 480, text = "a", offset = 120 }, nil, nil, 120), "08:00 a")
+    -- Changed: re-emitted.
+    t.eq(entry.format({ minutes = 660, text = "b", offset = -240 }, nil, nil, 120), "11:00 b utc-4")
+    -- utc+0 is a concrete value (UTC), emitted on change like any other offset.
+    t.eq(entry.format({ minutes = 480, text = "c", offset = 0 }, nil, nil, 120), "08:00 c utc+0")
+    -- A nil offset (no offsets in play) never emits a (nonexistent) clear token.
+    t.eq(entry.format({ minutes = 480, text = "d", offset = nil }, nil, nil, nil), "08:00 d")
+  end)
+
+  t.test("entry format orders trailing metadata as #tag @location utc and then !L", function()
+    t.eq(
+      entry.format({
+        minutes = 480,
+        text = "x",
+        tag = "sales",
+        location = "client",
+        offset = 120,
+        logged = true,
+      }, "ProjectOrion", "office", nil),
+      "08:00 x #sales @client utc+2 !L"
+    )
+  end)
+
+  t.test("entry sanitize_text neutralizes a trailing utc offset", function()
+    t.eq(entry.sanitize_text("ship release utc+2"), "ship release (utc+2)")
+    -- A non-trailing utc word is left alone (only the trailing run is wrapped).
+    t.eq(entry.sanitize_text("utc migration notes"), "utc migration notes")
+  end)
 end

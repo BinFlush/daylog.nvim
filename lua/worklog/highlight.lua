@@ -34,6 +34,7 @@ M.GROUPS = {
   WorklogDuration = "Special",
   WorklogQuantError = "Comment",
   WorklogOption = "PreProc",
+  WorklogOffset = "Comment",
   WorklogNote = "Comment",
 }
 
@@ -99,6 +100,8 @@ local function control_group(token)
     return "WorklogTag"
   elseif kind == syntax.TOKEN_KIND.LOCATION then
     return "WorklogLocation"
+  elseif kind == syntax.TOKEN_KIND.OFFSET then
+    return "WorklogOffset"
   elseif kind == syntax.TOKEN_KIND.LOGGED then
     return "WorklogLogged"
   end

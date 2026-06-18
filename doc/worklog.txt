@@ -79,7 +79,7 @@ The header may set initial sticky metadata and options:
 A worklog entry has this shape:
 
 >
-  HH:MM text [#tag|#-] [@location|@-]
+  HH:MM text [#tag|#-] [@location|@-] [utc±H]
 <
 
 Example:
@@ -105,6 +105,9 @@ Rules:
 - Non-timestamped lines under an entry are notes.
 - Notes move with their timestamped entry when copied or ordered.
 - `!L` marks the interval started by that entry as already logged externally.
+- `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
+  |worklog-sticky-metadata|. It is only needed when the clock moves (travel or
+  DST) and is invisible otherwise.
 - `q=<minutes>` sets the quantization bucket for that worklog block.
 - If no quantize option is present, quantization defaults to 15 minutes.
 - `d=dec|hm` sets how summaries render durations for that worklog
@@ -189,6 +192,41 @@ The special tag `#ooo` means out of office.
 
 `#ooo` is sticky until another tag or `#-` replaces it.
 
+                                                       *worklog-utc-offset*
+`utc±H[:MM]` records the absolute UTC offset of an entry: a third sticky
+dimension alongside `#tag` and `@location`, for when the clock moves under you
+(crossing a timezone while travelling, or a DST flip).
+
+>
+  utc+2     2 hours east of UTC
+  utc-4     4 hours west of UTC
+  utc+5:30  fractional offsets are allowed
+  utc+0     UTC itself
+<
+
+The sign is required (a bare `utc` is just text), so the marker stays out of the
+way when unused. Declare a base on the header and change it whenever the clock
+moves; it is sticky like `@location` and inherited until the next `utc` token.
+There is no clear token -- you always set a concrete offset.
+
+>
+  --- worklog @office utc+2 ---
+  08:00 standup
+  14:00 leave for the airport
+  11:00 resume in New York utc-4
+  17:00 done
+<
+
+Durations and timestamp ordering are reconciled in effective UTC time
+(`local - offset`), so the `14:00 -> 11:00` interval above counts as 3 hours, not
+a backwards `-3` hours: `14:00` at `utc+2` is `12:00Z` and `11:00` at `utc-4` is
+`15:00Z`. Everything you read stays the written local clock -- the displayed
+times, the `24:00` end-of-day boundary, past-midnight carryover, and the journal
+date -- only the computed durations change. A worklog with no `utc` marker
+anywhere behaves exactly as before.
+
+Set a base offset automatically with `defaults.utc` (see |worklog-config|).
+
 ==============================================================================
 GOTCHAS                                                      *worklog-gotchas*
 
@@ -197,9 +235,12 @@ GOTCHAS                                                      *worklog-gotchas*
 - Entries use `HH:MM`; ranges, dates, and seconds are not supported.
 - Keep times ordered before summarizing; use `:WorklogOrder` to rewrite blocks.
 - `#tag` and `@location` are sticky until replaced or cleared with `#-` and
-  `@-`.
-- Only trailing metadata tokens are parsed as metadata; multiple trailing tags
-  or multiple trailing locations are invalid.
+  `@-`. `utc±H` is sticky too, but has no clear token (see
+  |worklog-utc-offset|).
+- When you use `utc` offsets, keep the base on the header (or set `defaults.utc`):
+  entries before the first marker are assumed to be at the header's offset.
+- Only trailing metadata tokens are parsed as metadata; multiple trailing tags,
+  locations, or `utc` offsets are invalid.
 - `#ooo` counts as activity but is excluded from `workday` totals.
 - Main summary rows do not split by location; locations are reported
   separately.
@@ -597,6 +638,7 @@ Configure `worklog.nvim` with:
       location = 'office',
       quantize_minutes = 30,
       duration_format = 'hm',
+      utc = 'auto',
     },
     journal = {
       root = '~/timereg',
@@ -607,6 +649,12 @@ Configure `worklog.nvim` with:
 <
 
 `defaults` are used for the initial worklog header created by |:WorklogToday|.
+
+`defaults.utc` stamps a base UTC offset into that header (see
+|worklog-utc-offset|), for frequent travellers who always want a zone recorded.
+It is either a signed offset string (`'+2'`, `'-4'`, `'+5:30'`) or `'auto'`,
+which fills in the system's current offset at the moment the file is created.
+Omit it to leave new headers without an offset (the default).
 
 `journal` is optional:
 

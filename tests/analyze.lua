@@ -364,7 +364,7 @@ return function(t)
         category = "structural",
         severity = "error",
         row = 1,
-        message = "worklog header tokens must be #tag, @location, or key=value: nope",
+        message = "worklog header tokens must be #tag, @location, utc±H[:MM], or key=value: nope",
       },
     })
 
@@ -508,7 +508,7 @@ return function(t)
         category = "structural",
         severity = "error",
         row = 4,
-        message = "worklog header tokens must be #tag, @location, or key=value: nope",
+        message = "worklog header tokens must be #tag, @location, utc±H[:MM], or key=value: nope",
       },
     })
 
@@ -924,5 +924,75 @@ return function(t)
 
     t.eq(analysis.diagnostics, { diagnostic })
     t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), diagnostic)
+  end)
+
+  t.test("analyze inherits a header utc offset and switches it on an explicit token", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog @office utc+2 ---",
+      "08:00 standup",
+      "11:00 resume utc-4",
+      "12:00 done",
+    }))
+    local block = analysis.worklog_blocks[1]
+
+    t.eq(block.header_offset, 120)
+    t.eq(block.entries[1].offset, 120) -- inherits the header base
+    t.eq(block.entries[2].offset, -240) -- an explicit token switches it
+    t.eq(block.entries[2].explicit_offset, -240)
+    t.eq(block.entries[3].offset, -240) -- sticky from the switch onward
+    t.eq(block.entries[3].explicit_offset, nil)
+    t.eq(analysis.diagnostics, {})
+  end)
+
+  t.test("analyze checks ordering in effective UTC time, not the raw local clock", function()
+    -- 14:00@+2 = 12:00Z then 11:00@-4 = 15:00Z: the raw clock goes backwards but
+    -- effective time moves forward, so a westward move is not a false reversal.
+    local ok = analyze.analyze(document.parse({
+      "--- worklog utc+2 ---",
+      "14:00 leave",
+      "11:00 resume utc-4",
+      "17:00 done",
+    }))
+    t.eq(ok.diagnostics, {})
+
+    -- The inverse: the raw clock increases but effective time goes backwards, which
+    -- is a genuine real-time reversal and is flagged.
+    local bad = analyze.analyze(document.parse({
+      "--- worklog utc-4 ---",
+      "11:00 here",
+      "12:00 there utc+2",
+    }))
+    t.eq(#bad.diagnostics, 1)
+    t.eq(bad.diagnostics[1].code, "unordered_timestamps")
+  end)
+
+  t.test("analyze keeps the 24:00 boundary check in raw local time", function()
+    -- The midnight-not-final rule is calendar, not real-time: a raw 24:00 that is
+    -- not the final entry is flagged regardless of any offset carried on it.
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog utc+2 ---",
+      "08:00 plan",
+      "24:00 close",
+      "24:00 done",
+    }))
+    t.eq(#analysis.diagnostics, 1)
+    t.eq(analysis.diagnostics[1].code, "midnight_not_final")
+  end)
+
+  t.test("analyze reports a duplicate header utc offset", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- worklog utc+2 utc-4 ---",
+      "08:00 plan",
+      "09:00 done",
+    }))
+    t.eq(analysis.diagnostics, {
+      {
+        code = "invalid_worklog_header_metadata",
+        category = "structural",
+        severity = "error",
+        row = 1,
+        message = "multiple worklog header utc offsets are not allowed",
+      },
+    })
   end)
 end

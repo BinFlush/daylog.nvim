@@ -28,14 +28,27 @@ local function copy_fields(src)
     explicit_tag_clear = src.explicit_tag_clear,
     explicit_location = src.explicit_location,
     explicit_location_clear = src.explicit_location_clear,
+    explicit_offset = src.explicit_offset,
     tag = src.tag,
     location = src.location,
+    offset = src.offset,
     workday_excluded = src.workday_excluded,
     logged = src.logged,
   }
 end
 
 M.copy_fields = copy_fields
+
+-- An entry's effective UTC time in minutes: the written local clock minus its
+-- sticky UTC offset. With no offsets in play (`offset` nil everywhere) this is
+-- identically the raw `minutes`, so duration and ordering are unchanged. Durations
+-- and the unordered-timestamps check reconcile across a clock move via this; the
+-- 24:00 boundary, display, and insertion placement stay raw-local.
+local function effective_minutes(item)
+  return item.minutes - (item.offset or 0)
+end
+
+M.effective_minutes = effective_minutes
 
 local function body_nodes(document, block)
   local nodes = {}
@@ -47,9 +60,10 @@ local function body_nodes(document, block)
   return nodes
 end
 
-local function semantic_entry_from_node(node, current_tag, current_location)
+local function semantic_entry_from_node(node, current_tag, current_location, current_offset)
   local tag = current_tag
   local location = current_location
+  local offset = current_offset
 
   if node.explicit_tag_clear then
     tag = nil
@@ -63,6 +77,12 @@ local function semantic_entry_from_node(node, current_tag, current_location)
     location = node.explicit_location
   end
 
+  -- The offset is sticky like location but has no clear form: an explicit token
+  -- switches it, otherwise it is inherited.
+  if node.explicit_offset ~= nil then
+    offset = node.explicit_offset
+  end
+
   return {
     row = node.row,
     minutes = node.minutes,
@@ -71,8 +91,10 @@ local function semantic_entry_from_node(node, current_tag, current_location)
     explicit_tag_clear = node.explicit_tag_clear,
     explicit_location = node.explicit_location,
     explicit_location_clear = node.explicit_location_clear,
+    explicit_offset = node.explicit_offset,
     tag = tag,
     location = location,
+    offset = offset,
     workday_excluded = tag == syntax.OUT_OF_OFFICE_TAG,
     logged = node.logged == true,
   }
@@ -84,13 +106,15 @@ local function analyze_entry_items(block, diagnostics)
   local current = nil
   local current_tag = block.header_tag
   local current_location = block.header_location
+  local current_offset = block.header_offset
 
   for _, node in ipairs(block.body_nodes) do
     if node.kind == syntax.NODE_KIND.ENTRY then
-      local entry = semantic_entry_from_node(node, current_tag, current_location)
+      local entry = semantic_entry_from_node(node, current_tag, current_location, current_offset)
 
       current_tag = entry.tag
       current_location = entry.location
+      current_offset = entry.offset
 
       current = copy_fields(entry)
       current.kind = syntax.NODE_KIND.ENTRY_ITEM
@@ -118,8 +142,11 @@ local function analyze_entry_items(block, diagnostics)
     end
   end
 
+  -- Ordering is checked in effective UTC time, so a westward clock move (whose
+  -- local times appear to go backwards) is not flagged while a genuine real-time
+  -- reversal still is. Without offsets this is exactly the raw-minute comparison.
   for i = 2, #entry_items do
-    if entry_items[i].minutes < entry_items[i - 1].minutes then
+    if effective_minutes(entry_items[i]) < effective_minutes(entry_items[i - 1]) then
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS,
         severity = "error",
@@ -162,6 +189,8 @@ local function interpret_worklog_header(header, diagnostics)
     has_tag = false,
     location = nil,
     has_location = false,
+    offset = nil,
+    has_offset = false,
     quantize_minutes = nil,
     declared_quantize = false,
     duration_format = nil,
@@ -192,6 +221,18 @@ local function interpret_worklog_header(header, diagnostics)
       else
         result.has_location = true
         result.location = token.value
+      end
+    elseif token.kind == syntax.TOKEN_KIND.OFFSET then
+      if result.has_offset then
+        push_diagnostic(diagnostics, {
+          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
+          severity = "error",
+          row = header.row,
+          message = "multiple worklog header utc offsets are not allowed",
+        })
+      else
+        result.has_offset = true
+        result.offset = token.value
       end
     end
   end
@@ -260,7 +301,8 @@ local function interpret_worklog_header(header, diagnostics)
       code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN,
       severity = "error",
       row = header.row,
-      message = "worklog header tokens must be #tag, @location, or key=value: " .. token,
+      message = "worklog header tokens must be #tag, @location, utc±H[:MM], or key=value: "
+        .. token,
     })
   end
 
@@ -271,12 +313,12 @@ function M.is_worklog(block)
   return block.kind == syntax.BLOCK_KIND.WORKLOG
 end
 
-function M.entry_from_node(node, current_tag, current_location)
+function M.entry_from_node(node, current_tag, current_location, current_offset)
   if node.kind ~= "entry" then
     return nil
   end
 
-  return semantic_entry_from_node(node, current_tag, current_location)
+  return semantic_entry_from_node(node, current_tag, current_location, current_offset)
 end
 
 function M.structural_error(analysis)
@@ -334,6 +376,7 @@ function M.analyze(document)
       end_row = next_header and next_header.row or (document.row_count + 1),
       header_tag = interpreted_header.tag,
       header_location = interpreted_header.location,
+      header_offset = interpreted_header.offset,
       header_quantize_minutes = interpreted_header.quantize_minutes,
       header_duration_format = interpreted_header.duration_format,
       quantize_minutes = is_worklog_header(header)

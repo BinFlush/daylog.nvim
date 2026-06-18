@@ -21,6 +21,7 @@ function M.run(lines)
     body.normalized_lines(ctx.block, entry.format),
     ctx.block.header_tag,
     ctx.block.header_location,
+    ctx.block.header_offset,
     ctx.block.header_quantize_minutes,
     ctx.block.header_duration_format
   )

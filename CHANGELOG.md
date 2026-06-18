@@ -24,6 +24,17 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- UTC-offset markers (`utc±H[:MM]`) record when the clock moves under you while
+  travelling or across a DST flip — a third sticky dimension alongside `#tag` and
+  `@location`. The sign is required (a bare `utc` stays plain text), so the marker
+  is invisible until used; it is declarable on the header as a base, inherited
+  until the next `utc` token, and has no clear form. Durations and timestamp
+  ordering reconcile in effective UTC time (`local - offset`) — so an interval
+  spanning a westward move counts forward, not backwards — while the displayed
+  times, the `24:00` boundary, carryover, and the journal date stay the written
+  local clock. A worklog with no `utc` marker is byte-for-byte unchanged. A new
+  `defaults.utc` (`'+2'`, `'-4'`, `'+5:30'`, or `'auto'`) stamps a base offset
+  into headers created by `:WorklogToday`. See `:help worklog-utc-offset`.
 - `:WorklogRename [name]` renames what the summary row under the cursor stands
   for, propagating into the attached worklog and rebuilding the summary: a main
   row renames the activity text of its source entries, a tag-total row renames

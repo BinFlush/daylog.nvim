@@ -69,6 +69,25 @@ local function normalize_defaults(defaults)
     result.duration_format = defaults.duration_format
   end
 
+  -- The base UTC offset auto-filled into a new worklog header (for travellers who
+  -- always want a zone stamped). Either a signed offset string ("+2", "-4",
+  -- "+5:30"), stored as signed minutes, or the literal "auto" -- a sentinel the
+  -- shell resolves to the system offset at file-creation time. Absent -> no header
+  -- offset, so non-travellers are unaffected.
+  if defaults.utc ~= nil then
+    if defaults.utc == "auto" then
+      result.utc = "auto"
+    elseif type(defaults.utc) == "string" then
+      local minutes = syntax.parse_offset_value(defaults.utc)
+      if minutes == nil then
+        error('worklog: defaults.utc must be "auto" or a signed offset like "+2", "-4", "+5:30"')
+      end
+      result.utc = minutes
+    else
+      error('worklog: defaults.utc must be "auto" or a signed offset string')
+    end
+  end
+
   return result
 end
 

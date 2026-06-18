@@ -22,22 +22,29 @@ function M.run(lines, row, time, text)
     return nil, err
   end
 
-  -- Inherit the sticky tag/location at the insertion point. Passing that same
-  -- state as the entry's effective metadata makes entry.format emit no tokens,
-  -- and passing it as ins_tag/ins_loc makes insert_entry_edit's follower rewrite
-  -- a guaranteed no-op -- so the result is byte-identical to a hand-typed
-  -- "HH:MM <text>" and no following entry silently changes tag or location.
+  -- Inherit the sticky tag/location/offset at the insertion point. Passing that
+  -- same state as the entry's effective metadata makes entry.format emit no tokens,
+  -- and passing it to insert_entry_edit makes the follower rewrite a guaranteed
+  -- no-op -- so the result is byte-identical to a hand-typed "HH:MM <text>" and no
+  -- following entry silently changes tag, location, or offset.
   local state = support.get_insert_state(ctx.block, minutes)
   local inserted_line = entry.format({
     minutes = minutes,
     text = entry.sanitize_text(text),
     tag = state.tag,
     location = state.location,
+    offset = state.offset,
     logged = false,
-  }, state.tag, state.location)
+  }, state.tag, state.location, state.offset)
 
-  local result =
-    support.insert_entry_edit(ctx.block, minutes, inserted_line, state.tag, state.location)
+  local result = support.insert_entry_edit(
+    ctx.block,
+    minutes,
+    inserted_line,
+    state.tag,
+    state.location,
+    state.offset
+  )
 
   -- Land the cursor at end of the inserted line and enter insert mode, matching
   -- insert_now's affordance so the user can keep typing notes.

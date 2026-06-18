@@ -137,6 +137,9 @@ local function build_source_edits(block, ops)
 
   local current_tag = ops.rename_tag(block.header_tag)
   local current_location = ops.rename_loc(block.header_location)
+  -- A rename never touches the UTC offset; thread it only so the re-emitted lines
+  -- carry the same utc±H tokens (emit-on-change) the originals did.
+  local current_offset = block.header_offset
 
   for _, item in ipairs(block.entry_items) do
     local eff_tag
@@ -163,9 +166,10 @@ local function build_source_edits(block, ops)
         text = ops.text_for(item.start_row, item.text),
         tag = eff_tag,
         location = eff_location,
+        offset = item.offset,
         workday_excluded = eff_tag == syntax.OUT_OF_OFFICE_TAG,
         logged = item.logged,
-      }, current_tag, current_location)
+      }, current_tag, current_location, current_offset)
 
       -- An entry that only inherited the renamed value renders identically (it
       -- still has no token), so only emit an edit when the line truly changes.
@@ -180,6 +184,7 @@ local function build_source_edits(block, ops)
 
     current_tag = eff_tag
     current_location = eff_location
+    current_offset = item.offset
   end
 
   return edits, renamed_entries
@@ -286,6 +291,7 @@ function M.run(lines, cursor_row, new_value)
     local new_header = render.worklog_header_line(
       ops.rename_tag(block.header_tag),
       ops.rename_loc(block.header_location),
+      block.header_offset,
       block.header_quantize_minutes,
       block.header_duration_format
     )

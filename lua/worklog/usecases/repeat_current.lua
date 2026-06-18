@@ -55,16 +55,18 @@ function M.run(lines, row, time)
     explicit_location_clear = current_item.explicit_location_clear,
     tag = current_item.tag,
     location = current_item.location,
+    offset = current_item.offset,
     workday_excluded = current_item.workday_excluded,
     logged = false,
-  }, insertion_state.tag, insertion_state.location)
+  }, insertion_state.tag, insertion_state.location, insertion_state.offset)
 
   return support.insert_entry_edit(
     ctx.block,
     minutes,
     line,
     current_item.tag,
-    current_item.location
+    current_item.location,
+    current_item.offset
   )
 end
 

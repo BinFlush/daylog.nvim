@@ -18,10 +18,18 @@ local function build_intervals(entries)
     local current = entries[i]
     local next = entries[i + 1]
 
+    -- Durations are measured in effective UTC time (`local - offset`), so an
+    -- interval that spans a clock move -- a timezone crossing or a DST flip -- is
+    -- its true length rather than the apparent local delta. `start`/`stop` stay the
+    -- raw local clock (display only). With no offsets in play this is exactly
+    -- `next.minutes - current.minutes`, so a plain worklog is unchanged.
+    local current_effective = current.minutes - (current.offset or 0)
+    local next_effective = next.minutes - (next.offset or 0)
+
     table.insert(intervals, {
       start = current.minutes,
       stop = next.minutes,
-      duration = next.minutes - current.minutes,
+      duration = next_effective - current_effective,
       text = current.text,
       tag = current.tag,
       location = current.location,

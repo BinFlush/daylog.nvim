@@ -23,6 +23,7 @@ function M.run(lines, defaults)
   local header = render.worklog_header_line(
     defaults.tag,
     defaults.location,
+    defaults.utc,
     defaults.quantize_minutes,
     defaults.duration_format
   )

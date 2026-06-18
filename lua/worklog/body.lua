@@ -60,19 +60,28 @@ local function rewrite_body(block)
   }
 end
 
-local function rebuild_lines(preamble_lines, items, header_tag, header_location, format_entry)
+local function rebuild_lines(
+  preamble_lines,
+  items,
+  header_tag,
+  header_location,
+  header_offset,
+  format_entry
+)
   local lines = {}
   local current_tag = header_tag
   local current_location = header_location
+  local current_offset = header_offset
 
   for _, line in ipairs(preamble_lines) do
     table.insert(lines, line)
   end
 
   for _, item in ipairs(items) do
-    table.insert(lines, format_entry(item, current_tag, current_location))
+    table.insert(lines, format_entry(item, current_tag, current_location, current_offset))
     current_tag = item.tag
     current_location = item.location
+    current_offset = item.offset
 
     for i = 2, #item.lines do
       table.insert(lines, item.lines[i])
@@ -99,12 +108,17 @@ local function sorted_items(items)
     table.insert(result, copy)
   end
 
+  -- Sort by effective UTC time so :WorklogOrder agrees with the effective
+  -- unordered-timestamps check; without offsets this is the raw-minute order.
   table.sort(result, function(a, b)
-    if a.minutes == b.minutes then
+    local a_eff = analyze.effective_minutes(a)
+    local b_eff = analyze.effective_minutes(b)
+
+    if a_eff == b_eff then
       return a.index < b.index
     end
 
-    return a.minutes < b.minutes
+    return a_eff < b_eff
   end)
 
   return result
@@ -142,10 +156,13 @@ function M.state_before(block, minutes)
   local state = {
     tag = block.header_tag,
     location = block.header_location,
+    offset = block.header_offset,
   }
 
   -- Inserted entries are placed after existing equal timestamps, so the sticky
-  -- state before insertion includes every item at the same minute.
+  -- state before insertion includes every item at the same minute. Placement is by
+  -- the written local clock (raw minutes): an insertion is positioned by the time
+  -- the user typed, not by effective UTC.
   for _, item in ipairs(block.entry_items) do
     if item.minutes > minutes then
       break
@@ -153,6 +170,7 @@ function M.state_before(block, minutes)
 
     state.tag = item.tag
     state.location = item.location
+    state.offset = item.offset
   end
 
   return state
@@ -170,15 +188,19 @@ function M.sort_changes_metadata(block)
   end
 
   table.sort(order, function(a, b)
-    if a.item.minutes == b.item.minutes then
+    local a_eff = analyze.effective_minutes(a.item)
+    local b_eff = analyze.effective_minutes(b.item)
+
+    if a_eff == b_eff then
       return a.index < b.index
     end
 
-    return a.item.minutes < b.item.minutes
+    return a_eff < b_eff
   end)
 
   local tag = block.header_tag
   local location = block.header_location
+  local offset = block.header_offset
   local changed = {}
 
   for _, entry in ipairs(order) do
@@ -196,7 +218,11 @@ function M.sort_changes_metadata(block)
       location = item.explicit_location
     end
 
-    if tag ~= item.tag or location ~= item.location then
+    if item.explicit_offset ~= nil then
+      offset = item.explicit_offset
+    end
+
+    if tag ~= item.tag or location ~= item.location or offset ~= item.offset then
       table.insert(changed, { minutes = item.minutes, text = item.text })
     end
   end
@@ -213,6 +239,7 @@ function M.normalized_lines(block, format_entry)
     body.items,
     block.header_tag,
     block.header_location,
+    block.header_offset,
     format_entry
   )
 end
@@ -224,6 +251,7 @@ function M.sorted_lines(block, format_entry)
     sorted_items(body.items),
     block.header_tag,
     block.header_location,
+    block.header_offset,
     format_entry
   )
 end

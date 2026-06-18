@@ -14,7 +14,7 @@ function M.minutes_string(minutes)
   return string.format("%02d:%02d", math.floor(minutes / 60), minutes % 60)
 end
 
-function M.format(entry, current_tag, current_location)
+function M.format(entry, current_tag, current_location, current_offset)
   local parts = { M.minutes_string(entry.minutes) }
 
   if entry.text ~= "" then
@@ -37,6 +37,13 @@ function M.format(entry, current_tag, current_location)
     end
   end
 
+  -- The offset is emitted on change like #tag/@location, but has no clear token:
+  -- once set it is always a concrete value, so a nil offset (no offsets in play)
+  -- emits nothing. The order is `#tag @location utc±H !L`.
+  if entry.offset ~= nil and entry.offset ~= current_offset then
+    table.insert(parts, syntax.utc_offset_token(entry.offset))
+  end
+
   if entry.logged then
     table.insert(parts, syntax.LOGGED_TOKEN)
   end
@@ -44,14 +51,14 @@ function M.format(entry, current_tag, current_location)
   return table.concat(parts, " ")
 end
 
-function M.parse(line, current_tag, current_location)
+function M.parse(line, current_tag, current_location, current_offset)
   local node = document.parse_line(line)
 
   if node.kind == syntax.NODE_KIND.INVALID_ENTRY then
     return false, node.message
   end
 
-  local entry = analyze.entry_from_node(node, current_tag, current_location)
+  local entry = analyze.entry_from_node(node, current_tag, current_location, current_offset)
   if not entry then
     return nil
   end
@@ -65,6 +72,10 @@ local function is_dangerous_token(token)
   end
 
   if token:match("^#[%w_%-]+$") or token:match("^@[%w_%-]+$") then
+    return true
+  end
+
+  if syntax.parse_utc_offset(token) ~= nil then
     return true
   end
 

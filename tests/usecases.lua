@@ -1285,4 +1285,72 @@ return function(t)
       },
     })
   end)
+
+  t.test("new_worklog usecase stamps a base utc offset from defaults", function()
+    local result = new_worklog.run({ "" }, { utc = 120 })
+    t.eq(result.edits[1].lines, { "--- worklog utc+2 ---" })
+  end)
+
+  t.test("repeat_current carries the source entry's utc offset", function()
+    -- Repeat the utc-4 entry at 09:00, which sits in the utc+2 stretch, so the
+    -- carried offset re-emits as utc-4 on the new line.
+    local result = repeat_current.run({
+      "--- worklog utc+2 ---",
+      "08:00 standup",
+      "11:00 deploy utc-4",
+      "12:00 done",
+    }, 3, "09:00")
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 2,
+          end_index = 2,
+          lines = { "09:00 deploy utc-4" },
+        },
+      },
+    })
+  end)
+
+  t.test("repeat_current pins a following entry's offset when the insert changes it", function()
+    -- Repeating the utc-4 trip at 08:30 (inside the utc+2 stretch) would otherwise
+    -- make the following 09:00 sync silently inherit utc-4; the follower is pinned
+    -- back to utc+2 so its effective offset is preserved.
+    local result = repeat_current.run({
+      "--- worklog utc+2 ---",
+      "08:00 standup",
+      "09:00 sync",
+      "14:00 trip utc-4",
+    }, 4, "08:30")
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 2,
+          end_index = 3,
+          lines = { "08:30 trip utc-4", "09:00 sync utc+2" },
+        },
+      },
+    })
+  end)
+
+  t.test("carryover continues an activity with its utc offset across midnight", function()
+    local activity = carryover.last_running_entry({
+      "--- worklog utc-4 ---",
+      "22:30 writing report",
+    })
+    t.eq(activity.offset, -240)
+
+    -- Seeded into a fresh next-day worklog with no base, the carried offset re-emits.
+    local result = carryover.seed_edit({ "--- worklog ---" }, activity, 0)
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 1,
+          end_index = 1,
+          lines = { "00:00 writing report utc-4" },
+        },
+      },
+    })
+  end)
 end

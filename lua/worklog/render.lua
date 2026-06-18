@@ -352,6 +352,7 @@ end
 function M.worklog_header_line(
   header_tag,
   header_location,
+  header_offset,
   header_quantize_minutes,
   header_duration_format
 )
@@ -363,6 +364,13 @@ function M.worklog_header_line(
 
   if header_location then
     table.insert(header, "@" .. header_location)
+  end
+
+  -- Only a numeric offset is rendered; a non-number (e.g. an unresolved "auto"
+  -- sentinel that somehow reached here) is treated as no offset rather than
+  -- crashing the formatter -- fail-safe, like an absent tag or location.
+  if type(header_offset) == "number" then
+    table.insert(header, syntax.utc_offset_token(header_offset))
   end
 
   if header_quantize_minutes then
@@ -380,6 +388,7 @@ function M.worklog_lines(
   lines,
   header_tag,
   header_location,
+  header_offset,
   header_quantize_minutes,
   header_duration_format
 )
@@ -388,6 +397,7 @@ function M.worklog_lines(
     M.worklog_header_line(
       header_tag,
       header_location,
+      header_offset,
       header_quantize_minutes,
       header_duration_format
     ),

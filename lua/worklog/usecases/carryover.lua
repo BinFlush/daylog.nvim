@@ -21,6 +21,7 @@ local function activity_from_item(item)
     explicit_location_clear = item.explicit_location_clear,
     tag = item.tag,
     location = item.location,
+    offset = item.offset,
     workday_excluded = item.workday_excluded,
   }
 end
@@ -105,11 +106,19 @@ function M.seed_edit(lines, activity, minutes)
     explicit_location_clear = activity.explicit_location_clear,
     tag = activity.tag,
     location = activity.location,
+    offset = activity.offset,
     workday_excluded = activity.workday_excluded,
     logged = false,
-  }, state.tag, state.location)
+  }, state.tag, state.location, state.offset)
 
-  return support.insert_entry_edit(ctx.block, minutes, line, activity.tag, activity.location)
+  return support.insert_entry_edit(
+    ctx.block,
+    minutes,
+    line,
+    activity.tag,
+    activity.location,
+    activity.offset
+  )
 end
 
 -- Append a bare 24:00 entry that closes the active worklog's final task at the
@@ -127,6 +136,7 @@ function M.close_edit(lines)
     text = "",
     tag = state.tag,
     location = state.location,
+    offset = state.offset,
     workday_excluded = state.tag == syntax.OUT_OF_OFFICE_TAG,
   }, minutes)
 end

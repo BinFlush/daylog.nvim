@@ -1,5 +1,6 @@
 return function(t)
   local document = require("worklog.document")
+  local syntax = require("worklog.syntax")
 
   t.test("document parse preserves line kinds and rows", function()
     local doc = document.parse({
@@ -363,5 +364,87 @@ return function(t)
     local doc = document.parse({ "16:00 (+0m) workday", "16:00 standup" })
     t.eq(doc.nodes[1].kind, "note_line")
     t.eq(doc.nodes[2].kind, "entry")
+  end)
+
+  t.test("syntax parses utc offsets to signed minutes and round-trips them", function()
+    t.eq(syntax.parse_utc_offset("utc+2"), 120)
+    t.eq(syntax.parse_utc_offset("utc-4"), -240)
+    t.eq(syntax.parse_utc_offset("utc+0"), 0)
+    t.eq(syntax.parse_utc_offset("utc+5:30"), 330)
+    t.eq(syntax.parse_utc_offset("utc-3:45"), -225)
+
+    -- The sign is mandatory and the value must be a real offset; anything else is
+    -- not an offset (so it stays activity text rather than being silently misread).
+    t.eq(syntax.parse_utc_offset("utc"), nil)
+    t.eq(syntax.parse_utc_offset("utc-x"), nil)
+    t.eq(syntax.parse_utc_offset("utc+2:60"), nil)
+    t.eq(syntax.parse_utc_offset("utc+99"), nil)
+    t.eq(syntax.parse_utc_offset("utcby"), nil)
+
+    -- The canonical token: ":MM" appears only when nonzero, and 0 is "utc+0".
+    t.eq(syntax.utc_offset_token(0), "utc+0")
+    t.eq(syntax.utc_offset_token(120), "utc+2")
+    t.eq(syntax.utc_offset_token(-240), "utc-4")
+    t.eq(syntax.utc_offset_token(330), "utc+5:30")
+    t.eq(syntax.utc_offset_token(-225), "utc-3:45")
+  end)
+
+  t.test("document parses a trailing utc offset and peels a preceding tag", function()
+    t.eq(document.parse_line("11:00 resume #sales utc-4"), {
+      kind = "entry",
+      row = 1,
+      raw = "11:00 resume #sales utc-4",
+      minutes = 660,
+      text = "resume",
+      explicit_tag = "sales",
+      explicit_location = nil,
+      explicit_offset = -240,
+    })
+
+    -- Order within the trailing run is free, like #tag/@location/!L.
+    t.eq(document.parse_line("08:00 standup utc+2 @office !L").explicit_offset, 120)
+    t.eq(document.parse_line("08:00 standup @office utc+2 !L").explicit_offset, 120)
+  end)
+
+  t.test("document leaves a malformed utc token as plain activity text (fail-safe)", function()
+    for _, line in ipairs({
+      "08:00 sync about utc",
+      "08:00 talk utc-x",
+      "08:00 talk utc+2:60",
+      "08:00 talk utc+99",
+    }) do
+      local node = document.parse_line(line)
+      t.eq(node.kind, "entry")
+      t.eq(node.explicit_offset, nil)
+      t.eq(node.text, line:match("^%d%d:%d%d%s+(.+)$"))
+    end
+  end)
+
+  t.test("document rejects a duplicate trailing utc offset", function()
+    t.eq(document.parse_line("08:00 plan utc+2 utc-4"), {
+      kind = "invalid_entry",
+      row = 1,
+      raw = "08:00 plan utc+2 utc-4",
+      message = "multiple trailing utc offsets are not allowed",
+    })
+  end)
+
+  t.test("document routes a header utc offset into metadata tokens", function()
+    t.eq(document.parse_line("--- worklog @office utc+2 q=30 ---"), {
+      kind = "worklog_header",
+      row = 1,
+      raw = "--- worklog @office utc+2 q=30 ---",
+      metadata_tokens = {
+        { kind = "location", value = "office", raw = "@office" },
+        { kind = "offset", value = 120, raw = "utc+2" },
+      },
+      option_tokens = {
+        { key = "q", value = "30", raw = "q=30" },
+      },
+      invalid_tokens = {},
+    })
+
+    -- A malformed header offset stays an invalid token, so the header is demoted.
+    t.eq(document.parse_line("--- worklog utc+99 ---").invalid_tokens, { "utc+99" })
   end)
 end

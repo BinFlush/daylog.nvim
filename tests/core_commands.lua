@@ -645,7 +645,7 @@ return function(t)
 
       t.eq(messages, {
         {
-          message = "worklog: ordering set the tag/location of order-dependent entries; review: 09:00 done",
+          message = "worklog: ordering set the tag/location/utc offset of order-dependent entries; review: 09:00 done",
           level = vim.log.levels.WARN,
         },
       })
@@ -655,6 +655,34 @@ return function(t)
       "--- worklog ---",
       "08:00 plan #sales",
       "09:00 done #-",
+    })
+  end)
+
+  t.test("worklog order sorts by effective utc time and warns about an offset change", function()
+    -- a@-4 = 15:00Z, b@+2 = 10:00Z: in real time b is earlier, so ordering swaps
+    -- them (the local clock then reads high-to-low) and warns that a's inherited
+    -- offset changed.
+    t.reset({
+      "--- worklog utc-4 ---",
+      "11:00 a",
+      "12:00 b utc+2",
+    })
+
+    with_captured_notify(function(messages)
+      vim.cmd("WorklogOrder")
+
+      t.eq(messages, {
+        {
+          message = "worklog: ordering set the tag/location/utc offset of order-dependent entries; review: 11:00 a",
+          level = vim.log.levels.WARN,
+        },
+      })
+    end)
+
+    t.eq(t.get_lines(), {
+      "--- worklog utc-4 ---",
+      "12:00 b utc+2",
+      "11:00 a utc-4",
     })
   end)
 

@@ -142,4 +142,27 @@ return function(t)
 
     config.setup()
   end)
+
+  t.test("config setup normalizes and validates defaults.utc", function()
+    config.setup({ defaults = { utc = "+2" } })
+    t.eq(config.get().defaults.utc, 120)
+
+    config.setup({ defaults = { utc = "-3:30" } })
+    t.eq(config.get().defaults.utc, -210)
+
+    -- The "auto" sentinel is stored verbatim; the shell resolves it at file creation.
+    config.setup({ defaults = { utc = "auto" } })
+    t.eq(config.get().defaults.utc, "auto")
+
+    -- A sign is required, and a non-string offset is rejected.
+    local ok, err = pcall(config.setup, { defaults = { utc = "2" } })
+    t.ok(not ok)
+    t.ok(tostring(err):match("defaults%.utc") ~= nil)
+
+    ok, err = pcall(config.setup, { defaults = { utc = 120 } })
+    t.ok(not ok)
+    t.ok(tostring(err):match("defaults%.utc") ~= nil)
+
+    config.setup()
+  end)
 end

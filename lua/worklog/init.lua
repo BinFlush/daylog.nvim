@@ -235,9 +235,45 @@ local function apply_insert_entry(time, text)
   return true
 end
 
+-- The system's current UTC offset in signed minutes, parsed from os.date("%z")
+-- ("+0200", "-0400", "+0530"). Returns nil when the platform does not report a
+-- numeric offset, so an unresolvable "auto" default stamps no zone rather than a
+-- wrong one. This is the one, one-time clock read for the offset feature; mid-day
+-- markers stay manual.
+local function system_utc_offset_minutes()
+  local sign, hours, minutes = tostring(os.date("%z")):match("^([%+%-])(%d%d)(%d%d)$")
+  if not sign then
+    return nil
+  end
+
+  local total = tonumber(hours) * 60 + tonumber(minutes)
+  if sign == "-" then
+    total = -total
+  end
+
+  return total
+end
+
+-- Resolve a defaults table's `utc` for a fresh worklog header: the "auto" sentinel
+-- becomes the system's current offset, a numeric offset passes through, and absent
+-- stays absent. The shared config table is never mutated; a copy is returned only
+-- when "auto" must be resolved.
+local function resolve_worklog_defaults(defaults)
+  if defaults == nil or defaults.utc ~= "auto" then
+    return defaults
+  end
+
+  local resolved = {}
+  for key, value in pairs(defaults) do
+    resolved[key] = value
+  end
+  resolved.utc = system_utc_offset_minutes()
+  return resolved
+end
+
 local function apply_new_worklog(defaults)
   local lines = buffer_lines()
-  local result, err = new_worklog.run(lines, defaults)
+  local result, err = new_worklog.run(lines, resolve_worklog_defaults(defaults))
   if not result then
     warn(err)
     return false
@@ -911,7 +947,7 @@ function M.order_worklogs()
 
   if result.warnings and #result.warnings > 0 then
     warn(
-      "worklog: ordering set the tag/location of order-dependent entries; review: "
+      "worklog: ordering set the tag/location/utc offset of order-dependent entries; review: "
         .. table.concat(result.warnings, ", ")
     )
   end

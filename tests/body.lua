@@ -118,4 +118,51 @@ return function(t)
       "09:00 done #- @-",
     })
   end)
+
+  t.test("body normalized lines keep the header offset base and re-emit changes", function()
+    -- The base lives on the header, so the first entry inherits it silently and only
+    -- the mid-day change re-emits a utc token -- a copy is byte-identical to input.
+    local block = block_from_lines({
+      "--- worklog utc+2 ---",
+      "08:00 standup",
+      "11:00 resume utc-4",
+      "12:00 done",
+    })
+
+    t.eq(body.normalized_lines(block, entry.format), {
+      "08:00 standup",
+      "11:00 resume utc-4",
+      "12:00 done",
+    })
+  end)
+
+  t.test("body sorted lines order by effective UTC time, not the raw clock", function()
+    -- a@-4 = 15:00Z, b@+2 = 10:00Z: by the raw clock a (11:00) precedes b (12:00),
+    -- but in real time b is earlier, so sorting puts b first and re-emits each offset
+    -- on change. The displayed local clock can then read high-to-low because the
+    -- entries are ordered by real time, which is what the duration math uses.
+    local block = block_from_lines({
+      "--- worklog utc-4 ---",
+      "11:00 a",
+      "12:00 b utc+2",
+    })
+
+    t.eq(body.sorted_lines(block, entry.format), {
+      "12:00 b utc+2",
+      "11:00 a utc-4",
+    })
+  end)
+
+  t.test("body sort_changes_metadata flags an entry whose inherited offset would change", function()
+    -- Sorted by effective time the order becomes b, a; a (no explicit offset) would
+    -- then inherit a different offset than it did in buffer order, so it is reported
+    -- on the same channel as a tag/location change.
+    local block = block_from_lines({
+      "--- worklog utc-4 ---",
+      "11:00 a",
+      "12:00 b utc+2",
+    })
+
+    t.eq(body.sort_changes_metadata(block), { { minutes = 660, text = "a" } })
+  end)
 end

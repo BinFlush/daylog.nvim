@@ -43,6 +43,7 @@ M.TOKEN_KIND = {
   TAG = "tag",
   LOCATION = "location",
   LOGGED = "logged",
+  OFFSET = "offset",
 }
 
 -- Generated section-header words fed to section_header(). Shared so render.lua
@@ -142,6 +143,75 @@ function M.is_infile_summary_header(raw)
   return content ~= nil
     and content ~= M.SECTION.SUMMARY
     and M.SUMMARY_SECTION_WORDS[content] == true
+end
+
+-- UTC-offset markers: a third sticky dimension alongside #tag / @location.
+--
+-- A keyword token `utc±H[:MM]` records the absolute UTC offset of a stretch of
+-- entries -- `utc+2` (east of UTC), `utc-4` (west), `utc+5:30`, `utc+0` (UTC). The
+-- sign is required, so the bare word "utc" in activity text is never captured and a
+-- malformed `utc-x` harmlessly stays plain text (fail-safe). The value is signed
+-- minutes; entries reconcile durations and ordering by effective UTC time
+-- (`local_minutes - offset_minutes`) while display stays the written local clock.
+
+-- Parse the signed body of an offset ("+2", "-4", "+5:30", "+0") into signed
+-- minutes, or nil when it is not a well-formed offset. Shared by parse_utc_offset
+-- (which strips the `utc` keyword first) and config.lua (which validates a
+-- `defaults.utc` string, which has no keyword). The leading sign is mandatory;
+-- hours are capped at 14 and minutes at 59, so every real-world offset round-trips
+-- and any other token fails to parse rather than being silently misread.
+function M.parse_offset_value(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+
+  local sign, hours, minutes = value:match("^([%+%-])(%d+):(%d%d)$")
+  if not sign then
+    sign, hours = value:match("^([%+%-])(%d+)$")
+    minutes = "0"
+  end
+
+  if not sign then
+    return nil
+  end
+
+  hours = tonumber(hours)
+  minutes = tonumber(minutes)
+  if hours > 14 or minutes > 59 then
+    return nil
+  end
+
+  local total = hours * 60 + minutes
+  if sign == "-" then
+    total = -total
+  end
+
+  return total
+end
+
+-- Parse a `utc±H[:MM]` token into signed minutes, or nil when it is not one.
+function M.parse_utc_offset(token)
+  local value = token:match("^utc(.+)$")
+  if not value then
+    return nil
+  end
+
+  return M.parse_offset_value(value)
+end
+
+-- Render signed minutes back into the canonical token: 0 -> "utc+0",
+-- -240 -> "utc-4", 330 -> "utc+5:30" (the :MM part appears only when nonzero).
+function M.utc_offset_token(minutes)
+  local sign = minutes < 0 and "-" or "+"
+  local abs = math.abs(minutes)
+  local hours = math.floor(abs / 60)
+  local mins = abs % 60
+
+  if mins == 0 then
+    return string.format("utc%s%d", sign, hours)
+  end
+
+  return string.format("utc%s%d:%02d", sign, hours, mins)
 end
 
 return M

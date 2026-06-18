@@ -25,4 +25,5 @@ worklog-overview	worklog.txt	/*worklog-overview*
 worklog-sources	worklog.txt	/*worklog-sources*
 worklog-sticky-metadata	worklog.txt	/*worklog-sticky-metadata*
 worklog-summaries	worklog.txt	/*worklog-summaries*
+worklog-utc-offset	worklog.txt	/*worklog-utc-offset*
 worklog.nvim	worklog.txt	/*worklog.nvim*

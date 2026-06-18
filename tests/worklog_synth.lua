@@ -3,8 +3,14 @@
 -- Knows nothing about any specific invariant: given a seeded RNG (tests/rng.lua)
 -- and a mode name it emits a random VALID worklog -- header plus sorted
 -- timestamped entries with optional sticky tags/locations, notes, #ooo, clears
--- (#-/@-), and !L, occasionally closing at 24:00. Returns { lines, params };
--- `params` carries the sampled knobs (including `mode`) for failure reporting.
+-- (#-/@-), !L, and occasional UTC offsets (utc±H), occasionally closing at 24:00.
+-- Returns { lines, params }; `params` carries the sampled knobs (including `mode`)
+-- for failure reporting.
+--
+-- UTC offsets, when used, walk monotonically downward across the day (a westward
+-- traveller). Local times are strictly increasing and the offsets never increase,
+-- so effective UTC time is strictly increasing too -- the worklog stays valid (no
+-- false unordered-timestamps) while exercising the offset-reconciled duration math.
 --
 -- Modes only pick distributions; the emitted structure is identical:
 --   * maximal -- the general, assumption-free stress mode (whole clock, every q).
@@ -44,6 +50,13 @@ local WORDS = {
   "spike",
   "cleanup",
 }
+
+local syntax = require("worklog.syntax")
+
+-- Plausible UTC offsets in signed minutes, east to west. A worklog that uses
+-- offsets walks this list downward only (never back east), which keeps effective
+-- time strictly increasing for strictly increasing local times.
+local UTC_OFFSETS = { 330, 120, 60, 0, -240, -300, -480 }
 
 local NOTE_WORDS = {
   "followed",
@@ -97,6 +110,7 @@ local MODE_CONFIG = {
     p_init_loc = 0.5,
     p_clear = 0.15,
     p_ooo = 0.15,
+    p_utc = 0.3,
   },
   -- A ~7-to-5 day: a bounded span, a handful of tasks, q values several of
   -- which do not foot cleanly, an occasional break (#ooo), light notes/logging.
@@ -118,6 +132,7 @@ local MODE_CONFIG = {
     p_init_loc = 0.3,
     p_clear = 0.15,
     p_ooo = 0.15,
+    p_utc = 0.2,
   },
   -- Precise client tracking: exact q (1, or 0.1h buckets), heavy !L, decimal
   -- hours, a wider client (tag) pool, rare breaks.
@@ -139,6 +154,7 @@ local MODE_CONFIG = {
     p_init_loc = 0.2,
     p_clear = 0.15,
     p_ooo = 0.08,
+    p_utc = 0.15,
   },
 }
 
@@ -237,6 +253,7 @@ local function generate(rng, mode_name)
     init_loc = rng:chance(cfg.p_init_loc),
   }
   params.q = cfg.q_set and rng:choice(cfg.q_set) or rng:int(cfg.q[1], cfg.q[2])
+  params.use_utc = rng:chance(cfg.p_utc or 0)
 
   local tags = distinct_names(rng, params.tag_pool_n)
   local locs = distinct_names(rng, params.loc_pool_n)
@@ -249,6 +266,19 @@ local function generate(rng, mode_name)
   if params.init_loc then
     header[#header + 1] = "@" .. rng:choice(locs)
   end
+
+  -- The sticky offset state: when offsets are in use, start somewhere in the pool
+  -- and optionally declare that base on the header (otherwise the first entry that
+  -- changes it emits the token). The index only ever advances downward (westward).
+  local utc_index, current_offset
+  if params.use_utc then
+    utc_index = rng:int(1, #UTC_OFFSETS)
+    if rng:chance(0.5) then
+      current_offset = UTC_OFFSETS[utc_index]
+      header[#header + 1] = syntax.utc_offset_token(current_offset)
+    end
+  end
+
   header[#header + 1] = "q=" .. params.q
   header[#header + 1] = "d=" .. params.d
   local lines = { table.concat(header, " ") .. " ---" }
@@ -283,6 +313,19 @@ local function generate(rng, mode_name)
           parts[#parts + 1] = "@-"
         else
           parts[#parts + 1] = "@" .. rng:choice(locs)
+        end
+      end
+
+      -- Advance the offset downward (never up) and emit a utc token on change, so
+      -- the sticky resolution matches and effective time keeps increasing.
+      if params.use_utc then
+        if utc_index < #UTC_OFFSETS and rng:chance(0.25) then
+          utc_index = rng:int(utc_index + 1, #UTC_OFFSETS)
+        end
+        local off = UTC_OFFSETS[utc_index]
+        if off ~= current_offset then
+          parts[#parts + 1] = syntax.utc_offset_token(off)
+          current_offset = off
         end
       end
 

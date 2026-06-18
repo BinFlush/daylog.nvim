@@ -49,13 +49,15 @@ function M.get_insert_state(block, minutes)
   return body.state_before(block, minutes)
 end
 
--- Build the edit that inserts `inserted_line` (whose effective tag/location are
--- `ins_tag`/`ins_loc`) at `minutes` in `block`. When the inserted entry changes
--- the sticky tag/location the following entry was silently inheriting, the
--- follower is rewritten with a compensating token (#tag/@location or #-/@-) so
--- its effective metadata is preserved. Pinning the immediate follower suffices,
--- since later entries inherit from it.
-function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc)
+-- Build the edit that inserts `inserted_line` (whose effective tag/location/offset
+-- are `ins_tag`/`ins_loc`/`ins_offset`) at `minutes` in `block`. When the inserted
+-- entry changes the sticky tag/location/offset the following entry was silently
+-- inheriting, the follower is rewritten with a compensating token (#tag/@location,
+-- #-/@-, or utc±H) so its effective metadata is preserved. Pinning the immediate
+-- follower suffices, since later entries inherit from it. Placement is by the
+-- written local clock (raw minutes), so the predecessor and follower are found by
+-- raw time, not effective UTC.
+function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, ins_offset)
   local insert_index = body.insert_index(block, minutes)
   local pred = body.state_before(block, minutes)
 
@@ -77,8 +79,11 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc)
     local needs_location = not follower.explicit_location
       and not follower.explicit_location_clear
       and ins_loc ~= pred.location
+    -- The offset has no clear token, so a follower with no explicit offset is the
+    -- only one that can silently inherit a changed offset.
+    local needs_offset = follower.explicit_offset == nil and ins_offset ~= pred.offset
 
-    if needs_tag or needs_location then
+    if needs_tag or needs_location or needs_offset then
       lines = {
         inserted_line,
         entry.format({
@@ -86,8 +91,9 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc)
           text = follower.text,
           tag = follower.tag,
           location = follower.location,
+          offset = follower.offset,
           logged = follower.logged,
-        }, ins_tag, ins_loc),
+        }, ins_tag, ins_loc, ins_offset),
       }
       end_index = insert_index + 1
     end

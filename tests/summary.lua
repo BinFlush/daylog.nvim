@@ -1495,4 +1495,65 @@ return function(t)
     t.eq(items[1].text, "planning")
     t.eq(items[1].source_entry_rows, { 2, 3 })
   end)
+
+  local function durations_by_text(items)
+    local by_text = {}
+    for _, item in ipairs(items) do
+      by_text[item.text] = item.duration
+    end
+    return by_text
+  end
+
+  t.test("summary reconciles durations across a utc offset change (travel)", function()
+    -- 14:00@+2 = 12:00Z, 11:00@-4 = 15:00Z, 17:00@-4 = 21:00Z. So "leave" spans
+    -- 12:00Z->15:00Z = 3h and "resume" 15:00Z->21:00Z = 6h, where the raw local
+    -- delta for "leave" would be a nonsensical -3h.
+    local block = block_from_lines({
+      "--- worklog utc+2 ---",
+      "14:00 leave",
+      "11:00 resume utc-4",
+      "17:00 done",
+    })
+    local result = summarize_exact(block)
+    local by_text = durations_by_text(result.summary_items)
+
+    t.eq(result.activity_total, 540) -- 9h, not the 3h the raw local clock implies
+    t.eq(by_text.leave, 180)
+    t.eq(by_text.resume, 360)
+  end)
+
+  t.test("summary reconciles a DST fall-back where the local clock repeats", function()
+    -- Fall back: 02:45@+2 = 00:45Z, then 02:15@+1 = 01:15Z. The local clock appears
+    -- to step backward (02:45 -> 02:15) but the real interval is 30 minutes.
+    local block = block_from_lines({
+      "--- worklog utc+2 ---",
+      "02:45 wind down",
+      "02:15 still up utc+1",
+      "03:00 sleep",
+    })
+    local by_text = durations_by_text(summarize_exact(block).summary_items)
+
+    t.eq(by_text["wind down"], 30) -- 00:45Z -> 01:15Z
+    t.eq(by_text["still up"], 45) -- 01:15Z -> 03:00@+1 = 02:00Z
+  end)
+
+  t.test("a uniform header offset summarizes identically to no offset", function()
+    -- The zero-overhead invariant: within one zone the base offset cancels in every
+    -- delta, so declaring utc+2 throughout matches a worklog with no offset at all.
+    local entries = { "08:00 plan", "08:30 call #sales", "09:15 done" }
+    local plain = block_from_lines({
+      "--- worklog #ClientA @office ---",
+      entries[1],
+      entries[2],
+      entries[3],
+    })
+    local zoned = block_from_lines({
+      "--- worklog #ClientA @office utc+2 ---",
+      entries[1],
+      entries[2],
+      entries[3],
+    })
+
+    t.eq(summarize_exact(zoned), summarize_exact(plain))
+  end)
 end

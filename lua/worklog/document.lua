@@ -33,6 +33,15 @@ local function parse_metadata_token(token)
     return syntax.TOKEN_KIND.LOCATION, location, false
   end
 
+  -- A `utc±H[:MM]` offset is sticky metadata too; the value is signed minutes and
+  -- there is no clear form (you change the offset, you do not unset it). Shared by
+  -- the entry trailing-run scan (via parse_entry_control_token) and the header
+  -- tokenizer (parse_worklog_tokens), so both recognize it with one grammar.
+  local offset = syntax.parse_utc_offset(token)
+  if offset ~= nil then
+    return syntax.TOKEN_KIND.OFFSET, offset, false
+  end
+
   return nil, nil, false
 end
 
@@ -96,10 +105,12 @@ local function parse_entry_metadata(text)
     explicit_tag_clear = nil,
     explicit_location = nil,
     explicit_location_clear = nil,
+    explicit_offset = nil,
     logged = nil,
   }
   local has_tag = false
   local has_location = false
+  local has_offset = false
   local has_logged = false
 
   if text == "" then
@@ -141,6 +152,13 @@ local function parse_entry_metadata(text)
       has_location = true
       result.explicit_location = value
       result.explicit_location_clear = clear or nil
+    elseif kind == syntax.TOKEN_KIND.OFFSET then
+      if has_offset then
+        return nil, "multiple trailing utc offsets are not allowed"
+      end
+
+      has_offset = true
+      result.explicit_offset = value
     elseif kind == syntax.TOKEN_KIND.LOGGED then
       if has_logged then
         return nil, "duplicate trailing !L markers are not allowed"
@@ -255,6 +273,7 @@ local function parse_entry(line, row)
     explicit_tag_clear = metadata.explicit_tag_clear,
     explicit_location = metadata.explicit_location,
     explicit_location_clear = metadata.explicit_location_clear,
+    explicit_offset = metadata.explicit_offset,
     logged = metadata.logged,
   }
 end
