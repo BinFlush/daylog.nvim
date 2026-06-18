@@ -19,6 +19,7 @@ local sources_picker = require("worklog.sources.picker")
 local sources_registry = require("worklog.sources.registry")
 local sources_sync = require("worklog.sources.sync")
 local support = require("worklog.usecases.support")
+local text = require("worklog.text")
 local week = require("worklog.week")
 
 local M = {}
@@ -40,21 +41,8 @@ local function buffer_lines()
   return vim.api.nvim_buf_get_lines(0, 0, -1, false)
 end
 
--- Whether a line list holds no worklog content: empty or a single blank line.
--- Mirrors new_worklog's empty_buffer and week's empty_lines so every layer
--- agrees on what "empty" means.
-local function lines_are_empty(lines)
-  for _, line in ipairs(lines) do
-    if line:find("%S") then
-      return false
-    end
-  end
-
-  return true
-end
-
 local function buffer_is_empty()
-  return lines_are_empty(buffer_lines())
+  return text.is_empty(buffer_lines())
 end
 
 ---@return integer
@@ -245,8 +233,8 @@ end
 -- Insert a fully-resolved "HH:MM <text>" entry at the cursor's worklog and enter
 -- insert mode. Mirrors apply_insert_time but carries an activity string (the text
 -- is built and sanitized by the source layer before it gets here).
-local function apply_insert_entry(time, text)
-  local result, err = insert_entry.run(buffer_lines(), cursor_row(), time, text)
+local function apply_insert_entry(time, entry_text)
+  local result, err = insert_entry.run(buffer_lines(), cursor_row(), time, entry_text)
   if not result then
     warn(err)
     return false
@@ -360,7 +348,7 @@ end
 local function journal_path_has_content(path)
   local buf = loaded_buffer_for_path(path)
   if buf then
-    return not lines_are_empty(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    return not text.is_empty(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end
 
   if vim.fn.filereadable(path) == 0 then
@@ -368,7 +356,7 @@ local function journal_path_has_content(path)
   end
 
   -- Match the loaded-buffer branch: a whitespace-only file is empty, not content.
-  return not lines_are_empty(vim.fn.readfile(path))
+  return not text.is_empty(vim.fn.readfile(path))
 end
 
 local function expanded_journal_settings()
@@ -645,7 +633,7 @@ local function run_cross_day_repeat(settings, now)
   -- rather than yanking the window across and only then failing. A missing/empty (or
   -- whitespace-only) today is initialized fresh by open_journal_file and always seeds.
   local today_lines = journal_lines(journal.path_for_date(settings, now))
-  if today_lines and not lines_are_empty(today_lines) then
+  if today_lines and not text.is_empty(today_lines) then
     local ok, validate_err = carryover.seed_edit(today_lines, activity, minutes)
     if not ok then
       warn(validate_err)

@@ -3,24 +3,9 @@ local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
 local journal = require("worklog.journal")
 local summary = require("worklog.summary")
+local text = require("worklog.text")
 
 local M = {}
-
--- Mirrors init's lines_are_empty and new_worklog's empty_buffer: no lines, or only
--- blank/whitespace lines. Every layer must agree on what "empty" means.
-local function empty_lines(lines)
-  if lines == nil then
-    return true
-  end
-
-  for _, line in ipairs(lines) do
-    if line:find("%S") then
-      return false
-    end
-  end
-
-  return true
-end
 
 local function strip_worklog_prefix(message)
   return message:match("^worklog:%s*(.*)$") or message
@@ -31,7 +16,7 @@ local function prefixed_file_error(path, message)
 end
 
 local function analyze_day(day)
-  if empty_lines(day.lines) then
+  if text.is_empty(day.lines) then
     return nil, nil
   end
 
