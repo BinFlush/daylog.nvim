@@ -29,6 +29,12 @@ local function copy_rows(rows)
   return result
 end
 
+-- Set each item's error_minutes to exact-minus-displayed (unrounded - rounded). This
+-- is the same quantity project_quantized_items derives during a quantization pass,
+-- only here the items already carry both durations (the combine path re-projects
+-- already-rounded day rows, whose duration == unrounded_duration, giving a 0 error).
+-- The two paths are kept separate on purpose -- unifying them would add a pass and
+-- couple two helpers in the footing-critical path to save one subtraction.
 function M.apply_error_minutes(items)
   for _, item in ipairs(items) do
     item.error_minutes = (item.unrounded_duration or item.duration) - item.duration
