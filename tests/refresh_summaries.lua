@@ -123,6 +123,43 @@ return function(t)
     })
   end)
 
+  t.test("refresh regenerates junk left inside a generated summary section away", function()
+    -- "3.55h junk" sits inside the totals section (no blank above it), so it is part
+    -- of the summary and the regeneration removes it -- the summary is a pure
+    -- projection, so non-generated content inside a section cannot survive a refresh.
+    local result = refresh_summaries.run({
+      "--- worklog #ClientA @office ---",
+      "05:40 plan",
+      "10:00 build",
+      "11:00 review",
+      "",
+      "--- summary q=15 d=dec ---",
+      "4.25h (+5m) plan",
+      "1.00h (+0m) build",
+      "",
+      "--- tags ---",
+      "5.25h (+5m) #ClientA",
+      "",
+      "--- locations ---",
+      "5.25h (+5m) @office",
+      "",
+      "--- totals ---",
+      "5.25h (+5m) workday",
+      "3.55h junk",
+    })
+
+    t.eq(#result.edits, 1)
+    local edit = result.edits[1]
+    -- The region runs from the summary header through the junk line.
+    t.eq(edit.start_index, 5)
+    t.eq(edit.end_index, 18)
+    -- The rewritten summary ends at the workday total; the junk line is gone.
+    t.eq(edit.lines[#edit.lines], "5.25h (+5m) workday")
+    for _, line in ipairs(edit.lines) do
+      t.ok(line ~= "3.55h junk", "the junk line must be regenerated away")
+    end
+  end)
+
   t.test("refresh preserves a summary-shaped note written below the summary", function()
     -- A note like "3.00h (+0m) billed ..." sits after the (current) summary. It is
     -- not part of the summary region, so refresh emits no edit and never deletes it.

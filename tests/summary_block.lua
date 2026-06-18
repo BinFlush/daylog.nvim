@@ -303,6 +303,35 @@ return function(t)
     )
   end)
 
+  t.test("summary_block includes junk left inside a generated section", function()
+    -- A summary-shaped line with no blank above it sits *inside* the totals section,
+    -- so it is part of the region and a refresh regenerates it away -- unlike the
+    -- after-a-blank note above, which is left outside.
+    t.eq(
+      locate({
+        "--- worklog #ClientA @office ---",
+        "05:40 plan",
+        "10:00 build",
+        "11:00 review",
+        "",
+        "--- summary q=15 d=dec ---",
+        "4.25h (+5m) plan",
+        "1.00h (+0m) build",
+        "",
+        "--- tags ---",
+        "5.25h (+5m) #ClientA",
+        "",
+        "--- locations ---",
+        "5.25h (+5m) @office",
+        "",
+        "--- totals ---",
+        "5.25h (+5m) workday",
+        "3.55h junk",
+      }),
+      { start_row = 6, end_row = 19 }
+    )
+  end)
+
   t.test("summary_block returns nil when there is no summary", function()
     t.eq(locate({ "--- worklog ---", "08:00 plan", "09:00 done" }), nil)
   end)

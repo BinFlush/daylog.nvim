@@ -73,7 +73,10 @@ happen, but they are called out clearly in this changelog.
   second summary below the stale one. The summary region is now located by the
   union of content alignment and structural recognition, so refresh replaces the
   existing summary in place, and a buffer already jumbled by the old behavior
-  collapses back to a single summary on the next refresh.
+  collapses back to a single summary on the next refresh. Stray content left
+  *inside* a generated section (a line with no blank above it, e.g. a hand-typed or
+  pasted row in the totals section) is part of the summary and is regenerated away;
+  a note written *after* the summary (below a blank) is left untouched.
 - Decimal-hour (`d=dec`) summary and report rows now always sum to the displayed
   section total. Each row was rounded to two decimals independently, so several
   fractional rows could read e.g. `0.99h` against a `1.00h` total; the displayed
