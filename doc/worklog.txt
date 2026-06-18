@@ -440,7 +440,7 @@ Toggle the logged state of the main summary row under the cursor.
   |:WorklogRefresh| (or let `auto_summary` refresh) to bring them current.
 
                                                         *:WorklogRename*
-:WorklogRename [name]
+:WorklogRename [name|source]
 
 Rename what the summary row under the cursor stands for, propagating into the
 attached worklog and rebuilding its summary.
@@ -461,6 +461,13 @@ attached worklog and rebuilding its summary.
   the highlighted value and `<C-e>` renames to the text you typed. Without Telescope
   it is a |vim.ui.select| list plus a "type a new name" entry. When there is nothing
   to merge into, it falls back to a plain prompt seeded with the current value.
+- Replacing an activity with a tracked work item: when renaming an activity (not a
+  tag or location) and a |worklog-sources| source is configured, the picker also
+  lists -- and live-searches -- that source's work items; picking one renames the
+  activity to the item's entry text (`{id} {title}`), exactly like |:WorklogInsert|.
+  With one source it is offered automatically; with several, name it as the argument
+  (`:WorklogRename {source}`, tab-completed). A `[name]` argument that is not a
+  source name renames directly to that text.
 - A tag or location name must be letters, digits, underscores, or hyphens; activity
   text is sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active worklog's summary; a row that no longer

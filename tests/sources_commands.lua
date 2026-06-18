@@ -187,4 +187,84 @@ return function(t)
       "11:30 ",
     })
   end)
+
+  -- Put the cursor on the active worklog's "review" main summary row (its line ends
+  -- with ") review"; the entry "08:00 review" does not), after a refresh.
+  local function on_review_summary_row()
+    t.reset({ "--- worklog ---", "08:00 review", "09:00 done" })
+    vim.cmd("WorklogRefresh")
+    for i, line in ipairs(t.get_lines()) do
+      if line:find("%) review$") then
+        vim.api.nvim_win_set_cursor(0, { i, 0 })
+        return
+      end
+    end
+    error("review summary row not found")
+  end
+
+  t.test("WorklogRename replaces an activity with a source item (single source)", function()
+    registry.clear()
+    register_fake()
+    on_review_summary_row()
+
+    -- One activity, so it has no merge candidates; the first picker choice is the
+    -- source item, which the stub selects.
+    with_stubbed_picker(true, function()
+      vim.cmd("WorklogRename")
+    end)
+
+    t.eq(t.get_lines()[2], "08:00 1 Item one")
+    local renamed = false
+    for _, line in ipairs(t.get_lines()) do
+      if line:find("%) 1 Item one$") then
+        renamed = true
+      end
+    end
+    t.ok(renamed, "the summary row should be rebuilt to the work item")
+  end)
+
+  t.test("WorklogRename arg names a source, otherwise renames directly", function()
+    registry.clear()
+    register_fake()
+
+    -- A non-source argument renames the activity to that literal text.
+    on_review_summary_row()
+    vim.cmd("WorklogRename ship the release")
+    t.eq(t.get_lines()[2], "08:00 ship the release")
+
+    -- A source-name argument opens that source's picker instead.
+    on_review_summary_row()
+    with_stubbed_picker(true, function()
+      vim.cmd("WorklogRename FAKE")
+    end)
+    t.eq(t.get_lines()[2], "08:00 1 Item one")
+  end)
+
+  t.test("WorklogRename refuses a source on a non-activity row", function()
+    registry.clear()
+    register_fake()
+    -- Two tags so the #ClientA tag-total row has a merge candidate: after the source
+    -- is refused, the normal merge picker opens (and the stub cancels it) rather than
+    -- falling through to a blocking input prompt.
+    t.reset({ "--- worklog ---", "08:00 a #ClientA", "09:00 b #other", "10:00 done" })
+    vim.cmd("WorklogRefresh")
+    for i, line in ipairs(t.get_lines()) do
+      if line:find("%) #ClientA$") then
+        vim.api.nvim_win_set_cursor(0, { i, 0 })
+      end
+    end
+
+    with_captured_notify(function(messages)
+      with_stubbed_picker(false, function() -- cancel, so nothing is mutated
+        vim.cmd("WorklogRename FAKE")
+      end)
+      local refused = false
+      for _, message in ipairs(messages) do
+        if message.message:find("a source can only replace an activity") then
+          refused = true
+        end
+      end
+      t.ok(refused, "naming a source on a tag row should be refused")
+    end)
+  end)
 end

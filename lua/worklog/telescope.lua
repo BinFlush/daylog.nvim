@@ -147,37 +147,129 @@ function M.live_pick(source, opts)
   picker:find()
 end
 
--- A picker for :WorklogRename's merge UX: type to filter the existing same-kind
--- values (tags / locations / activities); <CR> renames into the highlighted one
--- (a merge), and <C-e> renames to the typed text (a fresh name). With no match for
--- the typed text, <CR> also falls back to creating it. The actual rename/merge is
--- the same pure usecase either way.
+-- A picker for :WorklogRename's merge UX, optionally augmented with a source's
+-- work-items so an activity can be replaced with a tracked item (see init.lua).
+-- Type to filter the existing same-kind values (tags / locations / activities) and,
+-- when `source` is given, its work-items too; <CR> renames into the highlighted one
+-- -- a merge for a local candidate, or the item's entry text for a source item --
+-- and <C-e> renames to the typed text (a fresh name). With a searchable source a
+-- debounced server query augments the pool, exactly like live_pick. The actual
+-- rename is the same pure usecase regardless of where the value came from.
 --
 -- opts: { candidates = string[], prompt = string|nil, on_pick = fn(value),
---         on_create = fn(text), theme = table|nil }
+--         on_create = fn(text), theme = table|nil,
+--         source = table|nil, initial_items = table|nil, min_query = number|nil,
+--         on_pick_item = fn(item)|nil }
 function M.rename_pick(opts)
   local pickers = require("telescope.pickers")
   local finders = require("telescope.finders")
   local conf = require("telescope.config").values
   local actions = require("telescope.actions")
   local action_state = require("telescope.actions.state")
+  local picker_helpers = require("worklog.sources.picker")
 
-  local picker = pickers.new(opts.theme or {}, {
-    prompt_title = opts.prompt or "Worklog: rename / merge  (<CR> merge, <C-e> new name)",
-    finder = finders.new_table({
-      results = opts.candidates or {},
-      entry_maker = function(value)
-        return { value = value, display = value, ordinal = value }
+  local source = opts.source
+  local candidates = opts.candidates or {}
+  local initial = opts.initial_items or {}
+
+  -- Local merge candidates first, then the source's work-items (aligned into
+  -- columns when the source supports it). Each entry remembers its kind so the
+  -- select action knows whether to merge a name or replace with an item's text.
+  local function entries_for(items)
+    local entries = {}
+    for _, candidate in ipairs(candidates) do
+      entries[#entries + 1] = { kind = "candidate", text = candidate, display = candidate }
+    end
+    if source and items and #items > 0 then
+      local lines = source.format_items and source.format_items(items)
+      for index, item in ipairs(items) do
+        entries[#entries + 1] = {
+          kind = "item",
+          item = item,
+          display = (lines and lines[index]) or source.format_item(item),
+        }
+      end
+    end
+    return entries
+  end
+
+  local function finder_for(items)
+    return finders.new_table({
+      results = entries_for(items),
+      entry_maker = function(entry)
+        return { value = entry, display = entry.display, ordinal = entry.display }
       end,
-    }),
+    })
+  end
+
+  local picker
+  local seq = 0
+  local last_query = nil
+  local closed = false
+
+  -- Debounced server search augmenting the source pool (mirrors live_pick); guarded
+  -- by last_query (no refresh loop) and seq (drop stale responses).
+  local function on_input_filter_cb(prompt)
+    if picker_helpers.should_query(prompt, last_query, opts.min_query) then
+      last_query = prompt
+      seq = seq + 1
+      local mine = seq
+
+      vim.defer_fn(function()
+        if mine ~= seq then
+          return
+        end
+
+        source.search(prompt, function(items, err)
+          vim.schedule(function()
+            if mine ~= seq or not picker or closed then
+              return
+            end
+            if err then
+              local message = err:match("^worklog:") and err or ("worklog: " .. err)
+              vim.notify(message, vim.log.levels.WARN)
+              return
+            end
+            if items then
+              picker:refresh(
+                finder_for(picker_helpers.merge(initial, items)),
+                { reset_prompt = false }
+              )
+            end
+          end)
+        end)
+      end, DEBOUNCE_MS)
+    end
+
+    return { prompt = prompt }
+  end
+
+  picker = pickers.new(opts.theme or {}, {
+    prompt_title = opts.prompt or "Worklog: rename / merge  (<CR> pick, <C-e> new name)",
+    finder = finder_for(initial),
     sorter = conf.generic_sorter({}),
+    on_input_filter_cb = (source and source.search) and on_input_filter_cb or nil,
     attach_mappings = function(prompt_bufnr, map)
+      -- A late search response must stop refreshing once the prompt closes.
+      vim.api.nvim_create_autocmd("BufWipeout", {
+        buffer = prompt_bufnr,
+        once = true,
+        callback = function()
+          closed = true
+        end,
+      })
+
       actions.select_default:replace(function()
         local entry = action_state.get_selected_entry()
         local typed = action_state.get_current_line()
         actions.close(prompt_bufnr)
         if entry and entry.value then
-          opts.on_pick(entry.value)
+          local value = entry.value
+          if value.kind == "item" and opts.on_pick_item then
+            opts.on_pick_item(value.item)
+          else
+            opts.on_pick(value.text)
+          end
         else
           opts.on_create(typed)
         end

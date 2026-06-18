@@ -24,6 +24,14 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- `:WorklogRename` can replace an activity with a tracked work item: when the
+  cursor is on an activity row and a source is configured, the rename picker also
+  lists and live-searches that source's items (alongside the merge candidates), and
+  picking one renames the activity to the item's entry text (`{id} {title}`), just
+  like `:WorklogInsert`. With one source it is offered automatically; with several,
+  name it as the argument (`:WorklogRename {source}`, tab-completed). An argument
+  that is not a source name still renames directly to that text. Tag/location rows
+  are unaffected.
 - `:WorklogBalance [steps]` manually balances summary rounding by a signed number
   of `q=` steps (default `+1`, `0` clears). Largest-remainder rounding can leave a
   day — and therefore a week — a step or two short of a clean total (e.g.

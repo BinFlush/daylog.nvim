@@ -846,7 +846,12 @@ local RENAME_PROMPT_LABEL = { item = "activity", tag = "tag", location = "locati
 -- value that already exists merges the two -- so the picker offers the other
 -- same-kind values as merge targets while still letting you type a fresh name. An
 -- empty or unchanged value is a no-op.
-function M.rename_summary(new_value)
+-- `source_name`, when given, replaces an activity with a work item from that
+-- source: the picker also lists (and live-searches) the source's items, and a
+-- chosen item renames the activity to its `to_entry_text` (sanitized), exactly like
+-- :WorklogInsert. A source only applies to an activity row, and with one source
+-- configured it is offered automatically.
+function M.rename_summary(new_value, source_name)
   local row = cursor_row()
   local target, err = rename_summary.resolve(buffer_lines(), row)
   if not target then
@@ -880,6 +885,29 @@ function M.rename_summary(new_value)
     return
   end
 
+  -- A source can replace an activity (item) only: the named source, or the sole
+  -- configured one. Naming a source while on a tag/location row is reported.
+  local source, src_name
+  if source_name then
+    source = sources_registry.get(source_name)
+    if not source then
+      warn("worklog: unknown source '" .. source_name .. "'")
+      return
+    end
+    if target.kind ~= "item" then
+      warn("worklog: a source can only replace an activity, not a " .. target.kind)
+      source = nil
+    else
+      src_name = source_name
+    end
+  elseif target.kind == "item" then
+    local names = sources_registry.names()
+    if #names == 1 then
+      src_name = names[1]
+      source = sources_registry.get(src_name)
+    end
+  end
+
   local label = RENAME_PROMPT_LABEL[target.kind]
 
   local function prompt_for_name()
@@ -889,52 +917,98 @@ function M.rename_summary(new_value)
     }))
   end
 
-  -- With nothing to merge into, just prompt for a new name (the plain rename).
-  if #target.candidates == 0 then
+  local picker_prompt = string.format("Worklog: rename/merge %s", label)
+
+  -- Open the picker over the merge candidates plus any source items; both a
+  -- Telescope picker and the vim.ui.select fallback let you pick a candidate (a
+  -- merge), a source item (replace with its entry text), or type a fresh name.
+  local function open_picker(items)
+    local function pick_item(item)
+      apply_rename(source.to_entry_text(item))
+    end
+
+    if pcall(require, "telescope") then
+      local min_query
+      if source then
+        min_query = ((config.get().sources or {})[src_name] or {}).min_query
+      end
+
+      require("worklog.telescope").rename_pick({
+        candidates = target.candidates,
+        prompt = picker_prompt
+          .. (source and "/source  (<CR> pick, <C-e> new name)" or "  (<CR> merge, <C-e> new name)"),
+        on_pick = apply_rename,
+        on_create = apply_rename,
+        source = source,
+        initial_items = items,
+        min_query = min_query,
+        on_pick_item = source and pick_item or nil,
+      })
+      return
+    end
+
+    local TYPE_NEW = {}
+    local choices = {}
+    for _, value in ipairs(target.candidates) do
+      choices[#choices + 1] = value
+    end
+    if source and items then
+      for _, item in ipairs(items) do
+        choices[#choices + 1] = item
+      end
+    end
+    choices[#choices + 1] = TYPE_NEW
+
+    -- Nothing to choose but "type a new name": just prompt.
+    if #choices == 1 then
+      prompt_for_name()
+      return
+    end
+
+    vim.ui.select(choices, {
+      prompt = picker_prompt,
+      format_item = function(choice)
+        if choice == TYPE_NEW then
+          return "✎ Type a new name…"
+        end
+        if type(choice) == "table" then
+          return source.format_item(choice)
+        end
+        return choice
+      end,
+    }, function(choice)
+      if not choice then
+        return
+      end
+      if choice == TYPE_NEW then
+        prompt_for_name()
+        return
+      end
+      if type(choice) == "table" then
+        apply_rename(source.to_entry_text(choice))
+        return
+      end
+      apply_rename(choice)
+    end)
+  end
+
+  -- With no merge targets and no source, the plain rename prompt.
+  if #target.candidates == 0 and not source then
     prompt_for_name()
     return
   end
 
-  -- With merge targets, offer them: a Telescope picker (type to filter, <CR> to
-  -- merge into the highlighted one, <C-e> to rename to the typed text), or a
-  -- vim.ui.select list plus a "type a new name" entry when Telescope is absent.
-  local picker_prompt = string.format("Worklog: rename/merge %s", label)
-
-  if pcall(require, "telescope") then
-    require("worklog.telescope").rename_pick({
-      candidates = target.candidates,
-      prompt = picker_prompt .. "  (<CR> merge, <C-e> new name)",
-      on_pick = apply_rename,
-      on_create = apply_rename,
-    })
+  -- Source items load from the (offline) cache before opening, refreshing in the
+  -- background when stale -- the same offline-first path as :WorklogInsert.
+  if source then
+    local ttl = ((config.get().sources or {})[src_name] or {}).ttl or 1800
+    sources_sync.ensure_fresh(src_name, ttl, function(items)
+      open_picker(items)
+    end)
     return
   end
 
-  local TYPE_NEW = {}
-  local choices = {}
-  for _, value in ipairs(target.candidates) do
-    choices[#choices + 1] = value
-  end
-  choices[#choices + 1] = TYPE_NEW
-
-  vim.ui.select(choices, {
-    prompt = picker_prompt,
-    format_item = function(choice)
-      if choice == TYPE_NEW then
-        return "✎ Type a new name…"
-      end
-      return choice
-    end,
-  }, function(choice)
-    if not choice then
-      return
-    end
-    if choice == TYPE_NEW then
-      prompt_for_name()
-      return
-    end
-    apply_rename(choice)
-  end)
+  open_picker(nil)
 end
 
 function M.order_worklogs()
@@ -1309,15 +1383,21 @@ function M.setup(options)
     M.repeat_current()
   end)
 
+  -- A lone argument that names a configured source opens the picker against that
+  -- source (to replace an activity with a work item); any other argument is the new
+  -- value to rename to directly; no argument opens the picker.
   ensure_user_command("WorklogRename", function(args)
-    local new_value = args.args
-    if new_value == "" then
-      new_value = nil
+    local arg = args.args
+    if arg ~= "" and sources_registry.get(arg) then
+      M.rename_summary(nil, arg)
+    elseif arg ~= "" then
+      M.rename_summary(arg)
+    else
+      M.rename_summary()
     end
-
-    M.rename_summary(new_value)
   end, {
     nargs = "*",
+    complete = source_complete,
   })
 
   ensure_user_command("WorklogOrder", function()
