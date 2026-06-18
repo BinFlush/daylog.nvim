@@ -262,7 +262,11 @@ return function(t)
     )
   end)
 
-  t.test("hhmm summary rows highlight as durations, not timestamps or notes", function()
+  t.test("a summary-shaped line outside a summary section reads as a note", function()
+    -- Without a generated summary section above them, these lines are ambiguous with
+    -- notes (the parser classifies them as notes), so they are highlighted as notes
+    -- -- a comment can never masquerade as a real summary row. They only highlight as
+    -- durations inside a section (see the block-context test below).
     load({
       "0:30 (+4m) planning",
       "16:00 (-20m) workday",
@@ -270,18 +274,45 @@ return function(t)
       "08:00 planning",
     })
 
-    -- Quantized hhmm row: the duration highlights and the (+Nm) error is distinct.
-    t.eq(group_at(1, 1), "WorklogDuration")
-    t.eq(group_at(1, col_of(1, "(+4m)")), "WorklogQuantError")
+    -- A duration/(+Nm)-shaped line, with no section, is a plain note.
+    t.eq(group_at(1, 1), "WorklogNote")
+    t.ok(
+      group_at(1, col_of(1, "(+4m)")) ~= "WorklogQuantError",
+      "(+4m) inside a note is not a rounding marker"
+    )
+    t.eq(group_at(2, 1), "WorklogNote")
+    t.eq(group_at(3, 1), "WorklogNote")
 
-    -- A two-digit-hour row directly before a (+Nm) marker beats the timestamp.
-    t.eq(group_at(2, 1), "WorklogDuration")
-
-    -- An exact single-digit-hour duration, which can never be an entry.
-    t.eq(group_at(3, 1), "WorklogDuration")
-
-    -- A zero-padded HH:MM entry still reads as a timestamp, not a duration.
+    -- A zero-padded HH:MM entry still reads as a timestamp.
     t.eq(group_at(4, 1), "WorklogTimestamp")
+  end)
+
+  t.test("a summary-shaped note below the summary stays a note", function()
+    load({
+      "--- worklog #A ---",
+      "08:00 a #A",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) a",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+      "",
+      "3.00h (+0m) billed to client X",
+    })
+
+    -- The real summary and totals rows (inside their sections) are durations.
+    t.eq(group_at(6, 1), "WorklogDuration")
+    t.eq(group_at(9, 1), "WorklogDuration")
+
+    -- The trailing comment, after the summary, is a note despite its shape, so it
+    -- can't be mistaken for a real summary item.
+    t.eq(group_at(11, 1), "WorklogNote")
+    t.ok(
+      group_at(11, col_of(11, "(+0m)")) ~= "WorklogQuantError",
+      "the comment's (+0m) is not a rounding marker"
+    )
   end)
 
   t.test("two-digit-hour hhmm summary rows highlight as durations via block context", function()

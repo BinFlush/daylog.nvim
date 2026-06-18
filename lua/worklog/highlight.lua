@@ -163,17 +163,13 @@ local function push_summary_row(spans, row, line, kind)
   push_trailing_metadata(spans, row, line)
 end
 
--- A free note, with any leaked summary-row shape (a duration / rounding marker)
--- still highlighted over the note base so such a row reads the same outside a
--- section as inside one.
+-- A free note. A line that merely looks like a summary row (a leading duration and
+-- a (+Nm) marker) but is not inside a generated summary section is ambiguous with a
+-- note -- and the parser already classifies it as one -- so it is highlighted as a
+-- note, never as a summary item, and a comment can't masquerade as one. Summary
+-- rows are highlighted only inside a section (see push_summary_row).
 local function push_note(spans, row, line)
   push(spans, row, 0, #line, "WorklogNote", BASE_PRIORITY)
-
-  local duration = document.summary_duration_length(line)
-  if duration then
-    push(spans, row, 0, duration, "WorklogDuration", TOKEN_PRIORITY)
-  end
-  push_quant_errors(spans, row, line)
 end
 
 local function push_worklog_header(spans, row, line)
@@ -214,7 +210,8 @@ function M.spans(lines)
         push_trailing_metadata(spans, index, line)
       else
         -- A NOTE_LINE, or an INVALID_ENTRY whose time the parser rejected (so it is
-        -- not a timestamp): a free note, with any leaked duration shape highlighted.
+        -- not a timestamp): a free note. A summary-shaped line outside a summary
+        -- section is a note, not a summary row.
         push_note(spans, index, line)
       end
     end

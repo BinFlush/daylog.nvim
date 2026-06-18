@@ -53,7 +53,9 @@ happen, but they are called out clearly in this changelog.
   always matches how the plugin parses a file (one grammar, not two) and no longer
   depends on `:syntax on`. The highlight group names are unchanged (`WorklogTag`,
   `WorklogDuration`, `WorklogOoo`, ...), so existing `highlight` overrides keep
-  working.
+  working. A duration / `(+Nm)`-shaped line is highlighted as a summary row only
+  inside a generated summary section; the same shape written as a free comment
+  (outside a section) stays a note, so a comment can't masquerade as a summary item.
 - The `:WorklogInsert {source}` picker now renders work items as aligned columns
   -- the id, `[type/state]`, and (for multi-project sources) the project line up,
   with the variable-width title last -- instead of a ragged trailing column when
