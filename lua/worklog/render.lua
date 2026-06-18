@@ -244,6 +244,31 @@ local function with_nudge(line, nudge)
   return line
 end
 
+-- Append one flat metadata section -- tag, location, or logged totals -- to the
+-- layout when `opts.present`: its header, a duration-footed row per item (carrying
+-- any nudge marker), and a trailing blank. The sections differ only in their kind /
+-- header / label builder (`line_fn`) and footing base (`total` is the activity total
+-- for tag/location, the workday total for logged), so they share this one shape.
+local function append_metadata_section(layout, items, opts)
+  if not opts.present then
+    return
+  end
+
+  table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = opts.section, line = opts.header })
+
+  local durations = section_duration_strings(items or {}, opts.total, opts.format)
+  for i, item in ipairs(items or {}) do
+    table.insert(layout, {
+      kind = opts.kind,
+      section = opts.section,
+      line = with_nudge(metadata_line(item, durations[i], opts.line_fn), item.nudge),
+      item = item,
+    })
+  end
+
+  table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
+end
+
 -- Build a structured summary layout that records both rendered text and the
 -- role each row plays.  Future commands can take a rendered summary row,
 -- recompute the same layout, and recover the underlying summary item via the
@@ -277,59 +302,35 @@ local function build_summary_layout(summary, duration_format, options)
 
   table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
 
-  if has_metadata_items(summary.tag_totals, "tag") then
-    table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "tag", line = headers.tag })
+  append_metadata_section(layout, summary.tag_totals, {
+    present = has_metadata_items(summary.tag_totals, "tag"),
+    section = "tag",
+    kind = LAYOUT_KIND.TAG_TOTAL,
+    header = headers.tag,
+    total = summary.activity_total,
+    format = format,
+    line_fn = tag_line,
+  })
 
-    local tag_durations =
-      section_duration_strings(summary.tag_totals or {}, summary.activity_total, format)
-    for i, item in ipairs(summary.tag_totals or {}) do
-      table.insert(layout, {
-        kind = LAYOUT_KIND.TAG_TOTAL,
-        section = "tag",
-        line = with_nudge(metadata_line(item, tag_durations[i], tag_line), item.nudge),
-        item = item,
-      })
-    end
+  append_metadata_section(layout, summary.location_totals, {
+    present = has_metadata_items(summary.location_totals, "location"),
+    section = "location",
+    kind = LAYOUT_KIND.LOCATION_TOTAL,
+    header = headers.location,
+    total = summary.activity_total,
+    format = format,
+    line_fn = location_line,
+  })
 
-    table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
-  end
-
-  if has_metadata_items(summary.location_totals, "location") then
-    table.insert(
-      layout,
-      { kind = LAYOUT_KIND.HEADER, section = "location", line = headers.location }
-    )
-
-    local location_durations =
-      section_duration_strings(summary.location_totals or {}, summary.activity_total, format)
-    for i, item in ipairs(summary.location_totals or {}) do
-      table.insert(layout, {
-        kind = LAYOUT_KIND.LOCATION_TOTAL,
-        section = "location",
-        line = with_nudge(metadata_line(item, location_durations[i], location_line), item.nudge),
-        item = item,
-      })
-    end
-
-    table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
-  end
-
-  if summary.logged_totals and #summary.logged_totals > 0 then
-    table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "logged", line = headers.logged })
-
-    local logged_durations =
-      section_duration_strings(summary.logged_totals, summary.workday_total, format)
-    for i, item in ipairs(summary.logged_totals) do
-      table.insert(layout, {
-        kind = LAYOUT_KIND.LOGGED_TOTAL,
-        section = "logged",
-        line = with_nudge(metadata_line(item, logged_durations[i], logged_line), item.nudge),
-        item = item,
-      })
-    end
-
-    table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
-  end
+  append_metadata_section(layout, summary.logged_totals, {
+    present = summary.logged_totals and #summary.logged_totals > 0,
+    section = "logged",
+    kind = LAYOUT_KIND.LOGGED_TOTAL,
+    header = headers.logged,
+    total = summary.workday_total,
+    format = format,
+    line_fn = logged_line,
+  })
 
   table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "total", line = headers.total })
 
