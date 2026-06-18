@@ -91,6 +91,17 @@ local function rebuild_lines(
   return trim_trailing_empty_lines(lines)
 end
 
+-- Order by effective UTC time, then by original index to break ties stably. Both
+-- :WorklogOrder's reorder and its change-warning sort through this one rule, so a
+-- divergence can't make the warning describe a different order than the rewrite.
+local function less_by_effective_time(a_eff, a_index, b_eff, b_index)
+  if a_eff == b_eff then
+    return a_index < b_index
+  end
+
+  return a_eff < b_eff
+end
+
 local function sorted_items(items)
   local result = {}
 
@@ -111,14 +122,12 @@ local function sorted_items(items)
   -- Sort by effective UTC time so :WorklogOrder agrees with the effective
   -- unordered-timestamps check; without offsets this is the raw-minute order.
   table.sort(result, function(a, b)
-    local a_eff = analyze.effective_minutes(a)
-    local b_eff = analyze.effective_minutes(b)
-
-    if a_eff == b_eff then
-      return a.index < b.index
-    end
-
-    return a_eff < b_eff
+    return less_by_effective_time(
+      analyze.effective_minutes(a),
+      a.index,
+      analyze.effective_minutes(b),
+      b.index
+    )
   end)
 
   return result
@@ -188,14 +197,12 @@ function M.sort_changes_metadata(block)
   end
 
   table.sort(order, function(a, b)
-    local a_eff = analyze.effective_minutes(a.item)
-    local b_eff = analyze.effective_minutes(b.item)
-
-    if a_eff == b_eff then
-      return a.index < b.index
-    end
-
-    return a_eff < b_eff
+    return less_by_effective_time(
+      analyze.effective_minutes(a.item),
+      a.index,
+      analyze.effective_minutes(b.item),
+      b.index
+    )
   end)
 
   local current = {
