@@ -59,13 +59,7 @@ end
 function t.reset(lines)
   vim.cmd("enew!")
   vim.api.nvim_buf_set_lines(0, 0, -1, false, lines or {})
-
-  local row = 1
-  if lines and #lines == 0 then
-    row = 1
-  end
-
-  vim.api.nvim_win_set_cursor(0, { row, 0 })
+  vim.api.nvim_win_set_cursor(0, { 1, 0 })
 end
 
 function t.set_lines(lines)
