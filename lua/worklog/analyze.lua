@@ -337,7 +337,7 @@ function M.is_worklog(block)
 end
 
 function M.entry_from_node(node, current_tag, current_location, current_offset)
-  if node.kind ~= "entry" then
+  if node.kind ~= syntax.NODE_KIND.ENTRY then
     return nil
   end
 
