@@ -215,6 +215,39 @@ overall totals    -> all rows
 Rows with `workday_excluded = true` contribute to activity totals but not workday
 totals.
 
+### Manual rounding balance (`round±N`)
+
+Largest-remainder rounding can leave an aggregate (a day, hence a week) a step or
+two off a clean total. `:WorklogBalance` lets the cursor on a summary row — or a
+worklog entry — shift the rounding by `±N` `q`-steps, recorded as a **non-sticky**
+per-entry `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round_nudge`).
+
+The model is a single vector and a guarantee:
+
+- The **full-grain row** (`text+tag+location+workday_excluded+logged`) is the *only*
+  thing quantized. A nudge is one integer per row that overrides its bucket count
+  (`quantize.quantize_rows` second pass: `Q = max(0, base + (blocks + nudge)*q)`);
+  it changes only that row's value, never the row set or grouping.
+- A row's nudge is shared by all of its intervals, so the command marks **all** of
+  them and they fold by signed max-magnitude (`projection.project_rows` `nudge_mode
+  = "max"`); sections sum row nudges (`"sum"`) for the cumulative marker shown on
+  every affected line.
+- **Footing is structural, not a rounding property.** Every displayed section is a
+  partition of the full-grain rows, and `Σ groups = Σ cells` holds for *any* cell
+  values — so no nudge configuration can break it. The corollaries follow: every
+  whole-cell level agrees on the activity total, `activity − workday = Σ ooo`, and
+  `displayed + residual = true` everywhere. The week aggregate (`combine_summaries`)
+  is the same partition one level up — pure sums of days, no re-quantization — so a
+  per-day nudge flows in unchanged.
+- The calculator distributes a requested group shift to the least-error rows
+  (largest-remainder-optimal). A nudge necessarily moves one group on *every* axis
+  it touches (each cell has a tag, a location, a title…); that coupling is inherent
+  to the projection and is fully visible via the markers.
+
+`tests/balance_invariants.lua` encodes these guarantees as a property test:
+adversarial per-cell nudge vectors over synthesized day and week summaries, with
+every section's rows asserted to foot to its total in both duration formats.
+
 ## Summary ordering and rendering
 
 Main summary rows group by `activity text + tag + workday_excluded`; location is

@@ -23,6 +23,12 @@ local M = {}
 -- Highlight groups and the default highlight they link to. Exposed as data so the
 -- shell registers them once; the names match the previous syntax file, so any
 -- user `highlight` overrides keep working unchanged.
+-- Inline metadata tokens link to bright, mutually distinct standard groups (not
+-- Comment): a #tag is cyan-ish (Identifier), an @location blue-ish (Function), a
+-- utc±H offset green-ish (Type), a round±N nudge red/orange-ish (Constant), and !L
+-- orange-ish (Special). Only genuinely secondary text -- the (+Nm) rounding residual,
+-- free notes, and block headers -- stays muted. All are default links, so a user's
+-- own `:highlight` overrides still win.
 M.GROUPS = {
   WorklogHeader = "Title",
   WorklogBlockHeader = "NonText",
@@ -34,7 +40,8 @@ M.GROUPS = {
   WorklogDuration = "Special",
   WorklogQuantError = "Comment",
   WorklogOption = "PreProc",
-  WorklogOffset = "Comment",
+  WorklogOffset = "Type",
+  WorklogNudge = "Constant",
   WorklogNote = "Comment",
 }
 
@@ -102,6 +109,8 @@ local function control_group(token)
     return "WorklogLocation"
   elseif kind == syntax.TOKEN_KIND.OFFSET then
     return "WorklogOffset"
+  elseif kind == syntax.TOKEN_KIND.NUDGE then
+    return "WorklogNudge"
   elseif kind == syntax.TOKEN_KIND.LOGGED then
     return "WorklogLogged"
   end

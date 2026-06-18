@@ -447,4 +447,51 @@ return function(t)
     -- A malformed header offset stays an invalid token, so the header is demoted.
     t.eq(document.parse_line("--- worklog utc+99 ---").invalid_tokens, { "utc+99" })
   end)
+
+  t.test("syntax parses and renders round nudges (sign required)", function()
+    t.eq(syntax.parse_round_nudge("round+1"), 1)
+    t.eq(syntax.parse_round_nudge("round-2"), -2)
+    t.eq(syntax.parse_round_nudge("round+0"), 0)
+    t.eq(syntax.parse_round_nudge("round"), nil)
+    t.eq(syntax.parse_round_nudge("round+"), nil)
+    t.eq(syntax.parse_round_nudge("round+x"), nil)
+    t.eq(syntax.parse_round_nudge("rounding"), nil)
+    t.eq(syntax.round_nudge_token(1), "round+1")
+    t.eq(syntax.round_nudge_token(-2), "round-2")
+  end)
+
+  t.test("document parses a trailing round nudge and peels a preceding tag", function()
+    t.eq(document.parse_line("08:00 plan #sales round+1"), {
+      kind = "entry",
+      row = 1,
+      raw = "08:00 plan #sales round+1",
+      minutes = 480,
+      text = "plan",
+      explicit_tag = "sales",
+      explicit_location = nil,
+      nudge = 1,
+    })
+
+    -- Order-free within the trailing run, alongside the other tokens.
+    t.eq(document.parse_line("08:00 plan round-2 @office !L").nudge, -2)
+  end)
+
+  t.test("document leaves a non-nudge round token as text and rejects duplicates", function()
+    local node = document.parse_line("08:00 take another round")
+    t.eq(node.kind, "entry")
+    t.eq(node.nudge, nil)
+    t.eq(node.text, "take another round")
+
+    t.eq(document.parse_line("08:00 plan round+1 round-1"), {
+      kind = "invalid_entry",
+      row = 1,
+      raw = "08:00 plan round+1 round-1",
+      message = "multiple trailing round markers are not allowed",
+    })
+  end)
+
+  t.test("document does not treat a header round token as metadata", function()
+    -- round±N is entry-only (non-sticky); in a header it is just an invalid token.
+    t.eq(document.parse_line("--- worklog round+1 ---").invalid_tokens, { "round+1" })
+  end)
 end

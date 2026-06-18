@@ -80,6 +80,22 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
     end
   end
 
+  -- Second pass: apply per-row manual rounding nudges on top of the largest-remainder
+  -- baseline. A nudge of +k rounds the row up k more buckets (-k down); because every
+  -- displayed section is a sum of these same rows, the shift flows consistently into
+  -- the section totals and each section stays a partition. Only the displayed
+  -- duration is clamped at zero (a row can never show negative time); a nudge may
+  -- otherwise carry a row below its floored value, so the stored marker always
+  -- matches the realized rounding.
+  for _, row in ipairs(result) do
+    if row.nudge and row.nudge ~= 0 then
+      local base = math.floor(row.unrounded_duration / bucket_minutes) * bucket_minutes
+      local current_blocks = (row.duration - base) / bucket_minutes
+      row.duration = math.max(0, base + (current_blocks + row.nudge) * bucket_minutes)
+      row.error_minutes = row.unrounded_duration - row.duration
+    end
+  end
+
   return result
 end
 
@@ -105,6 +121,12 @@ function M.project_quantized_items(unrounded_items, quantized_items, key_fields,
     projected.duration = quantized_item and quantized_item.duration or 0
     projected.unrounded_duration = item.unrounded_duration
     projected.error_minutes = item.duration - (quantized_item and quantized_item.duration or 0)
+    -- Carry the cumulative manual nudge through to the displayed item so render can
+    -- surface the round±N marker. Sparse: only set when nonzero, so an unbalanced
+    -- summary keeps its exact shape.
+    if quantized_item and quantized_item.nudge and quantized_item.nudge ~= 0 then
+      projected.nudge = quantized_item.nudge
+    end
 
     if item.source_entry_rows then
       projected.source_entry_rows = item.source_entry_rows

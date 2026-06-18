@@ -59,7 +59,13 @@ end
 -- (or single `source_entry_row`) is concatenated into the bucket in stable
 -- source order so main summary items can carry provenance back to the
 -- contributing entries.
-function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows)
+-- `nudge_mode` controls how the manual rounding nudge aggregates into a bucket:
+-- "sum" (the default) adds it up -- correct when projecting fine-grained rows into
+-- sections, where a section's nudge is the cumulative shift of its rows. "max"
+-- takes the signed value of largest magnitude -- correct when folding the intervals
+-- of one fine-grained row, which all carry that row's single nudge (so marking some
+-- or all of an activity's intervals yields the same row nudge, never a multiple).
+function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows, nudge_mode)
   local buckets = {}
   local order = {}
 
@@ -86,6 +92,19 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows)
 
     bucket.duration = bucket.duration + row.duration
     bucket.unrounded_duration = bucket.unrounded_duration + (row.unrounded_duration or row.duration)
+    -- The manual rounding nudge stays sparse (absent unless a nonzero nudge
+    -- contributes), so a worklog with no manual balancing projects to byte-identical
+    -- rows. "max" folds an activity's intervals to its single row nudge; "sum"
+    -- accumulates rows into a section's cumulative nudge.
+    if row.nudge and row.nudge ~= 0 then
+      if nudge_mode == "max" then
+        if not bucket.nudge or math.abs(row.nudge) > math.abs(bucket.nudge) then
+          bucket.nudge = row.nudge
+        end
+      else
+        bucket.nudge = (bucket.nudge or 0) + row.nudge
+      end
+    end
 
     if accumulate_source_entry_rows then
       if row.source_entry_rows then

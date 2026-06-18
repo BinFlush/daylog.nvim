@@ -44,6 +44,7 @@ M.TOKEN_KIND = {
   LOCATION = "location",
   LOGGED = "logged",
   OFFSET = "offset",
+  NUDGE = "nudge",
 }
 
 -- Generated section-header words fed to section_header(). Shared so render.lua
@@ -212,6 +213,34 @@ function M.utc_offset_token(minutes)
   end
 
   return string.format("utc%s%d:%02d", sign, hours, mins)
+end
+
+-- Manual rounding-balance markers: a non-sticky, per-entry trailing token
+-- `round±N` that forces this entry's quantization row to round N q-steps beyond
+-- the largest-remainder baseline (`round+1` = one bucket up, `round-1` = one down).
+-- The sign is required, so a bare `round` in activity text is never captured and a
+-- malformed `round+x` harmlessly stays plain text. Used to balance residuals so an
+-- aggregate (a day, hence a week) lands on a clean total; see usecases/balance_summary.
+
+-- Parse a `round±N` token into a signed integer of q-steps, or nil when it is not one.
+function M.parse_round_nudge(token)
+  local sign, digits = token:match("^round([%+%-])(%d+)$")
+  if not sign then
+    return nil
+  end
+
+  local n = tonumber(digits)
+  if sign == "-" then
+    n = -n
+  end
+
+  return n
+end
+
+-- Render a signed q-step count back into the canonical token: 1 -> "round+1",
+-- -2 -> "round-2". A negative number carries its own "-".
+function M.round_nudge_token(n)
+  return "round" .. (n < 0 and "" or "+") .. n
 end
 
 return M

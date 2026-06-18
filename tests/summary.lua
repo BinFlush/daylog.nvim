@@ -1556,4 +1556,65 @@ return function(t)
 
     t.eq(summarize_exact(zoned), summarize_exact(plain))
   end)
+
+  t.test("a manual round nudge shifts a row and its totals by one q-step", function()
+    -- A 50-min task floors to 0.75h (+5m) at q=15; round+1 forces it up one bucket.
+    local block = block_from_lines({
+      "--- worklog #ClientA @office q=15 ---",
+      "08:00 task round+1",
+      "08:50 done",
+    })
+    local s = summary.summarize_block(block)
+
+    t.eq(s.summary_items[1].duration, 60) -- 1.00h, one bucket above the floor
+    t.eq(s.summary_items[1].error_minutes, -10) -- 50 true - 60 displayed
+    t.eq(s.summary_items[1].nudge, 1)
+    t.eq(s.workday_total, 60)
+    t.eq(s.workday_nudge, 1)
+    t.eq(s.tag_totals[1].nudge, 1)
+    t.eq(s.location_totals[1].nudge, 1)
+  end)
+
+  t.test("a no-nudge worklog summarizes with no nudge fields (zero overhead)", function()
+    local block = block_from_lines({
+      "--- worklog #ClientA @office q=15 ---",
+      "08:00 task",
+      "08:50 done",
+    })
+    local s = summary.summarize_block(block)
+
+    t.eq(s.summary_items[1].nudge, nil)
+    t.eq(s.activity_nudge, nil)
+    t.eq(s.workday_nudge, nil)
+  end)
+
+  t.test("a manual nudge keeps each section a partition that sums to its total", function()
+    local block = block_from_lines({
+      "--- worklog #ClientA @office q=15 ---",
+      "08:00 plan",
+      "08:50 review round+1",
+      "09:35 done",
+    })
+    local s = summary.summarize_block(block)
+
+    t.eq(total_duration(s.summary_items), s.workday_total)
+    t.eq(total_duration(s.tag_totals), s.activity_total)
+    t.eq(total_duration(s.location_totals), s.activity_total)
+  end)
+
+  t.test("a nudge on one day reconciles the combined week total and residual", function()
+    -- Three single-task days each floor to 0.75h (+5m); a round+1 on the third lifts
+    -- the week from 2.25h (+15m) to a clean 2.50h (+0m) -- the user's scenario.
+    local function day(lines)
+      return summary.summarize_block(block_from_lines(lines))
+    end
+    local mon = day({ "--- worklog #ClientA q=15 ---", "08:00 plan", "08:50 done" })
+    local tue = day({ "--- worklog #ClientA q=15 ---", "08:00 review", "08:50 done" })
+    local fri = day({ "--- worklog #ClientA q=15 ---", "08:00 wrapup round+1", "08:50 done" })
+
+    local week = summary.combine_summaries({ mon, tue, fri })
+    t.eq(week.workday_total, 150) -- 45 + 45 + 60 = 2.50h
+    t.eq(week.workday_error_minutes, 0) -- +5 +5 -10 cancel
+    t.eq(week.workday_nudge, 1)
+  end)
 end

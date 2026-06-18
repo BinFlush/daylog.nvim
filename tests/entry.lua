@@ -165,4 +165,38 @@ return function(t)
     -- A non-trailing utc word is left alone (only the trailing run is wrapped).
     t.eq(entry.sanitize_text("utc migration notes"), "utc migration notes")
   end)
+
+  t.test("entry format emits a round nudge when nonzero, after the offset", function()
+    t.eq(
+      entry.format({ minutes = 480, text = "plan", nudge = 1 }, nil, nil, nil),
+      "08:00 plan round+1"
+    )
+    t.eq(
+      entry.format({ minutes = 480, text = "plan", nudge = -2 }, nil, nil, nil),
+      "08:00 plan round-2"
+    )
+    -- A zero or absent nudge emits nothing (non-sticky, like !L).
+    t.eq(entry.format({ minutes = 480, text = "plan", nudge = 0 }, nil, nil, nil), "08:00 plan")
+    t.eq(entry.format({ minutes = 480, text = "plan" }, nil, nil, nil), "08:00 plan")
+
+    -- Trailing order: #tag @location utc±H round±N !L.
+    t.eq(
+      entry.format({
+        minutes = 480,
+        text = "x",
+        tag = "sales",
+        location = "client",
+        offset = 120,
+        nudge = 1,
+        logged = true,
+      }, "ProjectOrion", "office", nil),
+      "08:00 x #sales @client utc+2 round+1 !L"
+    )
+  end)
+
+  t.test("entry parse reads a round nudge; sanitize neutralizes a trailing one", function()
+    t.eq(entry.parse("08:00 plan round+2", "ClientA", "office").nudge, 2)
+    t.eq(entry.sanitize_text("ship it round+1"), "ship it (round+1)")
+    t.eq(entry.sanitize_text("another round of edits"), "another round of edits")
+  end)
 end

@@ -391,4 +391,37 @@ return function(t)
       "a malformed utc token must not highlight as an offset"
     )
   end)
+
+  t.test("a round nudge highlights distinctly and keeps the trailing run intact", function()
+    load({
+      "--- worklog #ClientA q=15 ---",
+      "08:00 plan #ClientA round+1 !L",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (-10m) plan round+1",
+      "",
+      "--- totals ---",
+      "1.00h (-10m) workday round+1",
+    })
+
+    -- The marker is its own group on an entry, and -- crucially -- it does not break
+    -- the highlighting of the #tag and !L on either side of it in the trailing run.
+    t.eq(group_at(2, col_of(2, "round+1")), "WorklogNudge")
+    t.eq(group_at(2, col_of(2, "#ClientA")), "WorklogTag")
+    t.eq(group_at(2, col_of(2, "!L")), "WorklogLogged")
+
+    -- It also highlights where it is propagated onto summary rows and the total.
+    t.eq(group_at(5, col_of(5, "round+1")), "WorklogNudge")
+    t.eq(group_at(8, col_of(8, "round+1")), "WorklogNudge")
+
+    -- The metadata groups are bright, not muted: none links to Comment.
+    t.ok(highlight.GROUPS.WorklogNudge ~= "Comment", "nudge must not be a comment")
+    t.ok(highlight.GROUPS.WorklogOffset ~= "Comment", "utc offset must not be a comment")
+    t.ok(highlight.GROUPS.WorklogTag ~= "Comment", "tag must not be a comment")
+    t.ok(highlight.GROUPS.WorklogLocation ~= "Comment", "location must not be a comment")
+
+    -- A bare 'round' word in activity text is not a nudge.
+    load({ "08:00 wrap up the round" })
+    t.ok(group_at(1, col_of(1, "round")) ~= "WorklogNudge", "a bare 'round' is not a nudge")
+  end)
 end

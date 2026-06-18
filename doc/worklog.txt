@@ -79,7 +79,7 @@ The header may set initial sticky metadata and options:
 A worklog entry has this shape:
 
 >
-  HH:MM text [#tag|#-] [@location|@-] [utc±H]
+  HH:MM text [#tag|#-] [@location|@-] [utc±H] [round±N]
 <
 
 Example:
@@ -108,6 +108,9 @@ Rules:
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
   |worklog-sticky-metadata|. It is only needed when the clock moves (travel or
   DST) and is invisible otherwise.
+- `round±N` manually rounds this entry's quantization row N q-steps beyond the
+  automatic rounding, to balance a residual; see |:WorklogBalance|. Normally
+  written by that command rather than by hand.
 - `q=<minutes>` sets the quantization bucket for that worklog block.
 - If no quantize option is present, quantization defaults to 15 minutes.
 - `d=dec|hm` sets how summaries render durations for that worklog
@@ -462,6 +465,33 @@ attached worklog and rebuilding its summary.
   text is sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active worklog's summary; a row that no longer
   matches the recomputed summary is refused (run |:WorklogRefresh| first).
+
+                                        *:WorklogBalance* *worklog-balance*
+:WorklogBalance [steps]
+
+Manually balance summary rounding by [steps] q-steps (a signed integer; default
+`+1`, `0` clears). Quantization rounds each row to the block's `q=` bucket by
+largest remainder, so residuals can leave a day -- and therefore a week -- a step
+or two short of a clean total (for example `39.75h (+15m)` when the true total is
+`40.00h`). This nudges the rounding to land it, while every section stays a
+partition that foots to its total.
+
+- With the cursor on a summary row, the best contributing entry is rounded
+  [steps] buckets further -- the least-error choice, the same principle the
+  rounding algorithm uses. The workday or activity total scopes all its work, a
+  main row its own activity, and a tag / location / logged total that group.
+  Rounding a line up also lifts every total that contains it.
+- With the cursor on a worklog entry, that entry is nudged directly.
+- The chosen entries gain a `round±N` marker; the one summary is rebuilt and the
+  marker is shown on every affected summary row so it stays visible and
+  adjustable. Run the command again to add more, with the opposite sign to undo,
+  or with `0` to clear the cursor target's nudge.
+- A week report (|:WorklogWeek|) sums its days without re-rounding, so balancing
+  one day reconciles the week total automatically -- adjust whichever day is
+  still open while the earlier ones stay put.
+- The displayed times, durations elsewhere, and the rounding of other rows are
+  untouched; only the nudged row's displayed duration and residual change.
+- The cursor must be on the active worklog's summary or one of its entries.
 
                                                         *:WorklogRefresh*
 :WorklogRefresh

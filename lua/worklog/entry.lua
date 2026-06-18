@@ -39,9 +39,15 @@ function M.format(entry, current_tag, current_location, current_offset)
 
   -- The offset is emitted on change like #tag/@location, but has no clear token:
   -- once set it is always a concrete value, so a nil offset (no offsets in play)
-  -- emits nothing. The order is `#tag @location utc±H !L`.
+  -- emits nothing. The order is `#tag @location utc±H round±N !L`.
   if entry.offset ~= nil and entry.offset ~= current_offset then
     table.insert(parts, syntax.utc_offset_token(entry.offset))
+  end
+
+  -- The rounding nudge is per-entry and non-sticky (like !L): always emitted when
+  -- nonzero, never inherited, no current_* comparison.
+  if entry.nudge and entry.nudge ~= 0 then
+    table.insert(parts, syntax.round_nudge_token(entry.nudge))
   end
 
   if entry.logged then
@@ -76,6 +82,10 @@ local function is_dangerous_token(token)
   end
 
   if syntax.parse_utc_offset(token) ~= nil then
+    return true
+  end
+
+  if syntax.parse_round_nudge(token) ~= nil then
     return true
   end
 

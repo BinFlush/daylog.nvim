@@ -55,6 +55,14 @@ local function parse_entry_control_token(token)
     return syntax.TOKEN_KIND.LOGGED, true, false
   end
 
+  -- A `round±N` rounding-balance marker is per-entry and non-sticky (like !L), so it
+  -- is recognized here in the entry trailing run only -- never in the worklog header
+  -- (parse_worklog_tokens uses parse_metadata_token, which does not see it).
+  local nudge = syntax.parse_round_nudge(token)
+  if nudge ~= nil then
+    return syntax.TOKEN_KIND.NUDGE, nudge, false
+  end
+
   return nil, nil, false
 end
 
@@ -106,11 +114,13 @@ local function parse_entry_metadata(text)
     explicit_location = nil,
     explicit_location_clear = nil,
     explicit_offset = nil,
+    nudge = nil,
     logged = nil,
   }
   local has_tag = false
   local has_location = false
   local has_offset = false
+  local has_nudge = false
   local has_logged = false
 
   if text == "" then
@@ -159,6 +169,13 @@ local function parse_entry_metadata(text)
 
       has_offset = true
       result.explicit_offset = value
+    elseif kind == syntax.TOKEN_KIND.NUDGE then
+      if has_nudge then
+        return nil, "multiple trailing round markers are not allowed"
+      end
+
+      has_nudge = true
+      result.nudge = value
     elseif kind == syntax.TOKEN_KIND.LOGGED then
       if has_logged then
         return nil, "duplicate trailing !L markers are not allowed"
@@ -274,6 +291,7 @@ local function parse_entry(line, row)
     explicit_location = metadata.explicit_location,
     explicit_location_clear = metadata.explicit_location_clear,
     explicit_offset = metadata.explicit_offset,
+    nudge = metadata.nudge,
     logged = metadata.logged,
   }
 end

@@ -24,6 +24,22 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- `:WorklogBalance [steps]` manually balances summary rounding by a signed number
+  of `q=` steps (default `+1`, `0` clears). Largest-remainder rounding can leave a
+  day — and therefore a week — a step or two short of a clean total (e.g.
+  `39.75h (+15m)` when the true total is `40.00h`); this nudges it. With the cursor
+  on a summary row the least-error contributing entry is rounded further (the
+  workday/activity total scopes all work, a main row its activity, a
+  tag/location/logged total that group); with the cursor on an entry that entry is
+  nudged directly. The chosen entries gain a non-sticky `round±N` marker, the one
+  summary is rebuilt, and the marker shows on every affected summary row so it
+  stays visible and adjustable (re-run to add more, opposite sign to undo, `0` to
+  clear). Because a week report sums its days without re-rounding, balancing one
+  day reconciles the week total automatically. Every section still foots to its
+  (shifted) total; a worklog with no marker is byte-for-byte unchanged. The new
+  `WorklogNudge` highlight group colours the marker; `utc±H` offsets now also
+  highlight as a distinct bright group (`WorklogOffset` → `Type`) rather than as a
+  comment. See `:help worklog-balance`.
 - UTC-offset markers (`utc±H[:MM]`) record when the clock moves under you while
   travelling or across a DST flip — a third sticky dimension alongside `#tag` and
   `@location`. The sign is required (a bare `utc` stays plain text), so the marker

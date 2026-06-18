@@ -167,6 +167,7 @@ local function build_source_edits(block, ops)
         tag = eff_tag,
         location = eff_location,
         offset = item.offset,
+        nudge = item.nudge,
         workday_excluded = eff_tag == syntax.OUT_OF_OFFICE_TAG,
         logged = item.logged,
       }, current_tag, current_location, current_offset)

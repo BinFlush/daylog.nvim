@@ -3,9 +3,9 @@
 -- Knows nothing about any specific invariant: given a seeded RNG (tests/rng.lua)
 -- and a mode name it emits a random VALID worklog -- header plus sorted
 -- timestamped entries with optional sticky tags/locations, notes, #ooo, clears
--- (#-/@-), !L, and occasional UTC offsets (utc±H), occasionally closing at 24:00.
--- Returns { lines, params }; `params` carries the sampled knobs (including `mode`)
--- for failure reporting.
+-- (#-/@-), !L, occasional UTC offsets (utc±H), occasional manual rounding nudges
+-- (round±N), occasionally closing at 24:00. Returns { lines, params }; `params`
+-- carries the sampled knobs (including `mode`) for failure reporting.
 --
 -- UTC offsets, when used, walk monotonically downward across the day (a westward
 -- traveller). Local times are strictly increasing and the offsets never increase,
@@ -111,6 +111,7 @@ local MODE_CONFIG = {
     p_clear = 0.15,
     p_ooo = 0.15,
     p_utc = 0.3,
+    p_nudge = 0.2,
   },
   -- A ~7-to-5 day: a bounded span, a handful of tasks, q values several of
   -- which do not foot cleanly, an occasional break (#ooo), light notes/logging.
@@ -133,6 +134,7 @@ local MODE_CONFIG = {
     p_clear = 0.15,
     p_ooo = 0.15,
     p_utc = 0.2,
+    p_nudge = 0.15,
   },
   -- Precise client tracking: exact q (1, or 0.1h buckets), heavy !L, decimal
   -- hours, a wider client (tag) pool, rare breaks.
@@ -155,6 +157,7 @@ local MODE_CONFIG = {
     p_clear = 0.15,
     p_ooo = 0.08,
     p_utc = 0.15,
+    p_nudge = 0.1,
   },
 }
 
@@ -327,6 +330,12 @@ local function generate(rng, mode_name)
           parts[#parts + 1] = syntax.utc_offset_token(off)
           current_offset = off
         end
+      end
+
+      -- An occasional manual rounding nudge (round±N): a small up/down q-step shift
+      -- the balance use case would write. Footing must still hold with these in play.
+      if rng:chance(cfg.p_nudge) then
+        parts[#parts + 1] = syntax.round_nudge_token(rng:choice({ -2, -1, 1, 2 }))
       end
 
       if rng:chance(params.p_log) then

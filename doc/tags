@@ -1,3 +1,4 @@
+:WorklogBalance	worklog.txt	/*:WorklogBalance*
 :WorklogCopy	worklog.txt	/*:WorklogCopy*
 :WorklogDays	worklog.txt	/*:WorklogDays*
 :WorklogInsert	worklog.txt	/*:WorklogInsert*
@@ -12,6 +13,7 @@
 :WorklogToday	worklog.txt	/*:WorklogToday*
 :WorklogWeek	worklog.txt	/*:WorklogWeek*
 worklog-auto-summary	worklog.txt	/*worklog-auto-summary*
+worklog-balance	worklog.txt	/*worklog-balance*
 worklog-commands	worklog.txt	/*worklog-commands*
 worklog-compatibility	worklog.txt	/*worklog-compatibility*
 worklog-config	worklog.txt	/*worklog-config*

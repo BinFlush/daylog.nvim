@@ -35,6 +35,9 @@ local function build_intervals(entries)
       location = current.location,
       workday_excluded = current.workday_excluded,
       logged = current.logged and true or nil,
+      -- The rounding nudge belongs to the entry that starts the interval; it sums
+      -- up the fine-grained quantization row this interval folds into.
+      nudge = current.nudge,
       source_entry_row = current.row,
     })
   end
@@ -52,7 +55,11 @@ local function build_fine_grained_rows(intervals)
     intervals,
     { "text", "tag", "location", "workday_excluded", "logged" },
     { "text", "tag", "location", "workday_excluded", "logged" },
-    true
+    true,
+    -- All intervals of one fine-grained row carry that row's single nudge, so fold
+    -- by value (max magnitude), not by sum: marking some or all of an activity's
+    -- identically-keyed intervals yields the same row nudge, never a multiple.
+    "max"
   )
 end
 
@@ -78,12 +85,16 @@ end
 local function build_summary_from_rows(rows)
   local activity_total = 0
   local workday_total = 0
+  local activity_nudge = 0
+  local workday_nudge = 0
 
   for _, row in ipairs(rows) do
     activity_total = activity_total + row.duration
+    activity_nudge = activity_nudge + (row.nudge or 0)
 
     if not row.workday_excluded then
       workday_total = workday_total + row.duration
+      workday_nudge = workday_nudge + (row.nudge or 0)
     end
   end
 
@@ -93,6 +104,8 @@ local function build_summary_from_rows(rows)
     location_totals = summarize_metadata(rows, "location"),
     activity_total = activity_total,
     workday_total = workday_total,
+    activity_nudge = activity_nudge,
+    workday_nudge = workday_nudge,
   }
 end
 
@@ -222,6 +235,9 @@ local function logged_totals_from_quantized_items(items)
       bucket.duration = bucket.duration + item.duration
       bucket.unrounded_duration = bucket.unrounded_duration + (item.unrounded_duration or 0)
       bucket.error_minutes = bucket.error_minutes + (item.error_minutes or 0)
+      if item.nudge and item.nudge ~= 0 then
+        bucket.nudge = (bucket.nudge or 0) + item.nudge
+      end
     end
   end
 
@@ -273,6 +289,15 @@ function M.summarize_entries(entries, quantize_minutes)
     workday_error_minutes = unrounded_summary.workday_total - quantized_summary.workday_total,
   }
 
+  -- Manual nudge totals stay sparse: absent unless some entry was balanced, so a
+  -- worklog with no manual balancing produces the identical summary structure.
+  if quantized_summary.activity_nudge ~= 0 then
+    summary.activity_nudge = quantized_summary.activity_nudge
+  end
+  if quantized_summary.workday_nudge ~= 0 then
+    summary.workday_nudge = quantized_summary.workday_nudge
+  end
+
   local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
   if logged_totals then
     summary.logged_totals = logged_totals
@@ -285,6 +310,24 @@ function M.summarize_block(block)
   return M.summarize_entries(block.entries, block.quantize_minutes)
 end
 
+-- The quantized fine-grained rows for a set of entries: the rounding-balance
+-- granule keyed by text+tag+location+workday_excluded+logged, each carrying its
+-- unrounded_duration, its quantized `duration` (with any current `nudge` applied),
+-- its current `nudge`, and `source_entry_rows` provenance. The balance calculator
+-- reasons over these to pick which row to nudge and which source entry to mark.
+function M.fine_grained_quantized(entries, quantize_minutes)
+  local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+  local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
+
+  local activity_total = 0
+  for _, row in ipairs(unrounded_rows) do
+    activity_total = activity_total + row.duration
+  end
+
+  local target_total = quantize.round_to_nearest_bucket(activity_total, bucket_minutes)
+  return quantize.quantize_rows(unrounded_rows, bucket_minutes, target_total), bucket_minutes
+end
+
 function M.combine_summaries(summaries)
   local summary_items = {}
   local tag_totals = {}
@@ -293,12 +336,16 @@ function M.combine_summaries(summaries)
   local workday_total = 0
   local activity_error_minutes = 0
   local workday_error_minutes = 0
+  local activity_nudge = 0
+  local workday_nudge = 0
 
   for _, item in ipairs(summaries or {}) do
     activity_total = activity_total + item.activity_total
     workday_total = workday_total + item.workday_total
     activity_error_minutes = activity_error_minutes + (item.activity_error_minutes or 0)
     workday_error_minutes = workday_error_minutes + (item.workday_error_minutes or 0)
+    activity_nudge = activity_nudge + (item.activity_nudge or 0)
+    workday_nudge = workday_nudge + (item.workday_nudge or 0)
 
     for _, row in ipairs(item.summary_items or {}) do
       table.insert(summary_items, row)
@@ -332,6 +379,13 @@ function M.combine_summaries(summaries)
     activity_error_minutes = activity_error_minutes,
     workday_error_minutes = workday_error_minutes,
   }
+
+  if activity_nudge ~= 0 then
+    summary.activity_nudge = activity_nudge
+  end
+  if workday_nudge ~= 0 then
+    summary.workday_nudge = workday_nudge
+  end
 
   local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
   if logged_totals then

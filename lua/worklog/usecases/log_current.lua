@@ -87,6 +87,7 @@ local function build_log_edits(block, target_rows, target_logged)
         tag = item.tag,
         location = item.location,
         offset = item.offset,
+        nudge = item.nudge,
         workday_excluded = item.workday_excluded,
         logged = target_logged,
       }, current_tag, current_location, current_offset)

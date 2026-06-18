@@ -32,6 +32,7 @@ local function copy_fields(src)
     tag = src.tag,
     location = src.location,
     offset = src.offset,
+    nudge = src.nudge,
     workday_excluded = src.workday_excluded,
     logged = src.logged,
   }
@@ -95,6 +96,9 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     tag = tag,
     location = location,
     offset = offset,
+    -- The rounding nudge is per-entry and non-sticky (like logged): it is not
+    -- inherited, so it is taken straight from the node with no current_* threading.
+    nudge = node.nudge,
     workday_excluded = tag == syntax.OUT_OF_OFFICE_TAG,
     logged = node.logged == true,
   }

@@ -232,6 +232,18 @@ local function metadata_line(item, duration_str, line_builder)
   return line_builder(string.format("%s (%+dm)", duration_str, item.error_minutes or 0), item)
 end
 
+-- Append the manual rounding-balance marker (round±N) when a row or total carries a
+-- nonzero cumulative nudge, so a manual adjustment is visible on every affected
+-- summary line (and can be re-adjusted from there). A zero nudge adds nothing, so a
+-- summary with no manual balancing renders exactly as before.
+local function with_nudge(line, nudge)
+  if nudge and nudge ~= 0 then
+    return line .. " " .. syntax.round_nudge_token(nudge)
+  end
+
+  return line
+end
+
 -- Build a structured summary layout that records both rendered text and the
 -- role each row plays.  Future commands can take a rendered summary row,
 -- recompute the same layout, and recover the underlying summary item via the
@@ -255,7 +267,10 @@ local function build_summary_layout(summary, duration_format, options)
     table.insert(layout, {
       kind = LAYOUT_KIND.SUMMARY_ITEM,
       section = "summary",
-      line = summary_item_line(item, summary_durations[i], conflicts[item.text]),
+      line = with_nudge(
+        summary_item_line(item, summary_durations[i], conflicts[item.text]),
+        item.nudge
+      ),
       item = item,
     })
   end
@@ -271,7 +286,7 @@ local function build_summary_layout(summary, duration_format, options)
       table.insert(layout, {
         kind = LAYOUT_KIND.TAG_TOTAL,
         section = "tag",
-        line = metadata_line(item, tag_durations[i], tag_line),
+        line = with_nudge(metadata_line(item, tag_durations[i], tag_line), item.nudge),
         item = item,
       })
     end
@@ -291,7 +306,7 @@ local function build_summary_layout(summary, duration_format, options)
       table.insert(layout, {
         kind = LAYOUT_KIND.LOCATION_TOTAL,
         section = "location",
-        line = metadata_line(item, location_durations[i], location_line),
+        line = with_nudge(metadata_line(item, location_durations[i], location_line), item.nudge),
         item = item,
       })
     end
@@ -308,7 +323,7 @@ local function build_summary_layout(summary, duration_format, options)
       table.insert(layout, {
         kind = LAYOUT_KIND.LOGGED_TOTAL,
         section = "logged",
-        line = metadata_line(item, logged_durations[i], logged_line),
+        line = with_nudge(metadata_line(item, logged_durations[i], logged_line), item.nudge),
         item = item,
       })
     end
@@ -322,10 +337,14 @@ local function build_summary_layout(summary, duration_format, options)
     table.insert(layout, {
       kind = LAYOUT_KIND.TOTAL,
       section = "total",
-      line = string.format(
-        "%s (%+dm) activity",
-        duration_string(summary.activity_total, format),
-        summary.activity_error_minutes or 0
+      total = "activity",
+      line = with_nudge(
+        string.format(
+          "%s (%+dm) activity",
+          duration_string(summary.activity_total, format),
+          summary.activity_error_minutes or 0
+        ),
+        summary.activity_nudge
       ),
     })
   end
@@ -333,10 +352,14 @@ local function build_summary_layout(summary, duration_format, options)
   table.insert(layout, {
     kind = LAYOUT_KIND.TOTAL,
     section = "total",
-    line = string.format(
-      "%s (%+dm) workday",
-      duration_string(summary.workday_total, format),
-      summary.workday_error_minutes or 0
+    total = "workday",
+    line = with_nudge(
+      string.format(
+        "%s (%+dm) workday",
+        duration_string(summary.workday_total, format),
+        summary.workday_error_minutes or 0
+      ),
+      summary.workday_nudge
     ),
   })
 

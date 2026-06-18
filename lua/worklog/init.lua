@@ -1,5 +1,6 @@
 local filetype = require("worklog.filetype")
 local append_copy = require("worklog.usecases.append_copy")
+local balance_summary = require("worklog.usecases.balance_summary")
 local carryover = require("worklog.usecases.carryover")
 local config = require("worklog.config")
 local highlight = require("worklog.highlight")
@@ -957,6 +958,23 @@ function M.log_current()
   run_buffer_usecase(log_current.run, cursor_row())
 end
 
+-- Manually balance summary rounding by `delta` q-steps (a signed integer; 0 clears
+-- the cursor target's nudge). The cursor may sit on a summary row -- whose best
+-- contributing entry is nudged for it -- or directly on a worklog entry.
+function M.balance(arg)
+  local delta = 1
+
+  if arg ~= nil and arg ~= "" then
+    delta = tonumber(arg)
+    if delta == nil or delta ~= math.floor(delta) then
+      warn("worklog: WorklogBalance expects an integer step count, e.g. +1, -2, or 0 to clear")
+      return
+    end
+  end
+
+  run_buffer_usecase(balance_summary.run, cursor_row(), delta)
+end
+
 -- Rebuild every existing summary in the current buffer to match its entries.
 function M.refresh()
   apply_refresh(false)
@@ -1313,6 +1331,12 @@ function M.setup(options)
   ensure_user_command("WorklogLog", function()
     M.log_current()
   end)
+
+  ensure_user_command("WorklogBalance", function(args)
+    M.balance(args.args)
+  end, {
+    nargs = "?",
+  })
 
   ensure_user_command("WorklogRefresh", function()
     M.refresh()
