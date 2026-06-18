@@ -180,6 +180,30 @@ end
 -- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
 -- are already current. `join` merges the edit into the previous undo block, used
 -- by the autocmd-driven refreshes so one keystroke stays one undo step.
+-- Run `fn` (which may resize or replace the buffer's lines) while preserving the
+-- cursor in `win`, restoring it afterwards clamped to the buffer's new line count and
+-- the landing line's length, so a shrunk buffer or a shorter line never throws.
+local function with_preserved_cursor(win, buf, fn)
+  local cursor = vim.api.nvim_win_get_cursor(win)
+  fn()
+  local line_count = vim.api.nvim_buf_line_count(buf)
+  local row = math.min(cursor[1], line_count)
+  local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
+  vim.api.nvim_win_set_cursor(win, { row, math.min(cursor[2], #line) })
+end
+
+-- True (after warning) when the current buffer is no longer `target_buf`: an async
+-- picker's selection arrived after the user moved away, so the edit must abort rather
+-- than touch the wrong buffer. `op` names the aborted operation in the warning.
+local function buffer_changed(target_buf, op)
+  if vim.api.nvim_get_current_buf() == target_buf then
+    return false
+  end
+
+  warn("worklog: buffer changed during selection; aborting " .. op)
+  return true
+end
+
 local function apply_refresh(join)
   if refreshing then
     return
@@ -198,14 +222,9 @@ local function apply_refresh(join)
       pcall(vim.cmd, "undojoin")
     end
 
-    local cursor = vim.api.nvim_win_get_cursor(0)
-    apply_result(result)
-
-    -- Restore the cursor, clamped to the possibly-resized buffer.
-    local line_count = vim.api.nvim_buf_line_count(0)
-    local row = math.min(cursor[1], line_count)
-    local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
-    vim.api.nvim_win_set_cursor(0, { row, math.min(cursor[2], #line) })
+    with_preserved_cursor(0, 0, function()
+      apply_result(result)
+    end)
   end)
   refreshing = false
 end
@@ -741,8 +760,7 @@ function M.insert_from_source(name)
   -- Apply a chosen item into the originating buffer, guarding against the buffer
   -- changing under the async picker.
   local function insert_choice(item)
-    if vim.api.nvim_get_current_buf() ~= target_buf then
-      warn("worklog: buffer changed during selection; aborting insert")
+    if buffer_changed(target_buf, "insert") then
       return
     end
 
@@ -860,8 +878,7 @@ function M.rename_summary(new_value, source_name)
     if value == nil or value == "" or value == target.current then
       return
     end
-    if vim.api.nvim_get_current_buf() ~= target_buf then
-      warn("worklog: buffer changed during selection; aborting rename")
+    if buffer_changed(target_buf, "rename") then
       return
     end
 
@@ -1183,17 +1200,13 @@ local function refresh_report_windows()
       local lines = build_report_lines(spec)
 
       if lines and not vim.deep_equal(lines, vim.api.nvim_buf_get_lines(buf, 0, -1, false)) then
-        local cursor = vim.api.nvim_win_get_cursor(win)
-        vim.bo[buf].modifiable = true
-        vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-        vim.bo[buf].modified = false
-        vim.bo[buf].modifiable = false
-        M.highlight_buffer(buf)
-
-        local line_count = vim.api.nvim_buf_line_count(buf)
-        local row = math.min(cursor[1], line_count)
-        local text = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
-        vim.api.nvim_win_set_cursor(win, { row, math.min(cursor[2], #text) })
+        with_preserved_cursor(win, buf, function()
+          vim.bo[buf].modifiable = true
+          vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+          vim.bo[buf].modified = false
+          vim.bo[buf].modifiable = false
+          M.highlight_buffer(buf)
+        end)
       end
     end
   end
