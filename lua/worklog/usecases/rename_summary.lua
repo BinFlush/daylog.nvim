@@ -55,15 +55,60 @@ local function classify(layout_row)
   return nil, M.CANNOT_TOTALS
 end
 
--- Resolve the cursor to a rename target for the shell to prompt with. Unlike the
--- raw summary_cursor.resolve, every failure carries a user-facing message.
+-- The other same-kind values in the recomputed summary, in display order, as merge
+-- targets for the rename picker: renaming to one of them folds the two together
+-- (rename and merge are the same value substitution). Tags and locations offer the
+-- other tag/location totals; an activity offers the other activity texts under the
+-- same tag (so picking one actually merges -- the rename keeps the tag). The current
+-- value and the placeholder buckets (nil tag/location) are excluded.
+local function merge_candidates(result, kind, current)
+  local recomputed = result.recomputed
+  local seen = {}
+  local candidates = {}
+
+  local function add(value)
+    if value ~= nil and value ~= current and not seen[value] then
+      seen[value] = true
+      candidates[#candidates + 1] = value
+    end
+  end
+
+  if kind == "tag" then
+    for _, item in ipairs(recomputed.tag_totals or {}) do
+      add(item.tag)
+    end
+  elseif kind == "location" then
+    for _, item in ipairs(recomputed.location_totals or {}) do
+      add(item.location)
+    end
+  else
+    local current_tag = result.layout_row.item.tag
+    for _, item in ipairs(recomputed.summary_items or {}) do
+      if item.tag == current_tag then
+        add(item.text)
+      end
+    end
+  end
+
+  return candidates
+end
+
+-- Resolve the cursor to a rename target for the shell to prompt with: { kind,
+-- current, candidates }. `candidates` are the other same-kind values to merge into.
+-- Unlike the raw summary_cursor.resolve, every failure carries a user-facing message.
 function M.resolve(lines, cursor_row)
   local result, err = summary_cursor.resolve(lines, cursor_row)
   if not result then
     return nil, err or M.NOT_A_ROW
   end
 
-  return classify(result.layout_row)
+  local target, classify_err = classify(result.layout_row)
+  if not target then
+    return nil, classify_err
+  end
+
+  target.candidates = merge_candidates(result, target.kind, target.current)
+  return target
 end
 
 -- A valid #tag / @location name: the token grammar (document.lua), minus the bare

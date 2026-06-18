@@ -211,6 +211,92 @@ return function(t)
     })
   end)
 
+  t.test("renaming a tag to an existing tag merges them", function()
+    local out = rename({
+      "--- worklog ---",
+      "08:00 plan #a",
+      "09:00 build #b",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) build",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #a",
+      "1.00h (+0m) #b",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    }, 11, "b")
+
+    t.eq(out, {
+      "--- worklog ---",
+      "08:00 plan #b",
+      "09:00 build #b",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) build",
+      "",
+      "--- tags ---",
+      "2.00h (+0m) #b",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    })
+  end)
+
+  t.test("resolve returns the other tags as merge candidates", function()
+    local target = rename_summary.resolve({
+      "--- worklog ---",
+      "08:00 plan #a",
+      "09:00 build #b",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) build",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #a",
+      "1.00h (+0m) #b",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    }, 11)
+
+    t.eq(target.kind, "tag")
+    t.eq(target.current, "a")
+    t.eq(target.candidates, { "b" })
+  end)
+
+  t.test("resolve returns the same-tag activities as merge candidates", function()
+    local target = rename_summary.resolve({
+      "--- worklog #proj ---",
+      "08:00 plan",
+      "09:00 build",
+      "10:00 review",
+      "11:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) build",
+      "1.00h (+0m) review",
+      "",
+      "--- tags ---",
+      "3.00h (+0m) #proj",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
+    }, 8)
+
+    t.eq(target.kind, "item")
+    t.eq(target.current, "plan")
+    t.eq(target.candidates, { "build", "review" })
+  end)
+
   t.test("rename refuses a totals row", function()
     local _, err = rename_summary.run({
       "--- worklog ---",

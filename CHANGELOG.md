@@ -30,7 +30,11 @@ happen, but they are called out clearly in this changelog.
   that `#tag`, and a location-total row renames that `@location`. Tag/location
   renames rewrite only the header token and the explicit tokens that named the
   old value, so sticky inheritance is preserved and unrelated lines are left
-  untouched. With no argument it prompts, seeded with the current value.
+  untouched. Renaming to a name that already exists merges the two; with no
+  argument the command offers a picker of the other same-kind values to merge
+  into (a Telescope picker that also lets you type a fresh name via `<C-e>`, or a
+  `vim.ui.select` list plus a "type a new name" entry), falling back to a plain
+  prompt when there is nothing to merge into.
 - `:WorklogRepeat` now works from the summary: with the cursor on a main summary
   row, it repeats the latest source entry that produced that row, so an activity
   can be resumed straight from the summary (including across days). Tag, location,

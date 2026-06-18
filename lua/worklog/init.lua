@@ -805,28 +805,99 @@ local RENAME_PROMPT_LABEL = { item = "activity", tag = "tag", location = "locati
 
 -- Rename what the summary row under the cursor stands for: an activity (main
 -- row), a #tag (tag total), or an @location (location total). The rename
--- propagates into the attached worklog and rebuilds the summary. With no
--- argument, prompt for the new value seeded with the current one; an empty or
--- unchanged value is a no-op.
+-- propagates into the attached worklog and rebuilds the summary. Renaming to a
+-- value that already exists merges the two -- so the picker offers the other
+-- same-kind values as merge targets while still letting you type a fresh name. An
+-- empty or unchanged value is a no-op.
 function M.rename_summary(new_value)
-  local target, err = rename_summary.resolve(buffer_lines(), cursor_row())
+  local row = cursor_row()
+  local target, err = rename_summary.resolve(buffer_lines(), row)
   if not target then
     warn(err)
     return
   end
 
-  if new_value == nil then
-    new_value = vim.fn.input({
-      prompt = string.format("worklog: rename %s: ", RENAME_PROMPT_LABEL[target.kind]),
-      default = target.current,
-    })
+  -- The picker is async, so the buffer/cursor could move under it. Pin the buffer
+  -- and the resolved row, and apply against the pinned row, refusing if the buffer
+  -- changed -- exactly like the source picker.
+  local target_buf = vim.api.nvim_get_current_buf()
+  local function apply_rename(value)
+    if value == nil or value == "" or value == target.current then
+      return
+    end
+    if vim.api.nvim_get_current_buf() ~= target_buf then
+      warn("worklog: buffer changed during selection; aborting rename")
+      return
+    end
+
+    local result, run_err = rename_summary.run(buffer_lines(), row, value)
+    if not result then
+      warn(run_err)
+      return
+    end
+    apply_result(result)
   end
 
-  if new_value == nil or new_value == "" or new_value == target.current then
+  if new_value ~= nil then
+    apply_rename(new_value)
     return
   end
 
-  run_buffer_usecase(rename_summary.run, cursor_row(), new_value)
+  local label = RENAME_PROMPT_LABEL[target.kind]
+
+  local function prompt_for_name()
+    apply_rename(vim.fn.input({
+      prompt = string.format("worklog: rename %s: ", label),
+      default = target.current,
+    }))
+  end
+
+  -- With nothing to merge into, just prompt for a new name (the plain rename).
+  if #target.candidates == 0 then
+    prompt_for_name()
+    return
+  end
+
+  -- With merge targets, offer them: a Telescope picker (type to filter, <CR> to
+  -- merge into the highlighted one, <C-e> to rename to the typed text), or a
+  -- vim.ui.select list plus a "type a new name" entry when Telescope is absent.
+  local picker_prompt = string.format("Worklog: rename/merge %s", label)
+
+  if pcall(require, "telescope") then
+    require("worklog.telescope").rename_pick({
+      candidates = target.candidates,
+      prompt = picker_prompt .. "  (<CR> merge, <C-e> new name)",
+      on_pick = apply_rename,
+      on_create = apply_rename,
+    })
+    return
+  end
+
+  local TYPE_NEW = {}
+  local choices = {}
+  for _, value in ipairs(target.candidates) do
+    choices[#choices + 1] = value
+  end
+  choices[#choices + 1] = TYPE_NEW
+
+  vim.ui.select(choices, {
+    prompt = picker_prompt,
+    format_item = function(choice)
+      if choice == TYPE_NEW then
+        return "✎ Type a new name…"
+      end
+      return choice
+    end,
+  }, function(choice)
+    if not choice then
+      return
+    end
+    if choice == TYPE_NEW then
+      prompt_for_name()
+      return
+    end
+    apply_rename(choice)
+  end)
 end
 
 function M.order_worklogs()

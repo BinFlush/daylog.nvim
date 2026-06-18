@@ -147,4 +147,53 @@ function M.live_pick(source, opts)
   picker:find()
 end
 
+-- A picker for :WorklogRename's merge UX: type to filter the existing same-kind
+-- values (tags / locations / activities); <CR> renames into the highlighted one
+-- (a merge), and <C-e> renames to the typed text (a fresh name). With no match for
+-- the typed text, <CR> also falls back to creating it. The actual rename/merge is
+-- the same pure usecase either way.
+--
+-- opts: { candidates = string[], prompt = string|nil, on_pick = fn(value),
+--         on_create = fn(text), theme = table|nil }
+function M.rename_pick(opts)
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local conf = require("telescope.config").values
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+
+  local picker = pickers.new(opts.theme or {}, {
+    prompt_title = opts.prompt or "Worklog: rename / merge  (<CR> merge, <C-e> new name)",
+    finder = finders.new_table({
+      results = opts.candidates or {},
+      entry_maker = function(value)
+        return { value = value, display = value, ordinal = value }
+      end,
+    }),
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr, map)
+      actions.select_default:replace(function()
+        local entry = action_state.get_selected_entry()
+        local typed = action_state.get_current_line()
+        actions.close(prompt_bufnr)
+        if entry and entry.value then
+          opts.on_pick(entry.value)
+        else
+          opts.on_create(typed)
+        end
+      end)
+
+      map({ "i", "n" }, "<C-e>", function()
+        local typed = action_state.get_current_line()
+        actions.close(prompt_bufnr)
+        opts.on_create(typed)
+      end)
+
+      return true
+    end,
+  })
+
+  picker:find()
+end
+
 return M

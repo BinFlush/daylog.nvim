@@ -474,6 +474,44 @@ return function(t)
     t.eq(t.get_lines()[6], "1.00h (+0m) coding")
   end)
 
+  t.test("rename merges into a picked candidate via the fallback picker", function()
+    t.reset({
+      "--- worklog ---",
+      "08:00 plan #a",
+      "09:00 build #b",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) build",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #a",
+      "1.00h (+0m) #b",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    })
+    t.set_cursor(11, 0) -- the "#a" tag total; its only merge candidate is "b"
+
+    -- No Telescope in the test env, so :WorklogRename uses vim.ui.select; pick the
+    -- first offered candidate ("b") to merge #a into #b.
+    local old_select = vim.ui.select
+    vim.ui.select = function(items, _, on_choice)
+      on_choice(items[1])
+    end
+    local ok, err = pcall(function()
+      vim.cmd("WorklogRename")
+    end)
+    vim.ui.select = old_select
+    if not ok then
+      error(err)
+    end
+
+    t.eq(t.get_lines()[2], "08:00 plan #b")
+    t.eq(t.get_lines()[11], "2.00h (+0m) #b")
+  end)
+
   t.test("rename accepts a multi-word activity name as a command argument", function()
     t.reset({
       "--- worklog ---",
