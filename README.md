@@ -56,9 +56,23 @@ Restart Neovim and run `:Lazy sync`. Everything is optional — see
 worklog sets no keymaps; map the commands you use, for example:
 
 ```lua
-vim.keymap.set("n", "<leader>wt", "<cmd>WorklogToday<cr>", { desc = "Worklog: today" })
-vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>", { desc = "Worklog: insert time" })
-vim.keymap.set("n", "<leader>ww", "<cmd>WorklogWeek<cr>", { desc = "Worklog: week report" })
+-- global
+vim.keymap.set("n", "<leader>wt", "<cmd>WorklogToday<cr>",   { desc = "Worklog: today" })
+vim.keymap.set("n", "<leader>wi", "<cmd>WorklogInsert<cr>",  { desc = "Worklog: insert time" })
+vim.keymap.set("n", "<leader>wk", "<cmd>WorklogWeek<cr>",    { desc = "Worklog: week report" })
+vim.keymap.set("n", "<leader>wd", "<cmd>WorklogDays<cr>",    { desc = "Worklog: days report" })
+vim.keymap.set("n", "<leader>ww", "<cmd>WorklogCopy<cr>",    { desc = "Worklog: copy block" })
+vim.keymap.set("n", "<leader>wo", "<cmd>WorklogOrder<cr>",   { desc = "Worklog: order entries" })
+vim.keymap.set("n", "<leader>wf", "<cmd>WorklogRefresh<cr>", { desc = "Worklog: refresh summaries" })
+vim.keymap.set("n", "]w",         "<cmd>WorklogNextDay<cr>", { desc = "Worklog: next day" })
+vim.keymap.set("n", "[w",         "<cmd>WorklogPrevDay<cr>", { desc = "Worklog: prev day" })
+
+-- with the cursor on a summary row or an entry
+vim.keymap.set("n", "<leader>wr", "<cmd>WorklogRepeat<cr>",     { desc = "Worklog: repeat activity" })
+vim.keymap.set("n", "<leader>wR", "<cmd>WorklogRename<cr>",     { desc = "Worklog: rename" })
+vim.keymap.set("n", "<leader>wl", "<cmd>WorklogLog<cr>",        { desc = "Worklog: toggle logged" })
+vim.keymap.set("n", "<leader>wb", "<cmd>WorklogBalance +1<cr>", { desc = "Worklog: round up a step" })
+vim.keymap.set("n", "<leader>wB", "<cmd>WorklogBalance -1<cr>", { desc = "Worklog: round down a step" })
 ```
 
 ## A typical day
