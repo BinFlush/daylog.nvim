@@ -1,4 +1,3 @@
-local entry = require("worklog.entry")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local summary_cursor = require("worklog.usecases.summary_cursor")
@@ -33,40 +32,6 @@ local function rebuilt_summary(block, target_rows, target_logged)
   end)
 
   return summary.summarize_entries(entries, block.quantize_minutes)
-end
-
-local function build_log_edits(block, target_rows, target_logged)
-  local edits = {}
-  local current_tag = block.header_tag
-  local current_location = block.header_location
-  local current_offset = block.header_offset
-
-  for _, item in ipairs(block.entry_items) do
-    if target_rows[item.start_row] then
-      local line = entry.format({
-        minutes = item.minutes,
-        text = item.text,
-        tag = item.tag,
-        location = item.location,
-        offset = item.offset,
-        nudge = item.nudge,
-        workday_excluded = item.workday_excluded,
-        logged = target_logged,
-      }, current_tag, current_location, current_offset)
-
-      table.insert(edits, {
-        start_index = item.start_row - 1,
-        end_index = item.start_row,
-        lines = { line },
-      })
-    end
-
-    current_tag = item.tag
-    current_location = item.location
-    current_offset = item.offset
-  end
-
-  return edits
 end
 
 function M.run(lines, cursor_row)
@@ -115,7 +80,11 @@ function M.run(lines, cursor_row)
     end
   end
 
-  local source_edits = build_log_edits(block, target_rows, target_logged)
+  local source_edits = support.rewrite_entry_lines(block, function(entry_item)
+    if target_rows[entry_item.start_row] then
+      return { logged = target_logged }
+    end
+  end)
 
   local rebuilt = rebuilt_summary(block, target_rows, target_logged)
   local rendered = render.summary_lines(rebuilt, block.duration_format, {

@@ -1,4 +1,3 @@
-local entry = require("worklog.entry")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local summary_block = require("worklog.summary_block")
@@ -233,36 +232,12 @@ local function build_edits(analysis, block, entry_changes)
     return nil, M.NOTHING
   end
 
-  local source_edits = {}
-  local current_tag = block.header_tag
-  local current_location = block.header_location
-  local current_offset = block.header_offset
-
-  for _, item in ipairs(block.entry_items) do
+  local source_edits = support.rewrite_entry_lines(block, function(item)
     local new_nudge = entry_changes[item.entry.row]
     if new_nudge ~= nil then
-      local line = entry.format({
-        minutes = item.minutes,
-        text = item.text,
-        tag = item.tag,
-        location = item.location,
-        offset = item.offset,
-        nudge = new_nudge,
-        workday_excluded = item.workday_excluded,
-        logged = item.logged,
-      }, current_tag, current_location, current_offset)
-
-      table.insert(source_edits, {
-        start_index = item.start_row - 1,
-        end_index = item.start_row,
-        lines = { line },
-      })
+      return { nudge = new_nudge }
     end
-
-    current_tag = item.tag
-    current_location = item.location
-    current_offset = item.offset
-  end
+  end)
 
   -- Rebuild the one summary from the nudged entries, replacing its located region.
   local modified = support.modified_entries(block, function(copy)

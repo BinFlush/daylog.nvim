@@ -128,6 +128,42 @@ function M.modified_entries(block, mutate)
   return entries
 end
 
+-- Re-emit selected entry lines of a block, threading the raw sticky state so each
+-- re-emitted line carries the right compensating #-/@-/utc token for its new
+-- predecessor. For each entry item, `fn(item)` returns a table of field overrides to
+-- apply over the entry's canonical fields (e.g. a flipped logged, a new nudge), or
+-- nil to leave that entry untouched. Returns one single-line edit per re-emitted
+-- entry, in ascending row order. The summary-writing usecases share this so the
+-- sticky-advance bookkeeping lives in one place (mirrors insert_entry_edit's follower).
+function M.rewrite_entry_lines(block, fn)
+  local edits = {}
+  local current_tag = block.header_tag
+  local current_location = block.header_location
+  local current_offset = block.header_offset
+
+  for _, item in ipairs(block.entry_items) do
+    local overrides = fn(item)
+    if overrides then
+      local fields = analyze.copy_fields(item)
+      for key, value in pairs(overrides) do
+        fields[key] = value
+      end
+
+      edits[#edits + 1] = {
+        start_index = item.start_row - 1,
+        end_index = item.start_row,
+        lines = { entry.format(fields, current_tag, current_location, current_offset) },
+      }
+    end
+
+    current_tag = item.tag
+    current_location = item.location
+    current_offset = item.offset
+  end
+
+  return edits
+end
+
 function M.parse_clock_minutes(time)
   local parsed, err = entry.parse(time)
 
