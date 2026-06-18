@@ -51,6 +51,25 @@ function M.align(rows)
   return lines
 end
 
+-- A resolver from a work item to its picker display line: pre-aligned through the
+-- source's optional format_items (so columns line up across the whole pool `items`),
+-- else the per-item format_item fallback. Both the Telescope finder and the
+-- vim.ui.select fallback resolve display lines through this, so the source display
+-- contract lives in one place.
+function M.display_for(source, items)
+  local lines = source.format_items and source.format_items(items)
+  local by_item = {}
+  if lines then
+    for index, item in ipairs(items) do
+      by_item[item] = lines[index]
+    end
+  end
+
+  return function(item)
+    return by_item[item] or source.format_item(item)
+  end
+end
+
 -- Whether a prompt change should trigger a fresh server search: at least min_len
 -- characters and different from the last query we issued. min_len gates the
 -- network so short, broad prompts only filter the cached pool client-side; it

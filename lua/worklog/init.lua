@@ -15,6 +15,7 @@ local rename_summary = require("worklog.usecases.rename_summary")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
 local sources_http = require("worklog.sources.http")
+local sources_picker = require("worklog.sources.picker")
 local sources_registry = require("worklog.sources.registry")
 local sources_sync = require("worklog.sources.sync")
 local support = require("worklog.usecases.support")
@@ -768,21 +769,13 @@ function M.insert_from_source(name)
       return
     end
 
-    -- Align the whole list into columns when the source supports it, mapping each
-    -- item to its precomputed line; otherwise fall back to per-item formatting.
-    local display_lines = source.format_items and source.format_items(items)
-    local display_by_item = {}
-    if display_lines then
-      for index, item in ipairs(items) do
-        display_by_item[item] = display_lines[index]
-      end
-    end
+    -- Resolve each item's display through the shared source display contract
+    -- (aligned columns when the source supports it, else per-item formatting).
+    local display = sources_picker.display_for(source, items)
 
     vim.ui.select(items, {
       prompt = "Worklog: pick " .. name .. " item",
-      format_item = function(item)
-        return display_by_item[item] or source.format_item(item)
-      end,
+      format_item = display,
     }, function(choice)
       if not choice then
         apply_insert_time(time)

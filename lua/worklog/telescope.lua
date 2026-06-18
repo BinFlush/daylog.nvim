@@ -102,20 +102,19 @@ function M.live_pick(source, opts)
   local function finder_for(items)
     items = items or {}
 
-    local display_lines = source.format_items and source.format_items(items)
-    local display_by_item = {}
-    if display_lines then
-      for index, item in ipairs(items) do
-        display_by_item[item] = display_lines[index]
-      end
-    end
+    -- Resolve each item's display through the shared source display contract
+    -- (aligned columns when the source supports it). Recomputed per finder so a
+    -- live-search refresh that grows the pool re-aligns to the new widths; the
+    -- ordinal stays the full display so fuzzy matching still sees every column.
+    local display = picker_helpers.display_for(source, items)
 
-    local function entry_maker(item)
-      local display = display_by_item[item] or source.format_item(item)
-      return { value = item, display = display, ordinal = display }
-    end
-
-    return finders.new_table({ results = items, entry_maker = entry_maker })
+    return finders.new_table({
+      results = items,
+      entry_maker = function(item)
+        local line = display(item)
+        return { value = item, display = line, ordinal = line }
+      end,
+    })
   end
 
   local controller = live_search(source, {
@@ -211,13 +210,9 @@ function M.rename_pick(opts)
       entries[#entries + 1] = { kind = "candidate", text = candidate, display = candidate }
     end
     if source and items and #items > 0 then
-      local lines = source.format_items and source.format_items(items)
-      for index, item in ipairs(items) do
-        entries[#entries + 1] = {
-          kind = "item",
-          item = item,
-          display = (lines and lines[index]) or source.format_item(item),
-        }
+      local display = picker_helpers.display_for(source, items)
+      for _, item in ipairs(items) do
+        entries[#entries + 1] = { kind = "item", item = item, display = display(item) }
       end
     end
     return entries
