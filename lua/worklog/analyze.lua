@@ -311,7 +311,7 @@ local function interpret_worklog_header(header, diagnostics)
       end
     else
       push_diagnostic(diagnostics, {
-        code = "invalid_worklog_header_option",
+        code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
         severity = "error",
         row = header.row,
         message = "unknown worklog header option: " .. token.key,
