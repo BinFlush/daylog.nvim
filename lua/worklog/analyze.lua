@@ -204,6 +204,25 @@ local function is_header(node)
   return node.kind == syntax.NODE_KIND.WORKLOG_HEADER or node.kind == syntax.NODE_KIND.BLOCK_HEADER
 end
 
+-- Mark a single-valued header option `flag` as declared. On a repeat it emits the
+-- duplicate diagnostic and returns false; on the first declaration it sets the flag
+-- and returns true so the caller can validate and store the value. Only the
+-- can't-forget-it duplicate check is shared; each option keeps its own validator.
+local function declare_once(result, diagnostics, flag, label, row)
+  if result[flag] then
+    push_diagnostic(diagnostics, {
+      code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
+      severity = "error",
+      row = row,
+      message = "duplicate worklog header option: " .. label,
+    })
+    return false
+  end
+
+  result[flag] = true
+  return true
+end
+
 local function interpret_worklog_header(header, diagnostics)
   local result = {
     tag = nil,
@@ -260,15 +279,7 @@ local function interpret_worklog_header(header, diagnostics)
 
   for _, token in ipairs(header.option_tokens or {}) do
     if token.key == syntax.OPTION_QUANTIZE then
-      if result.declared_quantize then
-        push_diagnostic(diagnostics, {
-          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
-          severity = "error",
-          row = header.row,
-          message = "duplicate worklog header option: q",
-        })
-      else
-        result.declared_quantize = true
+      if declare_once(result, diagnostics, "declared_quantize", "q", header.row) then
         local quantize_minutes = tonumber(token.value)
 
         -- tonumber alone accepts inf, hex (0x10), scientific (1e2), floats (5.0)
@@ -286,16 +297,7 @@ local function interpret_worklog_header(header, diagnostics)
         end
       end
     elseif token.key == syntax.OPTION_DURATION then
-      if result.declared_duration then
-        push_diagnostic(diagnostics, {
-          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
-          severity = "error",
-          row = header.row,
-          message = "duplicate worklog header option: d",
-        })
-      else
-        result.declared_duration = true
-
+      if declare_once(result, diagnostics, "declared_duration", "d", header.row) then
         if not syntax.DURATION_FORMATS[token.value] then
           push_diagnostic(diagnostics, {
             code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
