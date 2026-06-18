@@ -107,6 +107,27 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
   }
 end
 
+-- Clone a block's semantic entries through the canonical field set (restoring the
+-- source row that copy_fields deliberately drops) and apply `mutate(copy)` to each,
+-- returning the new list. The summary-writing usecases recompute a summary from
+-- entries with a field flipped (logged, nudge, a rename) without re-parsing the
+-- buffer, so they share one clone with consistent semantics rather than three
+-- hand-rolled copies.
+function M.modified_entries(block, mutate)
+  local entries = {}
+
+  for _, semantic_entry in ipairs(block.entries) do
+    local copy = analyze.copy_fields(semantic_entry)
+    copy.row = semantic_entry.row
+    if mutate then
+      mutate(copy)
+    end
+    entries[#entries + 1] = copy
+  end
+
+  return entries
+end
+
 function M.parse_clock_minutes(time)
   local parsed, err = entry.parse(time)
 

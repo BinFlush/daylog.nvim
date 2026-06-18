@@ -43,20 +43,11 @@ end
 -- copying the block's semantic entries and flipping them in memory. This avoids
 -- re-parsing the buffer and yields the post-mark summary directly.
 local function rebuilt_summary(block, target_rows, target_logged)
-  local entries = {}
-
-  for _, semantic_entry in ipairs(block.entries) do
-    local copy = {}
-    for key, value in pairs(semantic_entry) do
-      copy[key] = value
-    end
-
+  local entries = support.modified_entries(block, function(copy)
     if target_rows[copy.row] then
       copy.logged = target_logged
     end
-
-    table.insert(entries, copy)
-  end
+  end)
 
   return summary.summarize_entries(entries, block.quantize_minutes)
 end

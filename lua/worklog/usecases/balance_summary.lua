@@ -1,4 +1,3 @@
-local analyze = require("worklog.analyze")
 local entry = require("worklog.entry")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
@@ -266,15 +265,11 @@ local function build_edits(analysis, block, entry_changes)
   end
 
   -- Rebuild the one summary from the nudged entries, replacing its located region.
-  local modified = {}
-  for _, semantic_entry in ipairs(block.entries) do
-    local copy = analyze.copy_fields(semantic_entry)
-    copy.row = semantic_entry.row
-    if entry_changes[semantic_entry.row] ~= nil then
-      copy.nudge = entry_changes[semantic_entry.row]
+  local modified = support.modified_entries(block, function(copy)
+    if entry_changes[copy.row] ~= nil then
+      copy.nudge = entry_changes[copy.row]
     end
-    table.insert(modified, copy)
-  end
+  end)
 
   local options = { leading_blank = false, quantize_minutes = block.quantize_minutes }
   local expected =

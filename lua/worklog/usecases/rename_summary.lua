@@ -3,6 +3,7 @@ local entry = require("worklog.entry")
 local render = require("worklog.render")
 local summary = require("worklog.summary")
 local summary_cursor = require("worklog.usecases.summary_cursor")
+local support = require("worklog.usecases.support")
 local syntax = require("worklog.syntax")
 
 local M = {}
@@ -123,17 +124,12 @@ end
 -- per-kind rename functions and the affected-entry predicate.
 local function build_source_edits(block, ops)
   local edits = {}
-  local renamed_entries = {}
-
-  for _, semantic_entry in ipairs(block.entries) do
-    local copy = analyze.copy_fields(semantic_entry)
-    copy.row = semantic_entry.row
+  local renamed_entries = support.modified_entries(block, function(copy)
     copy.tag = ops.rename_tag(copy.tag)
     copy.location = ops.rename_loc(copy.location)
     copy.workday_excluded = copy.tag == syntax.OUT_OF_OFFICE_TAG
-    copy.text = ops.text_for(semantic_entry.row, copy.text)
-    table.insert(renamed_entries, copy)
-  end
+    copy.text = ops.text_for(copy.row, copy.text)
+  end)
 
   -- Walk the entries in source order resolving raw sticky state through the one
   -- analyzer rule, then apply the rename to each resolved value. This matches
