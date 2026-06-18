@@ -8,6 +8,14 @@ local function midday_date(timestamp)
   return date
 end
 
+-- A timestamp at midday on the given calendar date. Anchoring at 12:00 keeps day
+-- arithmetic clear of DST edges (a day never lands on a skipped/!repeated midnight),
+-- and os.time normalizes out-of-range days (e.g. day 32 -> the next month). Named
+-- once so every date helper builds its timestamps the same way.
+local function midday_time(year, month, day)
+  return os.time({ year = year, month = month, day = day, hour = 12, min = 0, sec = 0 })
+end
+
 local function iso_weekday(timestamp)
   return ((os.date("*t", timestamp).wday + 5) % 7) + 1
 end
@@ -53,14 +61,7 @@ function M.parse_date_label(name)
     return nil
   end
 
-  local timestamp = os.time({
-    year = tonumber(year),
-    month = tonumber(month),
-    day = tonumber(day),
-    hour = 12,
-    min = 0,
-    sec = 0,
-  })
+  local timestamp = midday_time(tonumber(year), tonumber(month), tonumber(day))
 
   if M.date_label(timestamp) ~= year .. "-" .. month .. "-" .. day then
     return nil
@@ -108,14 +109,7 @@ function M.offset_date(now, offset_days)
   local anchor = midday_date(now)
   local offset = offset_days or 0
 
-  return os.time({
-    year = anchor.year,
-    month = anchor.month,
-    day = anchor.day + offset,
-    hour = 12,
-    min = 0,
-    sec = 0,
-  })
+  return midday_time(anchor.year, anchor.month, anchor.day + offset)
 end
 
 function M.iso_week_dates(now)
@@ -131,17 +125,7 @@ function M.iso_week_dates(now)
   local dates = {}
 
   for offset = 0, 6 do
-    table.insert(
-      dates,
-      os.time({
-        year = monday.year,
-        month = monday.month,
-        day = monday.day + offset,
-        hour = 12,
-        min = 0,
-        sec = 0,
-      })
-    )
+    table.insert(dates, midday_time(monday.year, monday.month, monday.day + offset))
   end
 
   return dates
@@ -152,17 +136,7 @@ function M.trailing_dates(now, count)
   local dates = {}
 
   for offset = count - 1, 0, -1 do
-    table.insert(
-      dates,
-      os.time({
-        year = anchor.year,
-        month = anchor.month,
-        day = anchor.day - offset,
-        hour = 12,
-        min = 0,
-        sec = 0,
-      })
-    )
+    table.insert(dates, midday_time(anchor.year, anchor.month, anchor.day - offset))
   end
 
   return dates
