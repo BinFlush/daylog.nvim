@@ -1,3 +1,4 @@
+local analyze = require("worklog.analyze")
 local entry = require("worklog.entry")
 local summary_cursor = require("worklog.usecases.summary_cursor")
 local support = require("worklog.usecases.support")
@@ -97,19 +98,15 @@ function M.seed_edit(lines, activity, minutes)
   end
 
   local state = support.get_insert_state(ctx.block, minutes)
-  local line = entry.format({
-    minutes = minutes,
-    text = activity.text,
-    explicit_tag = activity.explicit_tag,
-    explicit_tag_clear = activity.explicit_tag_clear,
-    explicit_location = activity.explicit_location,
-    explicit_location_clear = activity.explicit_location_clear,
-    tag = activity.tag,
-    location = activity.location,
-    offset = activity.offset,
-    workday_excluded = activity.workday_excluded,
-    logged = false,
-  }, state.tag, state.location, state.offset)
+
+  -- A carried/closing entry is fresh: it copies the activity's sticky metadata but
+  -- takes the boundary/continuation time and never inherits a logged or round±N marker.
+  local fields = analyze.copy_fields(activity)
+  fields.minutes = minutes
+  fields.logged = false
+  fields.nudge = nil
+
+  local line = entry.format(fields, state.tag, state.location, state.offset)
 
   return support.insert_entry_edit(
     ctx.block,

@@ -154,16 +154,16 @@ local function build_source_edits(block, ops)
     local eff_location = ops.rename_loc(resolved.location)
 
     if ops.affected(item) then
-      local line = entry.format({
-        minutes = item.minutes,
-        text = ops.text_for(item.start_row, item.text),
-        tag = eff_tag,
-        location = eff_location,
-        offset = resolved.offset,
-        nudge = item.nudge,
-        workday_excluded = eff_tag == syntax.OUT_OF_OFFICE_TAG,
-        logged = item.logged,
-      }, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
+      -- Re-emit from the canonical field set (preserving the entry's own nudge / !L)
+      -- with only the rename's transforms applied.
+      local fields = analyze.copy_fields(item)
+      fields.text = ops.text_for(item.start_row, item.text)
+      fields.tag = eff_tag
+      fields.location = eff_location
+      fields.offset = resolved.offset
+      fields.workday_excluded = eff_tag == syntax.OUT_OF_OFFICE_TAG
+      local line =
+        entry.format(fields, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
 
       -- An entry that only inherited the renamed value renders identically (it
       -- still has no token), so only emit an edit when the line truly changes.

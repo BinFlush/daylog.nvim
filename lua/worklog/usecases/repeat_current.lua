@@ -1,3 +1,4 @@
+local analyze = require("worklog.analyze")
 local entry = require("worklog.entry")
 local summary_cursor = require("worklog.usecases.summary_cursor")
 local support = require("worklog.usecases.support")
@@ -46,19 +47,15 @@ function M.run(lines, row, time)
 
   local insertion_state = support.get_insert_state(ctx.block, minutes)
 
-  local line = entry.format({
-    minutes = minutes,
-    text = current_item.text,
-    explicit_tag = current_item.explicit_tag,
-    explicit_tag_clear = current_item.explicit_tag_clear,
-    explicit_location = current_item.explicit_location,
-    explicit_location_clear = current_item.explicit_location_clear,
-    tag = current_item.tag,
-    location = current_item.location,
-    offset = current_item.offset,
-    workday_excluded = current_item.workday_excluded,
-    logged = false,
-  }, insertion_state.tag, insertion_state.location, insertion_state.offset)
+  -- A repeat is a fresh entry: it copies the activity's metadata from the source but
+  -- takes the new time and never inherits the source's logged or round±N marker.
+  local fields = analyze.copy_fields(current_item)
+  fields.minutes = minutes
+  fields.logged = false
+  fields.nudge = nil
+
+  local line =
+    entry.format(fields, insertion_state.tag, insertion_state.location, insertion_state.offset)
 
   return support.insert_entry_edit(
     ctx.block,

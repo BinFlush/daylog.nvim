@@ -84,16 +84,13 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
     local needs_offset = follower.explicit_offset == nil and ins_offset ~= pred.offset
 
     if needs_tag or needs_location or needs_offset then
+      -- Re-emit the follower from the canonical field set so it keeps every marker it
+      -- carried (a round±N balance, an !L), gaining only the compensating sticky token
+      -- for its new predecessor. Building an ad-hoc subset here previously dropped the
+      -- follower's round±N marker on an unrelated insertion.
       lines = {
         inserted_line,
-        entry.format({
-          minutes = follower.minutes,
-          text = follower.text,
-          tag = follower.tag,
-          location = follower.location,
-          offset = follower.offset,
-          logged = follower.logged,
-        }, ins_tag, ins_loc, ins_offset),
+        entry.format(analyze.copy_fields(follower), ins_tag, ins_loc, ins_offset),
       }
       end_index = insert_index + 1
     end

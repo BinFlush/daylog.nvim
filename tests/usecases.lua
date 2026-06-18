@@ -328,6 +328,27 @@ return function(t)
     })
   end)
 
+  t.test("repeat_current preserves a rewritten follower's round nudge", function()
+    local result = repeat_current.run({
+      "--- worklog @office ---",
+      "08:00 planning",
+      "10:00 internal meeting #internal",
+      "11:00 done round+1",
+    }, 2, "10:30")
+
+    -- Inserting "10:30 planning #-" before "11:00 done" rewrites the follower to pin
+    -- its inherited #internal; its round+1 balance marker must survive the re-emit.
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 3,
+          end_index = 4,
+          lines = { "10:30 planning #-", "11:00 done #internal round+1" },
+        },
+      },
+    })
+  end)
+
   t.test("repeat_current usecase does not propagate !L", function()
     local result = repeat_current.run({
       "--- worklog #ClientA @office ---",
