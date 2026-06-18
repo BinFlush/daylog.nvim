@@ -61,28 +61,45 @@ local function body_nodes(document, block)
   return nodes
 end
 
-local function semantic_entry_from_node(node, current_tag, current_location, current_offset)
-  local tag = current_tag
-  local location = current_location
-  local offset = current_offset
-
-  if node.explicit_tag_clear then
+-- Resolve an item's effective sticky metadata from the previous sticky state: an
+-- explicit clear token forces nil, an explicit value switches it, otherwise the
+-- value is inherited. The offset is sticky like location but has no clear form (you
+-- switch it, you never unset it). `prev` is a { tag, location, offset } state and
+-- `item` is anything carrying the explicit_* fields (a syntax node, a semantic
+-- entry, or an entry item), so this is the single definition of the
+-- clear/explicit/inherit rule -- the analyzer, the body reorder, and rename all
+-- resolve through it, keeping explicit-over-silent one rule rather than three
+-- hand-rolls that can drift.
+local function resolve_sticky(prev, item)
+  local tag = prev.tag
+  if item.explicit_tag_clear then
     tag = nil
-  elseif node.explicit_tag ~= nil then
-    tag = node.explicit_tag
+  elseif item.explicit_tag ~= nil then
+    tag = item.explicit_tag
   end
 
-  if node.explicit_location_clear then
+  local location = prev.location
+  if item.explicit_location_clear then
     location = nil
-  elseif node.explicit_location ~= nil then
-    location = node.explicit_location
+  elseif item.explicit_location ~= nil then
+    location = item.explicit_location
   end
 
-  -- The offset is sticky like location but has no clear form: an explicit token
-  -- switches it, otherwise it is inherited.
-  if node.explicit_offset ~= nil then
-    offset = node.explicit_offset
+  local offset = prev.offset
+  if item.explicit_offset ~= nil then
+    offset = item.explicit_offset
   end
+
+  return { tag = tag, location = location, offset = offset }
+end
+
+M.resolve_sticky = resolve_sticky
+
+local function semantic_entry_from_node(node, current_tag, current_location, current_offset)
+  local resolved = resolve_sticky(
+    { tag = current_tag, location = current_location, offset = current_offset },
+    node
+  )
 
   return {
     row = node.row,
@@ -93,13 +110,13 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     explicit_location = node.explicit_location,
     explicit_location_clear = node.explicit_location_clear,
     explicit_offset = node.explicit_offset,
-    tag = tag,
-    location = location,
-    offset = offset,
+    tag = resolved.tag,
+    location = resolved.location,
+    offset = resolved.offset,
     -- The rounding nudge is per-entry and non-sticky (like logged): it is not
     -- inherited, so it is taken straight from the node with no current_* threading.
     nudge = node.nudge,
-    workday_excluded = tag == syntax.OUT_OF_OFFICE_TAG,
+    workday_excluded = resolved.tag == syntax.OUT_OF_OFFICE_TAG,
     logged = node.logged == true,
   }
 end

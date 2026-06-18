@@ -135,30 +135,23 @@ local function build_source_edits(block, ops)
     table.insert(renamed_entries, copy)
   end
 
-  local current_tag = ops.rename_tag(block.header_tag)
-  local current_location = ops.rename_loc(block.header_location)
-  -- A rename never touches the UTC offset; thread it only so the re-emitted lines
-  -- carry the same utc±H tokens (emit-on-change) the originals did.
-  local current_offset = block.header_offset
+  -- Walk the entries in source order resolving raw sticky state through the one
+  -- analyzer rule, then apply the rename to each resolved value. This matches
+  -- renaming as we walk: rename(nil) = nil and the resolver yields prev/explicit/nil
+  -- per field, so renaming the result equals inheriting an already-renamed current.
+  -- A rename never touches the UTC offset; it is threaded raw so the re-emitted lines
+  -- carry the same utc±H tokens (emit-on-change) the originals did. `prev` is the raw
+  -- sticky state before the entry, so the emit-on-change baseline is its renamed form.
+  local prev = {
+    tag = block.header_tag,
+    location = block.header_location,
+    offset = block.header_offset,
+  }
 
   for _, item in ipairs(block.entry_items) do
-    local eff_tag
-    if item.explicit_tag_clear then
-      eff_tag = nil
-    elseif item.explicit_tag ~= nil then
-      eff_tag = ops.rename_tag(item.explicit_tag)
-    else
-      eff_tag = current_tag
-    end
-
-    local eff_location
-    if item.explicit_location_clear then
-      eff_location = nil
-    elseif item.explicit_location ~= nil then
-      eff_location = ops.rename_loc(item.explicit_location)
-    else
-      eff_location = current_location
-    end
+    local resolved = analyze.resolve_sticky(prev, item)
+    local eff_tag = ops.rename_tag(resolved.tag)
+    local eff_location = ops.rename_loc(resolved.location)
 
     if ops.affected(item) then
       local line = entry.format({
@@ -166,11 +159,11 @@ local function build_source_edits(block, ops)
         text = ops.text_for(item.start_row, item.text),
         tag = eff_tag,
         location = eff_location,
-        offset = item.offset,
+        offset = resolved.offset,
         nudge = item.nudge,
         workday_excluded = eff_tag == syntax.OUT_OF_OFFICE_TAG,
         logged = item.logged,
-      }, current_tag, current_location, current_offset)
+      }, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
 
       -- An entry that only inherited the renamed value renders identically (it
       -- still has no token), so only emit an edit when the line truly changes.
@@ -183,9 +176,7 @@ local function build_source_edits(block, ops)
       end
     end
 
-    current_tag = eff_tag
-    current_location = eff_location
-    current_offset = item.offset
+    prev = resolved
   end
 
   return edits, renamed_entries

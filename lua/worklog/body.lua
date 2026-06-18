@@ -198,31 +198,22 @@ function M.sort_changes_metadata(block)
     return a_eff < b_eff
   end)
 
-  local tag = block.header_tag
-  local location = block.header_location
-  local offset = block.header_offset
+  local current = {
+    tag = block.header_tag,
+    location = block.header_location,
+    offset = block.header_offset,
+  }
   local changed = {}
 
   for _, entry in ipairs(order) do
     local item = entry.item
+    current = analyze.resolve_sticky(current, item)
 
-    if item.explicit_tag_clear then
-      tag = nil
-    elseif item.explicit_tag ~= nil then
-      tag = item.explicit_tag
-    end
-
-    if item.explicit_location_clear then
-      location = nil
-    elseif item.explicit_location ~= nil then
-      location = item.explicit_location
-    end
-
-    if item.explicit_offset ~= nil then
-      offset = item.explicit_offset
-    end
-
-    if tag ~= item.tag or location ~= item.location or offset ~= item.offset then
+    if
+      current.tag ~= item.tag
+      or current.location ~= item.location
+      or current.offset ~= item.offset
+    then
       table.insert(changed, { minutes = item.minutes, text = item.text })
     end
   end
