@@ -35,6 +35,18 @@ local function lines_from_nodes(nodes)
   return lines
 end
 
+-- Clone a block item through the canonical field set, re-attaching the structural
+-- fields copy_fields deliberately drops: the source row, its order index, and its
+-- lines. These three are explicit params because the call sites source them
+-- differently (raw entry_items vs already-cloned, sorted items).
+local function clone_item(item, row, index, lines)
+  local copy = analyze.copy_fields(item)
+  copy.row = row
+  copy.index = index
+  copy.lines = lines
+  return copy
+end
+
 local function rewrite_body(block)
   local preamble_lines = {}
   local items = {}
@@ -47,11 +59,15 @@ local function rewrite_body(block)
   end
 
   for index, item in ipairs(block.entry_items) do
-    local copy = analyze.copy_fields(item)
-    copy.row = item.start_row
-    copy.index = index
-    copy.lines = trim_trailing_empty_lines(lines_from_nodes(item.nodes))
-    table.insert(items, copy)
+    table.insert(
+      items,
+      clone_item(
+        item,
+        item.start_row,
+        index,
+        trim_trailing_empty_lines(lines_from_nodes(item.nodes))
+      )
+    )
   end
 
   return {
@@ -112,11 +128,7 @@ local function sorted_items(items)
       table.insert(lines, line)
     end
 
-    local copy = analyze.copy_fields(item)
-    copy.row = item.row
-    copy.index = item.index
-    copy.lines = lines
-    table.insert(result, copy)
+    table.insert(result, clone_item(item, item.row, item.index, lines))
   end
 
   -- Sort by effective UTC time so :WorklogOrder agrees with the effective
