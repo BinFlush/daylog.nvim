@@ -100,6 +100,11 @@ happen, but they are called out clearly in this changelog.
   with the variable-width title last -- instead of a ragged trailing column when
   titles differ in length. Sources can opt in via a new optional `format_items`
   contract method (`worklog.sources.picker.align` does the column padding).
+- `:WorklogLog` now shares the same summary-row resolver as `:WorklogRename` and
+  `:WorklogRepeat`, so its staleness and ambiguity checks are identical. One
+  consequence: a main summary row whose rendered line is byte-identical to another
+  summary line (e.g. an activity literally named `workday`, matching the workday
+  total) is now refused as ambiguous rather than logged.
 
 ### Fixed
 

@@ -870,6 +870,40 @@ return function(t)
     t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
   end)
 
+  t.test("log_current refuses the summary section header line", function()
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation",
+    }, 5)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+  end)
+
+  t.test("log_current refuses a main row ambiguous with another summary line", function()
+    -- An activity literally named "workday" renders a main row byte-identical to the
+    -- workday total line; the row is genuinely ambiguous, so it is refused rather than
+    -- logged (the shared resolver weighs every selectable row, not only main rows).
+    local result, err = log_current.run({
+      "--- worklog ---",
+      "08:00 workday",
+      "16:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "8.00h (+0m) workday",
+      "",
+      "--- totals ---",
+      "8.00h (+0m) workday",
+    }, 6)
+
+    t.eq(result, nil)
+    t.eq(err, "worklog: summary row matches multiple rows; regenerate the summary")
+  end)
+
   t.test("log_current unmarks an already logged summary row", function()
     local result = log_current.run({
       "--- worklog ---",
