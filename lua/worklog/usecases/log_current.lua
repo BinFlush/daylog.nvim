@@ -87,10 +87,8 @@ function M.run(lines, cursor_row)
   end)
 
   local rebuilt = rebuilt_summary(block, target_rows, target_logged)
-  local rendered = render.summary_lines(rebuilt, block.duration_format, {
-    leading_blank = false,
-    quantize_minutes = block.quantize_minutes,
-  })
+  local rendered =
+    render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
 
   -- The summary rebuild targets higher rows than the source-entry edits, so it is
   -- applied first to avoid index drift when the rendered summary changes size.

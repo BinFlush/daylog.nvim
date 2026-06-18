@@ -1,6 +1,4 @@
 local render = require("worklog.render")
-local summary = require("worklog.summary")
-local summary_block = require("worklog.summary_block")
 local support = require("worklog.usecases.support")
 
 local M = {}
@@ -54,13 +52,7 @@ function M.resolve(lines, cursor_row)
     return nil, nil
   end
 
-  local recomputed = summary.summarize_block(ctx.block)
-  local expected = render.summary_lines(recomputed, ctx.block.duration_format, {
-    leading_blank = false,
-    quantize_minutes = ctx.block.quantize_minutes,
-  })
-
-  local region = summary_block.find(ctx.analysis, ctx.block, expected)
+  local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
   if not region then
     return nil, nil
   end

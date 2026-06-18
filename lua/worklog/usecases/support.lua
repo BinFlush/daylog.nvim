@@ -3,6 +3,9 @@ local body = require("worklog.body")
 local context = require("worklog.context")
 local diagnostics = require("worklog.diagnostics")
 local entry = require("worklog.entry")
+local render = require("worklog.render")
+local summary = require("worklog.summary")
+local summary_block = require("worklog.summary_block")
 
 local M = {}
 
@@ -162,6 +165,27 @@ function M.rewrite_entry_lines(block, fn)
   end
 
   return edits
+end
+
+-- The render options for a worklog's in-file summary: no leading blank (the region
+-- starts at its header) plus the block's quantize bucket. Named once so every
+-- in-place summary render stays in step on this single fact.
+function M.summary_render_options(block)
+  return { leading_blank = false, quantize_minutes = block.quantize_minutes }
+end
+
+-- Locate a worklog block's existing summary region, returning it alongside the
+-- freshly computed summary and its rendered (in-file) lines. The region is found by
+-- rendering the current summary and matching it against the block's tail (see
+-- summary_block). Returns nil region when no summary exists yet; callers reuse
+-- whichever values they need -- the summary-acting usecases the region, refresh the
+-- computed/rendered to rewrite or create.
+function M.locate_summary(analysis, block)
+  local computed = summary.summarize_block(block)
+  local rendered =
+    render.summary_lines(computed, block.duration_format, M.summary_render_options(block))
+  local region = summary_block.find(analysis, block, rendered)
+  return region, computed, rendered
 end
 
 function M.parse_clock_minutes(time)

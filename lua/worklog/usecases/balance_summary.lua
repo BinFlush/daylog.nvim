@@ -1,6 +1,5 @@
 local render = require("worklog.render")
 local summary = require("worklog.summary")
-local summary_block = require("worklog.summary_block")
 local summary_cursor = require("worklog.usecases.summary_cursor")
 local support = require("worklog.usecases.support")
 
@@ -246,10 +245,7 @@ local function build_edits(analysis, block, entry_changes)
     end
   end)
 
-  local options = { leading_blank = false, quantize_minutes = block.quantize_minutes }
-  local expected =
-    render.summary_lines(summary.summarize_block(block), block.duration_format, options)
-  local region = summary_block.find(analysis, block, expected)
+  local region = support.locate_summary(analysis, block)
 
   local edits = {}
 
@@ -258,7 +254,11 @@ local function build_edits(analysis, block, entry_changes)
     table.insert(edits, {
       start_index = region.start_row - 1,
       end_index = region.end_row - 1,
-      lines = render.summary_lines(rebuilt, block.duration_format, options),
+      lines = render.summary_lines(
+        rebuilt,
+        block.duration_format,
+        support.summary_render_options(block)
+      ),
     })
   end
 

@@ -3,8 +3,7 @@ local body = require("worklog.body")
 local diagnostics = require("worklog.diagnostics")
 local document = require("worklog.document")
 local render = require("worklog.render")
-local summary = require("worklog.summary")
-local summary_block = require("worklog.summary_block")
+local support = require("worklog.usecases.support")
 
 local M = {}
 
@@ -49,12 +48,7 @@ function M.run(lines)
     for _, block in ipairs(analysis.worklog_blocks) do
       -- For a valid worklog: rewrite its summary, or create one when missing.
       if not analyze.find_block_diagnostic(analysis, block) then
-        local computed = summary.summarize_block(block)
-        local rendered = render.summary_lines(computed, block.duration_format, {
-          leading_blank = false,
-          quantize_minutes = block.quantize_minutes,
-        })
-        local region = summary_block.find(analysis, block, rendered)
+        local region, computed, rendered = support.locate_summary(analysis, block)
 
         if region then
           if not region_matches(lines, region, rendered) then

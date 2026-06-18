@@ -294,10 +294,8 @@ function M.run(lines, cursor_row, new_value)
 
   -- Rebuild the one summary from the renamed entries and replace it in place.
   local rebuilt = summary.summarize_entries(renamed_entries, block.quantize_minutes)
-  local rendered = render.summary_lines(rebuilt, block.duration_format, {
-    leading_blank = false,
-    quantize_minutes = block.quantize_minutes,
-  })
+  local rendered =
+    render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
   table.insert(edits, {
     start_index = result.region.start_row - 1,
     end_index = result.region.end_row - 1,
