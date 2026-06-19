@@ -1,6 +1,6 @@
 return function(t)
-  local document = require("worklog.document")
-  local syntax = require("worklog.syntax")
+  local document = require("blotter.document")
+  local syntax = require("blotter.syntax")
 
   t.test("document parse preserves line kinds and rows", function()
     local doc = document.parse({

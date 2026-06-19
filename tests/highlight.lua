@@ -3,7 +3,7 @@ return function(t)
   -- Highlighting is derived from the same parse the plugin reads a file with, so
   -- this guards that every canonical token classifies as the expected group. When
   -- a new token is added to the parser, add it here too.
-  local highlight = require("worklog.highlight")
+  local highlight = require("blotter.highlight")
 
   local current_spans = {}
   local current_lines = {}

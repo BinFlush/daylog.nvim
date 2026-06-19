@@ -1,5 +1,5 @@
 return function(t)
-  local entry = require("worklog.entry")
+  local entry = require("blotter.entry")
 
   t.test("entry parse uses sticky metadata when present", function()
     local parsed = entry.parse("08:04 bake strudel", "ProjectOrion", "office")

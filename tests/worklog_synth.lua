@@ -51,7 +51,7 @@ local WORDS = {
   "cleanup",
 }
 
-local syntax = require("worklog.syntax")
+local syntax = require("blotter.syntax")
 
 -- Plausible UTC offsets in signed minutes, east to west. A worklog that uses
 -- offsets walks this list downward only (never back east), which keeps effective

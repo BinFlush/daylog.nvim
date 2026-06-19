@@ -1,7 +1,7 @@
 return function(t)
-  local append_copy = require("worklog.usecases.append_copy")
-  local order_worklogs = require("worklog.usecases.order_worklogs")
-  local refresh_summaries = require("worklog.usecases.refresh_summaries")
+  local append_copy = require("blotter.usecases.append_copy")
+  local order_worklogs = require("blotter.usecases.order_worklogs")
+  local refresh_summaries = require("blotter.usecases.refresh_summaries")
 
   -- The summary refresh creates a summary for a worklog that lacks one, so it
   -- produces the canonical summary for a v0.1.0 fixture.

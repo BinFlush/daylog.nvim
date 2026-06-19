@@ -1,7 +1,7 @@
 return function(t)
-  local entry = require("worklog.entry")
-  local document = require("worklog.document")
-  local syntax = require("worklog.syntax")
+  local entry = require("blotter.entry")
+  local document = require("blotter.document")
+  local syntax = require("blotter.syntax")
 
   -- The load-bearing guard: sanitized text dropped after a timestamp must parse as
   -- a plain entry whose trailing tokens did NOT become metadata.

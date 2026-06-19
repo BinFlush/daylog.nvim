@@ -1,5 +1,5 @@
 return function(t)
-  local render = require("worklog.render")
+  local render = require("blotter.render")
 
   local function find_layout_row(layout, predicate)
     for _, row in ipairs(layout) do

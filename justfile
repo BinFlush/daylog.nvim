@@ -37,7 +37,7 @@ fuzz mode="all" rounds="5000" seed="1234567":
 health:
     nvim --headless -u NONE \
       "+set rtp+=." \
-      "+checkhealth worklog" \
+      "+checkhealth blotter" \
       +qa
 
 helptags:

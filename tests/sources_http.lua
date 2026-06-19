@@ -1,5 +1,5 @@
 return function(t)
-  local http = require("worklog.sources.http")
+  local http = require("blotter.sources.http")
 
   t.test("parse_response splits the trailing status line from the body", function()
     local resp, err = http.parse_response(0, { '{"ok":true}', "200" }, {})

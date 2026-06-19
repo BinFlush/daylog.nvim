@@ -1,5 +1,5 @@
 return function(t)
-  local azure = require("worklog.sources.azure_devops")
+  local azure = require("blotter.sources.azure_devops")
 
   -- A fake transport returns canned responses by request and records what it saw,
   -- so the provider is exercised entirely offline.

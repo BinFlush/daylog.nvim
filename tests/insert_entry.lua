@@ -1,5 +1,5 @@
 return function(t)
-  local insert_entry = require("worklog.usecases.insert_entry")
+  local insert_entry = require("blotter.usecases.insert_entry")
 
   t.test("insert_entry inserts a full HH:MM <text> line with cursor and insert mode", function()
     local result = insert_entry.run({

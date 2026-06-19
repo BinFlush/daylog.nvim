@@ -1,6 +1,6 @@
 return function(t)
-  local analyze = require("worklog.analyze")
-  local document = require("worklog.document")
+  local analyze = require("blotter.analyze")
+  local document = require("blotter.document")
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
     .. "--- worklog --- or --- worklog #ClientA @office q=30 ---"
 

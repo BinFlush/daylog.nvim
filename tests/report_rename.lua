@@ -1,9 +1,9 @@
 return function(t)
   local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
-  local analyze = require("worklog.analyze")
-  local document = require("worklog.document")
-  local render = require("worklog.render")
-  local summary = require("worklog.summary")
+  local analyze = require("blotter.analyze")
+  local document = require("blotter.document")
+  local render = require("blotter.render")
+  local summary = require("blotter.summary")
   local with_captured_notify = helpers.with_captured_notify
   local with_mocked_confirm = helpers.with_mocked_confirm
   local with_mocked_time = helpers.with_mocked_time

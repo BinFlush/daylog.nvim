@@ -2,8 +2,8 @@ return function(t)
   local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
   local with_mocked_date = helpers.with_mocked_date
   local with_captured_notify = helpers.with_captured_notify
-  local registry = require("worklog.sources.registry")
-  local sync = require("worklog.sources.sync")
+  local registry = require("blotter.sources.registry")
+  local sync = require("blotter.sources.sync")
 
   helpers.setup_worklog()
 

@@ -1831,7 +1831,7 @@ return function(t)
   end)
 
   t.test("carryover refreshes the previous day's summary before saving it", function()
-    local refresh_summaries = require("worklog.usecases.refresh_summaries")
+    local refresh_summaries = require("blotter.usecases.refresh_summaries")
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })

@@ -1,6 +1,6 @@
 return function(t)
-  local health = require("worklog.health")
-  local worklog = require("worklog")
+  local health = require("blotter.health")
+  local worklog = require("blotter")
 
   local function capture_reports(methods, fn)
     local reports = {
@@ -96,7 +96,7 @@ return function(t)
     t.eq(#reports.error, 0)
     t.eq(#reports.warn, 0)
     t.ok(includes(reports.start, "worklog.nvim"))
-    t.ok(includes(reports.ok, 'require("worklog") succeeded'))
+    t.ok(includes(reports.ok, 'require("blotter") succeeded'))
     t.ok(includes(reports.ok, "worklog.setup is available"))
     t.ok(includes(reports.ok, ":WorklogInsert is available"))
     t.ok(includes(reports.ok, ":WorklogToday is available"))
@@ -124,12 +124,12 @@ return function(t)
     t.eq(#reports.error, 0)
     t.eq(#reports.warn, 0)
     t.ok(includes(reports.start, "worklog.nvim"))
-    t.ok(includes(reports.ok, 'require("worklog") succeeded'))
+    t.ok(includes(reports.ok, 'require("blotter") succeeded'))
     t.ok(includes(reports.ok, ":WorklogInsert is available"))
   end)
 
   t.test("health check does not reset the user's configuration", function()
-    local config = require("worklog.config")
+    local config = require("blotter.config")
     worklog.setup({
       journal = { root = "/tmp/hc", directory = "%Y" },
       auto_summary = "idle",
@@ -191,7 +191,7 @@ return function(t)
   end)
 
   t.test("health reports a registered custom source", function()
-    local registry = require("worklog.sources.registry")
+    local registry = require("blotter.sources.registry")
     worklog.setup() -- clears the registry; no config sources declared
 
     registry.register("Jira", {

@@ -1,10 +1,10 @@
 -- ftplugin for worklog buffers (shell): attach the parser-driven highlighter and
 -- keep it current as the buffer changes. Requiring the core here means
 -- highlighting works on any worklog file, with or without a prior
--- require("worklog").setup() -- the same way the old syntax file did, but driven
+-- require("blotter").setup() -- the same way the old syntax file did, but driven
 -- from the parser (see lua/worklog/highlight.lua) instead of duplicated regexes.
 
-local worklog = require("worklog")
+local worklog = require("blotter")
 
 worklog.highlight_buffer(0)
 

@@ -1,5 +1,5 @@
-local journal = require("worklog.journal")
-local worklog = require("worklog")
+local journal = require("blotter.journal")
+local worklog = require("blotter")
 
 local M = {}
 

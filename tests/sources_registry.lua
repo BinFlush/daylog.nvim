@@ -1,5 +1,5 @@
 return function(t)
-  local registry = require("worklog.sources.registry")
+  local registry = require("blotter.sources.registry")
 
   local function valid_source()
     return {

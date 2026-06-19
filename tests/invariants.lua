@@ -1,5 +1,5 @@
 return function(t)
-  local summary = require("worklog.summary")
+  local summary = require("blotter.summary")
 
   local CASES = 500
   local SEED = 12345

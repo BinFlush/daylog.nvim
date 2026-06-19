@@ -1,5 +1,5 @@
 return function(t)
-  local refresh_summaries = require("worklog.usecases.refresh_summaries")
+  local refresh_summaries = require("blotter.usecases.refresh_summaries")
 
   t.test("refresh regenerates a hand-edited summary header from the worklog params", function()
     -- The worklog header is the single source of truth; the summary banner is

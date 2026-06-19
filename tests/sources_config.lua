@@ -1,5 +1,5 @@
 return function(t)
-  local config = require("worklog.config")
+  local config = require("blotter.config")
 
   t.test("config normalizes a source and fills defaults", function()
     config.setup({

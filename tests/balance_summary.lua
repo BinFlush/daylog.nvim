@@ -1,9 +1,9 @@
 return function(t)
-  local analyze = require("worklog.analyze")
-  local balance = require("worklog.usecases.balance_summary")
-  local document = require("worklog.document")
-  local render = require("worklog.render")
-  local summary = require("worklog.summary")
+  local analyze = require("blotter.analyze")
+  local balance = require("blotter.usecases.balance_summary")
+  local document = require("blotter.document")
+  local render = require("blotter.render")
+  local summary = require("blotter.summary")
 
   -- A full buffer (worklog body + its generated summary), so the cursor can sit on a
   -- real summary line exactly as in an open file.

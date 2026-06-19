@@ -1,8 +1,8 @@
 return function(t)
-  local analyze = require("worklog.analyze")
-  local body = require("worklog.body")
-  local document = require("worklog.document")
-  local entry = require("worklog.entry")
+  local analyze = require("blotter.analyze")
+  local body = require("blotter.body")
+  local document = require("blotter.document")
+  local entry = require("blotter.entry")
 
   local function block_from_lines(lines)
     local analysis = analyze.analyze(document.parse(lines))

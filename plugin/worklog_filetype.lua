@@ -1,1 +1,1 @@
-require("worklog.filetype").register()
+require("blotter.filetype").register()

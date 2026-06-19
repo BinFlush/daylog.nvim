@@ -1,5 +1,5 @@
 return function(t)
-  local week = require("worklog.week")
+  local week = require("blotter.week")
 
   t.test("week report combines daily quantized summaries without re-quantizing", function()
     local report = week.build_report({

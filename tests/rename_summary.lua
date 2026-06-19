@@ -1,5 +1,5 @@
 return function(t)
-  local rename_summary = require("worklog.usecases.rename_summary")
+  local rename_summary = require("blotter.usecases.rename_summary")
 
   -- Apply an edit script to a line list exactly as the shell does
   -- (nvim_buf_set_lines with 0-based, end-exclusive indexes). The usecase returns

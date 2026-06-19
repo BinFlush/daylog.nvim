@@ -1,5 +1,5 @@
 return function(t)
-  local filetype = require("worklog.filetype")
+  local filetype = require("blotter.filetype")
 
   filetype.register()
 

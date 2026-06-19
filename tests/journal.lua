@@ -1,5 +1,5 @@
 return function(t)
-  local journal = require("worklog.journal")
+  local journal = require("blotter.journal")
 
   t.test("journal builds a dated path from root and directory template", function()
     local now = os.time({

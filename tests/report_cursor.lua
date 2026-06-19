@@ -1,9 +1,9 @@
 return function(t)
-  local analyze = require("worklog.analyze")
-  local document = require("worklog.document")
-  local render = require("worklog.render")
-  local summary = require("worklog.summary")
-  local report_cursor = require("worklog.usecases.report_cursor")
+  local analyze = require("blotter.analyze")
+  local document = require("blotter.document")
+  local render = require("blotter.render")
+  local summary = require("blotter.summary")
+  local report_cursor = require("blotter.usecases.report_cursor")
 
   -- Build a single day's summary the way the report pipeline (week.lua) does.
   local function day_summary(lines)

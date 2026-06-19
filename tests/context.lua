@@ -1,5 +1,5 @@
 return function(t)
-  local context = require("worklog.context")
+  local context = require("blotter.context")
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
     .. "--- worklog --- or --- worklog #ClientA @office q=30 ---"
   local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a "

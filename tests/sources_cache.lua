@@ -1,5 +1,5 @@
 return function(t)
-  local cache = require("worklog.sources.cache")
+  local cache = require("blotter.sources.cache")
 
   t.test("cache encode/decode round-trips items", function()
     local items = { { id = "1", title = "A" }, { id = "2", title = "B" } }

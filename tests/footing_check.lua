@@ -10,11 +10,11 @@
 local cwd = vim.fn.getcwd()
 local Rng = dofile(cwd .. "/tests/rng.lua")
 local synth = dofile(cwd .. "/tests/worklog_synth.lua")
-local document = require("worklog.document")
-local analyze = require("worklog.analyze")
-local summary = require("worklog.summary")
-local render = require("worklog.render")
-local diagnostics = require("worklog.diagnostics")
+local document = require("blotter.document")
+local analyze = require("blotter.analyze")
+local summary = require("blotter.summary")
+local render = require("blotter.render")
+local diagnostics = require("blotter.diagnostics")
 
 local M = { Rng = Rng, synth = synth }
 
