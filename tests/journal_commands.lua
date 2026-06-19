@@ -86,7 +86,8 @@ return function(t)
 
         -- Navigate away (the unsaved buffer survives because hidden is set) and
         -- back: reopening today must reuse that buffer, not append a duplicate.
-        vim.cmd("WorklogPrevDay")
+        -- WorklogToday -1 is an exact jump (PrevDay would find no earlier worklog).
+        vim.cmd("WorklogToday -1")
         vim.cmd("WorklogToday")
 
         t.eq(t.get_lines(), seeded)
@@ -230,6 +231,11 @@ return function(t)
   t.test("navigation refuses to leave today while it has errors", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
+    local earlier = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
+    local earlier_path = write_journal_file(root, "%Y", earlier, {
+      "--- worklog ---",
+      "08:00 plan",
+    })
     local today_path = write_journal_file(root, "%Y", now, {
       "--- worklog #ClientA @office ---",
       "09:00 later",
@@ -247,10 +253,10 @@ return function(t)
         vim.cmd("WorklogPrevDay")
         t.eq(vim.api.nvim_buf_get_name(0), today_path)
 
-        -- Fixing the order releases the guard.
+        -- Fixing the order releases the guard; navigation skips to the prior worklog.
         vim.api.nvim_buf_set_lines(0, 1, 3, false, { "08:00 earlier", "09:00 later" })
         vim.cmd("WorklogPrevDay")
-        t.ok(vim.api.nvim_buf_get_name(0) ~= today_path, "navigates once today is valid")
+        t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
       end)
     end)
   end)
@@ -624,24 +630,79 @@ return function(t)
     end
   )
 
-  t.test("next day steps forward relative to the open journal file", function()
+  t.test("next day skips empty days to the next existing worklog", function()
     local root = vim.fn.tempname()
-    local opened = os.time({
-      year = 2026,
-      month = 5,
-      day = 10,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-    local next_day = os.time({
-      year = 2026,
-      month = 5,
-      day = 11,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
+    local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })
+    -- A gap (05-11) with no worklog is skipped; the next real worklog is 05-12.
+    local next_day = os.time({ year = 2026, month = 5, day = 12, hour = 12, min = 0, sec = 0 })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      local open_path = write_journal_file(root, "%Y", opened, {
+        "--- worklog ---",
+        "08:00 plan",
+      })
+      write_journal_file(root, "%Y", next_day, {
+        "--- worklog ---",
+        "09:00 review",
+      })
+      vim.cmd("edit " .. vim.fn.fnameescape(open_path))
+      vim.bo.modified = false
+
+      vim.cmd("WorklogNextDay")
+
+      local path = root
+        .. "/"
+        .. os.date("%Y", next_day)
+        .. "/"
+        .. os.date("%Y-%m-%d", next_day)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      t.eq(t.get_lines(), { "--- worklog ---", "09:00 review" })
+    end)
+  end)
+
+  t.test("prev day count skips that many existing worklogs backward", function()
+    local root = vim.fn.tempname()
+    local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })
+    -- Two existing worklogs precede the open day; the count walks past the first.
+    local nearer = os.time({ year = 2026, month = 5, day = 9, hour = 12, min = 0, sec = 0 })
+    local target = os.time({ year = 2026, month = 5, day = 8, hour = 12, min = 0, sec = 0 })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      local open_path = write_journal_file(root, "%Y", opened, {
+        "--- worklog ---",
+      })
+      write_journal_file(root, "%Y", nearer, { "--- worklog ---", "08:00 a" })
+      write_journal_file(root, "%Y", target, { "--- worklog ---", "08:00 b" })
+      vim.cmd("edit " .. vim.fn.fnameescape(open_path))
+      vim.bo.modified = false
+
+      vim.cmd("WorklogPrevDay 2")
+
+      local path = root
+        .. "/"
+        .. os.date("%Y", target)
+        .. "/"
+        .. os.date("%Y-%m-%d", target)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      t.eq(t.get_lines(), { "--- worklog ---", "08:00 b" })
+    end)
+  end)
+
+  t.test("relative navigation warns and stays when no worklog lies that way", function()
+    local root = vim.fn.tempname()
+    local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })
 
     with_worklog_setup({
       journal = {
@@ -656,65 +717,22 @@ return function(t)
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
-      vim.cmd("WorklogNextDay")
+      -- The only worklog is the open one: there is nothing later or earlier.
+      with_captured_notify(function(messages)
+        vim.cmd("WorklogNextDay")
+        t.eq(messages, {
+          { message = "worklog: no later worklog", level = vim.log.levels.WARN },
+        })
+      end)
+      t.eq(vim.api.nvim_buf_get_name(0), open_path)
 
-      local path = root
-        .. "/"
-        .. os.date("%Y", next_day)
-        .. "/"
-        .. os.date("%Y-%m-%d", next_day)
-        .. ".wkl"
-      t.eq(vim.api.nvim_buf_get_name(0), path)
-      -- Navigation only: empty, unmodified, nothing written to disk.
-      t.eq(t.get_lines(), { "" })
-      t.eq(vim.bo.modified, false)
-      t.eq(vim.fn.filereadable(path), 0)
-    end)
-  end)
-
-  t.test("prev day count steps backward relative to the open journal file", function()
-    local root = vim.fn.tempname()
-    local opened = os.time({
-      year = 2026,
-      month = 5,
-      day = 10,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-    local target = os.time({
-      year = 2026,
-      month = 5,
-      day = 8,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-
-    with_worklog_setup({
-      journal = {
-        root = root,
-        directory = "%Y",
-      },
-    }, function()
-      local open_path = write_journal_file(root, "%Y", opened, {
-        "--- worklog ---",
-      })
-      vim.cmd("edit " .. vim.fn.fnameescape(open_path))
-      vim.bo.modified = false
-
-      vim.cmd("WorklogPrevDay 2")
-
-      local path = root
-        .. "/"
-        .. os.date("%Y", target)
-        .. "/"
-        .. os.date("%Y-%m-%d", target)
-        .. ".wkl"
-      t.eq(vim.api.nvim_buf_get_name(0), path)
-      t.eq(t.get_lines(), { "" })
-      t.eq(vim.bo.modified, false)
-      t.eq(vim.fn.filereadable(path), 0)
+      with_captured_notify(function(messages)
+        vim.cmd("WorklogPrevDay")
+        t.eq(messages, {
+          { message = "worklog: no earlier worklog", level = vim.log.levels.WARN },
+        })
+      end)
+      t.eq(vim.api.nvim_buf_get_name(0), open_path)
     end)
   end)
 
@@ -728,14 +746,8 @@ return function(t)
       min = 45,
       sec = 0,
     })
-    local yesterday = os.time({
-      year = 2026,
-      month = 5,
-      day = 17,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
+    -- The nearest earlier worklog is several days back; today has no file.
+    local earlier = os.time({ year = 2026, month = 5, day = 15, hour = 12, min = 0, sec = 0 })
 
     with_worklog_setup({
       journal = {
@@ -743,23 +755,21 @@ return function(t)
         directory = "%Y",
       },
     }, function()
+      local earlier_path = write_journal_file(root, "%Y", earlier, {
+        "--- worklog ---",
+        "08:00 plan",
+      })
       vim.cmd("enew!")
       vim.bo.modified = false
 
       with_mocked_time(now, function()
+        -- Anchored on today (the scratch buffer is not a journal file), the prior
+        -- worklog three days back is found.
         vim.cmd("WorklogPrevDay")
       end)
 
-      local path = root
-        .. "/"
-        .. os.date("%Y", yesterday)
-        .. "/"
-        .. os.date("%Y-%m-%d", yesterday)
-        .. ".wkl"
-      t.eq(vim.api.nvim_buf_get_name(0), path)
-      t.eq(t.get_lines(), { "" })
-      t.eq(vim.bo.modified, false)
-      t.eq(vim.fn.filereadable(path), 0)
+      t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
+      t.eq(t.get_lines(), { "--- worklog ---", "08:00 plan" })
     end)
   end)
 
@@ -791,6 +801,11 @@ return function(t)
       local open_path = write_journal_file(root, "%Y", yesterday, {
         "--- worklog ---",
       })
+      -- Today already has a worklog, so navigation lands on it rather than seeding.
+      local today_path = write_journal_file(root, "%Y", now, {
+        "--- worklog ---",
+        "08:00 plan",
+      })
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
@@ -798,12 +813,10 @@ return function(t)
         vim.cmd("WorklogNextDay")
       end)
 
-      local path = root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
-      t.eq(vim.api.nvim_buf_get_name(0), path)
-      -- Navigation onto today opens an empty, unmodified buffer (no current time).
-      t.eq(t.get_lines(), { "" })
+      t.eq(vim.api.nvim_buf_get_name(0), today_path)
+      -- Navigation onto today opens the file as-is; no current time is inserted.
+      t.eq(t.get_lines(), { "--- worklog ---", "08:00 plan" })
       t.eq(vim.bo.modified, false)
-      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 

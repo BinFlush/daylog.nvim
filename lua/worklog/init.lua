@@ -359,6 +359,43 @@ local function journal_path_has_content(path)
   return not text.is_empty(vim.fn.readfile(path))
 end
 
+-- Every journal day that actually holds a worklog: dated `.wkl` files under the
+-- journal tree (each validated against the configured directory template, so only
+-- canonical files count) plus any loaded buffer for a journal day that currently
+-- has content but is not yet written to disk. Returns a list of midday timestamps;
+-- nearest_date de-duplicates by date. This file-IO scan is the shell's job.
+local function existing_journal_dates(settings)
+  local dates = {}
+
+  -- Trim any trailing slash (an expanded directory root carries one) so the glob
+  -- yields single-slash paths that string-match journal.date_from_path's canonical
+  -- form -- a `root//2026/...` would otherwise be rejected as non-canonical.
+  local root = (settings.root:gsub("/+$", ""))
+  for _, path in ipairs(vim.fn.glob(root .. "/**/*.wkl", true, true)) do
+    local date = journal.date_from_path(settings, path)
+    if date and journal_path_has_content(path) then
+      table.insert(dates, date)
+    end
+  end
+
+  -- An unsaved new day (seeded today, or a freshly created day) has no file on
+  -- disk yet, so pick it up from the buffer list. Report scratch buffers (nofile)
+  -- are skipped by the buftype guard.
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buftype == "" then
+      local name = vim.api.nvim_buf_get_name(buf)
+      if name ~= "" then
+        local date = journal.date_from_path(settings, vim.fn.fnamemodify(name, ":p"))
+        if date and not text.is_empty(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) then
+          table.insert(dates, date)
+        end
+      end
+    end
+  end
+
+  return dates
+end
+
 local function expanded_journal_settings()
   local settings = config.get().journal
   if settings == nil then
@@ -1096,9 +1133,12 @@ function M.open_today(day_offset)
   apply_refresh(false)
 end
 
--- Open the journal file `step` days from the one in the current buffer, falling
--- back to today when the buffer is not a canonical journal file. Pure
--- navigation: it never inserts the current time, even when it lands on today.
+-- Jump to the `|step|`-th existing worklog before (step < 0) or after (step > 0)
+-- the current buffer's day, skipping days that have no worklog. The anchor falls
+-- back to today when the buffer is not a canonical journal file. Pure navigation:
+-- it never inserts the current time, even when it lands on today, and it never
+-- creates a file (use :WorklogInit to start an arbitrary day). When no worklog
+-- exists in that direction it warns and stays put.
 function M.open_relative_day(step)
   local settings = expanded_journal_settings()
   if settings == nil then
@@ -1116,7 +1156,15 @@ function M.open_relative_day(step)
   end
 
   local anchor = current_buffer_journal_date(settings) or os.time()
-  edit_journal_file(settings, journal.offset_date(anchor, step))
+  local direction = step < 0 and -1 or 1
+  local target =
+    journal.nearest_date(existing_journal_dates(settings), anchor, direction, math.abs(step))
+  if not target then
+    warn(direction < 0 and "worklog: no earlier worklog" or "worklog: no later worklog")
+    return
+  end
+
+  edit_journal_file(settings, target)
 end
 
 -- Build the display lines for a report spec, reading each day through
