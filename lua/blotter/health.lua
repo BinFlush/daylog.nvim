@@ -61,7 +61,7 @@ local function check_command(name)
 end
 
 function M.check()
-  start("worklog.nvim")
+  start("blotter.nvim")
 
   local loaded, blotter = pcall(require, "blotter")
   if loaded then
@@ -110,10 +110,10 @@ function M.check()
   end
 
   start("Documentation")
-  if has_help_tag("worklog.nvim") then
-    ok(":help worklog.nvim is available")
+  if has_help_tag("blotter.nvim") then
+    ok(":help blotter.nvim is available")
   else
-    warn(":help worklog.nvim is unavailable", {
+    warn(":help blotter.nvim is unavailable", {
       "Run :helptags doc or just helptags.",
     })
   end

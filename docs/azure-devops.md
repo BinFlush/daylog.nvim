@@ -1,10 +1,10 @@
 # Azure DevOps setup
 
 This guide sets up the optional **Azure DevOps** work-item source so
-`:WorklogInsert ADO` can pull a work item straight into your worklog.
+`:BlotInsert ADO` can pull a work item straight into your blotter.
 
 > **You only need this for the Azure DevOps integration.** The core of
-> `worklog.nvim` needs no Personal Access Token and no `curl` — skip this entirely
+> `blotter.nvim` needs no Personal Access Token and no `curl` — skip this entirely
 > if you don't use a tracker source.
 
 ## 1. Create a Personal Access Token (PAT)
@@ -13,7 +13,7 @@ This guide sets up the optional **Azure DevOps** work-item source so
    access tokens**.
 2. Click **New Token** and set:
    - **Organization** — the one you'll query (matches `organization` below).
-   - **Name** — e.g. `worklog.nvim`.
+   - **Name** — e.g. `blotter.nvim`.
    - **Expiration** — pick a finite window (e.g. 90 days) and rotate when it lapses.
    - **Scopes** — **Work Items → Read**. That is the only scope this plugin needs;
      don't grant more.
@@ -33,14 +33,14 @@ can use whatever secret store you like. A few options, most to least secure:
 of your environment.
 
 ```sh
-pass insert worklog/ado-pat   # paste the PAT at the hidden prompt
+pass insert blotter/ado-pat   # paste the PAT at the hidden prompt
 ```
 
 ```lua
 token = function()
-  local pat = vim.fn.system({ "pass", "show", "worklog/ado-pat" })
+  local pat = vim.fn.system({ "pass", "show", "blotter/ado-pat" })
   if vim.v.shell_error ~= 0 then
-    return nil -- store locked or unavailable; worklog will report a clean error
+    return nil -- store locked or unavailable; blotter will report a clean error
   end
   return vim.trim(pat)
 end,
@@ -55,12 +55,12 @@ exposes it.
 
 ```sh
 # in ~/.bashrc, ~/.zshrc, etc.
-export WORKLOG_ADO_PAT="<your-pat>"
+export BLOTTER_ADO_PAT="<your-pat>"
 ```
 
 ```lua
 token = function()
-  return vim.env.WORKLOG_ADO_PAT
+  return vim.env.BLOTTER_ADO_PAT
 end,
 ```
 
@@ -71,13 +71,13 @@ the others if you can.
 ### Middle ground: a `0600` file
 
 ```sh
-install -m 600 /dev/null ~/.config/worklog/ado-pat
+install -m 600 /dev/null ~/.config/blotter/ado-pat
 # then paste the PAT into the file with your editor (avoids shell history)
 ```
 
 ```lua
 token = function()
-  local lines = vim.fn.readfile(vim.fn.expand("~/.config/worklog/ado-pat"))
+  local lines = vim.fn.readfile(vim.fn.expand("~/.config/blotter/ado-pat"))
   return lines[1] and vim.trim(lines[1]) or nil
 end,
 ```
@@ -88,14 +88,14 @@ so keep it out of any tracked dotfiles repo.
 ## 3. Configure the source
 
 ```lua
-require("worklog").setup({
+require("blotter").setup({
   sources = {
     ADO = {
       type = "azure_devops",
       organization = "contoso",        -- dev.azure.com/<organization>
       project = "Platform",            -- .../<project>
       token = function()
-        local pat = vim.fn.system({ "pass", "show", "worklog/ado-pat" })
+        local pat = vim.fn.system({ "pass", "show", "blotter/ado-pat" })
         if vim.v.shell_error ~= 0 then
           return nil
         end
@@ -111,7 +111,7 @@ require("worklog").setup({
   },
 })
 
-vim.keymap.set("n", "<leader>wa", "<cmd>WorklogInsert ADO<cr>", { desc = "Worklog insert ADO item" })
+vim.keymap.set("n", "<leader>wa", "<cmd>BlotInsert ADO<cr>", { desc = "Blotter insert ADO item" })
 ```
 
 By default the source lists work items **assigned to you, active, and recently
@@ -127,7 +127,7 @@ list:
 projects = { "Platform", "Data Platform Product Area" },
 ```
 
-worklog then queries at **organization scope** and filters to those team projects,
+blotter then queries at **organization scope** and filters to those team projects,
 so one search spans them; each result is labelled with its project, and `{project}`
 is available in `template`. `projects` is mutually exclusive with `project`,
 `query`, and `query_id`. A Work Items (Read) PAT can read every project in the
@@ -140,18 +140,18 @@ raw `query`.
 
 ## 4. Verify
 
-1. `:checkhealth worklog` — under **Sources**, confirms `curl` is on `PATH`, that the
+1. `:checkhealth blotter` — under **Sources**, confirms `curl` is on `PATH`, that the
    `ADO` source is configured, and whether its cache is populated.
-2. `:WorklogSync ADO` — fetches the work-item cache over the network. This is the
+2. `:BlotterSync ADO` — fetches the work-item cache over the network. This is the
    only step that uses `curl` and the token.
-3. `:WorklogInsert ADO` — pick an item; it is inserted as `{id} {title}` at the
+3. `:BlotInsert ADO` — pick an item; it is inserted as `{id} {title}` at the
    current time. With Telescope installed you can type to search the whole tracker.
 
 ### Troubleshooting
 
 - **`source token() did not return a non-empty string`** — your `token` function
   returned nothing. With `pass`, the gpg-agent is usually just locked: run
-  `pass show worklog/ado-pat` once in a terminal to unlock it, then retry.
+  `pass show blotter/ado-pat` once in a terminal to unlock it, then retry.
 - **`ADO sync failed: HTTP 401`** (or another non-2xx) — the PAT is wrong, expired,
   or lacks **Work Items (Read)**. Re-mint it.
 - **`curl is not available`** — install `curl`; it is only needed for syncing.
@@ -164,9 +164,9 @@ raw `query`.
 
 - Grant the **minimum scope** (Work Items: Read) and a **short expiry**; rotate when
   it lapses.
-- worklog resolves the token only at sync time, never writes it to the cache, and
+- blotter resolves the token only at sync time, never writes it to the cache, and
   hands it to `curl` through a private config file rather than the command line, so
   it isn't exposed in `ps` / `/proc/<pid>/cmdline`.
 
-See `:help worklog-sources` for the full source reference and
-`:help worklog-custom-source` to add your own tracker (Jira, GitHub Issues, …).
+See `:help blotter-sources` for the full source reference and
+`:help blotter-custom-source` to add your own tracker (Jira, GitHub Issues, …).

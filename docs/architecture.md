@@ -1,27 +1,27 @@
-# worklog.nvim architecture
+# blotter.nvim architecture
 
-`worklog.nvim` is a Neovim plugin for structured plain-text worklogs.
+`blotter.nvim` is a Neovim plugin for structured plain-text blotters.
 
 The core pipeline is:
 
 ```text
-source lines -> syntax nodes -> semantic worklog -> edit scripts
+source lines -> syntax nodes -> semantic blotter -> edit scripts
 ```
 
 Design goals:
 
-- keep worklogs human-readable
-- preserve the worklog as the source of truth
+- keep blotters human-readable
+- preserve the blotter as the source of truth
 - derive reproducible summaries
 - keep Neovim API usage out of the semantic core
 - prefer explicit syntax over silent semantic changes
 
 ## Core model
 
-A worklog is a sequence of timestamped entries inside a worklog block.
+A blotter is a sequence of timestamped blots inside a blotter block.
 
 ```text
---- worklog #ClientA @office q=30 ---
+--- blots #ClientA @office q=30 ---
 08:00 planning
 10:00 implementation @home
 13:00 internal meeting #internal
@@ -29,9 +29,9 @@ A worklog is a sequence of timestamped entries inside a worklog block.
 17:00 done
 ```
 
-A timestamped entry starts an interval that ends at the next timestamped entry;
-the final entry only closes the interval before it. Metadata belongs to the
-interval that starts at the entry.
+A timestamped blot starts an interval that ends at the next timestamped blot;
+the final blot only closes the interval before it. Metadata belongs to the
+interval that starts at the blot.
 
 ```text
 08:00-10:00  planning          #ClientA   @office
@@ -40,7 +40,7 @@ interval that starts at the entry.
 14:00-17:00  client followup   #ClientA   @client
 ```
 
-`#tag` and `@location` are sticky: if an entry omits one, it inherits the current
+`#tag` and `@location` are sticky: if an blot omits one, it inherits the current
 value. `#-` clears the active tag and `@-` the active location. `#ooo` marks
 out-of-office time — it contributes to `activity` but not `workday`.
 
@@ -69,16 +69,16 @@ workday total    = sum(intervals where workday_excluded = false)
 syntax.lua        -> shared vocabulary: node/token/block kinds, diagnostic codes, codecs
 document.lua      -> syntax-preserving parser
 analyze.lua       -> semantic analyzer
-context.lua       -> worklog block selection (active / at cursor row)
+context.lua       -> blotter block selection (active / at cursor row)
 diagnostics.lua   -> shared diagnostic messages
 config.lua        -> setup option validation and merge
 journal.lua       -> pure journal date/path helpers
-entry.lua         -> single-entry parser/formatter
+blot.lua         -> single-blot parser/formatter
 body.lua          -> body reconstruction
 summary.lua       -> reporting domain (intervals, sections, sorting, logged totals)
 projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
-summary_block.lua -> locate a worklog's single generated summary region
+summary_block.lua -> locate a blotter's single generated summary region
 render.lua        -> output rendering
 week.lua          -> journal week/days report assembly (reuses the reporting core)
 highlight.lua     -> parser-driven highlight spans (pure)
@@ -89,51 +89,51 @@ telescope.lua     -> shell: optional Telescope live-search picker (insert + rena
 filetype.lua      -> filetype registration
 init.lua          -> Neovim shell
 health.lua        -> shell: the :checkhealth probe
-ftplugin/worklog.lua -> shell: attach the highlighter to worklog buffers
+ftplugin/blotter.lua -> shell: attach the highlighter to blotter buffers
 ```
 
 ## Summary model
 
-A worklog has at most one summary. The summary is a **pure projection** of the
-worklog's entries: it stores no authored content and is always safe to rebuild
-from source. It is created with the worklog (`:WorklogToday` and `:WorklogCopy`
-append one) and kept current by the refresh below; `:WorklogLog` marks the
-contributing source entries `!L` and rebuilds it. Annotations belong on entries
+A blotter has at most one summary. The summary is a **pure projection** of the
+blotter's blots: it stores no authored content and is always safe to rebuild
+from source. It is created with the blotter (`:BlotterToday` and `:BlotterCopy`
+append one) and kept current by the refresh below; `:BlotLog` marks the
+contributing source blots `!L` and rebuilds it. Annotations belong on blots
 (canonical, surviving copy/order), not in the summary.
 
 Keeping authored content out of the summary is what makes regeneration safe. The
-`refresh_summaries` usecase exploits this: it ensures *every* valid worklog has a
+`refresh_summaries` usecase exploits this: it ensures *every* valid blotter has a
 current summary — updating a stale one, creating a missing one, never removing one —
-not just the active one, skipping invalid worklogs and emitting no edit where a
+not just the active one, skipping invalid blotters and emitting no edit where a
 summary is already current. To update rather than duplicate, it must reliably find
-the existing summary even when the fresh one is tiny (a worklog with no completed
+the existing summary even when the fresh one is tiny (a blotter with no completed
 interval renders an almost-empty summary) — so `summary_block` locates the region
 by the union of content alignment and structural recognition (see its module
 comment), which also lets a refresh collapse a jumble of stale or duplicated
 generated sections back into one summary. Alongside the edits it
 returns `warnings` (each `{ row, message }`) for every problem the analyzer can
-see — a broken or absent header, out-of-order timestamps, an invalid entry —
-whether or not the worklog has a summary, and even for a structurally broken
+see — a broken or absent header, out-of-order timestamps, an invalid blot —
+whether or not the blotter has a summary, and even for a structurally broken
 document (which produces no edits).
 
-`:WorklogRefresh` and the optional `auto_summary` autocmds in `init.lua` are thin
+`:BlotterRefresh` and the optional `auto_summary` autocmds in `init.lua` are thin
 shells over it — the trigger (`off` / `change` / `idle` / `save`) is configurable,
 and the shell adds only undo-join, a re-entrancy guard, and cursor preservation.
 The warnings are published as buffer diagnostics (a `vim.diagnostic` namespace),
 which is what makes them clear when fixed however the fix happened: each refresh
-replaces the namespace's diagnostics, so a now-valid worklog publishes an empty
+replaces the namespace's diagnostics, so a now-valid blotter publishes an empty
 set. Because programmatic edits do not fire the change autocmds, the
-buffer-editing commands republish diagnostics after applying (so `:WorklogOrder`
+buffer-editing commands republish diagnostics after applying (so `:BlotterOrder`
 clears its own warning). Diagnostics also render inline in any mode, so there is
 no insert-mode timing to manage. The reporting core (`summary.lua`, `render.lua`)
-stays pure so the journal reports (`:WorklogWeek` / `:WorklogDays`) share it
+stays pure so the journal reports (`:BlotterWeek` / `:BlotterDays`) share it
 unchanged; an open report re-derives on the same `auto_summary` autocmds,
 rebuilding from a spec stored on its buffer so it tracks its source days the way
-an in-file summary tracks its entries. Each day section in a report labels its
+an in-file summary tracks its blots. Each day section in a report labels its
 header with that day's own `q=` bucket (`week.lua` carries `quantize_minutes`
 per day; the aggregate header stays bare).
 
-The report is read-only but is now an actionable surface: `:WorklogRename` on it
+The report is read-only but is now an actionable surface: `:BlotRename` on it
 renames an item across days. `render.*_report_layout` exposes the report as a flat
 layout (one row per rendered line, tagged with its section scope), so
 `usecases/report_cursor` maps the cursor to a target and the file scope (an
@@ -149,12 +149,12 @@ the open reports.
 `document.lua` parses source lines into syntax nodes, preserving raw text, row
 numbers, line kinds, metadata tokens, header option tokens, and invalid time-like
 lines. It recognizes `#tag`, `#-`, `@location`, `@-`, `key=value`, `HH:MM`, and
-`--- worklog ... ---`, but assigns no business meaning — it parses `#ooo` as a
+`--- blots ... ---`, but assigns no business meaning — it parses `#ooo` as a
 tag, and `analyze.lua` decides it is excluded from workday.
 
-`analyze.lua` turns syntax into meaning: worklog block discovery, sticky
+`analyze.lua` turns syntax into meaning: blotter block discovery, sticky
 tag/location state, clear-token semantics, `#ooo` exclusion, block-local
-`quantize` and `duration` interpretation, and diagnostics. A semantic entry
+`quantize` and `duration` interpretation, and diagnostics. A semantic blot
 carries both explicit and effective metadata:
 
 ```lua
@@ -173,17 +173,17 @@ Quantization and duration formatting are block-local; consumers read
 
 ## Entry and body
 
-`entry.lua` parses and formats one timestamped entry, relative to the current
+`blot.lua` parses and formats one timestamped blot, relative to the current
 sticky state, emitting only the metadata needed to preserve meaning. If the
 current tag is `ClientA`, returning to untagged work renders as `10:00 resume #-`.
 
-`body.lua` rebuilds worklog block bodies: normalized and sorted body lines,
+`body.lua` rebuilds blotter block bodies: normalized and sorted body lines,
 insertion indexes, sticky state before insertion, and canonical emission of `#-`
 and `@-`. Because clear tokens exist, a reordering rewrite can preserve meaning
 explicitly:
 
 ```text
---- worklog ---
+--- blots ---
 09:00 done
 08:00 plan #sales @client
 ```
@@ -191,21 +191,21 @@ explicitly:
 can become:
 
 ```text
---- worklog ---
+--- blots ---
 08:00 plan #sales @client
 09:00 done #- @-
 ```
 
 ## Reporting: summaries and quantization
 
-`summary.lua` builds intervals from adjacent semantic entries (`entry[i] ->
-entry[i + 1]`); the final entry closes the previous interval and produces none of
-its own. There is one summary type, always quantized to the worklog's
+`summary.lua` builds intervals from adjacent semantic blots (`blot[i] ->
+blot[i + 1]`); the final blot closes the previous interval and produces none of
+its own. There is one summary type, always quantized to the blotter's
 `q=<minutes>` bucket (default 15); `q=1` reproduces exact, unrounded
 durations. Durations render as decimal hours or `hh:mm`, each with its `(+Nm)`
-rounding error (`(+0m)` when exact). The summary header echoes the worklog's
+rounding error (`(+0m)` when exact). The summary header echoes the blotter's
 `q=`/`d=` as a read-only banner (`--- summary q=<n> d=<fmt> ---`) built by
-`syntax.summary_header` and regenerated on refresh, so the worklog header stays the
+`syntax.summary_header` and regenerated on refresh, so the blotter header stays the
 single source of truth.
 
 Quantization rounds full-grain rows. The full grain is `activity text + tag +
@@ -237,9 +237,9 @@ totals.
 ### Manual rounding balance (`round±N`)
 
 Largest-remainder rounding can leave an aggregate (a day, hence a week) a step or
-two off a clean total. `:WorklogBalance` lets the cursor on a summary row — or a
-worklog entry — shift the rounding by `±N` `q`-steps, recorded as a **non-sticky**
-per-entry `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round_nudge`).
+two off a clean total. `:BlotBalance` lets the cursor on a summary row — or a
+blot — shift the rounding by `±N` `q`-steps, recorded as a **non-sticky**
+per-blot `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round_nudge`).
 
 The model is a single vector and a guarantee:
 
@@ -302,18 +302,18 @@ shapes come from `document` (`document.tokens`, `document.classify_control_token
 `document.is_option_token` -- the only place these patterns live); header validity
 and the rows inside a summary section come from `analyze`; the generated
 section-header predicate is `syntax.is_summary_section_header` (shared with the
-summary locator). Worklog headers, entries, and trailing metadata are classified
+summary locator). Blotter headers, blots, and trailing metadata are classified
 straight from the parse. Summary rows -- derived output, not source -- are
 recognized by the shapes `render.lua` emits (a leading duration, `(+Nm)` markers,
 trailing metadata); a summary section runs from a generated section header to the
 blank line that ends it, and the same predicate matches the labeled multi-day
-report headers (`--- day summary <date> q=N ---`), so the `:WorklogWeek` /
-`:WorklogDays` reports highlight too. Whole-line "base" spans (a header, a note)
+report headers (`--- day summary <date> q=N ---`), so the `:BlotterWeek` /
+`:BlotterDays` reports highlight too. Whole-line "base" spans (a header, a note)
 sit at a lower priority than the narrower token spans layered over them, so a
 `#tag` inside a header wins at its own cells.
 
 The shell applies the spans as extmarks in a dedicated namespace:
-`ftplugin/worklog.lua` attaches the highlighter to any worklog buffer (so it works
+`ftplugin/blotter.lua` attaches the highlighter to any blotter buffer (so it works
 without `setup()`) and refreshes it on change, the report buffers highlight
 themselves on build/refresh, and the edit-applying path re-highlights after the
 programmatic edits that do not fire change autocmds. `init.lua` registers the
@@ -328,7 +328,7 @@ message — never the Neovim API.
 ```lua
 local result, err = append_summary.run(lines)
 -- success: { edits = { { start_index = 4, end_index = 4, lines = { ... } } } }
--- failure: nil, "worklog: ..."
+-- failure: nil, "blotter: ..."
 ```
 
 An edit script is the project's core data structure:
@@ -343,18 +343,18 @@ lines)`. Indexes are zero-based to match the Neovim buffer API.
 `init.lua` is the Neovim shell: it registers filetype support and user commands,
 reads buffer lines, cursor row, and current time, expands configured journal
 paths before calling pure journal helpers, calls usecases, applies edit scripts,
-applies highlight spans as extmarks, and shows warnings. It contains no worklog
+applies highlight spans as extmarks, and shows warnings. It contains no blotter
 semantics.
 
 The shell is a thin *layer*, not a single file. Alongside `init.lua`, the only
 code that touches Neovim, IO, or UI is `health.lua` (the `:checkhealth` probe),
-`ftplugin/worklog.lua` (attaches the highlighter), and the sources shell modules
+`ftplugin/blotter.lua` (attaches the highlighter), and the sources shell modules
 (`sources/http`, `sources/sync`, and the top-level `telescope`). The semantic core -- and
 even the source providers and the highlighter -- stay pure; see below.
 
 ## Sources
 
-External work-item sources (e.g. Azure DevOps) let `:WorklogInsert <source>` pick a
+External work-item sources (e.g. Azure DevOps) let `:BlotInsert <source>` pick a
 tracker item and insert it, while keeping the same pure-core discipline: the
 provider logic is pure and only IO/UI is shell.
 
@@ -364,13 +364,13 @@ A source is a plain table implementing a small contract:
 fetch(cb)            -- async: cb(items|nil, err); the default item set
 format_item(item)    -- item -> picker display line
 format_items(items)  -- optional: aligned display lines for the whole list
-to_entry_text(item)  -- item -> inserted activity text
+to_blot_text(item)  -- item -> inserted activity text
 search(query, cb)    -- optional: async live search (cb(items|nil, err))
 ```
 
 An item is `{ id, title, type?, state?, url? }` (`id`/`title` required). Built-in
 source types are declared in `setup{ sources = { ... } }`; custom sources register
-directly via `require("worklog.sources.registry").register(name, source)`, which
+directly via `require("blotter.sources.registry").register(name, source)`, which
 validates the contract.
 
 Layering:
@@ -381,8 +381,8 @@ sources/cache.lua         pure   cache envelope codec + TTL staleness
 sources/picker.lua        pure   live-search helpers (align / merge / display / should_query)
 sources/azure_devops.lua  pure   the ADO provider (pure via injected deps)
 sources/http.lua          shell  the only networked file: curl via jobstart
-sources/sync.lua          shell  on-disk cache + lazy-TTL / :WorklogSync refresh
-telescope.lua             shell  optional live picker (top-level; :WorklogInsert + :WorklogRename)
+sources/sync.lua          shell  on-disk cache + lazy-TTL / :BlotterSync refresh
+telescope.lua             shell  optional live picker (top-level; :BlotInsert + :BlotRename)
 ```
 
 The ADO provider stays pure through **dependency injection**: `init.lua` hands it
@@ -390,17 +390,17 @@ The ADO provider stays pure through **dependency injection**: `init.lua` hands i
 injected deps and the provider is unit-tested offline with a fake transport.
 
 Pick-time is offline and synchronous: read the per-source JSON cache
-(`stdpath('cache')/worklog/sources/<name>.json`) and open the picker. The cache is
+(`stdpath('cache')/blotter/sources/<name>.json`) and open the picker. The cache is
 refreshed only by the occasional sync (in the background when stale, or via
-`:WorklogSync`), never in the hot path. The PAT is resolved lazily by
+`:BlotterSync`), never in the hot path. The PAT is resolved lazily by
 `token_resolver` and never written to the cache.
 
 Insertion still flows through the pure `usecases/insert_entry` + an edit script, and
-`insert_entry` runs the text through `entry.sanitize_text` so a work-item title can
+`insert_entry` runs the text through `blot.sanitize_text` so a work-item title can
 never inject trailing `#tag` / `@location` / `!L` metadata -- no source has to
 remember to do it.
 
-Telescope is optional. `:WorklogInsert <source>` uses `vim.ui.select` (which any
+Telescope is optional. `:BlotInsert <source>` uses `vim.ui.select` (which any
 ui-select provider upgrades) by default; when Telescope is installed and the source
 implements `search`, it opens the live picker that searches the whole tracker as you
 type. Live whole-project search is the only Telescope-exclusive capability --
