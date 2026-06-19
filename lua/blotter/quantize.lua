@@ -134,8 +134,8 @@ function M.project_quantized_items(unrounded_items, quantized_items, key_fields,
       projected.nudge = quantized_item.nudge
     end
 
-    if item.source_entry_rows then
-      projected.source_entry_rows = item.source_entry_rows
+    if item.source_blot_rows then
+      projected.source_blot_rows = item.source_blot_rows
     end
 
     table.insert(result, projected)

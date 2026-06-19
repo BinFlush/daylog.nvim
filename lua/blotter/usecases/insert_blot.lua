@@ -1,11 +1,11 @@
-local entry = require("blotter.entry")
+local blot = require("blotter.blot")
 local support = require("blotter.usecases.support")
 
 local M = {}
 
--- Insert a fully-formed "HH:MM <text>" entry into the worklog containing the
+-- Insert a fully-formed "HH:MM <text>" blot into the worklog containing the
 -- cursor. `text` is the resolved activity string (no leading timestamp); it is
--- sanitized here (entry.sanitize_text) so a value built from external data -- e.g.
+-- sanitized here (blot.sanitize_text) so a value built from external data -- e.g.
 -- a work-item title ending in #x / @x / !L -- can never form trailing metadata,
 -- regardless of the source. A sibling of insert_now: that one stamps a bare
 -- timestamp, this one stamps a timestamp plus an activity.
@@ -23,21 +23,21 @@ function M.run(lines, row, time, text)
   end
 
   -- Inherit the sticky tag/location/offset at the insertion point. Passing that
-  -- same state as the entry's effective metadata makes entry.format emit no tokens,
-  -- and passing it to insert_entry_edit makes the follower rewrite a guaranteed
+  -- same state as the blot's effective metadata makes blot.format emit no tokens,
+  -- and passing it to insert_blot_edit makes the follower rewrite a guaranteed
   -- no-op -- so the result is byte-identical to a hand-typed "HH:MM <text>" and no
-  -- following entry silently changes tag, location, or offset.
+  -- following blot silently changes tag, location, or offset.
   local state = support.get_insert_state(ctx.block, minutes)
-  local inserted_line = entry.format({
+  local inserted_line = blot.format({
     minutes = minutes,
-    text = entry.sanitize_text(text),
+    text = blot.sanitize_text(text),
     tag = state.tag,
     location = state.location,
     offset = state.offset,
     logged = false,
   }, state.tag, state.location, state.offset)
 
-  local result = support.insert_entry_edit(
+  local result = support.insert_blot_edit(
     ctx.block,
     minutes,
     inserted_line,

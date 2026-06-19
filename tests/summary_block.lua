@@ -73,8 +73,8 @@ return function(t)
 
   t.test("fit_align does not let blank matches pull the span over the worklog body", function()
     -- Regression: a fresh worklog's small summary growing after a same-time insert. An
-    -- entry-swallowing span must not tie the real summary by matching extra blank lines,
-    -- so the span starts at the old summary header (4), not the entry (1).
+    -- blot-swallowing span must not tie the real summary by matching extra blank lines,
+    -- so the span starts at the old summary header (4), not the blot (1).
     local expected = {
       "--- summary q=15 d=dec ---",
       "0.00h (+0m) hey",
@@ -171,10 +171,10 @@ return function(t)
     )
   end)
 
-  t.test("summary_block keeps an entry flush against a header-less summary", function()
+  t.test("summary_block keeps an blot flush against a header-less summary", function()
     -- The summary header was deleted AND there is no separator blank, so the rows sit
-    -- directly under the final entry (21:00 done). The window starts after the last
-    -- entry, so that entry can never be drawn into the span and rewritten away.
+    -- directly under the final blot (21:00 done). The window starts after the last
+    -- blot, so that blot can never be drawn into the span and rewritten away.
     t.eq(
       locate({
         "--- blots #sometag @location q=15 d=dec ---",
@@ -217,7 +217,7 @@ return function(t)
   end)
 
   t.test("summary_block locates a summary when the worklog has no completed interval", function()
-    -- One entry -> no intervals -> an empty fresh summary that alignment cannot
+    -- One blot -> no intervals -> an empty fresh summary that alignment cannot
     -- anchor; structural recognition still locates the stale summary to rewrite, so
     -- a refresh replaces it instead of stacking a second summary below it.
     t.eq(

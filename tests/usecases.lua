@@ -90,7 +90,7 @@ return function(t)
     t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
-  t.test("insert_now appends a new entry before trailing blank lines", function()
+  t.test("insert_now appends a new blot before trailing blank lines", function()
     local result = insert_now.run({
       "--- blots ---",
       "08:00 first",
@@ -128,7 +128,7 @@ return function(t)
     t.eq(result.edits[1].start_index, 4)
   end)
 
-  t.test("insert_now still appends after the last entry with no trailing gap", function()
+  t.test("insert_now still appends after the last blot with no trailing gap", function()
     local result = insert_now.run({
       "--- blots ---",
       "08:00 first",
@@ -252,7 +252,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current re-emits the tag change and preserves the following entry", function()
+  t.test("repeat_current re-emits the tag change and preserves the following blot", function()
     local result = repeat_current.run({
       "--- blots #ClientA @office ---",
       "08:00 planning",
@@ -271,7 +271,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current re-emits the location change and preserves the following entry", function()
+  t.test("repeat_current re-emits the location change and preserves the following blot", function()
     local result = repeat_current.run({
       "--- blots #ClientA @office ---",
       "08:00 planning",
@@ -290,7 +290,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current emits a tag clear and preserves the following entry", function()
+  t.test("repeat_current emits a tag clear and preserves the following blot", function()
     local result = repeat_current.run({
       "--- blots @office ---",
       "08:00 planning",
@@ -309,7 +309,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current emits a location clear and preserves the following entry", function()
+  t.test("repeat_current emits a location clear and preserves the following blot", function()
     local result = repeat_current.run({
       "--- blots #ClientA ---",
       "08:00 planning",
@@ -380,7 +380,7 @@ return function(t)
 
   t.test("repeat_current repeats the activity behind a main summary row", function()
     -- Cursor on the "planning" summary row (line 7) repeats it into the worklog,
-    -- exactly as if the cursor were on its source entry. The sticky location has
+    -- exactly as if the cursor were on its source blot. The sticky location has
     -- since moved to @home, so the replay re-emits @office to preserve meaning.
     local result = repeat_current.run({
       "--- blots #ClientA @office ---",
@@ -414,7 +414,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current repeats the latest source entry behind a summary row", function()
+  t.test("repeat_current repeats the latest source blot behind a summary row", function()
     -- "implementation" is logged at @home then later at @office; repeating the
     -- summary row must replay the latest occurrence (@office), which matches the
     -- sticky location at insert time and so needs no @location token.
@@ -496,9 +496,9 @@ return function(t)
     t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
   end)
 
-  t.test("carryover.entry_at_row resolves a main summary row to its source entry", function()
+  t.test("carryover.entry_at_row resolves a main summary row to its source blot", function()
     -- The cross-day :BlotRepeat path uses entry_at_row; a cursor on a summary
-    -- row maps back to the source entry so it works from the summary too.
+    -- row maps back to the source blot so it works from the summary too.
     local activity = carryover.entry_at_row({
       "--- blots #ClientA ---",
       "08:00 planning",
@@ -630,7 +630,7 @@ return function(t)
     })
   end)
 
-  t.test("log_current marks the source entry behind an unrounded summary row", function()
+  t.test("log_current marks the source blot behind an unrounded summary row", function()
     local result = log_current.run({
       "--- blots ---",
       "08:00 implementation",
@@ -665,7 +665,7 @@ return function(t)
     })
   end)
 
-  t.test("log_current marks the source entry behind a quantized summary row", function()
+  t.test("log_current marks the source blot behind a quantized summary row", function()
     local result = log_current.run({
       "--- blots q=30 ---",
       "08:00 implementation",
@@ -700,7 +700,7 @@ return function(t)
     })
   end)
 
-  t.test("log_current marks every source entry contributing to one summary row", function()
+  t.test("log_current marks every source blot contributing to one summary row", function()
     local result = log_current.run({
       "--- blots ---",
       "08:00 implementation",
@@ -745,7 +745,7 @@ return function(t)
     })
   end)
 
-  t.test("log_current leaves notes under entries untouched", function()
+  t.test("log_current leaves notes under blots untouched", function()
     local result = log_current.run({
       "--- blots ---",
       "08:00 implementation",
@@ -1122,7 +1122,7 @@ return function(t)
   t.test(
     "log_current regression: quantized summary group with note line and partial logging",
     function()
-      -- Reported bug: :BlotLog updated the source entry but left the
+      -- Reported bug: :BlotLog updated the source blot but left the
       -- rendered summary stale. After the fix the full group — including the
       -- newly required logged section — is replaced in one atomic edit.
       local lines = {
@@ -1269,19 +1269,16 @@ return function(t)
     )
   end)
 
-  t.test(
-    "carryover last_running_entry is nil when the final entry is the 24:00 boundary",
-    function()
-      t.eq(
-        carryover.last_running_entry({
-          "--- blots #ClientA @office ---",
-          "08:00 planning",
-          "24:00 wrapping up",
-        }),
-        nil
-      )
-    end
-  )
+  t.test("carryover last_running_entry is nil when the final blot is the 24:00 boundary", function()
+    t.eq(
+      carryover.last_running_entry({
+        "--- blots #ClientA @office ---",
+        "08:00 planning",
+        "24:00 wrapping up",
+      }),
+      nil
+    )
+  end)
 
   t.test("carryover entry_at_row returns the activity on the cursor row", function()
     local activity = carryover.entry_at_row({
@@ -1346,8 +1343,8 @@ return function(t)
     t.eq(result.edits[1].lines, { "--- blots utc+2 ---" })
   end)
 
-  t.test("repeat_current carries the source entry's utc offset", function()
-    -- Repeat the utc-4 entry at 09:00, which sits in the utc+2 stretch, so the
+  t.test("repeat_current carries the source blot's utc offset", function()
+    -- Repeat the utc-4 blot at 09:00, which sits in the utc+2 stretch, so the
     -- carried offset re-emits as utc-4 on the new line.
     local result = repeat_current.run({
       "--- blots utc+2 ---",
@@ -1367,7 +1364,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current pins a following entry's offset when the insert changes it", function()
+  t.test("repeat_current pins a following blot's offset when the insert changes it", function()
     -- Repeating the utc-4 trip at 08:30 (inside the utc+2 stretch) would otherwise
     -- make the following 09:00 sync silently inherit utc-4; the follower is pinned
     -- back to utc+2 so its effective offset is preserved.

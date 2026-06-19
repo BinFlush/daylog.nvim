@@ -49,7 +49,7 @@ return function(t)
   end)
 
   t.test("refresh collapses a stale summary when the worklog shrinks to empty", function()
-    -- Removing the only completed interval leaves one entry (no intervals), so the
+    -- Removing the only completed interval leaves one blot (no intervals), so the
     -- fresh summary is empty. The large stale summary is still located
     -- (structurally) and replaced in place, instead of a second summary being added.
     local result = refresh_summaries.run({
@@ -211,10 +211,10 @@ return function(t)
     })
   end)
 
-  t.test("refresh of a grown summary keeps the worklog entries", function()
+  t.test("refresh of a grown summary keeps the worklog blots", function()
     -- A fresh worklog's empty summary, after a same-time :BlotInsert added a second
-    -- entry, must be replaced in place -- not swallow the entries above it. The edit
-    -- starts at the old summary (index 4), leaving the two entries untouched.
+    -- blot, must be replaced in place -- not swallow the blots above it. The edit
+    -- starts at the old summary (index 4), leaving the two blots untouched.
     local result = refresh_summaries.run({
       "--- blots #sometag @location q=15 d=dec ---",
       "08:00 hey",
@@ -247,8 +247,8 @@ return function(t)
     })
   end)
 
-  t.test("refresh restores a deleted summary row without eating an entry", function()
-    -- Deleting a summary row is undone in place; the worklog's entries (here the final
+  t.test("refresh restores a deleted summary row without eating an blot", function()
+    -- Deleting a summary row is undone in place; the worklog's blots (here the final
     -- 21:00 close) are never drawn into the rewrite -- the window starts after them.
     local result = refresh_summaries.run({
       "--- blots #sometag @location q=15 d=dec ---",
@@ -447,7 +447,7 @@ return function(t)
       "09:00 done",
     })
 
-    -- The summary is inserted after the last entry; re-running on the result is a
+    -- The summary is inserted after the last blot; re-running on the result is a
     -- no-op (covered by "refresh is a no-op when the summary is already current").
     t.eq(result, {
       warnings = {},
@@ -485,7 +485,7 @@ return function(t)
       "1.00h (+0m) workday",
     })
 
-    -- The first worklog's summary lands after its last entry (row 3); the blank
+    -- The first worklog's summary lands after its last blot (row 3); the blank
     -- before the second worklog stays as the separator. The second worklog's
     -- summary is already current, so it is left untouched.
     t.eq(result, {
@@ -577,7 +577,7 @@ return function(t)
 
   t.test("refresh warns but does not edit a structurally broken document", function()
     -- A blank first line pushes the header off row 1: the document is structurally
-    -- broken, so nothing is rewritten, but the out-of-order entries below still
+    -- broken, so nothing is rewritten, but the out-of-order blots below still
     -- warn rather than going silent.
     local result = refresh_summaries.run({
       "",

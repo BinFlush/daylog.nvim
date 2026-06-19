@@ -117,7 +117,7 @@ function M.new(_name, cfg, deps)
       for _, work_item in ipairs(decoded.value or {}) do
         local fields = work_item.fields or {}
         local id = tostring(work_item.id or fields["System.Id"] or "")
-        -- Skip a malformed entry with no id rather than emit an empty-id item.
+        -- Skip a malformed blot with no id rather than emit an empty-id item.
         if id ~= "" then
           table.insert(items, {
             id = id,
@@ -262,7 +262,7 @@ function M.new(_name, cfg, deps)
     return picker.align(rows)
   end
 
-  function source.to_entry_text(item)
+  function source.to_blot_text(item)
     local map = {
       id = tostring(item.id or ""),
       title = item.title or "",
@@ -271,7 +271,7 @@ function M.new(_name, cfg, deps)
       project = item.project or "",
     }
 
-    -- Plain template expansion; insert_entry sanitizes the result so the title
+    -- Plain template expansion; insert_blot sanitizes the result so the title
     -- cannot inject trailing metadata.
     return (
       template:gsub("{(%w+)}", function(key)

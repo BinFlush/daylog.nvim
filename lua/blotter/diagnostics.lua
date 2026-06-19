@@ -11,7 +11,7 @@ M.NO_WORKLOG_ERROR = NO_WORKLOG_ERROR
 
 function M.invalid_entry_error(diagnostic)
   return string.format(
-    "worklog: invalid worklog entry at line %d: %s",
+    "worklog: invalid worklog blot at line %d: %s",
     diagnostic.row,
     diagnostic.message
   )
@@ -43,10 +43,10 @@ function M.message(diagnostic)
   return "worklog: " .. diagnostic.message
 end
 
--- True when the parsed document has any timestamped entry (valid or not). Lets us
+-- True when the parsed document has any timestamped blot (valid or not). Lets us
 -- flag a missing worklog header only when there is clearly worklog content, not
 -- in an empty or prose-only buffer.
-local function has_entry_node(parsed)
+local function has_blot_node(parsed)
   for _, node in ipairs(parsed.nodes) do
     if node.kind == syntax.NODE_KIND.ENTRY or node.kind == syntax.NODE_KIND.INVALID_ENTRY then
       return true
@@ -56,11 +56,11 @@ local function has_entry_node(parsed)
   return false
 end
 
-M.has_entry_node = has_entry_node
+M.has_blot_node = has_blot_node
 
--- Every problem that prevents a clean summary, as { row, message } entries:
+-- Every problem that prevents a clean summary, as { row, message } blots:
 -- whole-document structure (a bad first header, bad header options), one problem
--- per worklog block (out-of-order timestamps, an invalid entry, 24:00 not final),
+-- per worklog block (out-of-order timestamps, an invalid blot, 24:00 not final),
 -- and timestamped lines with no worklog header at all. Used by the live summary
 -- refresh, which publishes them as buffer diagnostics.
 function M.collect(analysis)
@@ -79,7 +79,7 @@ function M.collect(analysis)
     end
   end
 
-  if #analysis.worklog_blocks == 0 and has_entry_node(analysis.document) then
+  if #analysis.worklog_blocks == 0 and has_blot_node(analysis.document) then
     table.insert(warnings, { row = 1, message = NO_WORKLOG_ERROR })
   end
 

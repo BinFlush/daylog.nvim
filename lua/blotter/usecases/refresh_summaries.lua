@@ -7,7 +7,7 @@ local support = require("blotter.usecases.support")
 
 local M = {}
 
--- Refresh every valid worklog's summary so it matches its entries -- creating one
+-- Refresh every valid worklog's summary so it matches its blots -- creating one
 -- where missing -- and report the problems that stop a worklog from being summarized.
 --
 -- Edits are conservative: a valid worklog's summary is created when missing and
@@ -18,7 +18,7 @@ local M = {}
 --
 -- Warnings are not conservative: an unrefreshed summary is otherwise a silent
 -- stall, so run also returns `warnings` for every problem the analyzer can see --
--- a broken or absent header, out-of-order timestamps, an invalid entry, 24:00 not
+-- a broken or absent header, out-of-order timestamps, an invalid blot, 24:00 not
 -- final -- whether or not a summary exists yet. Each warning is { row, message };
 -- the shell publishes them as buffer diagnostics so they clear when fixed.
 

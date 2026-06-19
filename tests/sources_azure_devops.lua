@@ -160,10 +160,10 @@ return function(t)
     t.eq(#transport.seen, 0)
   end)
 
-  t.test("to_entry_text expands the template (sanitization happens at insert)", function()
+  t.test("to_blot_text expands the template (sanitization happens at insert)", function()
     local source = new_source(base_cfg(), fake_transport(function() end))
-    t.eq(source.to_entry_text({ id = "5", title = "Fix login" }), "5 Fix login")
-    t.eq(source.to_entry_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
+    t.eq(source.to_blot_text({ id = "5", title = "Fix login" }), "5 Fix login")
+    t.eq(source.to_blot_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
   end)
 
   t.test("format_item defaults include id, type, state and title", function()

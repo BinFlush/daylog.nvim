@@ -18,7 +18,7 @@ return function(t)
     return false
   end
 
-  t.test("today opens a new journal file and initializes the first entry", function()
+  t.test("today opens a new journal file and initializes the first blot", function()
     local root = vim.fn.tempname()
     local now = os.time({
       year = 2026,
@@ -249,7 +249,7 @@ return function(t)
       with_mocked_time(now, function()
         vim.cmd("edit " .. vim.fn.fnameescape(today_path))
 
-        -- The out-of-order entries keep navigation on today.
+        -- The out-of-order blots keep navigation on today.
         vim.cmd("BlotterPrevDay")
         t.eq(vim.api.nvim_buf_get_name(0), today_path)
 
@@ -850,7 +850,7 @@ return function(t)
         .. os.date("%Y-%m-%d", target)
         .. ".blot"
       t.eq(vim.api.nvim_buf_get_name(0), path)
-      -- A header (with defaults) and an empty summary, but no timestamped entry.
+      -- A header (with defaults) and an empty summary, but no timestamped blot.
       t.eq(t.get_lines(), {
         "--- blots #ClientA q=30 d=hm ---",
         "",
@@ -1992,7 +1992,7 @@ return function(t)
         vim.cmd("BlotRepeat")
       end)
 
-      -- deep work is inserted at 10:00, after the existing entries.
+      -- deep work is inserted at 10:00, after the existing blots.
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       local lines = t.get_lines()
       t.eq(lines[2], "08:00 standup")
@@ -2001,7 +2001,7 @@ return function(t)
     end)
   end)
 
-  t.test("repeat on another day with the cursor off an entry warns and does nothing", function()
+  t.test("repeat on another day with the cursor off an blot warns and does nothing", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
@@ -2042,7 +2042,7 @@ return function(t)
       "09:00 done",
     })
     local today = os.time({ year = 2026, month = 5, day = 22, hour = 8, min = 0, sec = 0 })
-    -- today already has out-of-order entries, so the activity cannot be seeded into it.
+    -- today already has out-of-order blots, so the activity cannot be seeded into it.
     write_journal_file(root, "%Y", today, {
       "--- blots #ClientA @office ---",
       "09:00 later",
@@ -2096,7 +2096,7 @@ return function(t)
     end)
   end)
 
-  t.test("repeat past midnight carries the running task and repeats the cursor entry", function()
+  t.test("repeat past midnight carries the running task and repeats the cursor blot", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
@@ -2269,7 +2269,7 @@ return function(t)
     end)
   end)
 
-  t.test("repeat past midnight inserts the cursor entry into an existing today on disk", function()
+  t.test("repeat past midnight inserts the cursor blot into an existing today on disk", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
@@ -2299,7 +2299,7 @@ return function(t)
         vim.cmd("BlotRepeat")
       end)
 
-      -- Switched to today, with the cursor entry brought in at the current time.
+      -- Switched to today, with the cursor blot brought in at the current time.
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       local lines = t.get_lines()
       t.eq(lines[1], "--- blots #ClientA @office ---")
@@ -2317,7 +2317,7 @@ return function(t)
     end)
   end)
 
-  t.test("repeat past midnight inserts the cursor entry into an unsaved today buffer", function()
+  t.test("repeat past midnight inserts the cursor blot into an unsaved today buffer", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
@@ -2347,7 +2347,7 @@ return function(t)
         vim.cmd("BlotRepeat")
       end)
 
-      -- Switched to the unsaved today buffer, with the entry inserted there.
+      -- Switched to the unsaved today buffer, with the blot inserted there.
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       local lines = t.get_lines()
       t.eq(lines[2], "08:00 morning sync")

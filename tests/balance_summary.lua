@@ -74,9 +74,9 @@ return function(t)
     })
   end
 
-  t.test("balance rounds the workday total up, marking the least-error entry", function()
+  t.test("balance rounds the workday total up, marking the least-error blot", function()
     -- plan has the larger remainder (5m vs review's 0m), so it is the cheapest to
-    -- round up; the marker lands on its entry and every containing section shifts.
+    -- round up; the marker lands on its blot and every containing section shifts.
     local out = run(sample(), "workday", 1)
 
     t.eq(out[2], "08:00 plan round+1")
@@ -100,7 +100,7 @@ return function(t)
     t.eq(cleared, sample())
   end)
 
-  t.test("balance set directly on an entry marks that entry", function()
+  t.test("balance set directly on an blot marks that blot", function()
     local out = run(sample(), "08:50 review", 1)
 
     t.eq(out[3], "08:50 review round+1")
@@ -167,8 +167,8 @@ return function(t)
     t.eq(out[row_of(out, "(-12m) review")], "1.50h (-12m) review round+1")
   end)
 
-  t.test("balance refuses an entry that starts no interval", function()
-    -- The closing entry of the day starts no interval, so it belongs to no
+  t.test("balance refuses an blot that starts no interval", function()
+    -- The closing blot of the day starts no interval, so it belongs to no
     -- quantization row and cannot be rounded.
     local lines = sample()
     local _, err = balance.run(lines, row_of(lines, "09:35 done"), 1)
@@ -202,7 +202,7 @@ return function(t)
     t.eq(wd[row_of(wd, ") workday")], "1.00h (-15m) workday round+1")
   end)
 
-  t.test("balance refuses when the cursor is not on a summary row or entry", function()
+  t.test("balance refuses when the cursor is not on a summary row or blot", function()
     local lines = sample()
     local _, err = balance.run(lines, row_of(lines, "--- blots"), 1)
     t.eq(err, balance.NOT_BALANCEABLE)

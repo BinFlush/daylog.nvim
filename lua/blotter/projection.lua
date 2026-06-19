@@ -55,17 +55,17 @@ end
 -- `key_fields` decides which row fields define identity, while `fields` decides
 -- which descriptive labels survive into the projected row.
 -- Durations are always accumulated, and first-seen group order is preserved.
--- When `accumulate_source_entry_rows` is true, every row's `source_entry_rows`
--- (or single `source_entry_row`) is concatenated into the bucket in stable
+-- When `accumulate_source_blot_rows` is true, every row's `source_blot_rows`
+-- (or single `source_blot_row`) is concatenated into the bucket in stable
 -- source order so main summary items can carry provenance back to the
--- contributing entries.
+-- contributing blots.
 -- `nudge_mode` controls how the manual rounding nudge aggregates into a bucket:
 -- "sum" (the default) adds it up -- correct when projecting fine-grained rows into
 -- sections, where a section's nudge is the cumulative shift of its rows. "max"
 -- takes the signed value of largest magnitude -- correct when folding the intervals
 -- of one fine-grained row, which all carry that row's single nudge (so marking some
 -- or all of an activity's intervals yields the same row nudge, never a multiple).
-function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows, nudge_mode)
+function M.project_rows(rows, key_fields, fields, accumulate_source_blot_rows, nudge_mode)
   local buckets = {}
   local order = {}
 
@@ -82,8 +82,8 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows, 
         bucket[field] = row[field]
       end
 
-      if accumulate_source_entry_rows then
-        bucket.source_entry_rows = {}
+      if accumulate_source_blot_rows then
+        bucket.source_blot_rows = {}
       end
 
       put_nested(buckets, row, key_fields, bucket)
@@ -106,13 +106,13 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows, 
       end
     end
 
-    if accumulate_source_entry_rows then
-      if row.source_entry_rows then
-        for _, source_row in ipairs(row.source_entry_rows) do
-          table.insert(bucket.source_entry_rows, source_row)
+    if accumulate_source_blot_rows then
+      if row.source_blot_rows then
+        for _, source_row in ipairs(row.source_blot_rows) do
+          table.insert(bucket.source_blot_rows, source_row)
         end
-      elseif row.source_entry_row then
-        table.insert(bucket.source_entry_rows, row.source_entry_row)
+      elseif row.source_blot_row then
+        table.insert(bucket.source_blot_rows, row.source_blot_row)
       end
     end
   end

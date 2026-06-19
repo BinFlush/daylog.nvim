@@ -4,53 +4,53 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Semantic worklog entry codec.
+-- Semantic worklog blot codec.
 --
 -- This module is responsible for the smallest meaningful worklog unit: a single
--- timestamped entry line. It parses one source line into semantic entry data
--- and formats semantic entries back into canonical source lines.
+-- timestamped blot line. It parses one source line into semantic blot data
+-- and formats semantic blots back into canonical source lines.
 
 function M.minutes_string(minutes)
   return string.format("%02d:%02d", math.floor(minutes / 60), minutes % 60)
 end
 
-function M.format(entry, current_tag, current_location, current_offset)
-  local parts = { M.minutes_string(entry.minutes) }
+function M.format(blot, current_tag, current_location, current_offset)
+  local parts = { M.minutes_string(blot.minutes) }
 
-  if entry.text ~= "" then
-    table.insert(parts, entry.text)
+  if blot.text ~= "" then
+    table.insert(parts, blot.text)
   end
 
-  if entry.tag ~= current_tag then
-    if entry.tag == nil then
+  if blot.tag ~= current_tag then
+    if blot.tag == nil then
       table.insert(parts, syntax.TAG_CLEAR_TOKEN)
     else
-      table.insert(parts, "#" .. entry.tag)
+      table.insert(parts, "#" .. blot.tag)
     end
   end
 
-  if entry.location ~= current_location then
-    if entry.location == nil then
+  if blot.location ~= current_location then
+    if blot.location == nil then
       table.insert(parts, syntax.LOCATION_CLEAR_TOKEN)
     else
-      table.insert(parts, "@" .. entry.location)
+      table.insert(parts, "@" .. blot.location)
     end
   end
 
   -- The offset is emitted on change like #tag/@location, but has no clear token:
   -- once set it is always a concrete value, so a nil offset (no offsets in play)
   -- emits nothing. The order is `#tag @location utc±H round±N !L`.
-  if entry.offset ~= nil and entry.offset ~= current_offset then
-    table.insert(parts, syntax.utc_offset_token(entry.offset))
+  if blot.offset ~= nil and blot.offset ~= current_offset then
+    table.insert(parts, syntax.utc_offset_token(blot.offset))
   end
 
-  -- The rounding nudge is per-entry and non-sticky (like !L): always emitted when
+  -- The rounding nudge is per-blot and non-sticky (like !L): always emitted when
   -- nonzero, never inherited, no current_* comparison.
-  if entry.nudge and entry.nudge ~= 0 then
-    table.insert(parts, syntax.round_nudge_token(entry.nudge))
+  if blot.nudge and blot.nudge ~= 0 then
+    table.insert(parts, syntax.round_nudge_token(blot.nudge))
   end
 
-  if entry.logged then
+  if blot.logged then
     table.insert(parts, syntax.LOGGED_TOKEN)
   end
 
@@ -64,22 +64,22 @@ function M.parse(line, current_tag, current_location, current_offset)
     return false, node.message
   end
 
-  local entry = analyze.entry_from_node(node, current_tag, current_location, current_offset)
-  if not entry then
+  local blot = analyze.entry_from_node(node, current_tag, current_location, current_offset)
+  if not blot then
     return nil
   end
 
-  return analyze.copy_fields(entry)
+  return analyze.copy_fields(blot)
 end
 
--- A control token is exactly what the parser peels from an entry's trailing run, so
+-- A control token is exactly what the parser peels from an blot's trailing run, so
 -- defer to the one grammar document exports rather than forking the patterns here --
 -- a future control token then stays parenthesized automatically.
 local function is_dangerous_token(token)
   return document.classify_control_token(token) ~= nil
 end
 
--- Make `text` safe to use as an entry's activity text so it can never grow
+-- Make `text` safe to use as an blot's activity text so it can never grow
 -- trailing metadata. The parser peels metadata by scanning whitespace tokens from
 -- the end while they are control tokens (#tag, @loc, #-, @-, !L); wrap each token
 -- in the trailing run of such tokens in parentheses so the scan stops at a plain

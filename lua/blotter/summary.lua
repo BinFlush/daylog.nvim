@@ -6,17 +6,17 @@ local M = {}
 
 -- Semantic reporting for worklog blocks.
 --
--- Summaries are built directly from semantic entries or worklog blocks. This
+-- Summaries are built directly from semantic blots or worklog blocks. This
 -- module owns the worklog domain of reporting: interval derivation, the report
 -- sections, sorting, and logged totals. The generic grouping engine lives in
 -- projection.lua and the rounding arithmetic in quantize.lua.
 
-local function build_intervals(entries)
+local function build_intervals(blots)
   local intervals = {}
 
-  for i = 1, #entries - 1 do
-    local current = entries[i]
-    local next = entries[i + 1]
+  for i = 1, #blots - 1 do
+    local current = blots[i]
+    local next = blots[i + 1]
 
     -- Durations are measured in effective UTC time (`local - offset`), so an
     -- interval that spans a clock move -- a timezone crossing or a DST flip -- is
@@ -35,10 +35,10 @@ local function build_intervals(entries)
       location = current.location,
       workday_excluded = current.workday_excluded,
       logged = current.logged and true or nil,
-      -- The rounding nudge belongs to the entry that starts the interval; it sums
+      -- The rounding nudge belongs to the blot that starts the interval; it sums
       -- up the fine-grained quantization row this interval folds into.
       nudge = current.nudge,
-      source_entry_row = current.row,
+      source_blot_row = current.row,
     })
   end
 
@@ -49,7 +49,7 @@ end
 -- They preserve location so tag/location totals can be projected from the
 -- same quantized rows, even though main summary rows do not render location.
 -- Provenance accumulates here so each fine-grained row carries the source
--- entry rows of every interval that fed into it.
+-- blot rows of every interval that fed into it.
 local function build_fine_grained_rows(intervals)
   return projection.project_rows(
     intervals,
@@ -276,9 +276,9 @@ end
 -- quantized section is then projected from that one quantized fine-grained
 -- base. `#ooo` rows participate in the same pass, but are excluded from the
 -- final workday total.
-function M.summarize_entries(entries, quantize_minutes)
+function M.summarize_entries(blots, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
-  local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
+  local unrounded_rows = build_fine_grained_rows(build_intervals(blots))
   local unrounded_summary = build_summary_from_rows(unrounded_rows)
   local target_total =
     quantize.round_to_nearest_bucket(unrounded_summary.activity_total, bucket_minutes)
@@ -318,17 +318,17 @@ function M.summarize_entries(entries, quantize_minutes)
 end
 
 function M.summarize_block(block)
-  return M.summarize_entries(block.entries, block.quantize_minutes)
+  return M.summarize_entries(block.blots, block.quantize_minutes)
 end
 
--- The quantized fine-grained rows for a set of entries: the rounding-balance
+-- The quantized fine-grained rows for a set of blots: the rounding-balance
 -- granule keyed by text+tag+location+workday_excluded+logged, each carrying its
 -- unrounded_duration, its quantized `duration` (with any current `nudge` applied),
--- its current `nudge`, and `source_entry_rows` provenance. The balance calculator
--- reasons over these to pick which row to nudge and which source entry to mark.
-function M.fine_grained_quantized(entries, quantize_minutes)
+-- its current `nudge`, and `source_blot_rows` provenance. The balance calculator
+-- reasons over these to pick which row to nudge and which source blot to mark.
+function M.fine_grained_quantized(blots, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
-  local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
+  local unrounded_rows = build_fine_grained_rows(build_intervals(blots))
 
   local activity_total = 0
   for _, row in ipairs(unrounded_rows) do

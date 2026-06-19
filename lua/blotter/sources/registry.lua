@@ -2,7 +2,7 @@ local M = {}
 
 -- Source registry and the source contract.
 --
--- A source is a plain table { fetch, format_item, format_items?, to_entry_text,
+-- A source is a plain table { fetch, format_item, format_items?, to_blot_text,
 -- search? } that never touches the Neovim API or the buffer. Built-in source types are
 -- instantiated from declarative config (see worklog.config) by the shell, which
 -- injects an async transport, a JSON codec, and a token resolver; the resulting
@@ -20,7 +20,7 @@ local M = {}
 ---@field fetch fun(cb: fun(items: WorklogItem[]|nil, err: string|nil)) Async: the default item set.
 ---@field format_item fun(item: WorklogItem): string Display line for the picker.
 ---@field format_items? fun(items: WorklogItem[]): string[] Optional: aligned display lines for the whole list.
----@field to_entry_text fun(item: WorklogItem): string Inserted activity text (sanitized automatically at insert).
+---@field to_blot_text fun(item: WorklogItem): string Inserted activity text (sanitized automatically at insert).
 ---@field search? fun(query: string, cb: fun(items: WorklogItem[]|nil, err: string|nil)) Optional live search.
 
 local registered = {}
@@ -31,7 +31,7 @@ local BUILTIN_TYPES = {
   azure_devops = "blotter.sources.azure_devops",
 }
 
-local CONTRACT = { "fetch", "format_item", "to_entry_text" }
+local CONTRACT = { "fetch", "format_item", "to_blot_text" }
 
 -- Validate a source object against the contract; returns an error message or nil.
 local function validate(name, source)
@@ -56,7 +56,7 @@ local function validate(name, source)
   return nil
 end
 
--- Instantiate a built-in source from a normalized config entry, injecting deps
+-- Instantiate a built-in source from a normalized config blot, injecting deps
 -- (transport, json, token_resolver) and validating the contract. Returns the
 -- source object or nil plus an error message.
 function M.instantiate(name, source_config, deps)

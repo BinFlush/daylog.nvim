@@ -101,7 +101,7 @@ end
 
 local root = vim.fn.getcwd()
 
-dofile(root .. "/tests/entry.lua")(t)
+dofile(root .. "/tests/blot.lua")(t)
 dofile(root .. "/tests/document.lua")(t)
 dofile(root .. "/tests/analyze.lua")(t)
 dofile(root .. "/tests/summary.lua")(t)
@@ -124,7 +124,7 @@ dofile(root .. "/tests/highlight.lua")(t)
 dofile(root .. "/tests/core_commands.lua")(t)
 dofile(root .. "/tests/journal_commands.lua")(t)
 dofile(root .. "/tests/health.lua")(t)
-dofile(root .. "/tests/insert_entry.lua")(t)
+dofile(root .. "/tests/insert_blot.lua")(t)
 dofile(root .. "/tests/sources_sanitize.lua")(t)
 dofile(root .. "/tests/sources_cache.lua")(t)
 dofile(root .. "/tests/sources_picker.lua")(t)

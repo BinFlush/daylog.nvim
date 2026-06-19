@@ -129,7 +129,7 @@ end
 
 -- Highlight the trailing run of metadata tokens (#tag / @location / !L, any order,
 -- each kind at most once) that the parser peels off the end of a line. Shared by
--- entries and summary rows. The caller only invokes it for valid entries and for
+-- blots and summary rows. The caller only invokes it for valid blots and for
 -- summary rows, so a run the parser rejects is never reached.
 local function push_trailing_metadata(spans, row, line)
   local tokens = document.tokens(line)
@@ -163,7 +163,7 @@ local function push_quant_errors(spans, row, line)
 end
 
 -- A row inside a summary section: its leading duration, rounding marker(s), and any
--- trailing #tag / @location the row still carries. The leading field is an entry's
+-- trailing #tag / @location the row still carries. The leading field is an blot's
 -- timestamp (a `16:00 ...` row that carried no marker) or a rendered duration token.
 local function push_summary_row(spans, row, line, kind)
   local duration = kind == syntax.NODE_KIND.ENTRY and TIMESTAMP_WIDTH

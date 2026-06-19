@@ -9,29 +9,29 @@ local M = {}
 --
 -- A worklog has a single summary. The rendered row is only a selector: the active
 -- worklog is analyzed from source, the matching summary item is recomputed, the
--- contributing source entries gain or lose a trailing !L, and the one summary is
+-- contributing source blots gain or lose a trailing !L, and the one summary is
 -- rebuilt from the updated source. The summary is a pure projection, so the rebuild
 -- needs no note preservation.
 --
 -- The cursor-to-row resolution and its staleness/ambiguity guard are the shared
 -- summary_cursor.resolve; :BlotLog accepts only a main summary_item row (a tag,
 -- location, logged, or total row is not loggable). Out-of-office rows cannot be
--- marked, and the contributing entries must already agree on their logged state.
+-- marked, and the contributing blots must already agree on their logged state.
 
 local REFUSE_OOO = "worklog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "worklog: logged marking is inconsistent; regenerate the summary"
 
 -- Recompute the summary with `logged` toggled on the target source rows, by copying
--- the block's semantic entries and flipping them in memory. This avoids re-parsing
+-- the block's semantic blots and flipping them in memory. This avoids re-parsing
 -- the buffer and yields the post-mark summary directly.
 local function rebuilt_summary(block, target_rows, target_logged)
-  local entries = support.modified_entries(block, function(copy)
+  local blots = support.modified_entries(block, function(copy)
     if target_rows[copy.row] then
       copy.logged = target_logged
     end
   end)
 
-  return summary.summarize_entries(entries, block.quantize_minutes)
+  return summary.summarize_entries(blots, block.quantize_minutes)
 end
 
 function M.run(lines, cursor_row)
@@ -48,7 +48,7 @@ function M.run(lines, cursor_row)
     return nil, validate_err or summary_cursor.STALE
   end
 
-  -- Only a main summary row carries loggable source entries; a tag / location /
+  -- Only a main summary row carries loggable source blots; a tag / location /
   -- logged / total row is not loggable.
   if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
     return nil, summary_cursor.STALE
@@ -62,7 +62,7 @@ function M.run(lines, cursor_row)
     return nil, REFUSE_OOO
   end
 
-  local source_rows = item.source_entry_rows or {}
+  local source_rows = item.source_blot_rows or {}
   if #source_rows == 0 then
     return nil, summary_cursor.STALE
   end
@@ -72,16 +72,14 @@ function M.run(lines, cursor_row)
     target_rows[source_row] = true
   end
 
-  for _, entry_item in ipairs(block.entry_items) do
-    if
-      target_rows[entry_item.start_row] and (entry_item.logged == true) ~= (item.logged == true)
-    then
+  for _, blot_item in ipairs(block.blot_items) do
+    if target_rows[blot_item.start_row] and (blot_item.logged == true) ~= (item.logged == true) then
       return nil, INCONSISTENT_SOURCE
     end
   end
 
-  local source_edits = support.rewrite_entry_lines(block, function(entry_item)
-    if target_rows[entry_item.start_row] then
+  local source_edits = support.rewrite_entry_lines(block, function(blot_item)
+    if target_rows[blot_item.start_row] then
       return { logged = target_logged }
     end
   end)
@@ -90,7 +88,7 @@ function M.run(lines, cursor_row)
   local rendered =
     render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
 
-  -- The summary rebuild targets higher rows than the source-entry edits, so it is
+  -- The summary rebuild targets higher rows than the source-blot edits, so it is
   -- applied first to avoid index drift when the rendered summary changes size.
   local all_edits = {
     {

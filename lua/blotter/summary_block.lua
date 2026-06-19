@@ -5,7 +5,7 @@ local M = {}
 -- Locator for a worklog's generated summary region.
 --
 -- A worklog has at most one summary, and it is derived output -- always exactly
--- `render(summarize(entries))`. The region is located two ways and the union is
+-- `render(summarize(blots))`. The region is located two ways and the union is
 -- returned, so each covers the other's blind spot:
 --
 --   * Content alignment (`align_find`, a Needleman-Wunsch fitting alignment, see
@@ -112,11 +112,11 @@ local function fit_align(expected, actual)
   return { start = b + 1, stop = stop, matches = matches }
 end
 
--- The alignment window: from just after the worklog's last timestamped entry to the
--- next worklog header / EOF. Anchoring the window past the entries is a hard guarantee
+-- The alignment window: from just after the worklog's last timestamped blot to the
+-- next worklog header / EOF. Anchoring the window past the blots is a hard guarantee
 -- that they can never be drawn into the matched span and rewritten away -- the summary
--- always follows the entries, and a deleted summary header only leaks its rows in as
--- notes, which still sit after the last entry.
+-- always follows the blots, and a deleted summary header only leaks its rows in as
+-- notes, which still sit after the last blot.
 local function tail_bounds(analysis, worklog_block)
   local blocks = analysis.blocks
   local start_index

@@ -20,7 +20,7 @@ return function(t)
       format_item = function(item)
         return item.id .. " " .. item.title
       end,
-      to_entry_text = function(item)
+      to_blot_text = function(item)
         return item.id .. " " .. item.title
       end,
     })
@@ -189,7 +189,7 @@ return function(t)
   end)
 
   -- Put the cursor on the active worklog's "review" main summary row (its line ends
-  -- with ") review"; the entry "08:00 review" does not), after a refresh.
+  -- with ") review"; the blot "08:00 review" does not), after a refresh.
   local function on_review_summary_row()
     t.reset({ "--- blots ---", "08:00 review", "09:00 done" })
     vim.cmd("BlotterRefresh")

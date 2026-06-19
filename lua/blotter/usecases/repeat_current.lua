@@ -1,19 +1,19 @@
 local analyze = require("blotter.analyze")
-local entry = require("blotter.entry")
+local blot = require("blotter.blot")
 local summary_cursor = require("blotter.usecases.summary_cursor")
 local support = require("blotter.usecases.support")
 
 local M = {}
 
 -- Build the edit script for repeating the current activity at a new time. The
--- cursor may sit on a timestamped entry or on a main summary row; the latter is
--- mapped back to the source entry it summarizes (see summary_cursor).
+-- cursor may sit on a timestamped blot or on a main summary row; the latter is
+-- mapped back to the source blot it summarizes (see summary_cursor).
 
 function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)
 
   if not ctx then
-    -- The cursor may be on a main summary row; map it back to the source entry
+    -- The cursor may be on a main summary row; map it back to the source blot
     -- and repeat that, into the worklog the summary belongs to. A nil summary
     -- error means the cursor is not on the summary at all, so keep `err`.
     local entry_row, summary_err = summary_cursor.repeat_entry_row(lines, row)
@@ -29,15 +29,15 @@ function M.run(lines, row, time)
   end
 
   local current_item = nil
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.entry.row == row then
+  for _, item in ipairs(ctx.block.blot_items) do
+    if item.blot.row == row then
       current_item = item
       break
     end
   end
 
   if not current_item then
-    return nil, "worklog: current line is not a valid worklog entry"
+    return nil, "worklog: current line is not a valid worklog blot"
   end
 
   local minutes, minutes_err = support.parse_clock_minutes(time)
@@ -47,7 +47,7 @@ function M.run(lines, row, time)
 
   local insertion_state = support.get_insert_state(ctx.block, minutes)
 
-  -- A repeat is a fresh entry: it copies the activity's metadata from the source but
+  -- A repeat is a fresh blot: it copies the activity's metadata from the source but
   -- takes the new time and never inherits the source's logged or round±N marker.
   local fields = analyze.copy_fields(current_item)
   fields.minutes = minutes
@@ -55,9 +55,9 @@ function M.run(lines, row, time)
   fields.nudge = nil
 
   local line =
-    entry.format(fields, insertion_state.tag, insertion_state.location, insertion_state.offset)
+    blot.format(fields, insertion_state.tag, insertion_state.location, insertion_state.offset)
 
-  return support.insert_entry_edit(
+  return support.insert_blot_edit(
     ctx.block,
     minutes,
     line,

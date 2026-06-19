@@ -4,7 +4,7 @@ local M = {}
 
 -- Semantic analyzer for parsed worklog documents.
 --
--- This layer turns syntax nodes into worklog blocks, semantic entries, entry
+-- This layer turns syntax nodes into worklog blocks, semantic blots, blot
 -- items with attached note lines, and structured diagnostics. It is the main
 -- source of truth for command-time behavior.
 
@@ -17,8 +17,8 @@ local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
 end
 
--- Copy the semantic-entry field set from any source carrying it (a semantic
--- entry, entry item, or block item). Structural fields such as row, index, and
+-- Copy the semantic-blot field set from any source carrying it (a semantic
+-- blot, blot item, or block item). Structural fields such as row, index, and
 -- attached lines are intentionally left out so callers add only what they need.
 local function copy_fields(src)
   return {
@@ -40,7 +40,7 @@ end
 
 M.copy_fields = copy_fields
 
--- An entry's effective UTC time in minutes: the written local clock minus its
+-- An blot's effective UTC time in minutes: the written local clock minus its
 -- sticky UTC offset. With no offsets in play (`offset` nil everywhere) this is
 -- identically the raw `minutes`, so duration and ordering are unchanged. Durations
 -- and the unordered-timestamps check reconcile across a clock move via this; the
@@ -66,7 +66,7 @@ end
 -- value is inherited. The offset is sticky like location but has no clear form (you
 -- switch it, you never unset it). `prev` is a { tag, location, offset } state and
 -- `item` is anything carrying the explicit_* fields (a syntax node, a semantic
--- entry, or an entry item), so this is the single definition of the
+-- blot, or an blot item), so this is the single definition of the
 -- clear/explicit/inherit rule -- the analyzer, the body reorder, and rename all
 -- resolve through it, keeping explicit-over-silent one rule rather than three
 -- hand-rolls that can drift.
@@ -113,7 +113,7 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     tag = resolved.tag,
     location = resolved.location,
     offset = resolved.offset,
-    -- The rounding nudge is per-entry and non-sticky (like logged): it is not
+    -- The rounding nudge is per-blot and non-sticky (like logged): it is not
     -- inherited, so it is taken straight from the node with no current_* threading.
     nudge = node.nudge,
     workday_excluded = resolved.tag == syntax.OUT_OF_OFFICE_TAG,
@@ -121,9 +121,9 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
   }
 end
 
-local function analyze_entry_items(block, diagnostics)
-  local entry_items = {}
-  local entries = {}
+local function analyze_blot_items(block, diagnostics)
+  local blot_items = {}
+  local blots = {}
   local current = nil
   local current_tag = block.header_tag
   local current_location = block.header_location
@@ -131,20 +131,20 @@ local function analyze_entry_items(block, diagnostics)
 
   for _, node in ipairs(block.body_nodes) do
     if node.kind == syntax.NODE_KIND.ENTRY then
-      local entry = semantic_entry_from_node(node, current_tag, current_location, current_offset)
+      local blot = semantic_entry_from_node(node, current_tag, current_location, current_offset)
 
-      current_tag = entry.tag
-      current_location = entry.location
-      current_offset = entry.offset
+      current_tag = blot.tag
+      current_location = blot.location
+      current_offset = blot.offset
 
-      current = copy_fields(entry)
+      current = copy_fields(blot)
       current.kind = syntax.NODE_KIND.ENTRY_ITEM
-      current.entry = node
+      current.blot = node
       current.nodes = { node }
       current.start_row = node.row
       current.end_row = node.row
-      table.insert(entry_items, current)
-      table.insert(entries, entry)
+      table.insert(blot_items, current)
+      table.insert(blots, blot)
     elseif node.kind == syntax.NODE_KIND.NOTE_LINE or node.kind == syntax.NODE_KIND.BLANK_LINE then
       if current then
         table.insert(current.nodes, node)
@@ -166,13 +166,13 @@ local function analyze_entry_items(block, diagnostics)
   -- Ordering is checked in effective UTC time, so a westward clock move (whose
   -- local times appear to go backwards) is not flagged while a genuine real-time
   -- reversal still is. Without offsets this is exactly the raw-minute comparison.
-  for i = 2, #entry_items do
-    if effective_minutes(entry_items[i]) < effective_minutes(entry_items[i - 1]) then
+  for i = 2, #blot_items do
+    if effective_minutes(blot_items[i]) < effective_minutes(blot_items[i - 1]) then
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS,
         severity = "error",
-        row = entry_items[i - 1].row or entry_items[i - 1].start_row,
-        row2 = entry_items[i].row or entry_items[i].start_row,
+        row = blot_items[i - 1].row or blot_items[i - 1].start_row,
+        row2 = blot_items[i].row or blot_items[i].start_row,
         message = "timestamps are not in non-decreasing order",
       })
       break
@@ -180,20 +180,20 @@ local function analyze_entry_items(block, diagnostics)
   end
 
   -- 24:00 is only meaningful as the day's closing boundary, so it must be the
-  -- final timestamped entry; anything after it would start work past midnight.
-  for i = 1, #entry_items - 1 do
-    if entry_items[i].minutes == syntax.END_OF_DAY_MINUTES then
+  -- final timestamped blot; anything after it would start work past midnight.
+  for i = 1, #blot_items - 1 do
+    if blot_items[i].minutes == syntax.END_OF_DAY_MINUTES then
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.MIDNIGHT_NOT_FINAL,
         severity = "error",
-        row = entry_items[i].row or entry_items[i].start_row,
-        message = "24:00 must be the final entry in a worklog block",
+        row = blot_items[i].row or blot_items[i].start_row,
+        message = "24:00 must be the final blot in a worklog block",
       })
       break
     end
   end
 
-  return entry_items, entries
+  return blot_items, blots
 end
 
 local function is_worklog_header(node)
@@ -413,7 +413,7 @@ function M.analyze(document)
     block.body_nodes = body_nodes(document, block)
 
     if M.is_worklog(block) then
-      block.entry_items, block.entries = analyze_entry_items(block, diagnostics)
+      block.blot_items, block.blots = analyze_blot_items(block, diagnostics)
       table.insert(worklog_blocks, block)
     end
 

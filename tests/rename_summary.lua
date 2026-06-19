@@ -35,7 +35,7 @@ return function(t)
     return apply(lines, result)
   end
 
-  t.test("rename an activity row rewrites its source entries and the summary", function()
+  t.test("rename an activity row rewrites its source blots and the summary", function()
     local out = rename({
       "--- blots ---",
       "08:00 implementation",
@@ -80,12 +80,12 @@ return function(t)
       "1.00h (+0m) workday",
     }, 6, "deploy #urgent")
 
-    -- The trailing #urgent is parenthesized so it cannot become entry metadata.
+    -- The trailing #urgent is parenthesized so it cannot become blot metadata.
     t.eq(out[2], "08:00 deploy (#urgent)")
     t.eq(out[6], "1.00h (+0m) deploy (#urgent)")
   end)
 
-  t.test("rename a tag row renames the header token and explicit entries", function()
+  t.test("rename a tag row renames the header token and explicit blots", function()
     local out = rename({
       "--- blots #ClientA @office ---",
       "08:00 planning",
@@ -129,7 +129,7 @@ return function(t)
     })
   end)
 
-  t.test("renaming a tag rewrites only the explicit token, not inheriting entries", function()
+  t.test("renaming a tag rewrites only the explicit token, not inheriting blots", function()
     -- #proj is explicit on "build" and inherited by "test"/"done"; renaming it must
     -- touch only the "build" line and leave the inheriting lines as they are.
     local out = rename({
@@ -332,7 +332,7 @@ return function(t)
       "2.00h (+0m) workday",
     }, 12, "newtag")
 
-    t.eq(err, "worklog: the (untagged) group cannot be renamed; tag the entries first")
+    t.eq(err, "worklog: the (untagged) group cannot be renamed; tag the blots first")
   end)
 
   t.test("rename rejects an invalid tag name", function()

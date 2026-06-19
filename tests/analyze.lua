@@ -38,10 +38,10 @@ return function(t)
     t.eq(first.quantize_minutes, 30)
     t.eq(first.duration_format, "hm")
     t.eq(#first.body_nodes, 7)
-    t.eq(first.entry_items, {
+    t.eq(first.blot_items, {
       {
-        kind = "entry_item",
-        entry = analysis.document.nodes[2],
+        kind = "blot_item",
+        blot = analysis.document.nodes[2],
         nodes = { analysis.document.nodes[2], analysis.document.nodes[3] },
         start_row = 2,
         end_row = 3,
@@ -55,8 +55,8 @@ return function(t)
         logged = false,
       },
       {
-        kind = "entry_item",
-        entry = analysis.document.nodes[4],
+        kind = "blot_item",
+        blot = analysis.document.nodes[4],
         nodes = { analysis.document.nodes[4] },
         start_row = 4,
         end_row = 4,
@@ -70,8 +70,8 @@ return function(t)
         logged = false,
       },
       {
-        kind = "entry_item",
-        entry = analysis.document.nodes[5],
+        kind = "blot_item",
+        blot = analysis.document.nodes[5],
         nodes = { analysis.document.nodes[5] },
         start_row = 5,
         end_row = 5,
@@ -85,8 +85,8 @@ return function(t)
         logged = false,
       },
       {
-        kind = "entry_item",
-        entry = analysis.document.nodes[6],
+        kind = "blot_item",
+        blot = analysis.document.nodes[6],
         nodes = { analysis.document.nodes[6] },
         start_row = 6,
         end_row = 6,
@@ -100,8 +100,8 @@ return function(t)
         logged = false,
       },
       {
-        kind = "entry_item",
-        entry = analysis.document.nodes[7],
+        kind = "blot_item",
+        blot = analysis.document.nodes[7],
         nodes = { analysis.document.nodes[7], analysis.document.nodes[8] },
         start_row = 7,
         end_row = 8,
@@ -115,7 +115,7 @@ return function(t)
         logged = false,
       },
     })
-    t.eq(first.entries, {
+    t.eq(first.blots, {
       {
         row = 2,
         minutes = 480,
@@ -180,7 +180,7 @@ return function(t)
     t.eq(second.quantize_minutes, 15)
     t.eq(second.header_duration_format, nil)
     t.eq(second.duration_format, "dec")
-    t.eq(second.entries, {
+    t.eq(second.blots, {
       {
         row = 13,
         minutes = 660,
@@ -219,7 +219,7 @@ return function(t)
       "10:00 done !L",
     }))
 
-    t.eq(analysis.worklog_blocks[1].entries, {
+    t.eq(analysis.worklog_blocks[1].blots, {
       {
         row = 2,
         minutes = 480,
@@ -256,7 +256,7 @@ return function(t)
     })
   end)
 
-  t.test("analyze reports header, invalid entry, and unordered diagnostics", function()
+  t.test("analyze reports header, invalid blot, and unordered diagnostics", function()
     local analysis = analyze.analyze(document.parse({
       "--- summary q=15 d=dec ---",
       "1.00h activity",
@@ -376,7 +376,7 @@ return function(t)
 
   t.test("analyze does not flag a two-digit-hour hhmm summary row", function()
     -- An hhmm summary row whose duration is >= 10h (e.g. "16:00 (+0m) workday")
-    -- parses as a timestamped entry, but it lives in a generated summary block
+    -- parses as a timestamped blot, but it lives in a generated summary block
     -- and must not be reported as malformed.
     local analysis = analyze.analyze(document.parse({
       "--- blots q=60 d=hm ---",
@@ -556,7 +556,7 @@ return function(t)
       "09:15 done",
     }))
 
-    t.eq(analysis.worklog_blocks[1].entries, {
+    t.eq(analysis.worklog_blocks[1].blots, {
       {
         row = 2,
         minutes = 480,
@@ -605,14 +605,14 @@ return function(t)
   end)
 
   t.test("analyze clears sticky tag and location when asked", function()
-    local entries = analyze.analyze(document.parse({
+    local blots = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 reset #- @-",
       "10:00 done",
-    })).worklog_blocks[1].entries
+    })).worklog_blocks[1].blots
 
-    t.eq(entries[2], {
+    t.eq(blots[2], {
       row = 3,
       minutes = 540,
       text = "reset",
@@ -625,7 +625,7 @@ return function(t)
       workday_excluded = false,
       logged = false,
     })
-    t.eq(entries[3], {
+    t.eq(blots[3], {
       row = 4,
       minutes = 600,
       text = "done",
@@ -649,7 +649,7 @@ return function(t)
 
     t.eq(block.header_tag, nil)
     t.eq(block.header_location, nil)
-    t.eq(block.entries, {
+    t.eq(block.blots, {
       {
         row = 2,
         minutes = 480,
@@ -700,15 +700,15 @@ return function(t)
   end)
 
   t.test("analyze keeps ooo sticky until another tag replaces it", function()
-    local entries = analyze.analyze(document.parse({
+    local blots = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office ---",
       "08:00 break #ooo",
       "08:30 lunch",
       "09:00 work #ProjectOrion",
       "09:30 done",
-    })).worklog_blocks[1].entries
+    })).worklog_blocks[1].blots
 
-    t.eq(entries[1], {
+    t.eq(blots[1], {
       row = 2,
       minutes = 480,
       text = "break",
@@ -719,7 +719,7 @@ return function(t)
       workday_excluded = true,
       logged = false,
     })
-    t.eq(entries[2], {
+    t.eq(blots[2], {
       row = 3,
       minutes = 510,
       text = "lunch",
@@ -730,7 +730,7 @@ return function(t)
       workday_excluded = true,
       logged = false,
     })
-    t.eq(entries[3], {
+    t.eq(blots[3], {
       row = 4,
       minutes = 540,
       text = "work",
@@ -744,14 +744,14 @@ return function(t)
   end)
 
   t.test("analyze can return from ooo to untagged with tag clear", function()
-    local entries = analyze.analyze(document.parse({
+    local blots = analyze.analyze(document.parse({
       "--- blots ---",
       "08:00 break #ooo",
       "09:00 resume #-",
       "10:00 done",
-    })).worklog_blocks[1].entries
+    })).worklog_blocks[1].blots
 
-    t.eq(entries[2], {
+    t.eq(blots[2], {
       row = 3,
       minutes = 540,
       text = "resume",
@@ -763,7 +763,7 @@ return function(t)
       workday_excluded = false,
       logged = false,
     })
-    t.eq(entries[3], {
+    t.eq(blots[3], {
       row = 4,
       minutes = 600,
       text = "done",
@@ -777,14 +777,14 @@ return function(t)
   end)
 
   t.test("analyze keeps sticky tag when only location changes", function()
-    local entries = analyze.analyze(document.parse({
+    local blots = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 travel @client",
       "10:00 done",
-    })).worklog_blocks[1].entries
+    })).worklog_blocks[1].blots
 
-    t.eq(entries[2], {
+    t.eq(blots[2], {
       row = 3,
       minutes = 540,
       text = "travel",
@@ -795,7 +795,7 @@ return function(t)
       workday_excluded = false,
       logged = false,
     })
-    t.eq(entries[3], {
+    t.eq(blots[3], {
       row = 4,
       minutes = 600,
       text = "done",
@@ -809,14 +809,14 @@ return function(t)
   end)
 
   t.test("analyze can return from a location to no location with location clear", function()
-    local entries = analyze.analyze(document.parse({
+    local blots = analyze.analyze(document.parse({
       "--- blots ---",
       "08:00 travel @home",
       "09:00 arrive @-",
       "10:00 done",
-    })).worklog_blocks[1].entries
+    })).worklog_blocks[1].blots
 
-    t.eq(entries[2], {
+    t.eq(blots[2], {
       row = 3,
       minutes = 540,
       text = "arrive",
@@ -828,7 +828,7 @@ return function(t)
       workday_excluded = false,
       logged = false,
     })
-    t.eq(entries[3], {
+    t.eq(blots[3], {
       row = 4,
       minutes = 600,
       text = "done",
@@ -842,14 +842,14 @@ return function(t)
   end)
 
   t.test("analyze keeps sticky location when only tag changes", function()
-    local entries = analyze.analyze(document.parse({
+    local blots = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 internal #internal",
       "10:00 done",
-    })).worklog_blocks[1].entries
+    })).worklog_blocks[1].blots
 
-    t.eq(entries[2], {
+    t.eq(blots[2], {
       row = 3,
       minutes = 540,
       text = "internal",
@@ -860,7 +860,7 @@ return function(t)
       workday_excluded = false,
       logged = false,
     })
-    t.eq(entries[3], {
+    t.eq(blots[3], {
       row = 4,
       minutes = 600,
       text = "done",
@@ -894,7 +894,7 @@ return function(t)
     })
   end)
 
-  t.test("analyze accepts 24:00 as the final closing entry", function()
+  t.test("analyze accepts 24:00 as the final closing blot", function()
     local analysis = analyze.analyze(document.parse({
       "--- blots ---",
       "22:30 writing report",
@@ -903,10 +903,10 @@ return function(t)
 
     t.eq(analysis.diagnostics, {})
     t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), nil)
-    t.eq(analysis.worklog_blocks[1].entry_items[2].minutes, 1440)
+    t.eq(analysis.worklog_blocks[1].blot_items[2].minutes, 1440)
   end)
 
-  t.test("analyze reports a 24:00 entry that is not the final entry", function()
+  t.test("analyze reports a 24:00 blot that is not the final blot", function()
     local analysis = analyze.analyze(document.parse({
       "--- blots ---",
       "08:00 plan",
@@ -919,7 +919,7 @@ return function(t)
       category = "block",
       severity = "error",
       row = 3,
-      message = "24:00 must be the final entry in a worklog block",
+      message = "24:00 must be the final blot in a worklog block",
     }
 
     t.eq(analysis.diagnostics, { diagnostic })
@@ -936,11 +936,11 @@ return function(t)
     local block = analysis.worklog_blocks[1]
 
     t.eq(block.header_offset, 120)
-    t.eq(block.entries[1].offset, 120) -- inherits the header base
-    t.eq(block.entries[2].offset, -240) -- an explicit token switches it
-    t.eq(block.entries[2].explicit_offset, -240)
-    t.eq(block.entries[3].offset, -240) -- sticky from the switch onward
-    t.eq(block.entries[3].explicit_offset, nil)
+    t.eq(block.blots[1].offset, 120) -- inherits the header base
+    t.eq(block.blots[2].offset, -240) -- an explicit token switches it
+    t.eq(block.blots[2].explicit_offset, -240)
+    t.eq(block.blots[3].offset, -240) -- sticky from the switch onward
+    t.eq(block.blots[3].explicit_offset, nil)
     t.eq(analysis.diagnostics, {})
   end)
 
@@ -968,7 +968,7 @@ return function(t)
 
   t.test("analyze keeps the 24:00 boundary check in raw local time", function()
     -- The midnight-not-final rule is calendar, not real-time: a raw 24:00 that is
-    -- not the final entry is flagged regardless of any offset carried on it.
+    -- not the final blot is flagged regardless of any offset carried on it.
     local analysis = analyze.analyze(document.parse({
       "--- blots utc+2 ---",
       "08:00 plan",

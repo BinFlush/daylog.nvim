@@ -515,7 +515,7 @@ local function period_report_lines(report, duration_format, options, aggregate_p
   return lines
 end
 
--- The flat layout of a period report: one entry per rendered line (so a 1-based
+-- The flat layout of a period report: one blot per rendered line (so a 1-based
 -- line number indexes straight into it), each tagged with the section it belongs
 -- to -- a per-day section (scope "day", with its date_label/path) or the aggregate
 -- (scope "aggregate"). Built from the same sections as period_report_lines, so the

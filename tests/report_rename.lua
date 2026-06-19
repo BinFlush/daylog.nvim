@@ -12,7 +12,7 @@ return function(t)
 
   helpers.setup_worklog()
 
-  -- A complete day file: the given header + entries followed by a blank line and the
+  -- A complete day file: the given header + blots followed by a blank line and the
   -- generated summary, the way a real journal day exists on disk (every valid
   -- worklog carries a summary). run_by_value needs that summary region to rewrite.
   local function with_summary(source_lines)
@@ -103,8 +103,8 @@ return function(t)
       end)
 
       -- Both day files on disk are rewritten, summaries included.
-      t.ok(vim.tbl_contains(vim.fn.readfile(p1), "08:00 coding"), "day 1 entry renamed")
-      t.ok(vim.tbl_contains(vim.fn.readfile(p2), "09:00 coding"), "day 2 entry renamed")
+      t.ok(vim.tbl_contains(vim.fn.readfile(p1), "08:00 coding"), "day 1 blot renamed")
+      t.ok(vim.tbl_contains(vim.fn.readfile(p2), "09:00 coding"), "day 2 blot renamed")
       t.ok(not vim.tbl_contains(vim.fn.readfile(p1), "08:00 implementation"), "day 1 old gone")
 
       -- The report itself reflects the rename.
@@ -129,7 +129,7 @@ return function(t)
       end)
 
       -- Only day 1 (the cursor's day) changed; day 2 is untouched.
-      t.ok(vim.tbl_contains(vim.fn.readfile(p1), "08:00 coding"), "day 1 entry renamed")
+      t.ok(vim.tbl_contains(vim.fn.readfile(p1), "08:00 coding"), "day 1 blot renamed")
       t.ok(vim.tbl_contains(vim.fn.readfile(p2), "09:00 implementation"), "day 2 untouched")
     end)
   end)

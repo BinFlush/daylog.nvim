@@ -1,5 +1,5 @@
 local analyze = require("blotter.analyze")
-local entry = require("blotter.entry")
+local blot = require("blotter.blot")
 local summary_cursor = require("blotter.usecases.summary_cursor")
 local support = require("blotter.usecases.support")
 local syntax = require("blotter.syntax")
@@ -28,8 +28,8 @@ local function activity_from_item(item)
 end
 
 -- The activity in effect at the end of the active worklog, i.e. the final
--- entry when it still has activity text. Returns nil when nothing was running
--- (no entries, the day already closed with a bare timestamp, or the final entry
+-- blot when it still has activity text. Returns nil when nothing was running
+-- (no blots, the day already closed with a bare timestamp, or the final blot
 -- is the 24:00 end-of-day boundary).
 function M.last_running_entry(lines)
   local ctx, err = support.get_validated_active(lines)
@@ -37,7 +37,7 @@ function M.last_running_entry(lines)
     return nil, err
   end
 
-  local items = ctx.block.entry_items
+  local items = ctx.block.blot_items
   local last = items[#items]
   if not last or last.text == "" or last.minutes == syntax.END_OF_DAY_MINUTES then
     return nil
@@ -47,15 +47,15 @@ function M.last_running_entry(lines)
 end
 
 -- The activity item on the given row, or nil. Only looks at real timestamped
--- entries in the worklog block at `row`.
+-- blots in the worklog block at `row`.
 local function item_at_row(lines, row)
   local ctx = support.get_validated_at_row(lines, row)
   if not ctx then
     return nil
   end
 
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.entry.row == row then
+  for _, item in ipairs(ctx.block.blot_items) do
+    if item.blot.row == row then
       return item
     end
   end
@@ -63,9 +63,9 @@ local function item_at_row(lines, row)
   return nil
 end
 
--- The activity of the entry on the given row, used to repeat it after the
+-- The activity of the blot on the given row, used to repeat it after the
 -- buffer has switched to the new day. The cursor may instead be on a main summary
--- row, in which case it is mapped back to the source entry it summarizes, so
+-- row, in which case it is mapped back to the source blot it summarizes, so
 -- cross-day :BlotRepeat works from the summary too.
 function M.entry_at_row(lines, row)
   local item = item_at_row(lines, row)
@@ -86,10 +86,10 @@ function M.entry_at_row(lines, row)
   end
 
   local _, err = support.get_validated_at_row(lines, row)
-  return nil, err or "worklog: current line is not a valid worklog entry"
+  return nil, err or "worklog: current line is not a valid worklog blot"
 end
 
--- Insert one formatted entry for `activity` at `minutes` into the active
+-- Insert one formatted blot for `activity` at `minutes` into the active
 -- worklog, placed at the sorted position with sticky metadata resolved.
 function M.seed_edit(lines, activity, minutes)
   local ctx, err = support.get_validated_active(lines)
@@ -99,16 +99,16 @@ function M.seed_edit(lines, activity, minutes)
 
   local state = support.get_insert_state(ctx.block, minutes)
 
-  -- A carried/closing entry is fresh: it copies the activity's sticky metadata but
+  -- A carried/closing blot is fresh: it copies the activity's sticky metadata but
   -- takes the boundary/continuation time and never inherits a logged or round±N marker.
   local fields = analyze.copy_fields(activity)
   fields.minutes = minutes
   fields.logged = false
   fields.nudge = nil
 
-  local line = entry.format(fields, state.tag, state.location, state.offset)
+  local line = blot.format(fields, state.tag, state.location, state.offset)
 
-  return support.insert_entry_edit(
+  return support.insert_blot_edit(
     ctx.block,
     minutes,
     line,
@@ -118,7 +118,7 @@ function M.seed_edit(lines, activity, minutes)
   )
 end
 
--- Append a bare 24:00 entry that closes the active worklog's final task at the
+-- Append a bare 24:00 blot that closes the active worklog's final task at the
 -- day boundary. The sticky metadata is carried so the close stays bare.
 function M.close_edit(lines)
   local ctx, err = support.get_validated_active(lines)

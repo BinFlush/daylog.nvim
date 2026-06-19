@@ -13,7 +13,7 @@ local M = {}
 --
 -- The summary is a pure projection, so the rendered row carries no authority: it
 -- only points back at recomputed `summary_items` / `tag_totals` / `location_totals`
--- (each of which knows its contributing source entries). Matching by exact line
+-- (each of which knows its contributing source blots). Matching by exact line
 -- text -- against the freshly recomputed layout -- is the staleness guard: a row
 -- that no longer matches is refused rather than acted on stale.
 
@@ -35,7 +35,7 @@ local SELECTABLE = {
 -- Returns, in order of specificity:
 --   * result table when the cursor sits on exactly one selectable summary row;
 --   * nil, nil when the cursor is not on the active worklog's summary at all
---     (the caller should fall back to its own handling, e.g. a worklog entry);
+--     (the caller should fall back to its own handling, e.g. a worklog blot);
 --   * nil, message when the cursor is inside the summary region but the row is
 --     stale (matches nothing) or ambiguous (matches several rows).
 --
@@ -95,11 +95,11 @@ end
 
 M.ONLY_MAIN_ROW = "worklog: only a main summary row can be repeated"
 
--- Map a cursor on a main summary row to the latest source entry row that fed it,
--- so "repeat this activity" works from the summary. The latest contributing entry
--- carries the most recent tag/location for the activity. Returns the entry row, or
+-- Map a cursor on a main summary row to the latest source blot row that fed it,
+-- so "repeat this activity" works from the summary. The latest contributing blot
+-- carries the most recent tag/location for the activity. Returns the blot row, or
 -- nil + an error -- a nil error means the cursor is not on the active worklog's
--- summary at all, so the caller keeps its own (entry-lookup) error.
+-- summary at all, so the caller keeps its own (blot-lookup) error.
 function M.repeat_entry_row(lines, cursor_row)
   local result, err = M.resolve(lines, cursor_row)
   if not result then
@@ -111,7 +111,7 @@ function M.repeat_entry_row(lines, cursor_row)
   end
 
   local latest
-  for _, source_row in ipairs(result.layout_row.item.source_entry_rows or {}) do
+  for _, source_row in ipairs(result.layout_row.item.source_blot_rows or {}) do
     if not latest or source_row > latest then
       latest = source_row
     end

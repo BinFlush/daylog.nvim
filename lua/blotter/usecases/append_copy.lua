@@ -1,5 +1,5 @@
 local body = require("blotter.body")
-local entry = require("blotter.entry")
+local blot = require("blotter.blot")
 local render = require("blotter.render")
 local summary = require("blotter.summary")
 local support = require("blotter.usecases.support")
@@ -18,7 +18,7 @@ function M.run(lines)
   end
 
   local rendered = render.worklog_lines(
-    body.normalized_lines(ctx.block, entry.format),
+    body.normalized_lines(ctx.block, blot.format),
     ctx.block.header_tag,
     ctx.block.header_location,
     ctx.block.header_offset,

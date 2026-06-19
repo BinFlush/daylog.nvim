@@ -102,7 +102,7 @@ return function(t)
       "out-of-range 99:99 must not highlight as a timestamp"
     )
 
-    -- A time glued to non-whitespace is not an entry for the parser, so it must
+    -- A time glued to non-whitespace is not an blot for the parser, so it must
     -- not highlight as a timestamp either.
     t.ok(group_at(13, 1) ~= "WorklogTimestamp", "12:34xyz must not highlight as a timestamp")
   end)
@@ -139,7 +139,7 @@ return function(t)
       "11:00 task !L @b #a",
     })
 
-    -- Two tags: the parser rejects the entry, so neither tag highlights.
+    -- Two tags: the parser rejects the blot, so neither tag highlights.
     t.ok(group_at(1, col_of(1, "#a")) ~= "WorklogTag", "first of two tags must not highlight")
     t.ok(group_at(1, col_of(1, "#b")) ~= "WorklogTag", "second of two tags must not highlight")
 
@@ -246,15 +246,15 @@ return function(t)
 
   t.test("a line with an invalid timestamp does not highlight trailing metadata", function()
     load({
-      "25:00 task #tag", -- out-of-range time: not an entry for the parser
-      "12:34xyz #tag", -- time glued to text: not an entry either
+      "25:00 task #tag", -- out-of-range time: not an blot for the parser
+      "12:34xyz #tag", -- time glued to text: not an blot either
     })
 
     -- The whole line is a free-form note, so the trailing #tag is not metadata.
     t.ok(group_at(1, 1) ~= "WorklogTimestamp", "25:00 is not a timestamp")
     t.ok(
       group_at(1, col_of(1, "#tag")) ~= "WorklogTag",
-      "#tag on an invalid entry must not highlight"
+      "#tag on an invalid blot must not highlight"
     )
     t.ok(
       group_at(2, col_of(2, "#tag")) ~= "WorklogTag",
@@ -283,7 +283,7 @@ return function(t)
     t.eq(group_at(2, 1), "WorklogNote")
     t.eq(group_at(3, 1), "WorklogNote")
 
-    -- A zero-padded HH:MM entry still reads as a timestamp.
+    -- A zero-padded HH:MM blot still reads as a timestamp.
     t.eq(group_at(4, 1), "WorklogTimestamp")
   end)
 
@@ -328,7 +328,7 @@ return function(t)
       "16:00 workday",
     })
 
-    -- An entry in the worklog body still reads as a timestamp.
+    -- An blot in the worklog body still reads as a timestamp.
     t.eq(group_at(2, 1), "WorklogTimestamp")
 
     -- Generated section headers stay block headers.
@@ -379,7 +379,7 @@ return function(t)
       "12:00 talk utc-x",
     })
 
-    -- On the header and in an entry's trailing run, a valid utc token is its own
+    -- On the header and in an blot's trailing run, a valid utc token is its own
     -- muted group, distinct from tag/location.
     t.eq(group_at(1, col_of(1, "utc+2")), "WorklogOffset")
     t.eq(group_at(2, col_of(2, "utc-4")), "WorklogOffset")
@@ -404,7 +404,7 @@ return function(t)
       "1.00h (-10m) workday round+1",
     })
 
-    -- The marker is its own group on an entry, and -- crucially -- it does not break
+    -- The marker is its own group on an blot, and -- crucially -- it does not break
     -- the highlighting of the #tag and !L on either side of it in the trailing run.
     t.eq(group_at(2, col_of(2, "round+1")), "WorklogNudge")
     t.eq(group_at(2, col_of(2, "#ClientA")), "WorklogTag")

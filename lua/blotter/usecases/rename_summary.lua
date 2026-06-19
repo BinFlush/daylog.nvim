@@ -1,5 +1,5 @@
 local analyze = require("blotter.analyze")
-local entry = require("blotter.entry")
+local blot = require("blotter.blot")
 local render = require("blotter.render")
 local summary = require("blotter.summary")
 local summary_cursor = require("blotter.usecases.summary_cursor")
@@ -15,21 +15,21 @@ local M = {}
 -- summary item. The rename then rewrites the *source* and rebuilds the one
 -- summary, keeping the summary a pure projection.
 --
---   * a main summary row renames the activity text of its source entries;
+--   * a main summary row renames the activity text of its source blots;
 --   * a tag-total row renames that #tag everywhere it is effective;
 --   * a location-total row renames that @location everywhere it is effective.
 --
 -- Tag/location renames are value substitutions: only the header token and the
 -- explicit tokens that named the old value are rewritten. Sticky inheritance is
--- preserved automatically -- an entry that inherited the old value now inherits
+-- preserved automatically -- an blot that inherited the old value now inherits
 -- the new one from the same (rewritten) source -- so unrelated lines are left
 -- untouched. Only lines whose canonical rendering actually changes are edited.
 
 M.NOT_A_ROW = "worklog: put the cursor on a summary item, tag, or location row to rename it"
 M.CANNOT_TOTALS = "worklog: a totals row cannot be renamed"
-M.CANNOT_UNTAGGED = "worklog: the (untagged) group cannot be renamed; tag the entries first"
+M.CANNOT_UNTAGGED = "worklog: the (untagged) group cannot be renamed; tag the blots first"
 M.CANNOT_NO_LOCATION =
-  "worklog: the (no location) group cannot be renamed; set a location on the entries first"
+  "worklog: the (no location) group cannot be renamed; set a location on the blots first"
 M.INVALID_NAME = "worklog: a tag or location name must be letters, digits, underscores, or hyphens"
 M.EMPTY_TEXT = "worklog: the activity text cannot be empty"
 M.SAME_NAME = "worklog: the new name matches the current name"
@@ -121,39 +121,39 @@ local function valid_name(name)
   return type(name) == "string" and name:match("^[%w_%-]+$") ~= nil and name ~= "-"
 end
 
--- Walk the block's entries with the renamed sticky state, re-rendering the
--- affected entry lines whose canonical form changes, and build the renamed
--- semantic entries the rebuilt summary is computed from. `ops` carries the
--- per-kind rename functions and the affected-entry predicate.
+-- Walk the block's blots with the renamed sticky state, re-rendering the
+-- affected blot lines whose canonical form changes, and build the renamed
+-- semantic blots the rebuilt summary is computed from. `ops` carries the
+-- per-kind rename functions and the affected-blot predicate.
 local function build_source_edits(block, ops)
   local edits = {}
-  local renamed_entries = support.modified_entries(block, function(copy)
+  local renamed_blots = support.modified_entries(block, function(copy)
     copy.tag = ops.rename_tag(copy.tag)
     copy.location = ops.rename_loc(copy.location)
     copy.workday_excluded = copy.tag == syntax.OUT_OF_OFFICE_TAG
     copy.text = ops.text_for(copy.row, copy.text)
   end)
 
-  -- Walk the entries in source order resolving raw sticky state through the one
+  -- Walk the blots in source order resolving raw sticky state through the one
   -- analyzer rule, then apply the rename to each resolved value. This matches
   -- renaming as we walk: rename(nil) = nil and the resolver yields prev/explicit/nil
   -- per field, so renaming the result equals inheriting an already-renamed current.
   -- A rename never touches the UTC offset; it is threaded raw so the re-emitted lines
   -- carry the same utc±H tokens (emit-on-change) the originals did. `prev` is the raw
-  -- sticky state before the entry, so the emit-on-change baseline is its renamed form.
+  -- sticky state before the blot, so the emit-on-change baseline is its renamed form.
   local prev = {
     tag = block.header_tag,
     location = block.header_location,
     offset = block.header_offset,
   }
 
-  for _, item in ipairs(block.entry_items) do
+  for _, item in ipairs(block.blot_items) do
     local resolved = analyze.resolve_sticky(prev, item)
     local eff_tag = ops.rename_tag(resolved.tag)
     local eff_location = ops.rename_loc(resolved.location)
 
     if ops.affected(item) then
-      -- Re-emit from the canonical field set (preserving the entry's own nudge / !L)
+      -- Re-emit from the canonical field set (preserving the blot's own nudge / !L)
       -- with only the rename's transforms applied.
       local fields = analyze.copy_fields(item)
       fields.text = ops.text_for(item.start_row, item.text)
@@ -162,11 +162,11 @@ local function build_source_edits(block, ops)
       fields.offset = resolved.offset
       fields.workday_excluded = eff_tag == syntax.OUT_OF_OFFICE_TAG
       local line =
-        entry.format(fields, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
+        blot.format(fields, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
 
-      -- An entry that only inherited the renamed value renders identically (it
+      -- An blot that only inherited the renamed value renders identically (it
       -- still has no token), so only emit an edit when the line truly changes.
-      if line ~= item.entry.raw then
+      if line ~= item.blot.raw then
         table.insert(edits, {
           start_index = item.start_row - 1,
           end_index = item.start_row,
@@ -178,7 +178,7 @@ local function build_source_edits(block, ops)
     prev = resolved
   end
 
-  return edits, renamed_entries
+  return edits, renamed_blots
 end
 
 -- Identity rename used for fields a given rename does not touch.
@@ -187,7 +187,7 @@ local function identity(value)
 end
 
 -- Build the rename edit script for one worklog block: rewrite the affected source
--- entries (and the header token when it declared the renamed value), then rebuild
+-- blots (and the header token when it declared the renamed value), then rebuild
 -- the one summary in place. `item` is the recomputed summary item the rename acts
 -- on and `region` is its summary's location; `target.kind` selects the rename mode.
 -- Shared by the cursor-driven M.run and the value-driven M.run_by_value.
@@ -202,7 +202,7 @@ local function build_rename(block, region, item, target, new_value)
   local header_field -- "tag" | "location" | nil: whether the header token is renamed
 
   if target.kind == "item" then
-    local sanitized = entry.sanitize_text(new_value or "")
+    local sanitized = blot.sanitize_text(new_value or "")
     if sanitized == "" then
       return nil, M.EMPTY_TEXT
     end
@@ -211,7 +211,7 @@ local function build_rename(block, region, item, target, new_value)
     end
 
     local rows = {}
-    for _, row in ipairs(item.source_entry_rows or {}) do
+    for _, row in ipairs(item.source_blot_rows or {}) do
       rows[row] = true
     end
     ops.affected = function(it)
@@ -267,7 +267,7 @@ local function build_rename(block, region, item, target, new_value)
     end
   end
 
-  local edits, renamed_entries = build_source_edits(block, ops)
+  local edits, renamed_blots = build_source_edits(block, ops)
 
   -- The header carries the renamed tag/location only when it declared it.
   if header_field then
@@ -287,8 +287,8 @@ local function build_rename(block, region, item, target, new_value)
     end
   end
 
-  -- Rebuild the one summary from the renamed entries and replace it in place.
-  local rebuilt = summary.summarize_entries(renamed_entries, block.quantize_minutes)
+  -- Rebuild the one summary from the renamed blots and replace it in place.
+  local rebuilt = summary.summarize_entries(renamed_blots, block.quantize_minutes)
   local rendered =
     render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
   table.insert(edits, {

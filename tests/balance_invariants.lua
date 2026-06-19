@@ -2,7 +2,7 @@ return function(t)
   -- Property test encoding the rounding-balance soundness theorems (see
   -- docs/architecture.md / the plan): footing and its corollaries are structural
   -- partition-sum identities, so they must hold for ANY per-cell nudge. This throws
-  -- adversarial per-entry nudge vectors (wide range, mixed signs, forcing clamps) at
+  -- adversarial per-blot nudge vectors (wide range, mixed signs, forcing clamps) at
   -- synthesized worklogs -- on top of the offsets/tags/locations/ooo/!L the synth
   -- already varies -- and asserts, for the day summary AND a combined week:
   --   T1  every section's rows sum to its own total;
@@ -133,7 +133,7 @@ return function(t)
     end
   end
 
-  -- A day summary with an adversarial per-entry nudge vector laid over the synth's
+  -- A day summary with an adversarial per-blot nudge vector laid over the synth's
   -- own structure (wide range with mixed signs and zeros, forcing clamps).
   local function adversarial_day(seed, mode)
     local wl = synth.generate(Rng.new(seed), mode)
@@ -143,11 +143,11 @@ return function(t)
     end
 
     local nudge_rng = Rng.new(seed * 7 + 3)
-    for _, semantic_entry in ipairs(block.entries) do
+    for _, semantic_entry in ipairs(block.blots) do
       semantic_entry.nudge = nudge_rng:int(-6, 6)
     end
 
-    return summary.summarize_entries(block.entries, block.quantize_minutes)
+    return summary.summarize_entries(block.blots, block.quantize_minutes)
   end
 
   t.test("balance invariants hold under adversarial per-cell nudges (day and week)", function()

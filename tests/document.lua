@@ -40,7 +40,7 @@ return function(t)
         invalid_tokens = {},
       },
       {
-        kind = "entry",
+        kind = "blot",
         row = 2,
         raw = "08:00 plan",
         minutes = 480,
@@ -79,7 +79,7 @@ return function(t)
 
   t.test("document parse_line parses a single line directly", function()
     t.eq(document.parse_line("08:21 negotiate with goose #sales @client"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "08:21 negotiate with goose #sales @client",
       minutes = 501,
@@ -91,7 +91,7 @@ return function(t)
 
   t.test("document parse recognizes trailing !L in flexible metadata order", function()
     t.eq(document.parse_line("08:21 negotiate with goose !L #sales @client"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "08:21 negotiate with goose !L #sales @client",
       minutes = 501,
@@ -102,7 +102,7 @@ return function(t)
     })
 
     t.eq(document.parse_line("08:21 negotiate with goose @client !L #sales"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "08:21 negotiate with goose @client !L #sales",
       minutes = 501,
@@ -172,7 +172,7 @@ return function(t)
     })
   end)
 
-  t.test("document parse keeps explicit entry metadata only", function()
+  t.test("document parse keeps explicit blot metadata only", function()
     local doc = document.parse({
       "--- blots ---",
       "08:21 negotiate with goose #sales",
@@ -181,7 +181,7 @@ return function(t)
     })
 
     t.eq(doc.nodes[2], {
-      kind = "entry",
+      kind = "blot",
       row = 2,
       raw = "08:21 negotiate with goose #sales",
       minutes = 501,
@@ -190,7 +190,7 @@ return function(t)
       explicit_location = nil,
     })
     t.eq(doc.nodes[3], {
-      kind = "entry",
+      kind = "blot",
       row = 3,
       raw = "08:52 coffee with ghost #ooo @home",
       minutes = 532,
@@ -199,7 +199,7 @@ return function(t)
       explicit_location = "home",
     })
     t.eq(doc.nodes[4], {
-      kind = "entry",
+      kind = "blot",
       row = 4,
       raw = "09:00 done",
       minutes = 540,
@@ -211,7 +211,7 @@ return function(t)
 
   t.test("document parse keeps inline hashtags in text", function()
     t.eq(document.parse_line("08:04 fix #123 issue #sales @office"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "08:04 fix #123 issue #sales @office",
       minutes = 484,
@@ -223,7 +223,7 @@ return function(t)
 
   t.test("document parse keeps inline !L in text unless it is trailing metadata", function()
     t.eq(document.parse_line("08:04 discuss !L marker syntax"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "08:04 discuss !L marker syntax",
       minutes = 484,
@@ -233,7 +233,7 @@ return function(t)
     })
   end)
 
-  t.test("document parse recognizes clear tokens in headers and entries", function()
+  t.test("document parse recognizes clear tokens in headers and blots", function()
     t.eq(document.parse_line("--- blots #- @- q=30 ---"), {
       kind = "worklog_header",
       row = 1,
@@ -263,7 +263,7 @@ return function(t)
     })
 
     t.eq(document.parse_line("08:04 reset #- @-"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "08:04 reset #- @-",
       minutes = 484,
@@ -293,7 +293,7 @@ return function(t)
     })
   end)
 
-  t.test("document parse marks malformed time-like lines as invalid entries", function()
+  t.test("document parse marks malformed time-like lines as invalid blots", function()
     local doc = document.parse({
       "08:00 plan #sales #meeting",
       "08:00 plan @office @home",
@@ -331,7 +331,7 @@ return function(t)
 
   t.test("document parse accepts 24:00 as an end-of-day boundary", function()
     t.eq(document.parse_line("24:00"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "24:00",
       minutes = 1440,
@@ -357,13 +357,13 @@ return function(t)
     })
   end)
 
-  t.test("document parses a summary-shaped timestamp row as a note, not an entry", function()
-    -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp
+  t.test("document parses a summary-shaped timestamp row as a note, not an blot", function()
+    -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte an blot timestamp
     -- plus a (+Nm) marker; the marker makes it a note so it can never be miscounted as
-    -- an entry if it leaks into a worklog body.
+    -- an blot if it leaks into a worklog body.
     local doc = document.parse({ "16:00 (+0m) workday", "16:00 standup" })
     t.eq(doc.nodes[1].kind, "note_line")
-    t.eq(doc.nodes[2].kind, "entry")
+    t.eq(doc.nodes[2].kind, "blot")
   end)
 
   t.test("syntax parses utc offsets to signed minutes and round-trips them", function()
@@ -391,7 +391,7 @@ return function(t)
 
   t.test("document parses a trailing utc offset and peels a preceding tag", function()
     t.eq(document.parse_line("11:00 resume #sales utc-4"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "11:00 resume #sales utc-4",
       minutes = 660,
@@ -414,7 +414,7 @@ return function(t)
       "08:00 talk utc+99",
     }) do
       local node = document.parse_line(line)
-      t.eq(node.kind, "entry")
+      t.eq(node.kind, "blot")
       t.eq(node.explicit_offset, nil)
       t.eq(node.text, line:match("^%d%d:%d%d%s+(.+)$"))
     end
@@ -462,7 +462,7 @@ return function(t)
 
   t.test("document parses a trailing round nudge and peels a preceding tag", function()
     t.eq(document.parse_line("08:00 plan #sales round+1"), {
-      kind = "entry",
+      kind = "blot",
       row = 1,
       raw = "08:00 plan #sales round+1",
       minutes = 480,
@@ -478,7 +478,7 @@ return function(t)
 
   t.test("document leaves a non-nudge round token as text and rejects duplicates", function()
     local node = document.parse_line("08:00 take another round")
-    t.eq(node.kind, "entry")
+    t.eq(node.kind, "blot")
     t.eq(node.nudge, nil)
     t.eq(node.text, "take another round")
 
@@ -491,7 +491,7 @@ return function(t)
   end)
 
   t.test("document does not treat a header round token as metadata", function()
-    -- round±N is entry-only (non-sticky); in a header it is just an invalid token.
+    -- round±N is blot-only (non-sticky); in a header it is just an invalid token.
     t.eq(document.parse_line("--- blots round+1 ---").invalid_tokens, { "round+1" })
   end)
 end

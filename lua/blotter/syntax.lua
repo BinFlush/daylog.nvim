@@ -17,28 +17,28 @@ M.DEFAULT_QUANTIZE_MINUTES = 15
 M.END_OF_DAY_MINUTES = 24 * 60
 
 -- Syntax node kinds produced by document.lua and consumed by analyze.lua and
--- entry.lua. Shared so producer and consumers cannot drift on a bare string.
+-- blot.lua. Shared so producer and consumers cannot drift on a bare string.
 M.NODE_KIND = {
   WORKLOG_HEADER = "worklog_header",
   BLOCK_HEADER = "block_header",
-  ENTRY = "entry",
+  ENTRY = "blot",
   INVALID_ENTRY = "invalid_entry",
   BLANK_LINE = "blank_line",
   NOTE_LINE = "note_line",
   DOCUMENT = "document",
-  ENTRY_ITEM = "entry_item",
+  ENTRY_ITEM = "blot_item",
   ANALYSIS = "analysis",
 }
 
 -- Block kinds produced by analyze.lua. A worklog block carries timestamped
--- entries; a generic block is any other header-delimited section.
+-- blots; a generic block is any other header-delimited section.
 M.BLOCK_KIND = {
   WORKLOG = "worklog_block",
   GENERIC = "generic_block",
 }
 
 -- Metadata token kinds produced by document.lua's token parsers and consumed
--- when interpreting entry and header metadata.
+-- when interpreting blot and header metadata.
 M.TOKEN_KIND = {
   TAG = "tag",
   LOCATION = "location",
@@ -71,7 +71,7 @@ M.DIAGNOSTIC = {
 
 -- Diagnostic categories. Structural diagnostics describe a malformed document
 -- shape (bad first header, bad header options); block diagnostics describe a
--- problem within one worklog block's entries.
+-- problem within one worklog block's blots.
 M.DIAGNOSTIC_CATEGORY = {
   STRUCTURAL = "structural",
   BLOCK = "block",
@@ -149,10 +149,10 @@ end
 -- UTC-offset markers: a third sticky dimension alongside #tag / @location.
 --
 -- A keyword token `utc±H[:MM]` records the absolute UTC offset of a stretch of
--- entries -- `utc+2` (east of UTC), `utc-4` (west), `utc+5:30`, `utc+0` (UTC). The
+-- blots -- `utc+2` (east of UTC), `utc-4` (west), `utc+5:30`, `utc+0` (UTC). The
 -- sign is required, so the bare word "utc" in activity text is never captured and a
 -- malformed `utc-x` harmlessly stays plain text (fail-safe). The value is signed
--- minutes; entries reconcile durations and ordering by effective UTC time
+-- minutes; blots reconcile durations and ordering by effective UTC time
 -- (`local_minutes - offset_minutes`) while display stays the written local clock.
 
 -- Parse the signed body of an offset ("+2", "-4", "+5:30", "+0") into signed
@@ -215,8 +215,8 @@ function M.utc_offset_token(minutes)
   return string.format("utc%s%d:%02d", sign, hours, mins)
 end
 
--- Manual rounding-balance markers: a non-sticky, per-entry trailing token
--- `round±N` that forces this entry's quantization row to round N q-steps beyond
+-- Manual rounding-balance markers: a non-sticky, per-blot trailing token
+-- `round±N` that forces this blot's quantization row to round N q-steps beyond
 -- the largest-remainder baseline (`round+1` = one bucket up, `round-1` = one down).
 -- The sign is required, so a bare `round` in activity text is never captured and a
 -- malformed `round+x` harmlessly stays plain text. Used to balance residuals so an

@@ -345,7 +345,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat keeps untagged entries untagged without sticky header metadata", function()
+  t.test("repeat keeps untagged blots untagged without sticky header metadata", function()
     t.reset({
       "--- blots ---",
       "08:00 first",
@@ -417,7 +417,7 @@ return function(t)
       vim.cmd("BlotRepeat")
     end)
 
-    -- The repeated entry is inserted into the worklog body, after "11:00 done".
+    -- The repeated blot is inserted into the worklog body, after "11:00 done".
     t.eq(t.get_lines()[5], "11:30 implementation")
   end)
 
@@ -645,7 +645,7 @@ return function(t)
 
       t.eq(messages, {
         {
-          message = "worklog: ordering set the tag/location/utc offset of order-dependent entries; review: 09:00 done",
+          message = "worklog: ordering set the tag/location/utc offset of order-dependent blots; review: 09:00 done",
           level = vim.log.levels.WARN,
         },
       })
@@ -673,7 +673,7 @@ return function(t)
 
       t.eq(messages, {
         {
-          message = "worklog: ordering set the tag/location/utc offset of order-dependent entries; review: 11:00 a",
+          message = "worklog: ordering set the tag/location/utc offset of order-dependent blots; review: 11:00 a",
           level = vim.log.levels.WARN,
         },
       })
@@ -686,7 +686,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog log marks the source entry behind an unrounded summary row", function()
+  t.test("worklog log marks the source blot behind an unrounded summary row", function()
     t.reset({
       "--- blots ---",
       "08:00 implementation",
@@ -715,7 +715,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog log marks the source entry behind a quantized summary row", function()
+  t.test("worklog log marks the source blot behind a quantized summary row", function()
     t.reset({
       "--- blots q=30 ---",
       "08:00 implementation",
@@ -775,7 +775,7 @@ return function(t)
     function()
       -- Exercises the full :BlotLog -> apply_result path with the reported
       -- bug case. The fix returns a summary-group refresh edit (higher rows)
-      -- before source-entry edits (lower rows); this test proves apply_result
+      -- before source-blot edits (lower rows); this test proves apply_result
       -- applies them in that order without index drift.
       t.reset({
         "--- blots #someproject @office ---",

@@ -201,7 +201,7 @@ return function(t)
       format_item = function(item)
         return item.id
       end,
-      to_entry_text = function(item)
+      to_blot_text = function(item)
         return item.id
       end,
     })

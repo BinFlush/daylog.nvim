@@ -9,7 +9,7 @@ return function(t)
       format_item = function(item)
         return item.id
       end,
-      to_entry_text = function(item)
+      to_blot_text = function(item)
         return item.id
       end,
     }
@@ -30,10 +30,10 @@ return function(t)
 
   t.test("register rejects a source missing a contract function", function()
     local source = valid_source()
-    source.to_entry_text = nil
+    source.to_blot_text = nil
     local ok, err = pcall(registry.register, "REG_MISSING", source)
     t.ok(not ok)
-    t.ok(tostring(err):match("is missing to_entry_text") ~= nil, tostring(err))
+    t.ok(tostring(err):match("is missing to_blot_text") ~= nil, tostring(err))
   end)
 
   t.test("register rejects a non-function search", function()

@@ -8,7 +8,7 @@ local M = {}
 -- init.lua requires it lazily, and only when Telescope is installed (and, for
 -- live_pick, the source implements `search`). The chosen item is handed to the
 -- caller's callbacks; the actual buffer edit still happens in init.lua through the
--- pure insert_entry / rename usecases.
+-- pure insert_blot / rename usecases.
 --
 -- Typing fuzzy-filters the current pool client-side (generic_sorter). When the
 -- source supports `search`, a debounced server query augments the pool with

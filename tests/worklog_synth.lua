@@ -2,7 +2,7 @@
 --
 -- Knows nothing about any specific invariant: given a seeded RNG (tests/rng.lua)
 -- and a mode name it emits a random VALID worklog -- header plus sorted
--- timestamped entries with optional sticky tags/locations, notes, #ooo, clears
+-- timestamped blots with optional sticky tags/locations, notes, #ooo, clears
 -- (#-/@-), !L, occasional UTC offsets (utc±H), occasional manual rounding nudges
 -- (round±N), occasionally closing at 24:00. Returns { lines, params }; `params`
 -- carries the sampled knobs (including `mode`) for failure reporting.
@@ -184,7 +184,7 @@ local function distinct_names(rng, count)
 end
 
 -- Activity-name source: `fresh()` yields a never-before-used name; `reuse()`
--- returns a uniformly random prior distinct name. With per-entry P(fresh) = p,
+-- returns a uniformly random prior distinct name. With per-blot P(fresh) = p,
 -- expected distinct names = 1 + (n-1)p (0 -> all same, 1 -> all different).
 local function name_pool(rng)
   local distinct = {}
@@ -205,8 +205,8 @@ local function name_pool(rng)
   }
 end
 
--- Sorted distinct entry times for `n` entries. "uniform" spans the whole clock
--- and may overwrite the final entry with 24:00; "bounded" pins a morning
+-- Sorted distinct blot times for `n` blots. "uniform" spans the whole clock
+-- and may overwrite the final blot with 24:00; "bounded" pins a morning
 -- `start` and an evening `finish` with `n-2` distinct interior times between
 -- them (a realistic day, never crossing midnight).
 local function gen_times(rng, cfg, n)
@@ -232,7 +232,7 @@ local function gen_times(rng, cfg, n)
 
   local times = rng:distinct(n, 0, 1439)
   if n >= 2 and rng:chance(cfg.p_midnight) then
-    times[#times] = 1440 -- still the maximum, so it stays the final entry
+    times[#times] = 1440 -- still the maximum, so it stays the final blot
   end
   return times
 end
@@ -271,7 +271,7 @@ local function generate(rng, mode_name)
   end
 
   -- The sticky offset state: when offsets are in use, start somewhere in the pool
-  -- and optionally declare that base on the header (otherwise the first entry that
+  -- and optionally declare that base on the header (otherwise the first blot that
   -- changes it emits the token). The index only ever advances downward (westward).
   local utc_index, current_offset
   if params.use_utc then

@@ -49,12 +49,12 @@ return function(t)
     return result
   end
 
-  local function summarize_exact_entries(entries)
-    return strip_errors(summary.summarize_entries(entries, 1))
+  local function summarize_exact_entries(blots)
+    return strip_errors(summary.summarize_entries(blots, 1))
   end
 
   local function summarize_exact(block)
-    return summarize_exact_entries(block.entries)
+    return summarize_exact_entries(block.blots)
   end
 
   t.test("summary summarizes semantic worklog blocks directly", function()
@@ -74,7 +74,7 @@ return function(t)
           duration = 30,
           unrounded_duration = 30,
           workday_excluded = false,
-          source_entry_rows = { 2 },
+          source_blot_rows = { 2 },
         },
         {
           text = "call",
@@ -82,7 +82,7 @@ return function(t)
           duration = 30,
           unrounded_duration = 30,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
         {
           text = "break",
@@ -90,7 +90,7 @@ return function(t)
           duration = 15,
           unrounded_duration = 15,
           workday_excluded = true,
-          source_entry_rows = { 4 },
+          source_blot_rows = { 4 },
         },
       },
       tag_totals = {
@@ -143,7 +143,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = true,
-          source_entry_rows = { 2 },
+          source_blot_rows = { 2 },
         },
         {
           text = "resume",
@@ -151,7 +151,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
       },
       tag_totals = {
@@ -203,7 +203,7 @@ return function(t)
             unrounded_duration = 60,
             workday_excluded = false,
             logged = true,
-            source_entry_rows = { 2 },
+            source_blot_rows = { 2 },
           },
           {
             text = "implementation",
@@ -211,7 +211,7 @@ return function(t)
             duration = 60,
             unrounded_duration = 60,
             workday_excluded = false,
-            source_entry_rows = { 3 },
+            source_blot_rows = { 3 },
           },
           {
             text = "break",
@@ -220,7 +220,7 @@ return function(t)
             unrounded_duration = 30,
             workday_excluded = true,
             logged = true,
-            source_entry_rows = { 4 },
+            source_blot_rows = { 4 },
           },
         },
         tag_totals = {
@@ -277,7 +277,7 @@ return function(t)
           unrounded_duration = 18,
           error_minutes = -12,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
         {
           text = "plan",
@@ -286,7 +286,7 @@ return function(t)
           unrounded_duration = 12,
           error_minutes = 12,
           workday_excluded = false,
-          source_entry_rows = { 2 },
+          source_blot_rows = { 2 },
         },
       },
       tag_totals = {
@@ -341,7 +341,7 @@ return function(t)
           unrounded_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
         {
           text = "plan",
@@ -350,7 +350,7 @@ return function(t)
           unrounded_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
-          source_entry_rows = { 2 },
+          source_blot_rows = { 2 },
         },
       },
       tag_totals = {
@@ -407,7 +407,7 @@ return function(t)
           error_minutes = -10,
           workday_excluded = false,
           logged = true,
-          source_entry_rows = { 2 },
+          source_blot_rows = { 2 },
         },
         {
           text = "implementation",
@@ -416,7 +416,7 @@ return function(t)
           unrounded_duration = 20,
           error_minutes = -10,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
         {
           text = "break",
@@ -426,7 +426,7 @@ return function(t)
           error_minutes = 20,
           workday_excluded = true,
           logged = true,
-          source_entry_rows = { 4 },
+          source_blot_rows = { 4 },
         },
       },
       tag_totals = {
@@ -492,7 +492,7 @@ return function(t)
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
-            source_entry_rows = { 2 },
+            source_blot_rows = { 2 },
           },
           {
             text = "implementation",
@@ -501,7 +501,7 @@ return function(t)
             unrounded_duration = 20,
             error_minutes = 20,
             workday_excluded = false,
-            source_entry_rows = { 3 },
+            source_blot_rows = { 3 },
           },
         },
         tag_totals = {
@@ -588,7 +588,7 @@ return function(t)
           unrounded_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
-          source_entry_rows = { 7 },
+          source_blot_rows = { 7 },
         },
         {
           text = "plan",
@@ -597,7 +597,7 @@ return function(t)
           unrounded_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
-          source_entry_rows = { 6 },
+          source_blot_rows = { 6 },
         },
       },
       tag_totals = {
@@ -655,7 +655,7 @@ return function(t)
           unrounded_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
-          source_entry_rows = { 2 },
+          source_blot_rows = { 2 },
         },
         {
           text = "beta",
@@ -664,7 +664,7 @@ return function(t)
           unrounded_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
         {
           text = "gamma",
@@ -673,7 +673,7 @@ return function(t)
           unrounded_duration = 17,
           error_minutes = 17,
           workday_excluded = false,
-          source_entry_rows = { 4 },
+          source_blot_rows = { 4 },
         },
       },
       tag_totals = {
@@ -736,7 +736,7 @@ return function(t)
           unrounded_duration = 34,
           error_minutes = 4,
           workday_excluded = false,
-          source_entry_rows = { 2, 3 },
+          source_blot_rows = { 2, 3 },
         },
       },
       tag_totals = {
@@ -1231,7 +1231,7 @@ return function(t)
           duration = 240,
           unrounded_duration = 240,
           workday_excluded = false,
-          source_entry_rows = { 2, 4 },
+          source_blot_rows = { 2, 4 },
         },
         {
           text = "client followup",
@@ -1239,7 +1239,7 @@ return function(t)
           duration = 180,
           unrounded_duration = 180,
           workday_excluded = false,
-          source_entry_rows = { 6 },
+          source_blot_rows = { 6 },
         },
         {
           text = "implementation",
@@ -1247,7 +1247,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
         {
           text = "internal meeting",
@@ -1255,7 +1255,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_entry_rows = { 5 },
+          source_blot_rows = { 5 },
         },
       },
       tag_totals = {
@@ -1310,7 +1310,7 @@ return function(t)
           duration = 120,
           unrounded_duration = 120,
           workday_excluded = false,
-          source_entry_rows = { 4 },
+          source_blot_rows = { 4 },
         },
         {
           text = "meeting",
@@ -1318,7 +1318,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_entry_rows = { 2 },
+          source_blot_rows = { 2 },
         },
         {
           text = "implementation",
@@ -1326,7 +1326,7 @@ return function(t)
           duration = 180,
           unrounded_duration = 180,
           workday_excluded = false,
-          source_entry_rows = { 3 },
+          source_blot_rows = { 3 },
         },
       })
     end
@@ -1347,7 +1347,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_entry_rows = { 2 },
+        source_blot_rows = { 2 },
       },
       {
         text = "beta",
@@ -1355,7 +1355,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_entry_rows = { 3 },
+        source_blot_rows = { 3 },
       },
     })
   end)
@@ -1376,7 +1376,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_entry_rows = { 2 },
+        source_blot_rows = { 2 },
       },
       {
         text = "meeting",
@@ -1384,7 +1384,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_entry_rows = { 4 },
+        source_blot_rows = { 4 },
       },
       {
         text = "other",
@@ -1392,7 +1392,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_entry_rows = { 3 },
+        source_blot_rows = { 3 },
       },
     })
   end)
@@ -1412,7 +1412,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_entry_rows = { 2 },
+        source_blot_rows = { 2 },
       },
       {
         text = "alpha",
@@ -1420,12 +1420,12 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_entry_rows = { 3 },
+        source_blot_rows = { 3 },
       },
     })
   end)
 
-  t.test("summary provenance points back to the entry rows that fed each item", function()
+  t.test("summary provenance points back to the blot rows that fed each item", function()
     local block = block_from_lines({
       "--- blots ---",
       "08:00 implementation",
@@ -1437,9 +1437,9 @@ return function(t)
     local items = summarize_exact(block).summary_items
 
     t.eq(items[1].text, "implementation")
-    t.eq(items[1].source_entry_rows, { 2, 4 })
+    t.eq(items[1].source_blot_rows, { 2, 4 })
     t.eq(items[2].text, "meeting")
-    t.eq(items[2].source_entry_rows, { 3 })
+    t.eq(items[2].source_blot_rows, { 3 })
   end)
 
   t.test("summary provenance keeps logged and unlogged source rows separate", function()
@@ -1454,9 +1454,9 @@ return function(t)
     local items = summarize_exact(block).summary_items
 
     t.eq(items[1].logged, true)
-    t.eq(items[1].source_entry_rows, { 2, 4 })
+    t.eq(items[1].source_blot_rows, { 2, 4 })
     t.eq(items[2].logged, nil)
-    t.eq(items[2].source_entry_rows, { 3 })
+    t.eq(items[2].source_blot_rows, { 3 })
   end)
 
   t.test("summary provenance records #ooo source rows on workday-excluded items", function()
@@ -1478,10 +1478,10 @@ return function(t)
     end
 
     t.eq(break_item.workday_excluded, true)
-    t.eq(break_item.source_entry_rows, { 2, 4 })
+    t.eq(break_item.source_blot_rows, { 2, 4 })
   end)
 
-  t.test("quantized summary preserves source_entry_rows on visible main rows", function()
+  t.test("quantized summary preserves source_blot_rows on visible main rows", function()
     local block = block_from_lines({
       "--- blots #ClientA q=30 ---",
       "08:00 planning @office",
@@ -1493,7 +1493,7 @@ return function(t)
 
     t.eq(#items, 1)
     t.eq(items[1].text, "planning")
-    t.eq(items[1].source_entry_rows, { 2, 3 })
+    t.eq(items[1].source_blot_rows, { 2, 3 })
   end)
 
   local function durations_by_text(items)
@@ -1540,18 +1540,18 @@ return function(t)
   t.test("a uniform header offset summarizes identically to no offset", function()
     -- The zero-overhead invariant: within one zone the base offset cancels in every
     -- delta, so declaring utc+2 throughout matches a worklog with no offset at all.
-    local entries = { "08:00 plan", "08:30 call #sales", "09:15 done" }
+    local blots = { "08:00 plan", "08:30 call #sales", "09:15 done" }
     local plain = block_from_lines({
       "--- blots #ClientA @office ---",
-      entries[1],
-      entries[2],
-      entries[3],
+      blots[1],
+      blots[2],
+      blots[3],
     })
     local zoned = block_from_lines({
       "--- blots #ClientA @office utc+2 ---",
-      entries[1],
-      entries[2],
-      entries[3],
+      blots[1],
+      blots[2],
+      blots[3],
     })
 
     t.eq(summarize_exact(zoned), summarize_exact(plain))

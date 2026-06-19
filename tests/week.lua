@@ -38,7 +38,7 @@ return function(t)
                 unrounded_duration = 20,
                 error_minutes = -10,
                 workday_excluded = false,
-                source_entry_rows = { 2 },
+                source_blot_rows = { 2 },
               },
             },
             tag_totals = {
@@ -76,7 +76,7 @@ return function(t)
                 unrounded_duration = 20,
                 error_minutes = 20,
                 workday_excluded = false,
-                source_entry_rows = { 2 },
+                source_blot_rows = { 2 },
               },
             },
             tag_totals = {
@@ -289,7 +289,7 @@ return function(t)
     t.eq(report.summary.workday_total, 60)
   end)
 
-  t.test("build_report aborts on timestamped entries with no worklog header", function()
+  t.test("build_report aborts on timestamped blots with no worklog header", function()
     local report, err = week.build_report({
       {
         date_label = "2026-05-18",

@@ -5,26 +5,26 @@ local support = require("blotter.usecases.support")
 
 local M = {}
 
--- Manually balance summary rounding by marking entries with round±N nudges.
+-- Manually balance summary rounding by marking blots with round±N nudges.
 --
 -- Quantization rounds durations to the block's q= bucket by largest remainder, so
 -- residuals can leave an aggregate (a day, hence a week) one or more q-steps off a
 -- clean total. This use case lets the cursor on a summary row -- or directly on a
--- worklog entry -- shift the rounding by N q-steps. With the cursor on a summary
+-- worklog blot -- shift the rounding by N q-steps. With the cursor on a summary
 -- row the optimality calculator finds the best contributing fine-grained row(s) to
--- nudge (least added error); on an entry it nudges that entry's row. A fine-grained
+-- nudge (least added error); on an blot it nudges that blot's row. A fine-grained
 -- row is summed from its intervals before quantizing, so its nudge is one value the
--- whole stretch shares: ALL of the row's contributing entries get the marker (it is
--- not a per-interval amount that would multiply). The marker lives on entries (the
+-- whole stretch shares: ALL of the row's contributing blots get the marker (it is
+-- not a per-interval amount that would multiply). The marker lives on blots (the
 -- summary is a pure projection), the one summary is rebuilt in place, and -- because
 -- every section is a sum of the same nudged fine-grained rows -- each section stays
 -- a partition that foots to its (shifted) total.
 --
 -- A delta of 0 clears the cursor target's nudge: on a summary row it removes every
--- marker contributing to that row's scope; on an entry it removes that entry's marker.
+-- marker contributing to that row's scope; on an blot it removes that blot's marker.
 
 M.NOT_BALANCEABLE =
-  "worklog: put the cursor on a summary row or a worklog entry to balance its rounding"
+  "worklog: put the cursor on a summary row or a worklog blot to balance its rounding"
 M.CANNOT_DOWN = "worklog: cannot round down further here; the contributing items are already empty"
 M.NOTHING = "worklog: nothing to balance on this line"
 
@@ -85,8 +85,8 @@ local function plan_steps(rows, scope, bucket_minutes, delta)
       base = base,
       remainder = row.unrounded_duration - base,
       blocks = (row.duration - base) / bucket_minutes,
-      anchor = row.source_entry_rows and row.source_entry_rows[1] or nil,
-      in_scope = scope(row) and row.source_entry_rows ~= nil and #row.source_entry_rows > 0,
+      anchor = row.source_blot_rows and row.source_blot_rows[1] or nil,
+      in_scope = scope(row) and row.source_blot_rows ~= nil and #row.source_blot_rows > 0,
     }
   end
 
@@ -132,20 +132,20 @@ local function plan_steps(rows, scope, bucket_minutes, delta)
   return changes
 end
 
--- Map the per-row block changes onto per-entry marker changes. A fine-grained row's
+-- Map the per-row block changes onto per-blot marker changes. A fine-grained row's
 -- nudge is a single value its whole activity-stretch shares, so ALL of the row's
--- contributing entries are set to the new value (current row nudge + the change).
+-- contributing blots are set to the new value (current row nudge + the change).
 -- Setting every interval -- rather than one arbitrary one -- is why the marker can
 -- be read off any of them and survives editing another, and why marking an
 -- activity's intervals never multiplies the shift.
-local function entry_changes_for_rows(rows, row_changes, current_entry_nudge)
+local function blot_changes_for_rows(rows, row_changes, current_blot_nudge)
   local changes = {}
 
   for index, delta_blocks in pairs(row_changes) do
     local row = rows[index]
     local new_nudge = (row.nudge or 0) + delta_blocks
-    for _, source_row in ipairs(row.source_entry_rows) do
-      if (current_entry_nudge[source_row] or 0) ~= new_nudge then
+    for _, source_row in ipairs(row.source_blot_rows) do
+      if (current_blot_nudge[source_row] or 0) ~= new_nudge then
         changes[source_row] = new_nudge
       end
     end
@@ -154,35 +154,35 @@ local function entry_changes_for_rows(rows, row_changes, current_entry_nudge)
   return changes
 end
 
--- Map each entry row to the nudge already on it (default 0), so a planned change can
+-- Map each blot row to the nudge already on it (default 0), so a planned change can
 -- be compared against the current marker and only the genuine differences emitted.
 local function current_nudges(block)
   local nudges = {}
-  for _, item in ipairs(block.entry_items) do
-    nudges[item.entry.row] = item.nudge or 0
+  for _, item in ipairs(block.blot_items) do
+    nudges[item.blot.row] = item.nudge or 0
   end
   return nudges
 end
 
--- The net per-entry nudge changes for a cursor on a summary row: the calculator
--- picks the rows to nudge and the source entries to mark. A delta of 0 clears every
+-- The net per-blot nudge changes for a cursor on a summary row: the calculator
+-- picks the rows to nudge and the source blots to mark. A delta of 0 clears every
 -- nudge contributing to the scope.
-local function summary_entry_changes(block, layout_row, delta)
+local function summary_blot_changes(block, layout_row, delta)
   local scope = scope_for(layout_row)
   if not scope then
     return nil, M.NOTHING
   end
 
-  local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+  local rows, bucket_minutes = summary.fine_grained_quantized(block.blots, block.quantize_minutes)
 
-  local current_entry_nudge = current_nudges(block)
+  local current_blot_nudge = current_nudges(block)
 
   if delta == 0 then
     local changes = {}
     for _, row in ipairs(rows) do
       if scope(row) then
-        for _, source_row in ipairs(row.source_entry_rows or {}) do
-          if (current_entry_nudge[source_row] or 0) ~= 0 then
+        for _, source_row in ipairs(row.source_blot_rows or {}) do
+          if (current_blot_nudge[source_row] or 0) ~= 0 then
             changes[source_row] = 0
           end
         end
@@ -196,25 +196,25 @@ local function summary_entry_changes(block, layout_row, delta)
     return nil, err
   end
 
-  return entry_changes_for_rows(rows, row_changes, current_entry_nudge)
+  return blot_changes_for_rows(rows, row_changes, current_blot_nudge)
 end
 
--- The per-entry nudge changes for a cursor directly on a worklog entry: nudge the
--- fine-grained row that entry belongs to, setting every interval of that row to the
--- new value. Returns nil when the cursor entry starts no interval (e.g. the closing
--- entry of the day), which therefore contributes to no row and cannot be rounded.
-local function entry_direct_changes(block, cursor_row, delta)
-  local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+-- The per-blot nudge changes for a cursor directly on a worklog blot: nudge the
+-- fine-grained row that blot belongs to, setting every interval of that row to the
+-- new value. Returns nil when the cursor blot starts no interval (e.g. the closing
+-- blot of the day), which therefore contributes to no row and cannot be rounded.
+local function blot_direct_changes(block, cursor_row, delta)
+  local rows = summary.fine_grained_quantized(block.blots, block.quantize_minutes)
 
-  local current_entry_nudge = current_nudges(block)
+  local current_blot_nudge = current_nudges(block)
 
   for _, row in ipairs(rows) do
-    for _, source_row in ipairs(row.source_entry_rows or {}) do
+    for _, source_row in ipairs(row.source_blot_rows or {}) do
       if source_row == cursor_row then
         local new_nudge = delta == 0 and 0 or (row.nudge or 0) + delta
         local changes = {}
-        for _, entry_row in ipairs(row.source_entry_rows) do
-          if (current_entry_nudge[entry_row] or 0) ~= new_nudge then
+        for _, entry_row in ipairs(row.source_blot_rows) do
+          if (current_blot_nudge[entry_row] or 0) ~= new_nudge then
             changes[entry_row] = new_nudge
           end
         end
@@ -226,26 +226,26 @@ local function entry_direct_changes(block, cursor_row, delta)
   return nil
 end
 
--- Build the edit script that rewrites the changed entry lines and, when the block
--- already carries a summary, rebuilds it in place from the nudged entries. Modeled
--- on log_current: the source entries gain/lose their round±N marker and the one
+-- Build the edit script that rewrites the changed blot lines and, when the block
+-- already carries a summary, rebuilds it in place from the nudged blots. Modeled
+-- on log_current: the source blots gain/lose their round±N marker and the one
 -- summary is regenerated, so it stays a pure projection.
-local function build_edits(analysis, block, entry_changes)
-  if next(entry_changes) == nil then
+local function build_edits(analysis, block, blot_changes)
+  if next(blot_changes) == nil then
     return nil, M.NOTHING
   end
 
   local source_edits = support.rewrite_entry_lines(block, function(item)
-    local new_nudge = entry_changes[item.entry.row]
+    local new_nudge = blot_changes[item.blot.row]
     if new_nudge ~= nil then
       return { nudge = new_nudge }
     end
   end)
 
-  -- Rebuild the one summary from the nudged entries, replacing its located region.
+  -- Rebuild the one summary from the nudged blots, replacing its located region.
   local modified = support.modified_entries(block, function(copy)
-    if entry_changes[copy.row] ~= nil then
-      copy.nudge = entry_changes[copy.row]
+    if blot_changes[copy.row] ~= nil then
+      copy.nudge = blot_changes[copy.row]
     end
   end)
 
@@ -285,32 +285,32 @@ function M.run(lines, cursor_row, delta)
   local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
 
   if result then
-    local entry_changes, err = summary_entry_changes(result.ctx.block, result.layout_row, delta)
-    if not entry_changes then
+    local blot_changes, err = summary_blot_changes(result.ctx.block, result.layout_row, delta)
+    if not blot_changes then
       return nil, err
     end
-    return build_edits(result.ctx.analysis, result.ctx.block, entry_changes)
+    return build_edits(result.ctx.analysis, result.ctx.block, blot_changes)
   end
 
   if resolve_err then
     return nil, resolve_err
   end
 
-  -- The cursor is not on the active worklog's summary; try a worklog entry directly.
+  -- The cursor is not on the active worklog's summary; try a worklog blot directly.
   local ctx, ctx_err = support.get_validated_active(lines)
   if not ctx then
     return nil, ctx_err or M.NOT_BALANCEABLE
   end
 
-  local entry_changes = entry_direct_changes(ctx.block, cursor_row, delta)
-  if not entry_changes then
+  local blot_changes = blot_direct_changes(ctx.block, cursor_row, delta)
+  if not blot_changes then
     return nil, M.NOT_BALANCEABLE
   end
-  if next(entry_changes) == nil then
+  if next(blot_changes) == nil then
     return nil, M.NOTHING
   end
 
-  return build_edits(ctx.analysis, ctx.block, entry_changes)
+  return build_edits(ctx.analysis, ctx.block, blot_changes)
 end
 
 return M

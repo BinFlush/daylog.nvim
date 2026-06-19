@@ -2,7 +2,7 @@ local analyze = require("blotter.analyze")
 local body = require("blotter.body")
 local context = require("blotter.context")
 local diagnostics = require("blotter.diagnostics")
-local entry = require("blotter.entry")
+local blot = require("blotter.blot")
 local render = require("blotter.render")
 local summary = require("blotter.summary")
 local summary_block = require("blotter.summary_block")
@@ -54,18 +54,18 @@ end
 
 -- Build the edit that inserts `inserted_line` (whose effective tag/location/offset
 -- are `ins_tag`/`ins_loc`/`ins_offset`) at `minutes` in `block`. When the inserted
--- entry changes the sticky tag/location/offset the following entry was silently
+-- blot changes the sticky tag/location/offset the following blot was silently
 -- inheriting, the follower is rewritten with a compensating token (#tag/@location,
 -- #-/@-, or utc±H) so its effective metadata is preserved. Pinning the immediate
--- follower suffices, since later entries inherit from it. Placement is by the
+-- follower suffices, since later blots inherit from it. Placement is by the
 -- written local clock (raw minutes), so the predecessor and follower are found by
 -- raw time, not effective UTC.
-function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, ins_offset)
+function M.insert_blot_edit(block, minutes, inserted_line, ins_tag, ins_loc, ins_offset)
   local insert_index = body.insert_index(block, minutes)
   local pred = body.state_before(block, minutes)
 
   local follower
-  for _, item in ipairs(block.entry_items) do
+  for _, item in ipairs(block.blot_items) do
     if item.minutes > minutes then
       follower = item
       break
@@ -93,7 +93,7 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
       -- follower's round±N marker on an unrelated insertion.
       lines = {
         inserted_line,
-        entry.format(analyze.copy_fields(follower), ins_tag, ins_loc, ins_offset),
+        blot.format(analyze.copy_fields(follower), ins_tag, ins_loc, ins_offset),
       }
       end_index = insert_index + 1
     end
@@ -110,41 +110,41 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
   }
 end
 
--- Clone a block's semantic entries through the canonical field set (restoring the
+-- Clone a block's semantic blots through the canonical field set (restoring the
 -- source row that copy_fields deliberately drops) and apply `mutate(copy)` to each,
 -- returning the new list. The summary-writing usecases recompute a summary from
--- entries with a field flipped (logged, nudge, a rename) without re-parsing the
+-- blots with a field flipped (logged, nudge, a rename) without re-parsing the
 -- buffer, so they share one clone with consistent semantics rather than three
 -- hand-rolled copies.
 function M.modified_entries(block, mutate)
-  local entries = {}
+  local blots = {}
 
-  for _, semantic_entry in ipairs(block.entries) do
+  for _, semantic_entry in ipairs(block.blots) do
     local copy = analyze.copy_fields(semantic_entry)
     copy.row = semantic_entry.row
     if mutate then
       mutate(copy)
     end
-    entries[#entries + 1] = copy
+    blots[#blots + 1] = copy
   end
 
-  return entries
+  return blots
 end
 
--- Re-emit selected entry lines of a block, threading the raw sticky state so each
+-- Re-emit selected blot lines of a block, threading the raw sticky state so each
 -- re-emitted line carries the right compensating #-/@-/utc token for its new
--- predecessor. For each entry item, `fn(item)` returns a table of field overrides to
--- apply over the entry's canonical fields (e.g. a flipped logged, a new nudge), or
--- nil to leave that entry untouched. Returns one single-line edit per re-emitted
--- entry, in ascending row order. The summary-writing usecases share this so the
--- sticky-advance bookkeeping lives in one place (mirrors insert_entry_edit's follower).
+-- predecessor. For each blot item, `fn(item)` returns a table of field overrides to
+-- apply over the blot's canonical fields (e.g. a flipped logged, a new nudge), or
+-- nil to leave that blot untouched. Returns one single-line edit per re-emitted
+-- blot, in ascending row order. The summary-writing usecases share this so the
+-- sticky-advance bookkeeping lives in one place (mirrors insert_blot_edit's follower).
 function M.rewrite_entry_lines(block, fn)
   local edits = {}
   local current_tag = block.header_tag
   local current_location = block.header_location
   local current_offset = block.header_offset
 
-  for _, item in ipairs(block.entry_items) do
+  for _, item in ipairs(block.blot_items) do
     local overrides = fn(item)
     if overrides then
       local fields = analyze.copy_fields(item)
@@ -155,7 +155,7 @@ function M.rewrite_entry_lines(block, fn)
       edits[#edits + 1] = {
         start_index = item.start_row - 1,
         end_index = item.start_row,
-        lines = { entry.format(fields, current_tag, current_location, current_offset) },
+        lines = { blot.format(fields, current_tag, current_location, current_offset) },
       }
     end
 
@@ -189,7 +189,7 @@ function M.locate_summary(analysis, block)
 end
 
 function M.parse_clock_minutes(time)
-  local parsed, err = entry.parse(time)
+  local parsed, err = blot.parse(time)
 
   if not parsed then
     return nil, "worklog: invalid current time: " .. (err or tostring(time))

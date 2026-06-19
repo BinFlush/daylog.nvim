@@ -1,8 +1,8 @@
 return function(t)
-  local insert_entry = require("blotter.usecases.insert_entry")
+  local insert_blot = require("blotter.usecases.insert_blot")
 
-  t.test("insert_entry inserts a full HH:MM <text> line with cursor and insert mode", function()
-    local result = insert_entry.run({
+  t.test("insert_blot inserts a full HH:MM <text> line with cursor and insert mode", function()
+    local result = insert_blot.run({
       "--- blots ---",
       "08:00 first",
       "09:00 done",
@@ -22,9 +22,9 @@ return function(t)
   end)
 
   t.test(
-    "insert_entry inherits sticky metadata without adding tokens or rewriting the follower",
+    "insert_blot inherits sticky metadata without adding tokens or rewriting the follower",
     function()
-      local result = insert_entry.run({
+      local result = insert_blot.run({
         "--- blots #ClientA @office ---",
         "08:00 a",
         "10:00 b",
@@ -47,8 +47,8 @@ return function(t)
     end
   )
 
-  t.test("insert_entry orders after equal timestamps", function()
-    local result = insert_entry.run({
+  t.test("insert_blot orders after equal timestamps", function()
+    local result = insert_blot.run({
       "--- blots ---",
       "08:00 first",
       "08:00 second",
@@ -64,8 +64,8 @@ return function(t)
     })
   end)
 
-  t.test("insert_entry rejects an invalid time", function()
-    local result, err = insert_entry.run({
+  t.test("insert_blot rejects an invalid time", function()
+    local result, err = insert_blot.run({
       "--- blots ---",
       "08:00 first",
       "09:00 done",
@@ -75,8 +75,8 @@ return function(t)
     t.eq(err, "worklog: invalid current time: invalid time")
   end)
 
-  t.test("insert_entry rejects a cursor outside any worklog", function()
-    local result, err = insert_entry.run({
+  t.test("insert_blot rejects a cursor outside any worklog", function()
+    local result, err = insert_blot.run({
       "08:00 raw",
       "09:00 done",
     }, 1, "10:00", "x")
@@ -85,8 +85,8 @@ return function(t)
     t.ok(err ~= nil)
   end)
 
-  t.test("insert_entry sanitizes text so a title cannot inject trailing metadata", function()
-    local result = insert_entry.run({
+  t.test("insert_blot sanitizes text so a title cannot inject trailing metadata", function()
+    local result = insert_blot.run({
       "--- blots ---",
       "08:00 first",
       "09:00 done",

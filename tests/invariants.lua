@@ -54,13 +54,13 @@ return function(t)
     return total
   end
 
-  local function case_context(case_number, entries, quantize_minutes)
+  local function case_context(case_number, blots, quantize_minutes)
     return string.format(
       "seed=%d case=%d q=%d\n%s",
       SEED,
       case_number,
       quantize_minutes,
-      vim.inspect(entries)
+      vim.inspect(blots)
     )
   end
 
@@ -252,13 +252,13 @@ return function(t)
   local function generate_entries()
     local entry_count = math.random(2, 12)
     local minutes = generate_sorted_minutes(entry_count)
-    local entries = {}
+    local blots = {}
 
     for index = 1, entry_count do
       local tag = denil(choice(TAGS))
       local location = denil(choice(LOCATIONS))
 
-      table.insert(entries, {
+      table.insert(blots, {
         minutes = minutes[index],
         text = choice(ACTIVITIES),
         tag = tag,
@@ -267,18 +267,18 @@ return function(t)
       })
     end
 
-    return entries
+    return blots
   end
 
   t.test("random semantic summaries satisfy unrounded and quantized invariants", function()
     math.randomseed(SEED)
 
     for case_number = 1, CASES do
-      local entries = generate_entries()
+      local blots = generate_entries()
       local quantize_minutes = choice(QUANTIZE_MINUTES)
-      local context = case_context(case_number, entries, quantize_minutes)
-      local unrounded_summary = summary.summarize_entries(entries, 1)
-      local quantized_summary = summary.summarize_entries(entries, quantize_minutes)
+      local context = case_context(case_number, blots, quantize_minutes)
+      local unrounded_summary = summary.summarize_entries(blots, 1)
+      local quantized_summary = summary.summarize_entries(blots, quantize_minutes)
 
       assert_unrounded_invariants(t, unrounded_summary, context)
       assert_quantized_invariants(

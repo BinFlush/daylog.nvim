@@ -35,7 +35,7 @@ local function parse_metadata_token(token)
 
   -- A `utc±H[:MM]` offset is sticky metadata too; the value is signed minutes and
   -- there is no clear form (you change the offset, you do not unset it). Shared by
-  -- the entry trailing-run scan (via parse_entry_control_token) and the header
+  -- the blot trailing-run scan (via parse_blot_control_token) and the header
   -- tokenizer (parse_worklog_tokens), so both recognize it with one grammar.
   local offset = syntax.parse_utc_offset(token)
   if offset ~= nil then
@@ -45,7 +45,7 @@ local function parse_metadata_token(token)
   return nil, nil, false
 end
 
-local function parse_entry_control_token(token)
+local function parse_blot_control_token(token)
   local kind, value, clear = parse_metadata_token(token)
   if kind then
     return kind, value, clear
@@ -55,8 +55,8 @@ local function parse_entry_control_token(token)
     return syntax.TOKEN_KIND.LOGGED, true, false
   end
 
-  -- A `round±N` rounding-balance marker is per-entry and non-sticky (like !L), so it
-  -- is recognized here in the entry trailing run only -- never in the worklog header
+  -- A `round±N` rounding-balance marker is per-blot and non-sticky (like !L), so it
+  -- is recognized here in the blot trailing run only -- never in the worklog header
   -- (parse_worklog_tokens uses parse_metadata_token, which does not see it).
   local nudge = syntax.parse_round_nudge(token)
   if nudge ~= nil then
@@ -105,7 +105,7 @@ local function parse_worklog_tokens(text)
   return result
 end
 
-local function parse_entry_metadata(text)
+local function parse_blot_metadata(text)
   local tokens = {}
   local result = {
     text = "",
@@ -134,7 +134,7 @@ local function parse_entry_metadata(text)
   local split_index = #tokens
 
   while split_index > 0 do
-    local kind = parse_entry_control_token(tokens[split_index])
+    local kind = parse_blot_control_token(tokens[split_index])
 
     if not kind then
       break
@@ -144,7 +144,7 @@ local function parse_entry_metadata(text)
   end
 
   for i = split_index + 1, #tokens do
-    local kind, value, clear = parse_entry_control_token(tokens[i])
+    local kind, value, clear = parse_blot_control_token(tokens[i])
 
     if kind == syntax.TOKEN_KIND.TAG then
       if has_tag then
@@ -231,16 +231,16 @@ local function parse_header(line, row)
   return nil
 end
 
-local function parse_entry(line, row)
+local function parse_blot(line, row)
   local hh, mm, rest = line:match("^(%d%d):(%d%d)(.*)$")
   if not hh then
     return nil
   end
 
-  -- A summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp plus a
-  -- (+Nm) rounding marker; treat it as a note, not an entry. This keeps a d=hm summary
+  -- A summary row ("16:00 (+0m) workday") is byte-for-byte an blot timestamp plus a
+  -- (+Nm) rounding marker; treat it as a note, not an blot. This keeps a d=hm summary
   -- row that leaks into a worklog body (e.g. after its summary header is deleted) from
-  -- being miscounted as a real entry; the highlighter (highlight.lua) shares the rule.
+  -- being miscounted as a real blot; the highlighter (highlight.lua) shares the rule.
   if rest:match("^%s+%([%+%-]%d+m%)") then
     return nil
   end
@@ -270,7 +270,7 @@ local function parse_entry(line, row)
   end
 
   local text = normalize_text(rest:gsub("^%s+", ""))
-  local metadata, err = parse_entry_metadata(text)
+  local metadata, err = parse_blot_metadata(text)
   if err then
     return {
       kind = syntax.NODE_KIND.INVALID_ENTRY,
@@ -302,9 +302,9 @@ local function parse_line(line, row)
     return header
   end
 
-  local entry = parse_entry(line, row)
-  if entry then
-    return entry
+  local blot = parse_blot(line, row)
+  if blot then
+    return blot
   end
 
   if line == "" then
@@ -327,7 +327,7 @@ end
 -- (kind, value, clear) for a #tag / @location / #- / @- / !L, or nil otherwise.
 -- Exposed so the highlighter (highlight.lua) classifies trailing-run and header
 -- tokens with the very same grammar the parser uses, rather than a second copy.
-M.classify_control_token = parse_entry_control_token
+M.classify_control_token = parse_blot_control_token
 
 -- The remaining functions expose this parser's token grammar with byte positions,
 -- so the highlighter is a pure projection of the parse and owns no patterns of its
@@ -344,7 +344,7 @@ function M.tokens(line)
 end
 
 -- The (+Nm) / (-Nm) rounding markers on a line as 0-based byte spans. This is the
--- same marker shape parse_entry refuses to read as an entry (so a summary row never
+-- same marker shape parse_blot refuses to read as an blot (so a summary row never
 -- counts as one); reusing it keeps the reader and the highlighter in lockstep.
 function M.quant_error_spans(line)
   local spans = {}
@@ -356,9 +356,9 @@ end
 
 -- The byte length of a line's leading summary-duration token, or nil. A decimal
 -- ("2.00h") or a single-digit-hour h:mm ("0:30") is always a duration (neither can
--- be an entry timestamp, which is a zero-padded HH:MM). A two-digit-hour HH:MM
+-- be an blot timestamp, which is a zero-padded HH:MM). A two-digit-hour HH:MM
 -- ("16:00") is a duration only immediately before a rounding marker -- otherwise it
--- is an entry timestamp -- mirroring the entry/summary split parse_entry makes.
+-- is an blot timestamp -- mirroring the blot/summary split parse_blot makes.
 function M.summary_duration_length(line)
   local decimal = line:match("^%d+%.%d+h")
   if decimal then

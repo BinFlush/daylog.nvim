@@ -4,7 +4,7 @@ local balance_summary = require("blotter.usecases.balance_summary")
 local carryover = require("blotter.usecases.carryover")
 local config = require("blotter.config")
 local highlight = require("blotter.highlight")
-local insert_entry = require("blotter.usecases.insert_entry")
+local insert_blot = require("blotter.usecases.insert_blot")
 local insert_now = require("blotter.usecases.insert_now")
 local journal = require("blotter.journal")
 local log_current = require("blotter.usecases.log_current")
@@ -165,7 +165,7 @@ local function run_buffer_usecase(run, ...)
   return true
 end
 
--- Rebuild every worklog's existing summary to match its entries, and publish the
+-- Rebuild every worklog's existing summary to match its blots, and publish the
 -- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
 -- are already current. `join` merges the edit into the previous undo block, used
 -- by the autocmd-driven refreshes so one keystroke stays one undo step.
@@ -231,11 +231,11 @@ local function apply_insert_time(time)
   return true
 end
 
--- Insert a fully-resolved "HH:MM <text>" entry at the cursor's worklog and enter
+-- Insert a fully-resolved "HH:MM <text>" blot at the cursor's worklog and enter
 -- insert mode. Mirrors apply_insert_time but carries an activity string (the text
 -- is built and sanitized by the source layer before it gets here).
-local function apply_insert_entry(time, entry_text)
-  local result, err = insert_entry.run(buffer_lines(), cursor_row(), time, entry_text)
+local function apply_insert_blot(time, entry_text)
+  local result, err = insert_blot.run(buffer_lines(), cursor_row(), time, entry_text)
   if not result then
     warn(err)
     return false
@@ -534,7 +534,7 @@ local function current_buffer_journal_date(settings)
 end
 
 -- Today's worklog must be left in a valid state: leaving a broken today (out-of-order
--- entries, an invalid entry, ...) would silently stop tracking the active day, so the
+-- blots, an invalid blot, ...) would silently stop tracking the active day, so the
 -- day-navigation commands refuse until it is fixed. Only today is guarded -- browsing a
 -- past day's old problems is fine -- and only the plugin's own navigation (a raw :edit
 -- cannot be vetoed). The problems are published as buffer diagnostics so they show up.
@@ -568,7 +568,7 @@ local function run_carryover(settings, command, now)
     return false
   end
 
-  -- Capture the cursor entry before the buffer switches away.
+  -- Capture the cursor blot before the buffer switches away.
   local repeated
   if command == "repeat" then
     local err
@@ -766,7 +766,7 @@ function M.insert_from_source(name)
 
   -- Refuse a cursor outside a worklog now, before opening the async picker
   -- (cache read, optional network, a UI round trip), exactly as :BlotInsert
-  -- with no argument refuses up front. insert_entry re-validates at apply time
+  -- with no argument refuses up front. insert_blot re-validates at apply time
   -- too, since the buffer can change under the picker -- this is the fail-fast.
   local cursor_ctx, cursor_err = support.get_validated_at_row(buffer_lines(), cursor_row())
   if not cursor_ctx then
@@ -790,7 +790,7 @@ function M.insert_from_source(name)
       return
     end
 
-    apply_insert_entry(time, source.to_entry_text(item))
+    apply_insert_blot(time, source.to_blot_text(item))
   end
 
   local has_telescope = pcall(require, "telescope")
@@ -890,7 +890,7 @@ local rename_from_report
 -- empty or unchanged value is a no-op.
 -- `source_name`, when given, replaces an activity with a work item from that
 -- source: the picker also lists (and live-searches) the source's items, and a
--- chosen item renames the activity to its `to_entry_text` (sanitized), exactly like
+-- chosen item renames the activity to its `to_blot_text` (sanitized), exactly like
 -- :BlotInsert. A source only applies to an activity row, and with one source
 -- configured it is offered automatically.
 function M.rename_summary(new_value, source_name)
@@ -971,10 +971,10 @@ function M.rename_summary(new_value, source_name)
 
   -- Open the picker over the merge candidates plus any source items; both a
   -- Telescope picker and the vim.ui.select fallback let you pick a candidate (a
-  -- merge), a source item (replace with its entry text), or type a fresh name.
+  -- merge), a source item (replace with its blot text), or type a fresh name.
   local function open_picker(items)
     local function pick_item(item)
-      apply_rename(source.to_entry_text(item))
+      apply_rename(source.to_blot_text(item))
     end
 
     if pcall(require, "telescope") then
@@ -1035,7 +1035,7 @@ function M.rename_summary(new_value, source_name)
         return
       end
       if type(choice) == "table" then
-        apply_rename(source.to_entry_text(choice))
+        apply_rename(source.to_blot_text(choice))
         return
       end
       apply_rename(choice)
@@ -1072,7 +1072,7 @@ function M.order_worklogs()
 
   if result.warnings and #result.warnings > 0 then
     warn(
-      "worklog: ordering set the tag/location/utc offset of order-dependent entries; review: "
+      "worklog: ordering set the tag/location/utc offset of order-dependent blots; review: "
         .. table.concat(result.warnings, ", ")
     )
   end
@@ -1084,7 +1084,7 @@ end
 
 -- Manually balance summary rounding by `delta` q-steps (a signed integer; 0 clears
 -- the cursor target's nudge). The cursor may sit on a summary row -- whose best
--- contributing entry is nudged for it -- or directly on a worklog entry.
+-- contributing blot is nudged for it -- or directly on a worklog blot.
 function M.balance(arg)
   local delta = 1
 
@@ -1099,7 +1099,7 @@ function M.balance(arg)
   run_buffer_usecase(balance_summary.run, cursor_row(), delta)
 end
 
--- Rebuild every existing summary in the current buffer to match its entries.
+-- Rebuild every existing summary in the current buffer to match its blots.
 function M.refresh()
   apply_refresh(false)
 end
@@ -1211,7 +1211,7 @@ function M.init_day(offset)
 
   -- Seed the empty summary so a freshly scaffolded day is a complete, valid
   -- worklog from the start -- like a new today, just without the current-time
-  -- entry. refresh_summaries creates the missing summary the same way it self-heals
+  -- blot. refresh_summaries creates the missing summary the same way it self-heals
   -- any summary-less worklog.
   apply_refresh(false)
 end
