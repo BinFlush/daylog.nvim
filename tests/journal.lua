@@ -197,4 +197,51 @@ return function(t)
     t.eq(journal.date_from_path(settings, "C:\\Users\\me\\timereg\\2026-05-18.wkl"), nil)
     t.eq(journal.date_from_path(settings, "D:\\elsewhere\\2026-05-18.wkl"), nil)
   end)
+
+  local function day(year, month, d)
+    return os.time({ year = year, month = month, day = d, hour = 12, min = 0, sec = 0 })
+  end
+
+  t.test("journal nearest_date returns nil for an empty set", function()
+    t.eq(journal.nearest_date({}, day(2026, 5, 18), 1, 1), nil)
+    t.eq(journal.nearest_date({}, day(2026, 5, 18), -1, 1), nil)
+  end)
+
+  t.test("journal nearest_date skips gaps to the next existing day in each direction", function()
+    -- Sparse set with the anchor day itself missing in between.
+    local dates = { day(2026, 5, 15), day(2026, 5, 18), day(2026, 5, 22) }
+    local anchor = day(2026, 5, 18)
+
+    t.eq(journal.date_label(journal.nearest_date(dates, anchor, 1, 1)), "2026-05-22")
+    t.eq(journal.date_label(journal.nearest_date(dates, anchor, -1, 1)), "2026-05-15")
+  end)
+
+  t.test("journal nearest_date excludes the anchor day itself", function()
+    local dates = { day(2026, 5, 17), day(2026, 5, 18), day(2026, 5, 19) }
+    local anchor = day(2026, 5, 18)
+
+    t.eq(journal.date_label(journal.nearest_date(dates, anchor, 1, 1)), "2026-05-19")
+    t.eq(journal.date_label(journal.nearest_date(dates, anchor, -1, 1)), "2026-05-17")
+  end)
+
+  t.test("journal nearest_date honors a count and an anchor outside the set", function()
+    local dates = { day(2026, 5, 10), day(2026, 5, 12), day(2026, 5, 14) }
+
+    -- Anchor before everything: count walks forward through the set.
+    local anchor = day(2026, 5, 1)
+    t.eq(journal.date_label(journal.nearest_date(dates, anchor, 1, 1)), "2026-05-10")
+    t.eq(journal.date_label(journal.nearest_date(dates, anchor, 1, 3)), "2026-05-14")
+    -- Nothing earlier than the start of the set.
+    t.eq(journal.nearest_date(dates, anchor, -1, 1), nil)
+    -- count beyond the available days yields nil.
+    t.eq(journal.nearest_date(dates, anchor, 1, 4), nil)
+  end)
+
+  t.test("journal nearest_date de-duplicates days that appear twice", function()
+    -- The same day from two sources (buffer + disk) must count once.
+    local dates = { day(2026, 5, 12), day(2026, 5, 12), day(2026, 5, 14) }
+    local anchor = day(2026, 5, 10)
+
+    t.eq(journal.date_label(journal.nearest_date(dates, anchor, 1, 2)), "2026-05-14")
+  end)
 end

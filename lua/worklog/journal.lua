@@ -142,4 +142,52 @@ function M.trailing_dates(now, count)
   return dates
 end
 
+-- The timestamp of the `count`-th existing journal date strictly past `anchor` in
+-- `direction` (+1 later, -1 earlier), or nil when fewer than `count` exist that
+-- way. `dates` is any list of day timestamps; they are compared and de-duplicated
+-- by their canonical `date_label`, so a day present twice (e.g. an unsaved buffer
+-- and the file on disk) counts once, and the strict comparison excludes the anchor
+-- day itself. The labels sort lexically, which for `YYYY-MM-DD` is chronological.
+function M.nearest_date(dates, anchor, direction, count)
+  count = count or 1
+  local anchor_label = M.date_label(anchor)
+  local by_label = {}
+  local labels = {}
+
+  for _, date in ipairs(dates) do
+    local label = M.date_label(date)
+    if by_label[label] == nil then
+      by_label[label] = date
+      table.insert(labels, label)
+    end
+  end
+
+  table.sort(labels, function(a, b)
+    -- Order so the closest candidate in `direction` is visited first.
+    if direction < 0 then
+      return a > b
+    end
+    return a < b
+  end)
+
+  local found = 0
+  for _, label in ipairs(labels) do
+    local past
+    if direction < 0 then
+      past = label < anchor_label
+    else
+      past = label > anchor_label
+    end
+
+    if past then
+      found = found + 1
+      if found == count then
+        return by_label[label]
+      end
+    end
+  end
+
+  return nil
+end
+
 return M
