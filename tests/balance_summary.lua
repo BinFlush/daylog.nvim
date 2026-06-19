@@ -67,7 +67,7 @@ return function(t)
   -- plan 50min, review 45min, q=15 -> plan 0.75h(+5m) / review 0.75h(+0m) / workday 1.50h(+5m).
   local function sample()
     return buffer_with_summary({
-      "--- worklog #ClientA @office q=15 ---",
+      "--- blots #ClientA @office q=15 ---",
       "08:00 plan",
       "08:50 review",
       "09:35 done",
@@ -121,7 +121,7 @@ return function(t)
   t.test("balance applies multiple steps to distinct best rows", function()
     -- Two equal-remainder activities; +2 on the total rounds up both.
     local lines = buffer_with_summary({
-      "--- worklog #ClientA q=15 ---",
+      "--- blots #ClientA q=15 ---",
       "08:00 plan",
       "08:50 review",
       "09:40 done",
@@ -136,7 +136,7 @@ return function(t)
     -- A single 10-min task at q=15 rounds up to 0.25h naturally; one -1 takes it to
     -- 0.00h, and a second has nowhere to go.
     local lines = buffer_with_summary({
-      "--- worklog #ClientA q=15 ---",
+      "--- blots #ClientA q=15 ---",
       "08:00 task",
       "08:10 done",
     })
@@ -153,7 +153,7 @@ return function(t)
     -- the row up one bucket marks ALL THREE intervals and lands at 1.50h -- not three
     -- buckets (2.00h), which a per-interval/additive marker would produce.
     local lines = buffer_with_summary({
-      "--- worklog #ClientA @office q=15 ---",
+      "--- blots #ClientA @office q=15 ---",
       "08:00 review",
       "08:26 review",
       "08:52 review",
@@ -181,7 +181,7 @@ return function(t)
     -- the workday total's scope.
     local function sample_ooo()
       return buffer_with_summary({
-        "--- worklog #ClientA @office q=15 ---",
+        "--- blots #ClientA @office q=15 ---",
         "08:00 work",
         "08:45 lunch #ooo",
         "09:35 done",
@@ -204,7 +204,7 @@ return function(t)
 
   t.test("balance refuses when the cursor is not on a summary row or entry", function()
     local lines = sample()
-    local _, err = balance.run(lines, row_of(lines, "--- worklog"), 1)
+    local _, err = balance.run(lines, row_of(lines, "--- blots"), 1)
     t.eq(err, balance.NOT_BALANCEABLE)
   end)
 end

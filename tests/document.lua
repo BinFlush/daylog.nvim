@@ -4,7 +4,7 @@ return function(t)
 
   t.test("document parse preserves line kinds and rows", function()
     local doc = document.parse({
-      "--- worklog #ProjectOrion @office q=30 ---",
+      "--- blots #ProjectOrion @office q=30 ---",
       "08:00 plan",
       "note about planning",
       "",
@@ -17,7 +17,7 @@ return function(t)
       {
         kind = "worklog_header",
         row = 1,
-        raw = "--- worklog #ProjectOrion @office q=30 ---",
+        raw = "--- blots #ProjectOrion @office q=30 ---",
         metadata_tokens = {
           {
             kind = "tag",
@@ -69,12 +69,12 @@ return function(t)
   end)
 
   t.test("document parse requires worklog to be its own word in a header", function()
-    t.eq(document.parse_line("--- worklog ---").kind, "worklog_header")
-    t.eq(document.parse_line("--- worklog #ClientA ---").kind, "worklog_header")
-    t.eq(document.parse_line("--- worklog---").kind, "worklog_header")
-    t.eq(document.parse_line("--- worklogs ---").kind, "block_header")
-    t.eq(document.parse_line("--- worklog#sales ---").kind, "block_header")
-    t.eq(document.parse_line("--- worklogs to review ---").kind, "block_header")
+    t.eq(document.parse_line("--- blots ---").kind, "worklog_header")
+    t.eq(document.parse_line("--- blots #ClientA ---").kind, "worklog_header")
+    t.eq(document.parse_line("--- blots---").kind, "worklog_header")
+    t.eq(document.parse_line("--- blotss ---").kind, "block_header")
+    t.eq(document.parse_line("--- blots#sales ---").kind, "block_header")
+    t.eq(document.parse_line("--- blotss to review ---").kind, "block_header")
   end)
 
   t.test("document parse_line parses a single line directly", function()
@@ -114,10 +114,10 @@ return function(t)
   end)
 
   t.test("document parse keeps worklog header metadata and options", function()
-    t.eq(document.parse_line("--- worklog #ProjectOrion @office q=30 nope ---"), {
+    t.eq(document.parse_line("--- blots #ProjectOrion @office q=30 nope ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog #ProjectOrion @office q=30 nope ---",
+      raw = "--- blots #ProjectOrion @office q=30 nope ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -140,10 +140,10 @@ return function(t)
       invalid_tokens = { "nope" },
     })
 
-    t.eq(document.parse_line("--- worklog q=foo unknown=bar #internal @home ---"), {
+    t.eq(document.parse_line("--- blots q=foo unknown=bar #internal @home ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog q=foo unknown=bar #internal @home ---",
+      raw = "--- blots q=foo unknown=bar #internal @home ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -174,7 +174,7 @@ return function(t)
 
   t.test("document parse keeps explicit entry metadata only", function()
     local doc = document.parse({
-      "--- worklog ---",
+      "--- blots ---",
       "08:21 negotiate with goose #sales",
       "08:52 coffee with ghost #ooo @home",
       "09:00 done",
@@ -234,10 +234,10 @@ return function(t)
   end)
 
   t.test("document parse recognizes clear tokens in headers and entries", function()
-    t.eq(document.parse_line("--- worklog #- @- q=30 ---"), {
+    t.eq(document.parse_line("--- blots #- @- q=30 ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog #- @- q=30 ---",
+      raw = "--- blots #- @- q=30 ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -283,10 +283,10 @@ return function(t)
       message = "duplicate trailing !L markers are not allowed",
     })
 
-    t.eq(document.parse_line("--- worklog !L ---"), {
+    t.eq(document.parse_line("--- blots !L ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog !L ---",
+      raw = "--- blots !L ---",
       metadata_tokens = {},
       option_tokens = {},
       invalid_tokens = { "!L" },
@@ -430,10 +430,10 @@ return function(t)
   end)
 
   t.test("document routes a header utc offset into metadata tokens", function()
-    t.eq(document.parse_line("--- worklog @office utc+2 q=30 ---"), {
+    t.eq(document.parse_line("--- blots @office utc+2 q=30 ---"), {
       kind = "worklog_header",
       row = 1,
-      raw = "--- worklog @office utc+2 q=30 ---",
+      raw = "--- blots @office utc+2 q=30 ---",
       metadata_tokens = {
         { kind = "location", value = "office", raw = "@office" },
         { kind = "offset", value = 120, raw = "utc+2" },
@@ -445,7 +445,7 @@ return function(t)
     })
 
     -- A malformed header offset stays an invalid token, so the header is demoted.
-    t.eq(document.parse_line("--- worklog utc+99 ---").invalid_tokens, { "utc+99" })
+    t.eq(document.parse_line("--- blots utc+99 ---").invalid_tokens, { "utc+99" })
   end)
 
   t.test("syntax parses and renders round nudges (sign required)", function()
@@ -492,6 +492,6 @@ return function(t)
 
   t.test("document does not treat a header round token as metadata", function()
     -- round±N is entry-only (non-sticky); in a header it is just an invalid token.
-    t.eq(document.parse_line("--- worklog round+1 ---").invalid_tokens, { "round+1" })
+    t.eq(document.parse_line("--- blots round+1 ---").invalid_tokens, { "round+1" })
   end)
 end

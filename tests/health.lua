@@ -110,7 +110,7 @@ return function(t)
     t.ok(includes(reports.ok, ":WorklogOrder is available"))
     t.ok(includes(reports.ok, ":WorklogLog is available"))
     t.ok(includes(reports.ok, ":WorklogRefresh is available"))
-    t.ok(includes(reports.ok, "example.wkl detects as worklog"))
+    t.ok(includes(reports.ok, "example.blot detects as blotter"))
     t.ok(includes(reports.ok, ":help worklog.nvim is available"))
   end)
 

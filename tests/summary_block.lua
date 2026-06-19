@@ -103,7 +103,7 @@ return function(t)
   t.test("summary_block locates an intact summary", function()
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -120,7 +120,7 @@ return function(t)
   t.test("summary_block locates a quantized summary", function()
     t.eq(
       locate({
-        "--- worklog q=30 ---",
+        "--- blots q=30 ---",
         "08:00 plan",
         "08:34 done",
         "",
@@ -139,7 +139,7 @@ return function(t)
     -- rewrites it rather than orphaning it.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -158,7 +158,7 @@ return function(t)
     -- alignment still finds them; the leading separator blank stays outside the span.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -177,7 +177,7 @@ return function(t)
     -- entry, so that entry can never be drawn into the span and rewritten away.
     t.eq(
       locate({
-        "--- worklog #sometag @location q=15 d=dec ---",
+        "--- blots #sometag @location q=15 d=dec ---",
         "20:10 hey",
         "20:33 hey2",
         "21:00 done",
@@ -202,7 +202,7 @@ return function(t)
     -- are substitutions, so a refresh can rewrite them to the current form.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -222,7 +222,7 @@ return function(t)
     -- a refresh replaces it instead of stacking a second summary below it.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "",
         "--- summary q=15 d=dec ---",
@@ -240,7 +240,7 @@ return function(t)
     -- one region, so a refresh collapses them.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "",
         "--- summary q=15 d=dec ---",
@@ -262,7 +262,7 @@ return function(t)
     -- A note written below the summary is not swallowed into the region.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -284,7 +284,7 @@ return function(t)
     -- note -- it must not extend the region, or a refresh would delete it.
     t.eq(
       locate({
-        "--- worklog #A ---",
+        "--- blots #A ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -309,7 +309,7 @@ return function(t)
     -- after-a-blank note above, which is left outside.
     t.eq(
       locate({
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "05:40 plan",
         "10:00 build",
         "11:00 review",
@@ -333,14 +333,14 @@ return function(t)
   end)
 
   t.test("summary_block returns nil when there is no summary", function()
-    t.eq(locate({ "--- worklog ---", "08:00 plan", "09:00 done" }), nil)
+    t.eq(locate({ "--- blots ---", "08:00 plan", "09:00 done" }), nil)
   end)
 
   t.test("summary_block returns nil for unrelated tail content", function()
     -- A stray note that is not the summary must not be grabbed as one.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -353,7 +353,7 @@ return function(t)
 
   t.test("summary_block bounds a region to its worklog and ignores others", function()
     local analysis = analyze_lines({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -363,7 +363,7 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
       "",
-      "--- worklog ---",
+      "--- blots ---",
       "10:00 tea",
       "11:00 done",
     })

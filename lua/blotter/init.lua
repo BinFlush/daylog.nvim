@@ -57,7 +57,7 @@ local refreshing = false
 
 local diagnostic_namespace = vim.api.nvim_create_namespace("worklog")
 
-local highlight_namespace = vim.api.nvim_create_namespace("worklog-highlight")
+local highlight_namespace = vim.api.nvim_create_namespace("blotter-highlight")
 local highlight_groups_defined = false
 
 -- Register the worklog highlight groups as default links (so a user's own
@@ -147,7 +147,7 @@ local function apply_result(result)
 
   -- Programmatic edits do not fire the change autocmds the ftplugin highlighter
   -- listens on, so refresh highlights from this single edit choke point too.
-  if vim.bo.filetype == "worklog" then
+  if vim.bo.filetype == "blotter" then
     M.highlight_buffer(0)
   end
 end
@@ -310,7 +310,7 @@ local function unique_buffer_name(base_name)
 end
 
 -- A loaded, file-backed buffer whose name resolves to `path`, or nil. Report
--- buffers (buftype "nofile", e.g. "worklog-week-2026-W21.wkl") are skipped so
+-- buffers (buftype "nofile", e.g. "blotter-week-2026-W21.blot") are skipped so
 -- they can never shadow a real journal file.
 local function loaded_buffer_for_path(path)
   local target = vim.fn.fnamemodify(path, ":p")
@@ -360,7 +360,7 @@ local function journal_path_has_content(path)
   return not text.is_empty(vim.fn.readfile(path))
 end
 
--- Every journal day that actually holds a worklog: dated `.wkl` files under the
+-- Every journal day that actually holds a worklog: dated `.blot` files under the
 -- journal tree (each validated against the configured directory template, so only
 -- canonical files count) plus any loaded buffer for a journal day that currently
 -- has content but is not yet written to disk. Returns a list of midday timestamps;
@@ -372,7 +372,7 @@ local function existing_journal_dates(settings)
   -- yields single-slash paths that string-match journal.date_from_path's canonical
   -- form -- a `root//2026/...` would otherwise be rejected as non-canonical.
   local root = (settings.root:gsub("/+$", ""))
-  for _, path in ipairs(vim.fn.glob(root .. "/**/*.wkl", true, true)) do
+  for _, path in ipairs(vim.fn.glob(root .. "/**/*.blot", true, true)) do
     local date = journal.date_from_path(settings, path)
     if date and journal_path_has_content(path) then
       table.insert(dates, date)
@@ -1251,12 +1251,12 @@ end
 local function report_buffer_name(spec, label)
   local prefix
   if spec.kind == "week" then
-    prefix = spec.aggregate_only and "worklog-week-summary-" or "worklog-week-"
+    prefix = spec.aggregate_only and "blotter-week-summary-" or "blotter-week-"
   else
-    prefix = spec.aggregate_only and "worklog-days-summary-" or "worklog-days-"
+    prefix = spec.aggregate_only and "blotter-days-summary-" or "blotter-days-"
   end
 
-  return prefix .. label .. ".wkl"
+  return prefix .. label .. ".blot"
 end
 
 -- Open a fresh scratch report for a spec and tag the buffer with that spec, so
@@ -1381,7 +1381,7 @@ local function write_journal_change(path, new_lines)
   local buf = loaded_buffer_for_path(path)
   if buf then
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, new_lines)
-    if vim.bo[buf].filetype == "worklog" then
+    if vim.bo[buf].filetype == "blotter" then
       M.highlight_buffer(buf)
     end
     return
@@ -1553,7 +1553,7 @@ local function setup_auto_summary(mode)
   end
 
   local function on_worklog_buffer(opts, action)
-    if vim.bo[opts.buf].filetype == "worklog" then
+    if vim.bo[opts.buf].filetype == "blotter" then
       action()
     end
   end

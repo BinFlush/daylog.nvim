@@ -5,18 +5,18 @@ return function(t)
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.wkl",
+        path = "/tmp/2026-05-18.blot",
         lines = {
-          "--- worklog #ClientA q=30 ---",
+          "--- blots #ClientA q=30 ---",
           "08:00 plan",
           "08:20 done",
         },
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.wkl",
+        path = "/tmp/2026-05-19.blot",
         lines = {
-          "--- worklog #ClientA q=60 ---",
+          "--- blots #ClientA q=60 ---",
           "08:00 plan",
           "08:20 done",
         },
@@ -27,7 +27,7 @@ return function(t)
       days = {
         {
           date_label = "2026-05-18",
-          path = "/tmp/2026-05-18.wkl",
+          path = "/tmp/2026-05-18.blot",
           quantize_minutes = 30,
           summary = {
             summary_items = {
@@ -65,7 +65,7 @@ return function(t)
         },
         {
           date_label = "2026-05-19",
-          path = "/tmp/2026-05-19.wkl",
+          path = "/tmp/2026-05-19.blot",
           quantize_minutes = 60,
           summary = {
             summary_items = {
@@ -141,9 +141,9 @@ return function(t)
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.wkl",
+        path = "/tmp/2026-05-18.blot",
         lines = {
-          "--- worklog #ClientA q=30 ---",
+          "--- blots #ClientA q=30 ---",
           "08:00 plan !L",
           "08:20 plan",
           "08:40 done",
@@ -151,9 +151,9 @@ return function(t)
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.wkl",
+        path = "/tmp/2026-05-19.blot",
         lines = {
-          "--- worklog #ClientA q=30 ---",
+          "--- blots #ClientA q=30 ---",
           "08:00 plan !L",
           "08:20 done",
         },
@@ -221,19 +221,19 @@ return function(t)
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.wkl",
+        path = "/tmp/2026-05-18.blot",
         lines = nil,
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.wkl",
+        path = "/tmp/2026-05-19.blot",
         lines = { "" },
       },
       {
         date_label = "2026-05-20",
-        path = "/tmp/2026-05-20.wkl",
+        path = "/tmp/2026-05-20.blot",
         lines = {
-          "--- worklog ---",
+          "--- blots ---",
           "08:00 plan",
           "09:00 done",
         },
@@ -250,9 +250,9 @@ return function(t)
     local report, err = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.wkl",
+        path = "/tmp/2026-05-18.blot",
         lines = {
-          "--- worklog ---",
+          "--- blots ---",
           "09:00 done",
           "08:00 plan",
         },
@@ -262,7 +262,7 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "worklog: /tmp/2026-05-18.wkl: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder"
+      "worklog: /tmp/2026-05-18.blot: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder"
     )
   end)
 
@@ -270,14 +270,14 @@ return function(t)
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.wkl",
+        path = "/tmp/2026-05-18.blot",
         lines = { "Holiday - no work" },
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.wkl",
+        path = "/tmp/2026-05-19.blot",
         lines = {
-          "--- worklog ---",
+          "--- blots ---",
           "08:00 plan",
           "09:00 done",
         },
@@ -293,7 +293,7 @@ return function(t)
     local report, err = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.wkl",
+        path = "/tmp/2026-05-18.blot",
         lines = {
           "08:00 plan",
           "09:00 done",
@@ -304,8 +304,8 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "worklog: /tmp/2026-05-18.wkl: no worklog block found; first line must be a "
-        .. "worklog header such as --- worklog --- or --- worklog #ClientA @office q=30 ---"
+      "worklog: /tmp/2026-05-18.blot: no worklog block found; first line must be a "
+        .. "worklog header such as --- blots --- or --- blots #ClientA @office q=30 ---"
     )
   end)
 
@@ -336,9 +336,9 @@ return function(t)
       function(path)
         table.insert(seen_paths, path)
 
-        if path == "/tmp/timereg/2026/21/2026-05-18.wkl" then
+        if path == "/tmp/timereg/2026/21/2026-05-18.blot" then
           return {
-            "--- worklog ---",
+            "--- blots ---",
             "08:00 plan",
             "09:00 done",
           }
@@ -349,13 +349,13 @@ return function(t)
     )
 
     t.eq(seen_paths, {
-      "/tmp/timereg/2026/21/2026-05-18.wkl",
-      "/tmp/timereg/2026/21/2026-05-19.wkl",
-      "/tmp/timereg/2026/21/2026-05-20.wkl",
-      "/tmp/timereg/2026/21/2026-05-21.wkl",
-      "/tmp/timereg/2026/21/2026-05-22.wkl",
-      "/tmp/timereg/2026/21/2026-05-23.wkl",
-      "/tmp/timereg/2026/21/2026-05-24.wkl",
+      "/tmp/timereg/2026/21/2026-05-18.blot",
+      "/tmp/timereg/2026/21/2026-05-19.blot",
+      "/tmp/timereg/2026/21/2026-05-20.blot",
+      "/tmp/timereg/2026/21/2026-05-21.blot",
+      "/tmp/timereg/2026/21/2026-05-22.blot",
+      "/tmp/timereg/2026/21/2026-05-23.blot",
+      "/tmp/timereg/2026/21/2026-05-24.blot",
     })
     t.eq(report.period_label, "2026-W21")
     t.eq(#report.days, 1)
@@ -383,9 +383,9 @@ return function(t)
       function(path)
         table.insert(seen_paths, path)
 
-        if path == "/tmp/timereg/2026/21/2026-05-22.wkl" then
+        if path == "/tmp/timereg/2026/21/2026-05-22.blot" then
           return {
-            "--- worklog ---",
+            "--- blots ---",
             "08:00 plan",
             "09:00 done",
           }
@@ -396,9 +396,9 @@ return function(t)
     )
 
     t.eq(seen_paths, {
-      "/tmp/timereg/2026/21/2026-05-20.wkl",
-      "/tmp/timereg/2026/21/2026-05-21.wkl",
-      "/tmp/timereg/2026/21/2026-05-22.wkl",
+      "/tmp/timereg/2026/21/2026-05-20.blot",
+      "/tmp/timereg/2026/21/2026-05-21.blot",
+      "/tmp/timereg/2026/21/2026-05-22.blot",
     })
     t.eq(report.period_label, "2026-05-20..2026-05-22")
     t.eq(#report.days, 1)

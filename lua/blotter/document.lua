@@ -197,11 +197,11 @@ local function parse_entry_metadata(text)
 end
 
 local function parse_header(line, row)
-  -- "worklog" must be its own word: followed by whitespace (before any options)
-  -- or by the closing dashes directly. This rejects "--- worklogs ---" and
-  -- "--- worklog#sales ---" (they fall through to a generic block header).
-  local options_text = line:match("^%-%-%- worklog%s+(.-)%s*%-%-%-$")
-  if options_text == nil and line:match("^%-%-%- worklog%-%-%-$") then
+  -- "blots" must be its own word: followed by whitespace (before any options)
+  -- or by the closing dashes directly. This rejects "--- blotsx ---" and
+  -- "--- blots#sales ---" (they fall through to a generic block header).
+  local options_text = line:match("^%-%-%- blots%s+(.-)%s*%-%-%-$")
+  if options_text == nil and line:match("^%-%-%- blots%-%-%-$") then
     options_text = ""
   end
 

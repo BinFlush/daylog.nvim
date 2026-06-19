@@ -75,7 +75,7 @@ end
 -- Built only on failure (guarded by the caller) so the hot loop stays cheap.
 local function report(sub, mode, wl, fmt, rendered, msg)
   return string.format(
-    "%s\n  replay: synth.generate(Rng.new(%d), %q)  fmt=%s\n--- worklog ---\n%s\n--- rendered ---\n%s",
+    "%s\n  replay: synth.generate(Rng.new(%d), %q)  fmt=%s\n--- blots ---\n%s\n--- rendered ---\n%s",
     msg,
     sub,
     mode,

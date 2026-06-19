@@ -37,7 +37,7 @@ return function(t)
 
   t.test("rename an activity row rewrites its source entries and the summary", function()
     local out = rename({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 meeting",
       "10:00 implementation",
@@ -52,7 +52,7 @@ return function(t)
     }, 8, "coding")
 
     t.eq(out, {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 coding",
       "09:00 meeting",
       "10:00 coding",
@@ -69,7 +69,7 @@ return function(t)
 
   t.test("renaming an activity sanitizes trailing metadata in the new text", function()
     local out = rename({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 deploy",
       "09:00 done",
       "",
@@ -87,7 +87,7 @@ return function(t)
 
   t.test("rename a tag row renames the header token and explicit entries", function()
     local out = rename({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 meeting #internal",
       "11:00 done #ClientA",
@@ -108,7 +108,7 @@ return function(t)
     }, 11, "Globex")
 
     t.eq(out, {
-      "--- worklog #Globex @office ---",
+      "--- blots #Globex @office ---",
       "08:00 planning",
       "10:00 meeting #internal",
       "11:00 done #Globex",
@@ -133,7 +133,7 @@ return function(t)
     -- #proj is explicit on "build" and inherited by "test"/"done"; renaming it must
     -- touch only the "build" line and leave the inheriting lines as they are.
     local out = rename({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 setup",
       "09:00 build #proj",
       "10:00 test",
@@ -153,7 +153,7 @@ return function(t)
     }, 13, "alpha")
 
     t.eq(out, {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 setup",
       "09:00 build #alpha",
       "10:00 test",
@@ -175,7 +175,7 @@ return function(t)
 
   t.test("rename a location row renames the header token and the summary", function()
     local out = rename({
-      "--- worklog @office ---",
+      "--- blots @office ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
@@ -193,7 +193,7 @@ return function(t)
     }, 11, "hq")
 
     t.eq(out, {
-      "--- worklog @hq ---",
+      "--- blots @hq ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
@@ -213,7 +213,7 @@ return function(t)
 
   t.test("renaming a tag to an existing tag merges them", function()
     local out = rename({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan #a",
       "09:00 build #b",
       "10:00 done",
@@ -231,7 +231,7 @@ return function(t)
     }, 11, "b")
 
     t.eq(out, {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan #b",
       "09:00 build #b",
       "10:00 done",
@@ -250,7 +250,7 @@ return function(t)
 
   t.test("resolve returns the other tags as merge candidates", function()
     local target = rename_summary.resolve({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan #a",
       "09:00 build #b",
       "10:00 done",
@@ -274,7 +274,7 @@ return function(t)
 
   t.test("resolve returns the same-tag activities as merge candidates", function()
     local target = rename_summary.resolve({
-      "--- worklog #proj ---",
+      "--- blots #proj ---",
       "08:00 plan",
       "09:00 build",
       "10:00 review",
@@ -299,7 +299,7 @@ return function(t)
 
   t.test("rename refuses a totals row", function()
     local _, err = rename_summary.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -315,7 +315,7 @@ return function(t)
 
   t.test("rename refuses the (untagged) tag group", function()
     local _, err = rename_summary.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan #proj",
       "09:00 admin #-",
       "10:00 done",
@@ -337,7 +337,7 @@ return function(t)
 
   t.test("rename rejects an invalid tag name", function()
     local _, err = rename_summary.run({
-      "--- worklog #proj ---",
+      "--- blots #proj ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -356,7 +356,7 @@ return function(t)
 
   t.test("rename rejects empty activity text", function()
     local _, err = rename_summary.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -369,7 +369,7 @@ return function(t)
 
   t.test("rename refuses the same name", function()
     local _, err = rename_summary.run({
-      "--- worklog #proj ---",
+      "--- blots #proj ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -388,7 +388,7 @@ return function(t)
 
   t.test("rename refuses when the cursor is not on a summary row", function()
     local _, err = rename_summary.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -409,7 +409,7 @@ return function(t)
 
   t.test("run_by_value renames an activity found by text and tag", function()
     local out = rename_by_value({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "08:00 implementation",
       "09:00 meeting",
       "10:00 implementation",
@@ -433,7 +433,7 @@ return function(t)
 
   t.test("run_by_value renames a tag everywhere it is effective", function()
     local out = rename_by_value({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -447,13 +447,13 @@ return function(t)
       "1.00h (+0m) workday",
     }, { kind = "tag", current = "ClientA" }, "ClientB")
 
-    t.eq(out[1], "--- worklog #ClientB ---")
+    t.eq(out[1], "--- blots #ClientB ---")
     t.eq(out[9], "1.00h (+0m) #ClientB")
   end)
 
   t.test("run_by_value returns nil with no error when the value is absent", function()
     local result, err = rename_summary.run_by_value({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -470,7 +470,7 @@ return function(t)
 
   t.test("run_by_value surfaces an error when the worklog is invalid", function()
     local _, err = rename_summary.run_by_value({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 later",
       "08:00 earlier",
     }, { kind = "item", current = "later", tag = nil }, "whatever")

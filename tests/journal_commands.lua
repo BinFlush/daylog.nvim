@@ -49,12 +49,12 @@ return function(t)
       end)
 
       local expected_dir = root .. "/" .. os.date("%Y/%V", now)
-      local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+      local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".blot"
 
       t.eq(vim.fn.isdirectory(expected_dir), 1)
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office q=30 d=hm ---",
+        "--- blots #ClientA @office q=30 d=hm ---",
         "08:45 ",
         "",
         "--- summary q=30 d=hm ---",
@@ -121,10 +121,10 @@ return function(t)
 
       t.eq(
         vim.api.nvim_buf_get_name(0),
-        root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+        root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".blot"
       )
       t.eq(t.get_lines(), {
-        "--- worklog ---",
+        "--- blots ---",
         "08:45 ",
         "",
         "--- summary q=15 d=dec ---",
@@ -173,7 +173,7 @@ return function(t)
         .. os.date("%Y", yesterday)
         .. "/"
         .. os.date("%Y-%m-%d", yesterday)
-        .. ".wkl"
+        .. ".blot"
       t.eq(vim.api.nvim_buf_get_name(0), path)
       -- Navigation only: an empty, unmodified buffer with nothing written to disk.
       t.eq(t.get_lines(), { "" })
@@ -219,7 +219,7 @@ return function(t)
         .. os.date("%Y", tomorrow)
         .. "/"
         .. os.date("%Y-%m-%d", tomorrow)
-        .. ".wkl"
+        .. ".blot"
       t.eq(vim.api.nvim_buf_get_name(0), path)
       -- Navigation only: an empty, unmodified buffer with nothing written to disk.
       t.eq(t.get_lines(), { "" })
@@ -233,11 +233,11 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local earlier = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local earlier_path = write_journal_file(root, "%Y", earlier, {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
     })
     local today_path = write_journal_file(root, "%Y", now, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "09:00 later",
       "08:00 earlier",
     })
@@ -287,7 +287,7 @@ return function(t)
 
         t.eq(
           vim.api.nvim_buf_get_name(0),
-          expanded_root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+          expanded_root .. "/" .. os.date("%Y", now) .. "/" .. os.date("%Y-%m-%d", now) .. ".blot"
         )
       end)
     end)
@@ -304,7 +304,7 @@ return function(t)
       sec = 0,
     })
     local expected_dir = root .. "/" .. os.date("%Y", now)
-    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".blot"
 
     vim.fn.mkdir(expected_dir, "p")
     vim.fn.writefile({}, expected_path)
@@ -324,7 +324,7 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
       t.eq(t.get_lines(), {
-        "--- worklog ---",
+        "--- blots ---",
         "08:45 ",
         "",
         "--- summary q=15 d=dec ---",
@@ -354,7 +354,7 @@ return function(t)
       sec = 0,
     })
     local expected_dir = root .. "/" .. os.date("%Y", tomorrow)
-    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", tomorrow) .. ".wkl"
+    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", tomorrow) .. ".blot"
 
     vim.fn.mkdir(expected_dir, "p")
     vim.fn.writefile({}, expected_path)
@@ -393,11 +393,11 @@ return function(t)
       sec = 0,
     })
     local expected_dir = root .. "/" .. os.date("%Y", now)
-    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".wkl"
+    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", now) .. ".blot"
 
     vim.fn.mkdir(expected_dir, "p")
     vim.fn.writefile({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
     }, expected_path)
@@ -417,7 +417,7 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
       t.eq(t.get_lines(), {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
       })
@@ -444,11 +444,11 @@ return function(t)
       sec = 0,
     })
     local expected_dir = root .. "/" .. os.date("%Y", yesterday)
-    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", yesterday) .. ".wkl"
+    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", yesterday) .. ".blot"
 
     vim.fn.mkdir(expected_dir, "p")
     vim.fn.writefile({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
     }, expected_path)
@@ -468,7 +468,7 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
       t.eq(t.get_lines(), {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
       })
@@ -643,11 +643,11 @@ return function(t)
       },
     }, function()
       local open_path = write_journal_file(root, "%Y", opened, {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
       })
       write_journal_file(root, "%Y", next_day, {
-        "--- worklog ---",
+        "--- blots ---",
         "09:00 review",
       })
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
@@ -660,9 +660,9 @@ return function(t)
         .. os.date("%Y", next_day)
         .. "/"
         .. os.date("%Y-%m-%d", next_day)
-        .. ".wkl"
+        .. ".blot"
       t.eq(vim.api.nvim_buf_get_name(0), path)
-      t.eq(t.get_lines(), { "--- worklog ---", "09:00 review" })
+      t.eq(t.get_lines(), { "--- blots ---", "09:00 review" })
     end)
   end)
 
@@ -680,10 +680,10 @@ return function(t)
       },
     }, function()
       local open_path = write_journal_file(root, "%Y", opened, {
-        "--- worklog ---",
+        "--- blots ---",
       })
-      write_journal_file(root, "%Y", nearer, { "--- worklog ---", "08:00 a" })
-      write_journal_file(root, "%Y", target, { "--- worklog ---", "08:00 b" })
+      write_journal_file(root, "%Y", nearer, { "--- blots ---", "08:00 a" })
+      write_journal_file(root, "%Y", target, { "--- blots ---", "08:00 b" })
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
@@ -694,9 +694,9 @@ return function(t)
         .. os.date("%Y", target)
         .. "/"
         .. os.date("%Y-%m-%d", target)
-        .. ".wkl"
+        .. ".blot"
       t.eq(vim.api.nvim_buf_get_name(0), path)
-      t.eq(t.get_lines(), { "--- worklog ---", "08:00 b" })
+      t.eq(t.get_lines(), { "--- blots ---", "08:00 b" })
     end)
   end)
 
@@ -711,7 +711,7 @@ return function(t)
       },
     }, function()
       local open_path = write_journal_file(root, "%Y", opened, {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
       })
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
@@ -756,7 +756,7 @@ return function(t)
       },
     }, function()
       local earlier_path = write_journal_file(root, "%Y", earlier, {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
       })
       vim.cmd("enew!")
@@ -769,7 +769,7 @@ return function(t)
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
-      t.eq(t.get_lines(), { "--- worklog ---", "08:00 plan" })
+      t.eq(t.get_lines(), { "--- blots ---", "08:00 plan" })
     end)
   end)
 
@@ -799,11 +799,11 @@ return function(t)
       },
     }, function()
       local open_path = write_journal_file(root, "%Y", yesterday, {
-        "--- worklog ---",
+        "--- blots ---",
       })
       -- Today already has a worklog, so navigation lands on it rather than seeding.
       local today_path = write_journal_file(root, "%Y", now, {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
       })
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
@@ -815,7 +815,7 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       -- Navigation onto today opens the file as-is; no current time is inserted.
-      t.eq(t.get_lines(), { "--- worklog ---", "08:00 plan" })
+      t.eq(t.get_lines(), { "--- blots ---", "08:00 plan" })
       t.eq(vim.bo.modified, false)
     end)
   end)
@@ -848,11 +848,11 @@ return function(t)
         .. os.date("%Y", target)
         .. "/"
         .. os.date("%Y-%m-%d", target)
-        .. ".wkl"
+        .. ".blot"
       t.eq(vim.api.nvim_buf_get_name(0), path)
       -- A header (with defaults) and an empty summary, but no timestamped entry.
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA q=30 d=hm ---",
+        "--- blots #ClientA q=30 d=hm ---",
         "",
         "--- summary q=30 d=hm ---",
         "",
@@ -867,7 +867,7 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 18, hour = 8, min = 45, sec = 0 })
     local target = os.time({ year = 2026, month = 5, day = 20, hour = 12, min = 0, sec = 0 })
     local existing_path = write_journal_file(root, "%Y", target, {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
     })
@@ -886,7 +886,7 @@ return function(t)
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), existing_path)
-      t.eq(t.get_lines(), { "--- worklog ---", "08:00 plan", "09:00 done" })
+      t.eq(t.get_lines(), { "--- blots ---", "08:00 plan", "09:00 done" })
       t.eq(vim.bo.modified, false)
     end)
   end)
@@ -977,7 +977,7 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 plan",
       "08:20 implementation @home",
       "09:00 done",
@@ -987,14 +987,14 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", friday, {
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "09:00 stale",
       "09:30 done",
       "",
       "--- summary q=15 d=dec ---",
       "stale",
       "",
-      "--- worklog #internal @home q=60 ---",
+      "--- blots #internal @home q=60 ---",
       "10:00 retro",
       "10:40 done",
     })
@@ -1018,7 +1018,7 @@ return function(t)
       end)
 
       t.eq(#vim.api.nvim_tabpage_list_wins(0), windows_before + 1)
-      t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21.wkl")
+      t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "blotter-week-2026-W21.blot")
       t.eq(vim.bo.buftype, "nofile")
       t.eq(vim.bo.bufhidden, "wipe")
       t.ok(not vim.bo.swapfile)
@@ -1078,7 +1078,7 @@ return function(t)
     local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
 
     local monday_path = write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
@@ -1097,7 +1097,7 @@ return function(t)
       -- Open Monday and extend it to two hours without saving.
       vim.cmd("edit " .. vim.fn.fnameescape(monday_path))
       vim.api.nvim_buf_set_lines(0, 0, -1, false, {
-        "--- worklog #ClientA @office q=30 ---",
+        "--- blots #ClientA @office q=30 ---",
         "08:00 plan",
         "10:00 done",
       })
@@ -1120,7 +1120,7 @@ return function(t)
 
       -- The reporting path must not write the unsaved buffer back to disk.
       t.eq(vim.fn.readfile(monday_path), {
-        "--- worklog #ClientA @office q=30 ---",
+        "--- blots #ClientA @office q=30 ---",
         "08:00 plan",
         "09:00 done",
       })
@@ -1149,7 +1149,7 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
@@ -1172,7 +1172,7 @@ return function(t)
 
       t.eq(
         vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
-        "worklog-week-summary-2026-W21.wkl"
+        "blotter-week-summary-2026-W21.blot"
       )
       t.eq(t.get_lines(), {
         "--- week summary 2026-W21 ---",
@@ -1212,7 +1212,7 @@ return function(t)
 
     with_temp_home_root(function(relative_root, expanded_root)
       write_journal_file(expanded_root, "%Y/%V", monday, {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
       })
@@ -1230,7 +1230,7 @@ return function(t)
           vim.cmd("WorklogWeek")
         end)
 
-        t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "worklog-week-2026-W21.wkl")
+        t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "blotter-week-2026-W21.blot")
         t.eq(t.get_lines()[1], "--- day summary 2026-05-18 q=15 ---")
 
         vim.cmd("silent! only!")
@@ -1342,7 +1342,7 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", wednesday, {
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 plan",
       "08:20 implementation @home",
       "09:00 done",
@@ -1352,7 +1352,7 @@ return function(t)
     })
     write_journal_file(root, "%Y/%V", thursday, {})
     write_journal_file(root, "%Y/%V", friday, {
-      "--- worklog #internal @home q=60 ---",
+      "--- blots #internal @home q=60 ---",
       "10:00 retro",
       "10:40 done",
       "",
@@ -1378,7 +1378,7 @@ return function(t)
 
       t.eq(
         vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
-        "worklog-days-2026-05-19..2026-05-22.wkl"
+        "blotter-days-2026-05-19..2026-05-22.blot"
       )
       t.eq(t.get_lines(), {
         "--- day summary 2026-05-20 q=30 ---",
@@ -1448,7 +1448,7 @@ return function(t)
     })
 
     write_journal_file(root, "%Y/%V", friday, {
-      "--- worklog #internal @home q=60 ---",
+      "--- blots #internal @home q=60 ---",
       "10:00 retro",
       "11:00 done",
     })
@@ -1471,7 +1471,7 @@ return function(t)
 
       t.eq(
         vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
-        "worklog-days-summary-2026-05-20..2026-05-22.wkl"
+        "blotter-days-summary-2026-05-20..2026-05-22.blot"
       )
       t.eq(t.get_lines(), {
         "--- range summary 2026-05-20..2026-05-22 ---",
@@ -1548,7 +1548,7 @@ return function(t)
       sec = 0,
     })
     local bad_path = write_journal_file(root, "%Y/%V", thursday, {
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 done",
       "08:00 plan",
     })
@@ -1586,7 +1586,7 @@ return function(t)
     local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
 
     local monday_path = write_journal_file(root, "%Y/%V", monday, {
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
@@ -1612,7 +1612,7 @@ return function(t)
 
       -- Extend Monday to two hours in its buffer (unsaved) and signal a save.
       vim.api.nvim_buf_set_lines(monday_buf, 0, -1, false, {
-        "--- worklog #ClientA @office q=30 ---",
+        "--- blots #ClientA @office q=30 ---",
         "08:00 plan",
         "10:00 done",
       })
@@ -1634,7 +1634,7 @@ return function(t)
     local day_one = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
 
     local day_one_path = write_journal_file(root, "%Y", day_one, {
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 plan",
       "09:00 done",
     })
@@ -1658,7 +1658,7 @@ return function(t)
       t.ok(report_has_workday(report_buf, "1:00"))
 
       vim.api.nvim_buf_set_lines(source_buf, 0, -1, false, {
-        "--- worklog #ClientA @office q=30 ---",
+        "--- blots #ClientA @office q=30 ---",
         "08:00 plan",
         "10:00 done",
       })
@@ -1686,7 +1686,7 @@ return function(t)
     local ok, err = pcall(function()
       vim.cmd("cd " .. vim.fn.fnameescape(tmp))
       write_journal_file("rel-journal", "%Y", yesterday, {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "08:00 planning",
         "17:00",
       })
@@ -1694,7 +1694,7 @@ return function(t)
       with_worklog_setup({
         journal = { root = "rel-journal", directory = "%Y" },
       }, function()
-        vim.cmd("edit rel-journal/2026/2026-05-21.wkl")
+        vim.cmd("edit rel-journal/2026/2026-05-21.blot")
         t.set_cursor(2, 0)
 
         with_captured_notify(function(messages)
@@ -1712,7 +1712,7 @@ return function(t)
         end)
 
         t.eq(t.get_lines(), {
-          "--- worklog #ClientA @office ---",
+          "--- blots #ClientA @office ---",
           "08:00 planning",
           "17:00",
         })
@@ -1732,7 +1732,7 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
     local path = write_journal_file(root, "%Y", past, {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
     })
 
@@ -1757,7 +1757,7 @@ return function(t)
       end)
 
       t.eq(t.get_lines(), {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
       })
     end)
@@ -1771,7 +1771,7 @@ return function(t)
       journal = { root = root, directory = "%Y" },
     }, function()
       t.reset({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
       })
 
@@ -1797,7 +1797,7 @@ return function(t)
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
     local path = write_journal_file(root, "%Y", now, {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
     })
 
@@ -1819,7 +1819,7 @@ return function(t)
       -- rather than an exact value: one fresh empty timestamp line was added.
       local lines = t.get_lines()
       t.eq(#lines, 3)
-      t.eq(lines[1], "--- worklog ---")
+      t.eq(lines[1], "--- blots ---")
       local inserted = 0
       for _, line in ipairs(lines) do
         if line:match("^%d%d:%d%d $") then
@@ -1836,7 +1836,7 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 standup",
       "10:30 writing report",
       "",
@@ -1878,10 +1878,10 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "22:30 writing report",
     })
-    local today_path = root .. "/2026/2026-05-22.wkl"
+    local today_path = root .. "/2026/2026-05-22.blot"
 
     with_worklog_setup({
       defaults = { tag = "ClientA", location = "office" },
@@ -1898,13 +1898,13 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "00:00 writing report",
         "00:47 ",
       })
       -- The pre-save refresh closes yesterday at 24:00 and gives it a summary.
       t.eq(vim.fn.readfile(yesterday_path), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "22:30 writing report",
         "24:00",
         "",
@@ -1928,11 +1928,11 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
     local past_path = write_journal_file(root, "%Y", past, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 deep work",
       "09:00 done",
     })
-    local today_path = root .. "/2026/2026-05-22.wkl"
+    local today_path = root .. "/2026/2026-05-22.blot"
 
     with_worklog_setup({
       defaults = { tag = "ClientA", location = "office" },
@@ -1948,7 +1948,7 @@ return function(t)
       -- Switched to a fresh today, with the activity at the current time.
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "10:00 deep work",
         "",
         "--- summary q=15 d=dec ---",
@@ -1958,7 +1958,7 @@ return function(t)
       })
       -- The browsed day is left untouched.
       t.eq(vim.fn.readfile(past_path), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "08:00 deep work",
         "09:00 done",
       })
@@ -1970,13 +1970,13 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
     local past_path = write_journal_file(root, "%Y", past, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 deep work",
       "09:00 done",
     })
     local today = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })
     local today_path = write_journal_file(root, "%Y", today, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 standup",
       "09:00 done",
     })
@@ -2006,7 +2006,7 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
     local past_path = write_journal_file(root, "%Y", past, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 deep work",
       "09:00 done",
     })
@@ -2025,7 +2025,7 @@ return function(t)
       -- Stayed on the browsed day, unchanged.
       t.eq(vim.api.nvim_buf_get_name(0), past_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "08:00 deep work",
         "09:00 done",
       })
@@ -2037,14 +2037,14 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
     local past_path = write_journal_file(root, "%Y", past, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 deep work",
       "09:00 done",
     })
     local today = os.time({ year = 2026, month = 5, day = 22, hour = 8, min = 0, sec = 0 })
     -- today already has out-of-order entries, so the activity cannot be seeded into it.
     write_journal_file(root, "%Y", today, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "09:00 later",
       "08:00 earlier",
     })
@@ -2070,7 +2070,7 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
     local past_path = write_journal_file(root, "%Y", past, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 deep work",
       "09:00 done",
     })
@@ -2091,7 +2091,7 @@ return function(t)
       -- The whitespace today is initialized fresh, with the header on line 1.
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       local lines = t.get_lines()
-      t.eq(lines[1], "--- worklog #ClientA @office ---")
+      t.eq(lines[1], "--- blots #ClientA @office ---")
       t.eq(lines[2], "10:00 deep work")
     end)
   end)
@@ -2101,11 +2101,11 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "20:00 standup",
       "22:30 writing report",
     })
-    local today_path = root .. "/2026/2026-05-22.wkl"
+    local today_path = root .. "/2026/2026-05-22.blot"
 
     with_worklog_setup({
       defaults = { tag = "ClientA", location = "office" },
@@ -2122,13 +2122,13 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "00:00 writing report",
         "00:47 standup",
       })
       -- The pre-save refresh closes yesterday at 24:00 and gives it a summary.
       t.eq(vim.fn.readfile(yesterday_path), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "20:00 standup",
         "22:30 writing report",
         "24:00",
@@ -2154,10 +2154,10 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "22:30 writing report",
     })
-    local today_path = root .. "/2026/2026-05-22.wkl"
+    local today_path = root .. "/2026/2026-05-22.blot"
 
     with_worklog_setup({
       journal = { root = root, directory = "%Y" },
@@ -2173,7 +2173,7 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), yesterday_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "22:30 writing report",
       })
       t.eq(vim.fn.filereadable(today_path), 0)
@@ -2185,11 +2185,11 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "22:30 writing report",
     })
     write_journal_file(root, "%Y", now, {
-      "--- worklog ---",
+      "--- blots ---",
       "00:10 already here",
     })
 
@@ -2216,7 +2216,7 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), yesterday_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "22:30 writing report",
       })
     end)
@@ -2227,10 +2227,10 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "22:30 writing report",
     })
-    local today_path = root .. "/2026/2026-05-22.wkl"
+    local today_path = root .. "/2026/2026-05-22.blot"
 
     with_worklog_setup({
       journal = { root = root, directory = "%Y" },
@@ -2238,7 +2238,7 @@ return function(t)
       -- Today exists only as an unsaved buffer, never written to disk.
       vim.cmd("edit " .. vim.fn.fnameescape(today_path))
       vim.api.nvim_buf_set_lines(0, 0, -1, false, {
-        "--- worklog ---",
+        "--- blots ---",
         "00:10 already here",
       })
 
@@ -2262,7 +2262,7 @@ return function(t)
 
       t.eq(vim.api.nvim_buf_get_name(0), yesterday_path)
       t.eq(t.get_lines(), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "22:30 writing report",
       })
       t.eq(vim.fn.filereadable(today_path), 0)
@@ -2276,12 +2276,12 @@ return function(t)
     -- Yesterday ends with a still-running task, so without the fix this would take
     -- the carryover branch and refuse because today already exists.
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "20:00 standup",
       "22:30 writing report",
     })
     local today_path = write_journal_file(root, "%Y", now, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 morning sync",
       "09:00 done",
     })
@@ -2302,7 +2302,7 @@ return function(t)
       -- Switched to today, with the cursor entry brought in at the current time.
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
       local lines = t.get_lines()
-      t.eq(lines[1], "--- worklog #ClientA @office ---")
+      t.eq(lines[1], "--- blots #ClientA @office ---")
       t.eq(lines[2], "08:00 morning sync")
       t.eq(lines[3], "09:00 done")
       t.eq(lines[4], "10:00 standup")
@@ -2310,7 +2310,7 @@ return function(t)
       -- Yesterday is left untouched -- not closed at 24:00, not saved -- proving the
       -- cross-day repeat ran rather than the carryover.
       t.eq(vim.fn.readfile(yesterday_path), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "20:00 standup",
         "22:30 writing report",
       })
@@ -2322,11 +2322,11 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
     local yesterday_path = write_journal_file(root, "%Y", yesterday, {
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "20:00 standup",
       "22:30 writing report",
     })
-    local today_path = root .. "/2026/2026-05-22.wkl"
+    local today_path = root .. "/2026/2026-05-22.blot"
 
     with_worklog_setup({
       defaults = { tag = "ClientA", location = "office" },
@@ -2335,7 +2335,7 @@ return function(t)
       -- Today exists only as an unsaved buffer, never written to disk.
       vim.cmd("edit " .. vim.fn.fnameescape(today_path))
       vim.api.nvim_buf_set_lines(0, 0, -1, false, {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "08:00 morning sync",
         "09:00 done",
       })
@@ -2358,7 +2358,7 @@ return function(t)
       -- yesterday is untouched.
       t.eq(vim.fn.filereadable(today_path), 0)
       t.eq(vim.fn.readfile(yesterday_path), {
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "20:00 standup",
         "22:30 writing report",
       })

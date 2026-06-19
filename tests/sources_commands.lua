@@ -53,7 +53,7 @@ return function(t)
   t.test("WorklogInsert <source> inserts the picked item at the current time", function()
     register_fake()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     })
@@ -66,7 +66,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
       "11:30 1 Item one",
@@ -76,7 +76,7 @@ return function(t)
   t.test("WorklogInsert <source> falls back to a bare timestamp on cancel", function()
     register_fake()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     })
@@ -89,7 +89,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
       "11:30 ",
@@ -99,7 +99,7 @@ return function(t)
   t.test("WorklogInsert <source> errors without opening the picker outside a worklog", function()
     register_fake()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
@@ -137,7 +137,7 @@ return function(t)
       },
     })
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
@@ -148,7 +148,7 @@ return function(t)
 
   t.test("WorklogInsert with an unknown source warns and inserts nothing", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     })
@@ -162,7 +162,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     })
@@ -170,7 +170,7 @@ return function(t)
 
   t.test("WorklogInsert with no argument keeps the plain bare-timestamp behavior", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     })
@@ -181,7 +181,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
       "11:30 ",
@@ -191,7 +191,7 @@ return function(t)
   -- Put the cursor on the active worklog's "review" main summary row (its line ends
   -- with ") review"; the entry "08:00 review" does not), after a refresh.
   local function on_review_summary_row()
-    t.reset({ "--- worklog ---", "08:00 review", "09:00 done" })
+    t.reset({ "--- blots ---", "08:00 review", "09:00 done" })
     vim.cmd("WorklogRefresh")
     for i, line in ipairs(t.get_lines()) do
       if line:find("%) review$") then
@@ -246,7 +246,7 @@ return function(t)
     -- Two tags so the #ClientA tag-total row has a merge candidate: after the source
     -- is refused, the normal merge picker opens (and the stub cancels it) rather than
     -- falling through to a blocking input prompt.
-    t.reset({ "--- worklog ---", "08:00 a #ClientA", "09:00 b #other", "10:00 done" })
+    t.reset({ "--- blots ---", "08:00 a #ClientA", "09:00 b #other", "10:00 done" })
     vim.cmd("WorklogRefresh")
     for i, line in ipairs(t.get_lines()) do
       if line:find("%) #ClientA$") then

@@ -11,7 +11,7 @@ return function(t)
 
   t.test("body insert index places new entries after equal timestamps", function()
     local block = block_from_lines({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "08:00 second",
       "09:00 done",
@@ -23,7 +23,7 @@ return function(t)
 
   t.test("body state_before includes equal timestamp entries at insertion time", function()
     local block = block_from_lines({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first #sales",
       "08:00 second @client",
       "09:00 done",
@@ -35,7 +35,7 @@ return function(t)
 
   t.test("body normalized lines keep preamble and trim trailing item blanks", function()
     local block = block_from_lines({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "preamble",
       "08:00 first #ProjectOrion @office",
       "note a",
@@ -56,7 +56,7 @@ return function(t)
 
   t.test("body normalized lines preserve !L and canonicalize it after metadata", function()
     local block = block_from_lines({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first !L #sales",
       "09:00 done !L",
     })
@@ -69,7 +69,7 @@ return function(t)
 
   t.test("body sorted lines reorder items and re-emit sticky metadata changes", function()
     local block = block_from_lines({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "preamble",
       "17:00 later @client",
       "",
@@ -89,7 +89,7 @@ return function(t)
 
   t.test("body sorted lines preserve equal timestamp order", function()
     local block = block_from_lines({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "note a",
       "08:00 second @client",
@@ -108,7 +108,7 @@ return function(t)
 
   t.test("body sorted lines emit clear tokens when needed", function()
     local block = block_from_lines({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 done",
       "08:00 plan #sales @client",
     })
@@ -123,7 +123,7 @@ return function(t)
     -- The base lives on the header, so the first entry inherits it silently and only
     -- the mid-day change re-emits a utc token -- a copy is byte-identical to input.
     local block = block_from_lines({
-      "--- worklog utc+2 ---",
+      "--- blots utc+2 ---",
       "08:00 standup",
       "11:00 resume utc-4",
       "12:00 done",
@@ -142,7 +142,7 @@ return function(t)
     -- on change. The displayed local clock can then read high-to-low because the
     -- entries are ordered by real time, which is what the duration math uses.
     local block = block_from_lines({
-      "--- worklog utc-4 ---",
+      "--- blots utc-4 ---",
       "11:00 a",
       "12:00 b utc+2",
     })
@@ -158,7 +158,7 @@ return function(t)
     -- then inherit a different offset than it did in buffer order, so it is reported
     -- on the same channel as a tag/location change.
     local block = block_from_lines({
-      "--- worklog utc-4 ---",
+      "--- blots utc-4 ---",
       "11:00 a",
       "12:00 b utc+2",
     })

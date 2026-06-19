@@ -61,7 +61,7 @@ return function(t)
       "%Y/%V",
       d1,
       with_summary({
-        "--- worklog #ClientA ---",
+        "--- blots #ClientA ---",
         "08:00 implementation",
         "10:00 meeting",
         "11:00 done",
@@ -72,7 +72,7 @@ return function(t)
       "%Y/%V",
       d2,
       with_summary({
-        "--- worklog #ClientA ---",
+        "--- blots #ClientA ---",
         "09:00 implementation",
         "12:00 review",
         "13:00 done",

@@ -1,21 +1,21 @@
 return function(t)
   local context = require("blotter.context")
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
-    .. "--- worklog --- or --- worklog #ClientA @office q=30 ---"
+    .. "--- blots --- or --- blots #ClientA @office q=30 ---"
   local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a "
-    .. "worklog header such as --- worklog --- or "
-    .. "--- worklog #ClientA @office q=30 ---"
+    .. "worklog header such as --- blots --- or "
+    .. "--- blots #ClientA @office q=30 ---"
 
   t.test("context selects the active worklog and preserves body lines", function()
     local ctx = context.get_active_worklog_context({
-      "--- worklog #ProjectOrion @office q=30 ---",
+      "--- blots #ProjectOrion @office q=30 ---",
       "08:00 raw",
       "09:00",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h raw",
       "",
-      "--- worklog #internal @home ---",
+      "--- blots #internal @home ---",
       "10:00 tea",
       "11:00",
     })
@@ -31,14 +31,14 @@ return function(t)
 
   t.test("context includes header rows when selecting worklogs by cursor", function()
     local lines = {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 raw",
       "09:00",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h raw",
       "",
-      "--- worklog #internal @home ---",
+      "--- blots #internal @home ---",
       "10:00 tea",
       "11:00",
     }
@@ -51,7 +51,7 @@ return function(t)
 
   t.test("context accepts first worklog headers without metadata", function()
     local ctx = context.get_active_worklog_context({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 raw #sales",
       "09:00 done",
     })
@@ -80,7 +80,7 @@ return function(t)
 
   t.test("context rejects cursor rows outside worklog blocks", function()
     local ctx, err = context.get_worklog_context_at_row({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 raw",
       "09:00",
       "",

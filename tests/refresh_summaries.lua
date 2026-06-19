@@ -5,7 +5,7 @@ return function(t)
     -- The worklog header is the single source of truth; the summary banner is
     -- read-only display, so an edited q=/d= is overwritten on the next refresh.
     local result = refresh_summaries.run({
-      "--- worklog q=30 ---",
+      "--- blots q=30 ---",
       "08:00 plan",
       "08:34 done",
       "",
@@ -23,7 +23,7 @@ return function(t)
     -- `dd` on the "--- summary ... ---" line leaks the rows into the body; refresh
     -- re-aligns them and rewrites the full summary in place, with no second summary.
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "10:00 done",
       "",
@@ -53,7 +53,7 @@ return function(t)
     -- fresh summary is empty. The large stale summary is still located
     -- (structurally) and replaced in place, instead of a second summary being added.
     local result = refresh_summaries.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:40 standup",
       "",
       "--- summary q=15 d=dec ---",
@@ -88,7 +88,7 @@ return function(t)
     -- summaries) is recognized as one summary region and rewritten to a single
     -- summary, removing the junk.
     local result = refresh_summaries.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:40 standup",
       "",
       "--- summary q=15 d=dec ---",
@@ -128,7 +128,7 @@ return function(t)
     -- of the summary and the regeneration removes it -- the summary is a pure
     -- projection, so non-generated content inside a section cannot survive a refresh.
     local result = refresh_summaries.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "05:40 plan",
       "10:00 build",
       "11:00 review",
@@ -164,7 +164,7 @@ return function(t)
     -- A note like "3.00h (+0m) billed ..." sits after the (current) summary. It is
     -- not part of the summary region, so refresh emits no edit and never deletes it.
     local result = refresh_summaries.run({
-      "--- worklog #A ---",
+      "--- blots #A ---",
       "08:00 a",
       "09:00 done",
       "",
@@ -185,7 +185,7 @@ return function(t)
 
   t.test("refresh restores an edited section header (no orphan)", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "10:00 done",
       "",
@@ -216,7 +216,7 @@ return function(t)
     -- entry, must be replaced in place -- not swallow the entries above it. The edit
     -- starts at the old summary (index 4), leaving the two entries untouched.
     local result = refresh_summaries.run({
-      "--- worklog #sometag @location q=15 d=dec ---",
+      "--- blots #sometag @location q=15 d=dec ---",
       "08:00 hey",
       "08:00 ",
       "",
@@ -251,7 +251,7 @@ return function(t)
     -- Deleting a summary row is undone in place; the worklog's entries (here the final
     -- 21:00 close) are never drawn into the rewrite -- the window starts after them.
     local result = refresh_summaries.run({
-      "--- worklog #sometag @location q=15 d=dec ---",
+      "--- blots #sometag @location q=15 d=dec ---",
       "20:10 hey",
       "20:33 hey2",
       "21:00 done",
@@ -292,7 +292,7 @@ return function(t)
 
   t.test("refresh rewrites a stale summary in place", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -323,7 +323,7 @@ return function(t)
 
   t.test("refresh migrates a legacy quantized-header summary to the kind-less form", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -354,7 +354,7 @@ return function(t)
 
   t.test("refresh is a no-op when the summary is already current", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -370,7 +370,7 @@ return function(t)
 
   t.test("refresh updates only the changed worklog among several", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 a",
       "09:00 done",
       "",
@@ -380,7 +380,7 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
       "",
-      "--- worklog ---",
+      "--- blots ---",
       "10:00 b",
       "11:30 done",
       "",
@@ -411,7 +411,7 @@ return function(t)
 
   t.test("refresh preserves the summary kind", function()
     local result = refresh_summaries.run({
-      "--- worklog q=30 ---",
+      "--- blots q=30 ---",
       "08:00 plan",
       "08:34 done",
       "",
@@ -442,7 +442,7 @@ return function(t)
 
   t.test("refresh creates a summary for a worklog that has none", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
     })
@@ -470,11 +470,11 @@ return function(t)
 
   t.test("refresh creates a summary for a non-last worklog in the right place", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 a",
       "09:00 done",
       "",
-      "--- worklog ---",
+      "--- blots ---",
       "10:00 b",
       "11:00 done",
       "",
@@ -509,7 +509,7 @@ return function(t)
 
   t.test("refresh warns instead of churning an invalid worklog with a summary", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 later",
       "08:00 earlier",
       "10:00 done",
@@ -534,7 +534,7 @@ return function(t)
 
   t.test("refresh warns about an invalid worklog even with no summary", function()
     local result = refresh_summaries.run({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 later",
       "08:00 earlier",
       "10:00 done",
@@ -563,7 +563,7 @@ return function(t)
         {
           row = 1,
           message = "worklog: no worklog block found; first line must be a worklog header "
-            .. "such as --- worklog --- or --- worklog #ClientA @office q=30 ---",
+            .. "such as --- blots --- or --- blots #ClientA @office q=30 ---",
         },
       },
     })
@@ -581,7 +581,7 @@ return function(t)
     -- warn rather than going silent.
     local result = refresh_summaries.run({
       "",
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 later",
       "08:00 earlier",
     })
@@ -591,8 +591,8 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "worklog: first line must be a worklog header such as --- worklog --- or "
-            .. "--- worklog #ClientA @office q=30 ---",
+          message = "worklog: first line must be a worklog header such as --- blots --- or "
+            .. "--- blots #ClientA @office q=30 ---",
         },
         {
           row = 3,

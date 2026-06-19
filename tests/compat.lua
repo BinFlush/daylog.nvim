@@ -98,7 +98,7 @@ return function(t)
 
   for _, fixture in ipairs(fixtures) do
     t.test("compat " .. fixture.name .. " matches v0.1.0 baseline", function()
-      local input = vim.fn.readfile(base_dir .. "/" .. fixture.name .. ".wkl")
+      local input = vim.fn.readfile(base_dir .. "/" .. fixture.name .. ".blot")
       local expected = vim.fn.readfile(base_dir .. "/" .. fixture.name .. fixture.expected_suffix)
       local result, err = fixture.run(input)
 

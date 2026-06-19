@@ -2,11 +2,11 @@ return function(t)
   local analyze = require("blotter.analyze")
   local document = require("blotter.document")
   local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
-    .. "--- worklog --- or --- worklog #ClientA @office q=30 ---"
+    .. "--- blots --- or --- blots #ClientA @office q=30 ---"
 
   t.test("analyze derives worklog blocks, items, and sticky metadata", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office q=30 d=hm ---",
+      "--- blots #ProjectOrion @office q=30 d=hm ---",
       "08:00 plan",
       "note about planning",
       "08:30 call @home",
@@ -17,7 +17,7 @@ return function(t)
       "--- summary q=15 d=dec ---",
       "1.00h activity",
       "",
-      "--- worklog #internal @office ---",
+      "--- blots #internal @office ---",
       "11:00 tea",
       "12:00 done",
     }))
@@ -213,7 +213,7 @@ return function(t)
 
   t.test("analyze carries logged state without making it sticky", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 plan !L",
       "09:00 call @home",
       "10:00 done !L",
@@ -260,7 +260,7 @@ return function(t)
     local analysis = analyze.analyze(document.parse({
       "--- summary q=15 d=dec ---",
       "1.00h activity",
-      "--- worklog #sales @office q=60 ---",
+      "--- blots #sales @office q=60 ---",
       "09:00 later",
       "08:00 earlier",
       "08:30 broken #sales #meeting",
@@ -299,7 +299,7 @@ return function(t)
   t.test("analyze rejects quantize values tonumber would accept but are not integers", function()
     for _, value in ipairs({ "inf", "0x10", "1e2", "5.0", "+5" }) do
       local analysis = analyze.analyze(document.parse({
-        "--- worklog q=" .. value .. " ---",
+        "--- blots q=" .. value .. " ---",
         "08:00 work",
         "09:00 done",
       }))
@@ -318,7 +318,7 @@ return function(t)
 
   t.test("analyze reports invalid worklog header metadata and options", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion #sales @office @home q=0 d=clock nope unknown=bar ---",
+      "--- blots #ProjectOrion #sales @office @home q=0 d=clock nope unknown=bar ---",
       "08:00 plan",
       "09:00 done",
     }))
@@ -379,7 +379,7 @@ return function(t)
     -- parses as a timestamped entry, but it lives in a generated summary block
     -- and must not be reported as malformed.
     local analysis = analyze.analyze(document.parse({
-      "--- worklog q=60 d=hm ---",
+      "--- blots q=60 d=hm ---",
       "06:00 deep work",
       "22:00 done",
       "",
@@ -395,16 +395,16 @@ return function(t)
 
   t.test("analyze reports duplicate header metadata when clear tokens are mixed in", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #- #ClientA ---",
+      "--- blots #- #ClientA ---",
       "08:00 plan",
       "09:00 done",
-      "--- worklog #ClientA #- ---",
+      "--- blots #ClientA #- ---",
       "10:00 plan",
       "11:00 done",
-      "--- worklog @- @home ---",
+      "--- blots @- @home ---",
       "12:00 plan",
       "13:00 done",
-      "--- worklog @home @- ---",
+      "--- blots @home @- ---",
       "14:00 plan",
       "15:00 done",
     }))
@@ -443,7 +443,7 @@ return function(t)
 
   t.test("analyze reports duplicate worklog header options", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office q=30 d=dec q=60 d=hm ---",
+      "--- blots #ProjectOrion @office q=30 d=dec q=60 d=hm ---",
       "08:00 plan",
       "09:00 done",
     }))
@@ -473,10 +473,10 @@ return function(t)
 
   t.test("analyze reports invalid options on later worklog headers", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 done",
-      "--- worklog #internal @home q=0 d=clock nope unknown=bar ---",
+      "--- blots #internal @home q=0 d=clock nope unknown=bar ---",
       "10:00 tea",
       "11:00 done",
     }))
@@ -521,13 +521,13 @@ return function(t)
 
   t.test("analyze keeps quantize and duration format local to each worklog", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office q=30 d=hm ---",
+      "--- blots #ProjectOrion @office q=30 d=hm ---",
       "08:00 plan",
       "09:00 done",
-      "--- worklog #internal @home q=60 d=dec ---",
+      "--- blots #internal @home q=60 d=dec ---",
       "10:00 tea",
       "11:00 done",
-      "--- worklog #sales @client ---",
+      "--- blots #sales @client ---",
       "12:00 call",
       "13:00 done",
     }))
@@ -549,7 +549,7 @@ return function(t)
 
   t.test("analyze keeps sticky metadata nil until changed", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "08:30 call #sales",
       "09:00 travel @client",
@@ -606,7 +606,7 @@ return function(t)
 
   t.test("analyze clears sticky tag and location when asked", function()
     local entries = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 reset #- @-",
       "10:00 done",
@@ -640,7 +640,7 @@ return function(t)
 
   t.test("analyze treats clear-only headers as harmless nil metadata", function()
     local block = analyze.analyze(document.parse({
-      "--- worklog #- @- ---",
+      "--- blots #- @- ---",
       "08:00 plan",
       "09:00 client #ClientA @home",
       "10:00 reset #- @-",
@@ -701,7 +701,7 @@ return function(t)
 
   t.test("analyze keeps ooo sticky until another tag replaces it", function()
     local entries = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 break #ooo",
       "08:30 lunch",
       "09:00 work #ProjectOrion",
@@ -745,7 +745,7 @@ return function(t)
 
   t.test("analyze can return from ooo to untagged with tag clear", function()
     local entries = analyze.analyze(document.parse({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 break #ooo",
       "09:00 resume #-",
       "10:00 done",
@@ -778,7 +778,7 @@ return function(t)
 
   t.test("analyze keeps sticky tag when only location changes", function()
     local entries = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 travel @client",
       "10:00 done",
@@ -810,7 +810,7 @@ return function(t)
 
   t.test("analyze can return from a location to no location with location clear", function()
     local entries = analyze.analyze(document.parse({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 travel @home",
       "09:00 arrive @-",
       "10:00 done",
@@ -843,7 +843,7 @@ return function(t)
 
   t.test("analyze keeps sticky location when only tag changes", function()
     local entries = analyze.analyze(document.parse({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 plan",
       "09:00 internal #internal",
       "10:00 done",
@@ -877,7 +877,7 @@ return function(t)
     local analysis = analyze.analyze(document.parse({
       "--- summary q=15 d=dec ---",
       "1.00h activity",
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 later",
       "08:00 earlier",
       "08:30 broken @office @home",
@@ -896,7 +896,7 @@ return function(t)
 
   t.test("analyze accepts 24:00 as the final closing entry", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog ---",
+      "--- blots ---",
       "22:30 writing report",
       "24:00",
     }))
@@ -908,7 +908,7 @@ return function(t)
 
   t.test("analyze reports a 24:00 entry that is not the final entry", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "24:00 overnight",
       "24:00 done",
@@ -928,7 +928,7 @@ return function(t)
 
   t.test("analyze inherits a header utc offset and switches it on an explicit token", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog @office utc+2 ---",
+      "--- blots @office utc+2 ---",
       "08:00 standup",
       "11:00 resume utc-4",
       "12:00 done",
@@ -948,7 +948,7 @@ return function(t)
     -- 14:00@+2 = 12:00Z then 11:00@-4 = 15:00Z: the raw clock goes backwards but
     -- effective time moves forward, so a westward move is not a false reversal.
     local ok = analyze.analyze(document.parse({
-      "--- worklog utc+2 ---",
+      "--- blots utc+2 ---",
       "14:00 leave",
       "11:00 resume utc-4",
       "17:00 done",
@@ -958,7 +958,7 @@ return function(t)
     -- The inverse: the raw clock increases but effective time goes backwards, which
     -- is a genuine real-time reversal and is flagged.
     local bad = analyze.analyze(document.parse({
-      "--- worklog utc-4 ---",
+      "--- blots utc-4 ---",
       "11:00 here",
       "12:00 there utc+2",
     }))
@@ -970,7 +970,7 @@ return function(t)
     -- The midnight-not-final rule is calendar, not real-time: a raw 24:00 that is
     -- not the final entry is flagged regardless of any offset carried on it.
     local analysis = analyze.analyze(document.parse({
-      "--- worklog utc+2 ---",
+      "--- blots utc+2 ---",
       "08:00 plan",
       "24:00 close",
       "24:00 done",
@@ -981,7 +981,7 @@ return function(t)
 
   t.test("analyze reports a duplicate header utc offset", function()
     local analysis = analyze.analyze(document.parse({
-      "--- worklog utc+2 utc-4 ---",
+      "--- blots utc+2 utc-4 ---",
       "08:00 plan",
       "09:00 done",
     }))

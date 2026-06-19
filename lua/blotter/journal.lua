@@ -41,7 +41,7 @@ function M.directory_path(journal, now)
 end
 
 function M.filename(now)
-  return M.date_label(now) .. ".wkl"
+  return M.date_label(now) .. ".blot"
 end
 
 function M.date_label(now)
@@ -52,11 +52,11 @@ function M.same_date(a, b)
   return M.date_label(a) == M.date_label(b)
 end
 
--- Parse a journal filename (`YYYY-MM-DD.wkl`) into a midday timestamp.
+-- Parse a journal filename (`YYYY-MM-DD.blot`) into a midday timestamp.
 -- Returns nil when the name is not a valid dated journal filename. The
 -- round-trip label check rejects out-of-range dates such as 2026-02-30.
 function M.parse_date_label(name)
-  local year, month, day = name:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)%.wkl$")
+  local year, month, day = name:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)%.blot$")
   if not year then
     return nil
   end

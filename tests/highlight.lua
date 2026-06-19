@@ -40,7 +40,7 @@ return function(t)
 
   t.test("the highlighter classifies canonical tokens", function()
     load({
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 planning #ClientA @office",
       "10:00 meeting #ooo",
       "12:00 resume #- @-",
@@ -167,10 +167,10 @@ return function(t)
 
   t.test("a header with a repeated tag or location is not a worklog header", function()
     load({
-      "--- worklog #a #b ---",
-      "--- worklog @a @b ---",
-      "--- worklog #a @b q=30 ---",
-      "--- worklog @b #a ---",
+      "--- blots #a #b ---",
+      "--- blots @a @b ---",
+      "--- blots #a @b q=30 ---",
+      "--- blots @b #a ---",
     })
 
     -- Duplicate tag: the whole header falls back to a generic block header and the
@@ -197,18 +197,18 @@ return function(t)
 
   t.test("only valid header options highlight; the parser's rejects fall back", function()
     load({
-      "--- worklog q=30 ---", -- 1 valid quantize
-      "--- worklog d=dec ---", -- 2 valid duration
-      "--- worklog d=hm ---", -- 3 valid duration
-      "--- worklog q=01 ---", -- 4 leading zero, value > 0 (parser accepts)
-      "--- worklog #a @b q=5 d=hm ---", -- 5 all four, any order
-      "--- worklog q=abc ---", -- 6 non-numeric value
-      "--- worklog q=0 ---", -- 7 not positive
-      "--- worklog q=1.5 ---", -- 8 not an integer
-      "--- worklog d=foo ---", -- 9 value not dec/hm
-      "--- worklog foo=bar ---", -- 10 unknown option
-      "--- worklog q=15 q=30 ---", -- 11 duplicate option
-      "--- worklog hello ---", -- 12 junk token
+      "--- blots q=30 ---", -- 1 valid quantize
+      "--- blots d=dec ---", -- 2 valid duration
+      "--- blots d=hm ---", -- 3 valid duration
+      "--- blots q=01 ---", -- 4 leading zero, value > 0 (parser accepts)
+      "--- blots #a @b q=5 d=hm ---", -- 5 all four, any order
+      "--- blots q=abc ---", -- 6 non-numeric value
+      "--- blots q=0 ---", -- 7 not positive
+      "--- blots q=1.5 ---", -- 8 not an integer
+      "--- blots d=foo ---", -- 9 value not dec/hm
+      "--- blots foo=bar ---", -- 10 unknown option
+      "--- blots q=15 q=30 ---", -- 11 duplicate option
+      "--- blots hello ---", -- 12 junk token
     })
 
     -- Valid options highlight as options inside a worklog header.
@@ -289,7 +289,7 @@ return function(t)
 
   t.test("a summary-shaped note below the summary stays a note", function()
     load({
-      "--- worklog #A ---",
+      "--- blots #A ---",
       "08:00 a #A",
       "09:00 done",
       "",
@@ -317,7 +317,7 @@ return function(t)
 
   t.test("two-digit-hour hhmm summary rows highlight as durations via block context", function()
     load({
-      "--- worklog d=hm ---",
+      "--- blots d=hm ---",
       "08:00 deep work",
       "",
       "--- summary q=15 d=dec ---",
@@ -374,7 +374,7 @@ return function(t)
 
   t.test("utc offset tokens highlight as a muted offset group", function()
     load({
-      "--- worklog @office utc+2 ---",
+      "--- blots @office utc+2 ---",
       "11:00 resume utc-4",
       "12:00 talk utc-x",
     })
@@ -394,7 +394,7 @@ return function(t)
 
   t.test("a round nudge highlights distinctly and keeps the trailing run intact", function()
     load({
-      "--- worklog #ClientA q=15 ---",
+      "--- blots #ClientA q=15 ---",
       "08:00 plan #ClientA round+1 !L",
       "",
       "--- summary q=15 d=dec ---",

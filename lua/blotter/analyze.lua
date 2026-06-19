@@ -9,7 +9,7 @@ local M = {}
 -- source of truth for command-time behavior.
 
 local INVALID_FIRST_HEADER_MESSAGE =
-  "worklog: first line must be a worklog header such as --- worklog --- or --- worklog #ClientA @office q=30 ---"
+  "worklog: first line must be a worklog header such as --- blots --- or --- blots #ClientA @office q=30 ---"
 local DEFAULT_DURATION_FORMAT = syntax.DURATION_DECIMAL
 
 local function push_diagnostic(diagnostics, diagnostic)

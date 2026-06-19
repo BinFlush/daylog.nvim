@@ -3,7 +3,7 @@ return function(t)
 
   filetype.register()
 
-  t.test("wkl files map to the worklog filetype", function()
-    t.eq(vim.filetype.match({ filename = "today.wkl" }), "worklog")
+  t.test("blot files map to the blotter filetype", function()
+    t.eq(vim.filetype.match({ filename = "today.blot" }), "blotter")
   end)
 end

@@ -101,11 +101,11 @@ function M.check()
   check_command("WorklogSync")
 
   start("Filetype")
-  if vim.filetype.match({ filename = "example.wkl" }) == "worklog" then
-    ok("example.wkl detects as worklog")
+  if vim.filetype.match({ filename = "example.blot" }) == "blotter" then
+    ok("example.blot detects as blotter")
   else
-    report_error("example.wkl does not detect as worklog", {
-      "Expected vim.filetype.match({ filename = 'example.wkl' }) to return 'worklog'.",
+    report_error("example.blot does not detect as blotter", {
+      "Expected vim.filetype.match({ filename = 'example.blot' }) to return 'blotter'.",
     })
   end
 

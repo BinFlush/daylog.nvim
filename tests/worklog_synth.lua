@@ -262,7 +262,7 @@ local function generate(rng, mode_name)
   local locs = distinct_names(rng, params.loc_pool_n)
   local names = name_pool(rng)
 
-  local header = { "--- worklog" }
+  local header = { "--- blots" }
   if params.init_tag then
     header[#header + 1] = "#" .. rng:choice(tags)
   end

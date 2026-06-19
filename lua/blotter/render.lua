@@ -380,7 +380,7 @@ function M.worklog_header_line(
   header_quantize_minutes,
   header_duration_format
 )
-  local header = { "--- worklog" }
+  local header = { "--- blots" }
 
   if header_tag then
     table.insert(header, "#" .. header_tag)

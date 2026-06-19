@@ -4,8 +4,8 @@ local syntax = require("blotter.syntax")
 local M = {}
 
 local NO_WORKLOG_ERROR = "worklog: no worklog block found; first line must be a "
-  .. "worklog header such as --- worklog --- or "
-  .. "--- worklog #ClientA @office q=30 ---"
+  .. "worklog header such as --- blots --- or "
+  .. "--- blots #ClientA @office q=30 ---"
 
 M.NO_WORKLOG_ERROR = NO_WORKLOG_ERROR
 

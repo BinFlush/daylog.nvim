@@ -8,7 +8,7 @@ return function(t)
 
   t.test("WorklogRefresh rebuilds a stale summary and is a no-op when current", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "10:00 done",
       "",
@@ -21,7 +21,7 @@ return function(t)
 
     vim.cmd("WorklogRefresh")
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "10:00 done",
       "",
@@ -49,7 +49,7 @@ return function(t)
 
   t.test("WorklogRefresh reports an out-of-order worklog as a diagnostic", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 later",
       "08:00 earlier",
       "10:00 done",
@@ -71,7 +71,7 @@ return function(t)
 
   t.test("WorklogRefresh reports an out-of-order worklog with no summary", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 input 1",
       "07:10 input 2",
     })
@@ -82,7 +82,7 @@ return function(t)
 
   t.test("WorklogOrder clears the out-of-order diagnostic", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 later",
       "08:00 earlier",
       "10:00 done",
@@ -100,7 +100,7 @@ return function(t)
 
   t.test("worklog order rewrites all worklog blocks", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:30 later",
       "note a",
       "08:00 earlier #sales",
@@ -109,7 +109,7 @@ return function(t)
       "--- summary q=15 d=dec ---",
       "x",
       "",
-      "--- worklog #internal @home ---",
+      "--- blots #internal @home ---",
       "11:00 tea",
       "10:00 coffee @client",
       "12:00 done #internal @home",
@@ -117,7 +117,7 @@ return function(t)
 
     vim.cmd("WorklogOrder")
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 earlier #sales",
       "note b",
       "08:30 later #ProjectOrion",
@@ -125,7 +125,7 @@ return function(t)
       "--- summary q=15 d=dec ---",
       "x",
       "",
-      "--- worklog #internal @home ---",
+      "--- blots #internal @home ---",
       "10:00 coffee @client",
       "11:00 tea @home",
       "12:00 done",
@@ -134,14 +134,14 @@ return function(t)
 
   t.test("copy uses latest active worklog and normalizes items", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
       "x",
       "",
-      "--- worklog #sales @client ---",
+      "--- blots #sales @client ---",
       "11:00 tea #sales @client",
       "note tea",
       "",
@@ -150,20 +150,20 @@ return function(t)
 
     vim.cmd("WorklogCopy")
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
       "x",
       "",
-      "--- worklog #sales @client ---",
+      "--- blots #sales @client ---",
       "11:00 tea #sales @client",
       "note tea",
       "",
       "12:00",
       "",
-      "--- worklog #sales @client ---",
+      "--- blots #sales @client ---",
       "11:00 tea",
       "note tea",
       "12:00",
@@ -184,26 +184,26 @@ return function(t)
 
   t.test("copy preserves explicit quantize on the active worklog header", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
-      "--- worklog #sales @client q=30 ---",
+      "--- blots #sales @client q=30 ---",
       "11:00 tea",
       "12:00",
     })
 
     vim.cmd("WorklogCopy")
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
-      "--- worklog #sales @client q=30 ---",
+      "--- blots #sales @client q=30 ---",
       "11:00 tea",
       "12:00",
       "",
-      "--- worklog #sales @client q=30 ---",
+      "--- blots #sales @client q=30 ---",
       "11:00 tea",
       "12:00",
       "",
@@ -223,7 +223,7 @@ return function(t)
 
   t.test("copy preserves clear tokens needed to return to nil metadata", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
@@ -231,12 +231,12 @@ return function(t)
 
     vim.cmd("WorklogCopy")
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
       "",
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
@@ -261,7 +261,7 @@ return function(t)
 
   t.test("copy does not preserve clear-only header metadata", function()
     t.reset({
-      "--- worklog #- @- ---",
+      "--- blots #- @- ---",
       "08:00 plan",
       "09:00 client #ClientA @home",
       "10:00 reset #- @-",
@@ -270,13 +270,13 @@ return function(t)
 
     vim.cmd("WorklogCopy")
     t.eq(t.get_lines(), {
-      "--- worklog #- @- ---",
+      "--- blots #- @- ---",
       "08:00 plan",
       "09:00 client #ClientA @home",
       "10:00 reset #- @-",
       "11:00 done",
       "",
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 client #ClientA @home",
       "10:00 reset #- @-",
@@ -302,7 +302,7 @@ return function(t)
 
   t.test("repeat inserts into explicit worklog block containing cursor", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:04 bake strudel",
       "08:21 negotiate with goose",
       "10:00 done",
@@ -310,7 +310,7 @@ return function(t)
       "--- summary q=15 d=dec ---",
       "1.93h (+0m) activity",
       "",
-      "--- worklog #sales @client ---",
+      "--- blots #sales @client ---",
       "11:00 tea",
       "12:00",
     })
@@ -325,7 +325,7 @@ return function(t)
 
   t.test("repeat re-emits sticky metadata when insertion state changed", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "08:15 break #ooo",
       "09:00 done",
@@ -337,7 +337,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "08:15 break #ooo",
       "08:30 first #ProjectOrion",
@@ -347,7 +347,7 @@ return function(t)
 
   t.test("repeat keeps untagged entries untagged without sticky header metadata", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     })
@@ -358,7 +358,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "08:30 first",
       "09:00 done",
@@ -369,7 +369,7 @@ return function(t)
     "repeat emits clear tokens when replaying nil metadata after sticky values were set",
     function()
       t.reset({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 first",
         "08:15 break #ooo @home",
         "09:00 done",
@@ -381,7 +381,7 @@ return function(t)
       end)
 
       t.eq(t.get_lines(), {
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 first",
         "08:15 break #ooo @home",
         "08:30 first #- @-",
@@ -392,7 +392,7 @@ return function(t)
 
   t.test("repeat from a summary row inserts the activity at the current time", function()
     t.reset({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
@@ -423,7 +423,7 @@ return function(t)
 
   t.test("rename a tag from its tag-total row updates source, header, and summary", function()
     t.reset({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 meeting #internal",
       "11:00 done #ClientA",
@@ -447,14 +447,14 @@ return function(t)
     vim.cmd("WorklogRename Globex")
 
     local lines = t.get_lines()
-    t.eq(lines[1], "--- worklog #Globex @office ---")
+    t.eq(lines[1], "--- blots #Globex @office ---")
     t.eq(lines[4], "11:00 done #Globex")
     t.eq(lines[11], "2.00h (+0m) #Globex")
   end)
 
   t.test("rename an activity from its summary row uses the prompt default", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -476,7 +476,7 @@ return function(t)
 
   t.test("rename merges into a picked candidate via the fallback picker", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan #a",
       "09:00 build #b",
       "10:00 done",
@@ -514,7 +514,7 @@ return function(t)
 
   t.test("rename accepts a multi-word activity name as a command argument", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -534,7 +534,7 @@ return function(t)
 
   t.test("insert orders into explicit worklog block after equal timestamps", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "08:00 second",
       "09:00 done",
@@ -546,7 +546,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 first",
       "08:00 second",
       "08:00 ",
@@ -556,11 +556,11 @@ return function(t)
 
   t.test("insert works from a later worklog header", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 raw",
       "09:00 done",
       "",
-      "--- worklog #sales @client ---",
+      "--- blots #sales @client ---",
       "10:00 first",
       "11:00 done",
     })
@@ -571,11 +571,11 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 raw",
       "09:00 done",
       "",
-      "--- worklog #sales @client ---",
+      "--- blots #sales @client ---",
       "10:00 first",
       "10:30 ",
       "11:00 done",
@@ -598,7 +598,7 @@ return function(t)
 
   t.test("repeat ignores non-worklog lines", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 task",
       "09:00",
       "",
@@ -609,7 +609,7 @@ return function(t)
 
     vim.cmd("WorklogRepeat")
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 task",
       "09:00",
       "",
@@ -620,14 +620,14 @@ return function(t)
 
   t.test("invalid multiple trailing tags block commands", function()
     t.reset({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 plan #sales #meeting",
       "09:00 done",
     })
 
     vim.cmd("WorklogCopy")
     t.eq(t.get_lines(), {
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:00 plan #sales #meeting",
       "09:00 done",
     })
@@ -635,7 +635,7 @@ return function(t)
 
   t.test("worklog order emits clear tokens when sorting needs them and warns", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 done",
       "08:00 plan #sales",
     })
@@ -652,7 +652,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan #sales",
       "09:00 done #-",
     })
@@ -663,7 +663,7 @@ return function(t)
     -- them (the local clock then reads high-to-low) and warns that a's inherited
     -- offset changed.
     t.reset({
-      "--- worklog utc-4 ---",
+      "--- blots utc-4 ---",
       "11:00 a",
       "12:00 b utc+2",
     })
@@ -680,7 +680,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines(), {
-      "--- worklog utc-4 ---",
+      "--- blots utc-4 ---",
       "12:00 b utc+2",
       "11:00 a utc-4",
     })
@@ -688,7 +688,7 @@ return function(t)
 
   t.test("worklog log marks the source entry behind an unrounded summary row", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -700,7 +700,7 @@ return function(t)
     vim.cmd("WorklogLog")
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation !L",
       "09:00 done",
       "",
@@ -717,7 +717,7 @@ return function(t)
 
   t.test("worklog log marks the source entry behind a quantized summary row", function()
     t.reset({
-      "--- worklog q=30 ---",
+      "--- blots q=30 ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -729,7 +729,7 @@ return function(t)
     vim.cmd("WorklogLog")
 
     t.eq(t.get_lines(), {
-      "--- worklog q=30 ---",
+      "--- blots q=30 ---",
       "08:00 implementation !L",
       "09:00 done",
       "",
@@ -746,7 +746,7 @@ return function(t)
 
   t.test("worklog log unmarks an already logged summary row", function()
     t.reset({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation !L",
       "09:00 done",
       "",
@@ -758,7 +758,7 @@ return function(t)
     vim.cmd("WorklogLog")
 
     t.eq(t.get_lines(), {
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -778,7 +778,7 @@ return function(t)
       -- before source-entry edits (lower rows); this test proves apply_result
       -- applies them in that order without index drift.
       t.reset({
-        "--- worklog #someproject @office ---",
+        "--- blots #someproject @office ---",
         "08:00 versions",
         "09:00 stand",
         "09:20 versions",
@@ -807,7 +807,7 @@ return function(t)
       vim.cmd("WorklogLog")
 
       t.eq(t.get_lines(), {
-        "--- worklog #someproject @office ---",
+        "--- blots #someproject @office ---",
         "08:00 versions",
         "09:00 stand",
         "09:20 versions",

@@ -9,7 +9,7 @@ function M.register()
 
   vim.filetype.add({
     extension = {
-      wkl = "worklog",
+      blot = "blotter",
     },
   })
 

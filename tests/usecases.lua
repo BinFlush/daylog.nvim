@@ -15,7 +15,7 @@ return function(t)
         {
           start_index = 0,
           end_index = 1,
-          lines = { "--- worklog ---" },
+          lines = { "--- blots ---" },
         },
       },
       cursor = { 1, 0 },
@@ -35,7 +35,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 1,
-          lines = { "", "--- worklog #ClientA @office q=30 d=hm ---" },
+          lines = { "", "--- blots #ClientA @office q=30 d=hm ---" },
         },
       },
       cursor = { 3, 0 },
@@ -52,7 +52,7 @@ return function(t)
         {
           start_index = 2,
           end_index = 2,
-          lines = { "--- worklog #ClientA ---" },
+          lines = { "--- blots #ClientA ---" },
         },
       },
       cursor = { 3, 0 },
@@ -61,7 +61,7 @@ return function(t)
 
   t.test("insert_now usecase returns an edit script and cursor action", function()
     local result = insert_now.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     }, 1, "08:30")
@@ -81,7 +81,7 @@ return function(t)
 
   t.test("insert_now usecase rejects invalid injected current time", function()
     local result, err = insert_now.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     }, 1, "25:00")
@@ -92,7 +92,7 @@ return function(t)
 
   t.test("insert_now appends a new entry before trailing blank lines", function()
     local result = insert_now.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
       "",
@@ -116,7 +116,7 @@ return function(t)
 
   t.test("insert_now appends after a trailing note but before blank lines", function()
     local result = insert_now.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
       "  note about done",
@@ -130,7 +130,7 @@ return function(t)
 
   t.test("insert_now still appends after the last entry with no trailing gap", function()
     local result = insert_now.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 first",
       "09:00 done",
     }, 1, "10:00")
@@ -140,7 +140,7 @@ return function(t)
 
   t.test("append_copy preserves clear tokens needed to keep meaning", function()
     local result = append_copy.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
@@ -153,7 +153,7 @@ return function(t)
           end_index = 4,
           lines = {
             "",
-            "--- worklog ---",
+            "--- blots ---",
             "08:00 break #ooo @home",
             "09:00 resume #- @-",
             "10:00 done",
@@ -181,7 +181,7 @@ return function(t)
 
   t.test("append_copy preserves !L and canonicalizes it after metadata", function()
     local result = append_copy.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 plan !L @client",
       "09:00 done",
     })
@@ -193,7 +193,7 @@ return function(t)
           end_index = 3,
           lines = {
             "",
-            "--- worklog #ClientA @office ---",
+            "--- blots #ClientA @office ---",
             "08:00 plan @client !L",
             "09:00 done",
             "",
@@ -219,7 +219,7 @@ return function(t)
 
   t.test("append_copy preserves explicit duration format on the header", function()
     local result = append_copy.run({
-      "--- worklog #sales @client d=hm ---",
+      "--- blots #sales @client d=hm ---",
       "11:00 tea",
       "12:00",
     })
@@ -231,7 +231,7 @@ return function(t)
           end_index = 3,
           lines = {
             "",
-            "--- worklog #sales @client d=hm ---",
+            "--- blots #sales @client d=hm ---",
             "11:00 tea",
             "12:00",
             "",
@@ -254,7 +254,7 @@ return function(t)
 
   t.test("repeat_current re-emits the tag change and preserves the following entry", function()
     local result = repeat_current.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 internal meeting #internal",
       "11:00 done",
@@ -273,7 +273,7 @@ return function(t)
 
   t.test("repeat_current re-emits the location change and preserves the following entry", function()
     local result = repeat_current.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
@@ -292,7 +292,7 @@ return function(t)
 
   t.test("repeat_current emits a tag clear and preserves the following entry", function()
     local result = repeat_current.run({
-      "--- worklog @office ---",
+      "--- blots @office ---",
       "08:00 planning",
       "10:00 internal meeting #internal",
       "11:00 done",
@@ -311,7 +311,7 @@ return function(t)
 
   t.test("repeat_current emits a location clear and preserves the following entry", function()
     local result = repeat_current.run({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
@@ -330,7 +330,7 @@ return function(t)
 
   t.test("repeat_current preserves a rewritten follower's round nudge", function()
     local result = repeat_current.run({
-      "--- worklog @office ---",
+      "--- blots @office ---",
       "08:00 planning",
       "10:00 internal meeting #internal",
       "11:00 done round+1",
@@ -351,7 +351,7 @@ return function(t)
 
   t.test("repeat_current usecase does not propagate !L", function()
     local result = repeat_current.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning !L",
       "09:00 done",
     }, 2, "08:30")
@@ -369,7 +369,7 @@ return function(t)
 
   t.test("repeat_current usecase rejects invalid injected current time", function()
     local result, err = repeat_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 planning",
       "09:00 done",
     }, 2, "25:00")
@@ -383,7 +383,7 @@ return function(t)
     -- exactly as if the cursor were on its source entry. The sticky location has
     -- since moved to @home, so the replay re-emits @office to preserve meaning.
     local result = repeat_current.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
@@ -419,7 +419,7 @@ return function(t)
     -- summary row must replay the latest occurrence (@office), which matches the
     -- sticky location at insert time and so needs no @location token.
     local result = repeat_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation @home",
       "09:00 meeting",
       "10:00 implementation @office",
@@ -450,7 +450,7 @@ return function(t)
 
   t.test("repeat_current refuses a non-main summary row", function()
     local result, err = repeat_current.run({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 done",
@@ -479,7 +479,7 @@ return function(t)
     -- match), but the cursor row has drifted from source, so it is refused rather
     -- than repeating the wrong activity.
     local result, err = repeat_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 build",
       "10:00 done",
@@ -500,7 +500,7 @@ return function(t)
     -- The cross-day :WorklogRepeat path uses entry_at_row; a cursor on a summary
     -- row maps back to the source entry so it works from the summary too.
     local activity = carryover.entry_at_row({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "08:00 planning",
       "09:00 done",
       "",
@@ -520,7 +520,7 @@ return function(t)
 
   t.test("order_worklogs sorts an unambiguous out-of-order worklog", function()
     local result = order_worklogs.run({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "09:00 review",
       "08:00 setup",
       "10:00 done",
@@ -543,7 +543,7 @@ return function(t)
 
   t.test("order_worklogs sorts and warns about order-dependent metadata", function()
     local result = order_worklogs.run({
-      "--- worklog #ProjectOrion @office ---",
+      "--- blots #ProjectOrion @office ---",
       "08:30 later",
       "08:00 earlier #sales @client",
       "09:00 done #ProjectOrion @office",
@@ -567,7 +567,7 @@ return function(t)
 
   t.test("order_worklogs sorts, emitting a tag clear, and warns", function()
     local result = order_worklogs.run({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 done",
       "08:00 plan #sales",
     })
@@ -589,7 +589,7 @@ return function(t)
 
   t.test("order_worklogs usecase preserves !L", function()
     local result = order_worklogs.run({
-      "--- worklog #sales ---",
+      "--- blots #sales ---",
       "09:00 done",
       "08:00 plan !L",
     })
@@ -610,7 +610,7 @@ return function(t)
 
   t.test("order_worklogs sorts, emitting a location clear, and warns", function()
     local result = order_worklogs.run({
-      "--- worklog #sales ---",
+      "--- blots #sales ---",
       "09:00 done",
       "08:00 plan @client",
     })
@@ -632,7 +632,7 @@ return function(t)
 
   t.test("log_current marks the source entry behind an unrounded summary row", function()
     local result = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -667,7 +667,7 @@ return function(t)
 
   t.test("log_current marks the source entry behind a quantized summary row", function()
     local result = log_current.run({
-      "--- worklog q=30 ---",
+      "--- blots q=30 ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -702,7 +702,7 @@ return function(t)
 
   t.test("log_current marks every source entry contributing to one summary row", function()
     local result = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 meeting",
       "10:00 implementation",
@@ -747,7 +747,7 @@ return function(t)
 
   t.test("log_current leaves notes under entries untouched", function()
     local result = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "note text",
       "09:00 done",
@@ -783,7 +783,7 @@ return function(t)
 
   t.test("log_current canonicalizes metadata order around the appended !L", function()
     local result = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan #ClientA @office",
       "09:00 done #- @-",
       "",
@@ -824,7 +824,7 @@ return function(t)
 
   t.test("log_current refuses when the cursor is inside the worklog body", function()
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -838,7 +838,7 @@ return function(t)
 
   t.test("log_current refuses tag-total rows inside the summary block", function()
     local result, err = log_current.run({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -855,7 +855,7 @@ return function(t)
 
   t.test("log_current refuses total rows", function()
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -872,7 +872,7 @@ return function(t)
 
   t.test("log_current refuses the summary section header line", function()
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -889,7 +889,7 @@ return function(t)
     -- workday total line; the row is genuinely ambiguous, so it is refused rather than
     -- logged (the shared resolver weighs every selectable row, not only main rows).
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 workday",
       "16:00 done",
       "",
@@ -906,7 +906,7 @@ return function(t)
 
   t.test("log_current unmarks an already logged summary row", function()
     local result = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation !L",
       "09:00 done",
       "",
@@ -938,7 +938,7 @@ return function(t)
 
   t.test("log_current refuses #ooo summary rows", function()
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 break #ooo",
       "09:00 done",
       "",
@@ -952,7 +952,7 @@ return function(t)
 
   t.test("log_current refuses stale summary rows that no longer match the source", function()
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -966,7 +966,7 @@ return function(t)
 
   t.test("log_current refuses when the active worklog has diagnostics", function()
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "09:00 done",
       "08:00 plan",
       "",
@@ -986,14 +986,14 @@ return function(t)
       -- only the ownership check (block.start_row < active.start_row) keeps
       -- the plugin from logging row 9 in the active worklog.
       local result, err = log_current.run({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 implementation",
         "09:00 done",
         "",
         "--- summary q=15 d=dec ---",
         "1.00h (+0m) implementation",
         "",
-        "--- worklog ---",
+        "--- blots ---",
         "10:00 implementation",
         "11:00 done",
       }, 6)
@@ -1005,7 +1005,7 @@ return function(t)
 
   t.test("log_current refuses summary-like text in an unrelated generic block", function()
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -1022,7 +1022,7 @@ return function(t)
     -- and range reports in scratch buffers; if pasted into source they must
     -- not be treated as the active worklog's summary section.
     local result, err = log_current.run({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 implementation",
       "09:00 done",
       "",
@@ -1041,7 +1041,7 @@ return function(t)
         "--- summary q=15 d=dec ---",
         "1.00h (+0m) implementation",
         "",
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 implementation",
         "09:00 done",
       }, 2)
@@ -1054,7 +1054,7 @@ return function(t)
       t.eq(
         err,
         "worklog: first line must be a worklog header such as "
-          .. "--- worklog --- or --- worklog #ClientA @office q=30 ---"
+          .. "--- blots --- or --- blots #ClientA @office q=30 ---"
       )
     end
   )
@@ -1066,7 +1066,7 @@ return function(t)
       -- all sections are replaced atomically with the freshly rendered group
       -- that now includes a logged section.
       local result = log_current.run({
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "08:00 planning",
         "10:00 review",
         "11:00 done",
@@ -1126,7 +1126,7 @@ return function(t)
       -- rendered summary stale. After the fix the full group — including the
       -- newly required logged section — is replaced in one atomic edit.
       local lines = {
-        "--- worklog #someproject @office ---",
+        "--- blots #someproject @office ---",
         "08:00 versions",
         "09:00 stand",
         "09:20 versions",
@@ -1208,7 +1208,7 @@ return function(t)
       end
 
       t.eq(buf, {
-        "--- worklog #someproject @office ---",
+        "--- blots #someproject @office ---",
         "08:00 versions",
         "09:00 stand",
         "09:20 versions",
@@ -1241,7 +1241,7 @@ return function(t)
 
   t.test("carryover last_running_entry returns the final running activity", function()
     local activity = carryover.last_running_entry({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "22:30 writing report #internal @home",
     })
@@ -1261,7 +1261,7 @@ return function(t)
   t.test("carryover last_running_entry is nil when the day already closed", function()
     t.eq(
       carryover.last_running_entry({
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "08:00 planning",
         "17:00",
       }),
@@ -1274,7 +1274,7 @@ return function(t)
     function()
       t.eq(
         carryover.last_running_entry({
-          "--- worklog #ClientA @office ---",
+          "--- blots #ClientA @office ---",
           "08:00 planning",
           "24:00 wrapping up",
         }),
@@ -1285,7 +1285,7 @@ return function(t)
 
   t.test("carryover entry_at_row returns the activity on the cursor row", function()
     local activity = carryover.entry_at_row({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "10:00 review #internal",
     }, 2)
@@ -1304,12 +1304,12 @@ return function(t)
 
   t.test("carryover seed_edit continues the activity at 00:00", function()
     local activity = carryover.last_running_entry({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "22:30 writing report #internal",
     })
 
     local result = carryover.seed_edit({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
     }, activity, 0)
 
     t.eq(result, {
@@ -1325,7 +1325,7 @@ return function(t)
 
   t.test("carryover close_edit appends a bare 24:00 boundary", function()
     local result = carryover.close_edit({
-      "--- worklog #ClientA @office ---",
+      "--- blots #ClientA @office ---",
       "08:00 planning",
       "22:30 writing report",
     })
@@ -1343,14 +1343,14 @@ return function(t)
 
   t.test("new_worklog usecase stamps a base utc offset from defaults", function()
     local result = new_worklog.run({ "" }, { utc = 120 })
-    t.eq(result.edits[1].lines, { "--- worklog utc+2 ---" })
+    t.eq(result.edits[1].lines, { "--- blots utc+2 ---" })
   end)
 
   t.test("repeat_current carries the source entry's utc offset", function()
     -- Repeat the utc-4 entry at 09:00, which sits in the utc+2 stretch, so the
     -- carried offset re-emits as utc-4 on the new line.
     local result = repeat_current.run({
-      "--- worklog utc+2 ---",
+      "--- blots utc+2 ---",
       "08:00 standup",
       "11:00 deploy utc-4",
       "12:00 done",
@@ -1372,7 +1372,7 @@ return function(t)
     -- make the following 09:00 sync silently inherit utc-4; the follower is pinned
     -- back to utc+2 so its effective offset is preserved.
     local result = repeat_current.run({
-      "--- worklog utc+2 ---",
+      "--- blots utc+2 ---",
       "08:00 standup",
       "09:00 sync",
       "14:00 trip utc-4",
@@ -1391,13 +1391,13 @@ return function(t)
 
   t.test("carryover continues an activity with its utc offset across midnight", function()
     local activity = carryover.last_running_entry({
-      "--- worklog utc-4 ---",
+      "--- blots utc-4 ---",
       "22:30 writing report",
     })
     t.eq(activity.offset, -240)
 
     -- Seeded into a fresh next-day worklog with no base, the carried offset re-emits.
-    local result = carryover.seed_edit({ "--- worklog ---" }, activity, 0)
+    local result = carryover.seed_edit({ "--- blots ---" }, activity, 0)
     t.eq(result, {
       edits = {
         {
