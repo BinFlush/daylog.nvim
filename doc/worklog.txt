@@ -269,25 +269,41 @@ Open a journal file relative to today from
   `auto_summary` is enabled).
 - A nonzero offset is navigation only: it opens that day's file if it exists, or
   an empty unmodified buffer if it does not. It never creates a directory or file
-  and never writes a header. To start an arbitrary day there, type a
-  `--- worklog ---` header by hand.
+  and never writes a header. To create and scaffold an arbitrary day, use
+  |:WorklogInit|.
 - A file that already has content is opened without modification.
 - Leaving today with a nonzero offset is guarded the same way: see the unsaved-changes
   and broken-today refusals under |:WorklogNextDay|.
 
+                                                        *:WorklogInit*
+:WorklogInit [offset]
+
+Create (or open) the journal file for a day, scaffolding it when new.
+
+- `[offset]` is an optional signed day count from today (default 0).
+- It makes the parent directories, writes the worklog block from configured
+  defaults, and appends an empty summary -- a complete, valid worklog ready to
+  fill in.
+- Unlike |:WorklogToday|, it never stamps the current time, so it is the way to
+  start an arbitrary past or future day (the day-navigation commands only land on
+  days that already have a worklog).
+- A day that already has content is opened without modification.
+- Leaving a broken today, or a buffer with unsaved changes, is refused the same
+  way as |:WorklogNextDay|.
+
                                                         *:WorklogNextDay*
 :WorklogNextDay [count]
 
-Step forward to the next day's journal file relative to the file in the current
-buffer.
+Jump forward to the next day that has a worklog, relative to the file in the
+current buffer.
 
-- `[count]` is an optional positive number of days to step (default 1).
+- `[count]` is an optional positive number of worklogs to step over (default 1).
 - The anchor is the journal date of the current buffer; when the buffer is not a
   canonical journal file, it falls back to today.
-- Navigation only: it opens the target day's file if it exists, or an empty
-  unmodified buffer if it does not. It never creates a file or writes a header,
-  even when it lands on today, so a day you only glance at leaves nothing behind.
-  Use |:WorklogToday| (offset 0) to create and stamp today.
+- It skips days with no worklog and lands on the next day that actually has one,
+  considering both saved files and unsaved new-day buffers. It never creates a
+  file or stamps a time. When no worklog lies in that direction it warns and stays
+  put. Use |:WorklogInit| to start a day that does not exist yet.
 - It refuses to leave today while today's worklog has errors (out-of-order entries,
   an invalid entry, ...): the problems show as diagnostics and must be fixed first. It
   also refuses to abandon a buffer with unsaved changes when 'hidden' is off. The same
@@ -297,7 +313,7 @@ buffer.
                                                         *:WorklogPrevDay*
 :WorklogPrevDay [count]
 
-Step backward to the previous day's journal file, relative to the file in the
+Jump backward to the previous day that has a worklog, relative to the file in the
 current buffer. Behaves like |:WorklogNextDay| in the opposite direction.
 
                                                         *:WorklogWeek*
@@ -685,7 +701,8 @@ Configure `worklog.nvim` with:
   })
 <
 
-`defaults` are used for the initial worklog header created by |:WorklogToday|.
+`defaults` are used for the initial worklog header created by |:WorklogToday|
+and |:WorklogInit|.
 
 `defaults.utc` stamps a base UTC offset into that header (see
 |worklog-utc-offset|), for frequent travellers who always want a zone recorded.
@@ -695,8 +712,8 @@ Omit it to leave new headers without an offset (the default).
 
 `journal` is optional:
 
-- `root` is the base directory used by |:WorklogToday|, |:WorklogNextDay|,
-  |:WorklogPrevDay|, |:WorklogDays|, and |:WorklogWeek|.
+- `root` is the base directory used by |:WorklogToday|, |:WorklogInit|,
+  |:WorklogNextDay|, |:WorklogPrevDay|, |:WorklogDays|, and |:WorklogWeek|.
 - `directory` is an optional `strftime` template under that root.
 - The filename is always `YYYY-MM-DD.wkl`.
 

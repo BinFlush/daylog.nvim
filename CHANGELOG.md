@@ -80,6 +80,10 @@ happen, but they are called out clearly in this changelog.
   unchanged.
 - The `:WorklogWeek` / `:WorklogDays` report buffers are now syntax-highlighted,
   including the labeled multi-day section headers and their duration rows.
+- `:WorklogInit [offset]` creates (or opens) the journal file for an arbitrary day
+  (today plus a signed offset), scaffolding the directory, default header, and an
+  empty summary when the day is new. Unlike `:WorklogToday` it never stamps the
+  current time, so it is the way to start a past or future day.
 
 ### Changed
 
@@ -105,6 +109,12 @@ happen, but they are called out clearly in this changelog.
   consequence: a main summary row whose rendered line is byte-identical to another
   summary line (e.g. an activity literally named `workday`, matching the workday
   total) is now refused as ambiguous rather than logged.
+- `:WorklogNextDay` / `:WorklogPrevDay` now jump to the next/previous day that
+  actually has a worklog, skipping empty days, and warn (staying put) when none
+  exists in that direction; `[count]` steps over that many worklogs. Previously
+  they stepped exactly one calendar day and opened an empty buffer for a missing
+  day. Use `:WorklogInit` to create a day that does not exist yet, or
+  `:WorklogToday <offset>` for an exact-date jump (unchanged).
 
 ### Fixed
 

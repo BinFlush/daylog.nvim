@@ -1,6 +1,7 @@
 :WorklogBalance	worklog.txt	/*:WorklogBalance*
 :WorklogCopy	worklog.txt	/*:WorklogCopy*
 :WorklogDays	worklog.txt	/*:WorklogDays*
+:WorklogInit	worklog.txt	/*:WorklogInit*
 :WorklogInsert	worklog.txt	/*:WorklogInsert*
 :WorklogLog	worklog.txt	/*:WorklogLog*
 :WorklogNextDay	worklog.txt	/*:WorklogNextDay*
