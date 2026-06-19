@@ -1167,6 +1167,40 @@ function M.open_relative_day(step)
   edit_journal_file(settings, target)
 end
 
+-- Create (or open) the journal file `offset` days from today, scaffolding the
+-- directory, file, and default header when it is empty. Unlike :WorklogToday it
+-- never stamps the current time, so it is the way to start an arbitrary past or
+-- future day -- the day-navigation commands deliberately only land on days that
+-- already have a worklog.
+function M.init_day(offset)
+  local settings = expanded_journal_settings()
+  if settings == nil then
+    warn("worklog: journal.root is not configured")
+    return
+  end
+
+  if not can_abandon_current_buffer() then
+    warn("worklog: current buffer has unsaved changes")
+    return
+  end
+
+  if refuse_when_today_has_errors(settings) then
+    return
+  end
+
+  local ok, was_initialized =
+    open_journal_file(settings, journal.offset_date(os.time(), offset or 0))
+  if not ok or not was_initialized then
+    return
+  end
+
+  -- Seed the empty summary so a freshly scaffolded day is a complete, valid
+  -- worklog from the start -- like a new today, just without the current-time
+  -- entry. refresh_summaries creates the missing summary the same way it self-heals
+  -- any summary-less worklog.
+  apply_refresh(false)
+end
+
 -- Build the display lines for a report spec, reading each day through
 -- journal_lines so open buffers (saved or not) are reflected. Returns the lines
 -- and the period label, or nil and an error message.
@@ -1386,6 +1420,7 @@ function M.setup(options)
   })
 
   register_parsed_command("WorklogToday", parse_day_offset, M.open_today)
+  register_parsed_command("WorklogInit", parse_day_offset, M.init_day)
   register_parsed_command("WorklogNextDay", parse_step_count, M.open_relative_day)
   register_parsed_command("WorklogPrevDay", parse_step_count, function(count)
     M.open_relative_day(-count)

@@ -820,6 +820,101 @@ return function(t)
     end)
   end)
 
+  t.test("init scaffolds a past day with a header and no current time", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 18, hour = 8, min = 45, sec = 0 })
+    local target = os.time({ year = 2026, month = 5, day = 16, hour = 12, min = 0, sec = 0 })
+
+    with_worklog_setup({
+      defaults = {
+        tag = "ClientA",
+        quantize_minutes = 30,
+        duration_format = "hm",
+      },
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogInit -2")
+      end)
+
+      local path = root
+        .. "/"
+        .. os.date("%Y", target)
+        .. "/"
+        .. os.date("%Y-%m-%d", target)
+        .. ".wkl"
+      t.eq(vim.api.nvim_buf_get_name(0), path)
+      -- A header (with defaults) and an empty summary, but no timestamped entry.
+      t.eq(t.get_lines(), {
+        "--- worklog #ClientA q=30 d=hm ---",
+        "",
+        "--- summary q=30 d=hm ---",
+        "",
+        "--- totals ---",
+        "0:00 (+0m) workday",
+      })
+    end)
+  end)
+
+  t.test("init opens an existing journal day without changing it", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 18, hour = 8, min = 45, sec = 0 })
+    local target = os.time({ year = 2026, month = 5, day = 20, hour = 12, min = 0, sec = 0 })
+    local existing_path = write_journal_file(root, "%Y", target, {
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      vim.cmd("enew!")
+      vim.bo.modified = false
+
+      with_mocked_time(now, function()
+        vim.cmd("WorklogInit 2")
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), existing_path)
+      t.eq(t.get_lines(), { "--- worklog ---", "08:00 plan", "09:00 done" })
+      t.eq(vim.bo.modified, false)
+    end)
+  end)
+
+  t.test("init rejects a non-integer offset and leaves the current buffer unchanged", function()
+    local root = vim.fn.tempname()
+
+    with_worklog_setup({
+      journal = {
+        root = root,
+        directory = "%Y",
+      },
+    }, function()
+      t.reset({ "scratch" })
+
+      with_captured_notify(function(messages)
+        vim.cmd("WorklogInit nope")
+
+        t.eq(messages, {
+          { message = "worklog: day offset must be an integer", level = vim.log.levels.WARN },
+        })
+      end)
+
+      t.eq(vim.api.nvim_buf_get_name(0), "")
+      t.eq(t.get_lines(), { "scratch" })
+    end)
+  end)
+
   t.test("step commands reject invalid counts and leave the current buffer unchanged", function()
     local root = vim.fn.tempname()
 
