@@ -19,21 +19,21 @@ M.END_OF_DAY_MINUTES = 24 * 60
 -- Syntax node kinds produced by document.lua and consumed by analyze.lua and
 -- blot.lua. Shared so producer and consumers cannot drift on a bare string.
 M.NODE_KIND = {
-  WORKLOG_HEADER = "worklog_header",
+  BLOTTER_HEADER = "blotter_header",
   BLOCK_HEADER = "block_header",
-  ENTRY = "blot",
-  INVALID_ENTRY = "invalid_entry",
+  BLOT = "blot",
+  INVALID_BLOT = "invalid_blot",
   BLANK_LINE = "blank_line",
   NOTE_LINE = "note_line",
   DOCUMENT = "document",
-  ENTRY_ITEM = "blot_item",
+  BLOT_ITEM = "blot_item",
   ANALYSIS = "analysis",
 }
 
--- Block kinds produced by analyze.lua. A worklog block carries timestamped
+-- Block kinds produced by analyze.lua. A blotter block carries timestamped
 -- blots; a generic block is any other header-delimited section.
 M.BLOCK_KIND = {
-  WORKLOG = "worklog_block",
+  BLOTTER = "blotter_block",
   GENERIC = "generic_block",
 }
 
@@ -60,18 +60,18 @@ M.SECTION = {
 -- Diagnostic codes shared by the analyzer (producer and classifier) and the
 -- diagnostics module (message formatting), so the two never drift apart.
 M.DIAGNOSTIC = {
-  INVALID_ENTRY = "invalid_entry",
+  INVALID_BLOT = "invalid_blot",
   UNORDERED_TIMESTAMPS = "unordered_timestamps",
   MIDNIGHT_NOT_FINAL = "midnight_not_final",
   INVALID_FIRST_HEADER = "invalid_first_header",
-  INVALID_WORKLOG_HEADER_OPTION = "invalid_worklog_header_option",
-  INVALID_WORKLOG_HEADER_METADATA = "invalid_worklog_header_metadata",
-  INVALID_WORKLOG_HEADER_TOKEN = "invalid_worklog_header_token",
+  INVALID_BLOTTER_HEADER_OPTION = "invalid_blotter_header_option",
+  INVALID_BLOTTER_HEADER_METADATA = "invalid_blotter_header_metadata",
+  INVALID_BLOTTER_HEADER_TOKEN = "invalid_blotter_header_token",
 }
 
 -- Diagnostic categories. Structural diagnostics describe a malformed document
 -- shape (bad first header, bad header options); block diagnostics describe a
--- problem within one worklog block's blots.
+-- problem within one blotter block's blots.
 M.DIAGNOSTIC_CATEGORY = {
   STRUCTURAL = "structural",
   BLOCK = "block",
@@ -81,13 +81,13 @@ M.DIAGNOSTIC_CATEGORY = {
 -- code definitions so a new code's category cannot be forgotten. analyze.lua
 -- stamps this onto every diagnostic at production time.
 M.DIAGNOSTIC_CATEGORY_BY_CODE = {
-  [M.DIAGNOSTIC.INVALID_ENTRY] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.INVALID_BLOT] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.UNORDERED_TIMESTAMPS] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.MIDNIGHT_NOT_FINAL] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.INVALID_FIRST_HEADER] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
-  [M.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
-  [M.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
-  [M.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
+  [M.DIAGNOSTIC.INVALID_BLOTTER_HEADER_OPTION] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
+  [M.DIAGNOSTIC.INVALID_BLOTTER_HEADER_METADATA] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
+  [M.DIAGNOSTIC.INVALID_BLOTTER_HEADER_TOKEN] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
 }
 
 function M.section_header(section)
@@ -95,7 +95,7 @@ function M.section_header(section)
 end
 
 -- The summary banner echoes the parameters it was generated with (read-only
--- provenance; the worklog header stays the source of truth).
+-- provenance; the blotter header stays the source of truth).
 function M.summary_header(quantize_minutes, duration_format)
   return string.format(
     "--- summary q=%d d=%s ---",
@@ -129,11 +129,11 @@ function M.is_summary_section_header(raw)
   return M.SUMMARY_SECTION_WORDS[first] == true or M.SUMMARY_SECTION_WORDS[second] == true
 end
 
--- Whether a line is one of the bare *in-file* summary-section headers a worklog's
+-- Whether a line is one of the bare *in-file* summary-section headers a blotter's
 -- own summary is built from: the `--- summary q=N d=fmt ---` banner, or a bare
 -- `--- tags ---` / `--- locations ---` / `--- logged ---` / `--- totals ---`.
 -- Stricter than is_summary_section_header on purpose: a labeled report header
--- (`--- day summary <date> ---`, legacy `--- summary exact ---`) is NOT a worklog's
+-- (`--- day summary <date> ---`, legacy `--- summary exact ---`) is NOT a blotter's
 -- in-file summary, so the summary-region locator must not anchor on one.
 function M.is_infile_summary_header(raw)
   if raw:match("^%-%-%- summary q=%d+ d=%a+ %-%-%-$") then

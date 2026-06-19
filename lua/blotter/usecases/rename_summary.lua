@@ -8,10 +8,10 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Rename what a summary row stands for, propagating into the attached worklog.
+-- Rename what a summary row stands for, propagating into the attached blotter.
 --
 -- The rendered summary row is only a selector (see summary_cursor): the active
--- worklog is analyzed from source and the cursor row maps back to a recomputed
+-- blotter is analyzed from source and the cursor row maps back to a recomputed
 -- summary item. The rename then rewrites the *source* and rebuilds the one
 -- summary, keeping the summary a pure projection.
 --
@@ -25,18 +25,18 @@ local M = {}
 -- the new one from the same (rewritten) source -- so unrelated lines are left
 -- untouched. Only lines whose canonical rendering actually changes are edited.
 
-M.NOT_A_ROW = "worklog: put the cursor on a summary item, tag, or location row to rename it"
-M.CANNOT_TOTALS = "worklog: a totals row cannot be renamed"
-M.CANNOT_UNTAGGED = "worklog: the (untagged) group cannot be renamed; tag the blots first"
+M.NOT_A_ROW = "blotter: put the cursor on a summary item, tag, or location row to rename it"
+M.CANNOT_TOTALS = "blotter: a totals row cannot be renamed"
+M.CANNOT_UNTAGGED = "blotter: the (untagged) group cannot be renamed; tag the blots first"
 M.CANNOT_NO_LOCATION =
-  "worklog: the (no location) group cannot be renamed; set a location on the blots first"
-M.INVALID_NAME = "worklog: a tag or location name must be letters, digits, underscores, or hyphens"
-M.EMPTY_TEXT = "worklog: the activity text cannot be empty"
-M.SAME_NAME = "worklog: the new name matches the current name"
+  "blotter: the (no location) group cannot be renamed; set a location on the blots first"
+M.INVALID_NAME = "blotter: a tag or location name must be letters, digits, underscores, or hyphens"
+M.EMPTY_TEXT = "blotter: the activity text cannot be empty"
+M.SAME_NAME = "blotter: the new name matches the current name"
 
 -- Classify a summary layout row into a rename target { kind, current, tag? }. The
 -- `tag` is the activity's tag scope (an item is identified by text *and* tag), used
--- by run_by_value / the report rename to find the same item in another worklog. The
+-- by run_by_value / the report rename to find the same item in another blotter. The
 -- single-file run ignores it (it acts on the cursor's exact item). PURE.
 function M.classify(layout_row)
   local kind = layout_row.kind
@@ -186,7 +186,7 @@ local function identity(value)
   return value
 end
 
--- Build the rename edit script for one worklog block: rewrite the affected source
+-- Build the rename edit script for one blotter block: rewrite the affected source
 -- blots (and the header token when it declared the renamed value), then rebuild
 -- the one summary in place. `item` is the recomputed summary item the rename acts
 -- on and `region` is its summary's location; `target.kind` selects the rename mode.
@@ -271,7 +271,7 @@ local function build_rename(block, region, item, target, new_value)
 
   -- The header carries the renamed tag/location only when it declared it.
   if header_field then
-    local new_header = render.worklog_header_line(
+    local new_header = render.blotter_header_line(
       ops.rename_tag(block.header_tag),
       ops.rename_loc(block.header_location),
       block.header_offset,
@@ -307,7 +307,7 @@ local function build_rename(block, region, item, target, new_value)
 end
 
 -- Find the recomputed summary item a value-keyed target names, or nil when the
--- worklog has no such item. For an activity the tag scopes the match (the same text
+-- blotter has no such item. For an activity the tag scopes the match (the same text
 -- under a different tag is a different item), mirroring how the summary groups rows.
 local function find_target_item(recomputed, target)
   if target.kind == "tag" then
@@ -347,10 +347,10 @@ function M.run(lines, cursor_row, new_value)
   return build_rename(result.ctx.block, result.region, result.layout_row.item, target, new_value)
 end
 
--- Rename by value rather than by cursor: act on the active worklog's summary item
+-- Rename by value rather than by cursor: act on the active blotter's summary item
 -- identified by `target` ({ kind, current, tag? }). Returns the edit script; nil
--- with no error when the value is not present in this worklog (the day is simply
--- unaffected, so the multi-day rename skips it); or nil + err when the worklog is
+-- with no error when the value is not present in this blotter (the day is simply
+-- unaffected, so the multi-day rename skips it); or nil + err when the blotter is
 -- invalid. This is what lets one rename fan out across every day of a report.
 function M.run_by_value(lines, target, new_value)
   local ctx, err = support.get_validated_active(lines)

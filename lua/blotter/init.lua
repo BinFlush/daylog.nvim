@@ -8,8 +8,8 @@ local insert_blot = require("blotter.usecases.insert_blot")
 local insert_now = require("blotter.usecases.insert_now")
 local journal = require("blotter.journal")
 local log_current = require("blotter.usecases.log_current")
-local new_worklog = require("blotter.usecases.new_worklog")
-local order_worklogs = require("blotter.usecases.order_worklogs")
+local new_blotter = require("blotter.usecases.new_blotter")
+local order_blotters = require("blotter.usecases.order_blotters")
 local refresh_summaries = require("blotter.usecases.refresh_summaries")
 local rename_summary = require("blotter.usecases.rename_summary")
 local report_cursor = require("blotter.usecases.report_cursor")
@@ -55,12 +55,12 @@ end
 -- signals apply_result that apply_refresh will publish diagnostics itself.
 local refreshing = false
 
-local diagnostic_namespace = vim.api.nvim_create_namespace("worklog")
+local diagnostic_namespace = vim.api.nvim_create_namespace("blotter")
 
 local highlight_namespace = vim.api.nvim_create_namespace("blotter-highlight")
 local highlight_groups_defined = false
 
--- Register the worklog highlight groups as default links (so a user's own
+-- Register the blotter highlight groups as default links (so a user's own
 -- highlight overrides win). Done lazily on first highlight so it works whether or
 -- not setup() ran.
 local function ensure_highlight_groups()
@@ -76,7 +76,7 @@ local function ensure_highlight_groups()
 end
 
 -- Apply the parser-driven highlight spans to a buffer as extmarks, replacing the
--- previous set. This is the single highlighting path: worklog files attach it via
+-- previous set. This is the single highlighting path: blotter files attach it via
 -- the ftplugin, the report buffers call it directly, and the edit-applying shell
 -- refreshes it after programmatic edits (which do not fire change autocmds). The
 -- narrower token spans carry a higher priority than the whole-line base ones, so
@@ -100,9 +100,9 @@ function M.highlight_buffer(buf)
   end
 end
 
--- Publish the worklog's problems (e.g. out-of-order timestamps) as buffer
+-- Publish the blotter's problems (e.g. out-of-order timestamps) as buffer
 -- diagnostics. They are recomputed and replace the previous set on every refresh,
--- so they clear themselves as soon as the worklog is valid again -- however it
+-- so they clear themselves as soon as the blotter is valid again -- however it
 -- was fixed -- and render inline in any mode.
 local function publish_diagnostics(warnings)
   local items = {}
@@ -112,7 +112,7 @@ local function publish_diagnostics(warnings)
       lnum = math.max((warning.row or 1) - 1, 0),
       col = 0,
       severity = vim.diagnostic.severity.WARN,
-      source = "worklog",
+      source = "blotter",
       message = warning.message,
     })
   end
@@ -120,7 +120,7 @@ local function publish_diagnostics(warnings)
   vim.diagnostic.set(diagnostic_namespace, 0, items)
 end
 
--- Recompute and publish the buffer's worklog diagnostics from its current text.
+-- Recompute and publish the buffer's blotter diagnostics from its current text.
 local function refresh_diagnostics()
   publish_diagnostics(refresh_summaries.run(buffer_lines()).warnings)
 end
@@ -165,7 +165,7 @@ local function run_buffer_usecase(run, ...)
   return true
 end
 
--- Rebuild every worklog's existing summary to match its blots, and publish the
+-- Rebuild every blotter's existing summary to match its blots, and publish the
 -- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
 -- are already current. `join` merges the edit into the previous undo block, used
 -- by the autocmd-driven refreshes so one keystroke stays one undo step.
@@ -189,7 +189,7 @@ local function buffer_changed(target_buf, op)
     return false
   end
 
-  warn("worklog: buffer changed during selection; aborting " .. op)
+  warn("blotter: buffer changed during selection; aborting " .. op)
   return true
 end
 
@@ -231,7 +231,7 @@ local function apply_insert_time(time)
   return true
 end
 
--- Insert a fully-resolved "HH:MM <text>" blot at the cursor's worklog and enter
+-- Insert a fully-resolved "HH:MM <text>" blot at the cursor's blotter and enter
 -- insert mode. Mirrors apply_insert_time but carries an activity string (the text
 -- is built and sanitized by the source layer before it gets here).
 local function apply_insert_blot(time, entry_text)
@@ -264,11 +264,11 @@ local function system_utc_offset_minutes()
   return total
 end
 
--- Resolve a defaults table's `utc` for a fresh worklog header: the "auto" sentinel
+-- Resolve a defaults table's `utc` for a fresh blotter header: the "auto" sentinel
 -- becomes the system's current offset, a numeric offset passes through, and absent
 -- stays absent. The shared config table is never mutated; a copy is returned only
 -- when "auto" must be resolved.
-local function resolve_worklog_defaults(defaults)
+local function resolve_blotter_defaults(defaults)
   if defaults == nil or defaults.utc ~= "auto" then
     return defaults
   end
@@ -281,9 +281,9 @@ local function resolve_worklog_defaults(defaults)
   return resolved
 end
 
-local function apply_new_worklog(defaults)
+local function apply_new_blotter(defaults)
   local lines = buffer_lines()
-  local result, err = new_worklog.run(lines, resolve_worklog_defaults(defaults))
+  local result, err = new_blotter.run(lines, resolve_blotter_defaults(defaults))
   if not result then
     warn(err)
     return false
@@ -344,7 +344,7 @@ local function journal_lines(path)
   return nil
 end
 
--- True when a journal day already holds worklog content, considering a loaded
+-- True when a journal day already holds blotter content, considering a loaded
 -- (possibly unsaved) buffer before falling back to the file on disk.
 local function journal_path_has_content(path)
   local buf = loaded_buffer_for_path(path)
@@ -360,7 +360,7 @@ local function journal_path_has_content(path)
   return not text.is_empty(vim.fn.readfile(path))
 end
 
--- Every journal day that actually holds a worklog: dated `.blot` files under the
+-- Every journal day that actually holds a blotter: dated `.blot` files under the
 -- journal tree (each validated against the configured directory template, so only
 -- canonical files count) plus any loaded buffer for a journal day that currently
 -- has content but is not yet written to disk. Returns a list of midday timestamps;
@@ -413,12 +413,12 @@ end
 
 local function parse_positive_integer(value)
   if type(value) ~= "string" or value:match("^%d+$") == nil then
-    return nil, "worklog: days count must be a positive integer"
+    return nil, "blotter: days count must be a positive integer"
   end
 
   local number = tonumber(value)
   if number == nil or number <= 0 then
-    return nil, "worklog: days count must be a positive integer"
+    return nil, "blotter: days count must be a positive integer"
   end
 
   return number
@@ -439,12 +439,12 @@ local function parse_day_offset(value)
   end
 
   if type(value) ~= "string" or value:match("^[+-]?%d+$") == nil then
-    return nil, "worklog: day offset must be an integer"
+    return nil, "blotter: day offset must be an integer"
   end
 
   local number = tonumber(value)
   if number == nil then
-    return nil, "worklog: day offset must be an integer"
+    return nil, "blotter: day offset must be an integer"
   end
 
   return number
@@ -465,7 +465,7 @@ local function open_report_buffer(lines, name)
   vim.bo.modified = false
   vim.bo.modifiable = false
 
-  -- Reports are scratch buffers (no worklog filetype, so no ftplugin), so apply
+  -- Reports are scratch buffers (no blotter filetype, so no ftplugin), so apply
   -- the parser-driven highlighter directly. The same recognizer handles the
   -- labeled multi-day section headers and their duration rows.
   M.highlight_buffer(0)
@@ -482,7 +482,7 @@ local function open_journal_file(settings, date)
   local directory = vim.fn.fnamemodify(path, ":h")
 
   if vim.fn.isdirectory(directory) == 0 and vim.fn.mkdir(directory, "p") == 0 then
-    warn("worklog: failed to create journal directory: " .. directory)
+    warn("blotter: failed to create journal directory: " .. directory)
     return false
   end
 
@@ -498,7 +498,7 @@ local function open_journal_file(settings, date)
   -- an empty buffer and gets the initial header.
   local should_initialize = buffer_is_empty()
 
-  if should_initialize and not apply_new_worklog(config.get().defaults) then
+  if should_initialize and not apply_new_blotter(config.get().defaults) then
     return false
   end
 
@@ -533,7 +533,7 @@ local function current_buffer_journal_date(settings)
   return journal.date_from_path(settings, vim.fn.fnamemodify(name, ":p"))
 end
 
--- Today's worklog must be left in a valid state: leaving a broken today (out-of-order
+-- Today's blotter must be left in a valid state: leaving a broken today (out-of-order
 -- blots, an invalid blot, ...) would silently stop tracking the active day, so the
 -- day-navigation commands refuse until it is fixed. Only today is guarded -- browsing a
 -- past day's old problems is fine -- and only the plugin's own navigation (a raw :edit
@@ -550,7 +550,7 @@ local function refuse_when_today_has_errors(settings)
   end
 
   publish_diagnostics(warnings)
-  warn("worklog: today's worklog has errors; fix them before leaving the day")
+  warn("blotter: today's blotter has errors; fix them before leaving the day")
   return true
 end
 
@@ -590,11 +590,11 @@ local function run_carryover(settings, command, now)
       return false
     end
 
-    warn("worklog: today's worklog already exists; open it with :BlotterToday")
+    warn("blotter: today's blotter already exists; open it with :BlotterToday")
     return true
   end
 
-  local prompt = string.format("Past midnight: carry '%s' over to today's worklog?", carried.text)
+  local prompt = string.format("Past midnight: carry '%s' over to today's blotter?", carried.text)
   if vim.fn.confirm(prompt, "&Yes\n&No", 1) ~= 1 then
     return true
   end
@@ -612,7 +612,7 @@ local function run_carryover(settings, command, now)
   apply_refresh(false)
 
   if not pcall(vim.cmd, "silent write") then
-    warn("worklog: failed to save the previous day before carrying over")
+    warn("blotter: failed to save the previous day before carrying over")
     return true
   end
 
@@ -643,7 +643,7 @@ local function run_carryover(settings, command, now)
   return true
 end
 
--- Bring the activity under the cursor into today's worklog at the current time,
+-- Bring the activity under the cursor into today's blotter at the current time,
 -- used when :BlotRepeat runs on another day's file. The browsed day is left
 -- untouched; today is opened (created if needed) and the window switches to it.
 local function run_cross_day_repeat(settings, now)
@@ -659,14 +659,14 @@ local function run_cross_day_repeat(settings, now)
   -- navigation does, instead of surfacing a raw E37 from the :edit below. The browsed
   -- day is left untouched, so -- unlike carryover -- it is not saved on the user's behalf.
   if not can_abandon_current_buffer() then
-    warn("worklog: current buffer has unsaved changes")
+    warn("blotter: current buffer has unsaved changes")
     return
   end
 
   local clock = os.date("*t", now)
   local minutes = clock.hour * 60 + clock.min
 
-  -- If today already holds a worklog, confirm the activity can be inserted there before
+  -- If today already holds a blotter, confirm the activity can be inserted there before
   -- switching to it, so a broken today is reported while staying on the browsed day
   -- rather than yanking the window across and only then failing. A missing/empty (or
   -- whitespace-only) today is initialized fresh by open_journal_file and always seeds.
@@ -729,7 +729,7 @@ local function guard_current_time(command)
 
   warn(
     string.format(
-      "worklog: this file is dated %s, not today (%s); refusing to insert the current time",
+      "blotter: this file is dated %s, not today (%s); refusing to insert the current time",
       journal.date_label(file_date),
       journal.date_label(now)
     )
@@ -748,7 +748,7 @@ local function source_complete(arglead)
   return matches
 end
 
--- Bring a work item from a configured source into the current worklog at the
+-- Bring a work item from a configured source into the current blotter at the
 -- current time. Offline-first: reads the source's local cache and opens
 -- vim.ui.select (Telescope/fzf/snacks take over if installed). On pick the
 -- configured "{id} {title}" template is inserted; cancelling falls back to a bare
@@ -760,11 +760,11 @@ function M.insert_from_source(name)
 
   local source = sources_registry.get(name)
   if not source then
-    warn("worklog: unknown source '" .. name .. "'")
+    warn("blotter: unknown source '" .. name .. "'")
     return
   end
 
-  -- Refuse a cursor outside a worklog now, before opening the async picker
+  -- Refuse a cursor outside a blotter now, before opening the async picker
   -- (cache read, optional network, a UI round trip), exactly as :BlotInsert
   -- with no argument refuses up front. insert_blot re-validates at apply time
   -- too, since the buffer can change under the picker -- this is the fail-fast.
@@ -803,7 +803,7 @@ function M.insert_from_source(name)
     if has_telescope and source.search then
       require("blotter.telescope").live_pick(source, {
         initial_items = items,
-        prompt = "Worklog: " .. name,
+        prompt = "Blotter: " .. name,
         min_query = sources[name] and sources[name].min_query,
         on_pick = insert_choice,
         on_cancel = function()
@@ -818,7 +818,7 @@ function M.insert_from_source(name)
     local display = sources_picker.display_for(source, items)
 
     vim.ui.select(items, {
-      prompt = "Worklog: pick " .. name .. " item",
+      prompt = "Blotter: pick " .. name .. " item",
       format_item = display,
     }, function(choice)
       if not choice then
@@ -835,7 +835,7 @@ end
 function M.sync_source(name)
   if name and name ~= "" then
     if not sources_registry.get(name) then
-      warn("worklog: unknown source '" .. name .. "'")
+      warn("blotter: unknown source '" .. name .. "'")
       return
     end
 
@@ -845,7 +845,7 @@ function M.sync_source(name)
 
   local names = sources_registry.names()
   if #names == 0 then
-    warn("worklog: no sources configured")
+    warn("blotter: no sources configured")
     return
   end
 
@@ -884,7 +884,7 @@ local rename_from_report
 
 -- Rename what the summary row under the cursor stands for: an activity (main
 -- row), a #tag (tag total), or an @location (location total). The rename
--- propagates into the attached worklog and rebuilds the summary. Renaming to a
+-- propagates into the attached blotter and rebuilds the summary. Renaming to a
 -- value that already exists merges the two -- so the picker offers the other
 -- same-kind values as merge targets while still letting you type a fresh name. An
 -- empty or unchanged value is a no-op.
@@ -897,7 +897,7 @@ function M.rename_summary(new_value, source_name)
   -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
   -- per-day row; the rename fans out across the relevant day files instead of the
   -- current buffer.
-  local is_report, report_spec = pcall(vim.api.nvim_buf_get_var, 0, "worklog_report")
+  local is_report, report_spec = pcall(vim.api.nvim_buf_get_var, 0, "blotter_report")
   if is_report and type(report_spec) == "table" then
     rename_from_report(report_spec, new_value, source_name)
     return
@@ -941,11 +941,11 @@ function M.rename_summary(new_value, source_name)
   if source_name then
     source = sources_registry.get(source_name)
     if not source then
-      warn("worklog: unknown source '" .. source_name .. "'")
+      warn("blotter: unknown source '" .. source_name .. "'")
       return
     end
     if target.kind ~= "item" then
-      warn("worklog: a source can only replace an activity, not a " .. target.kind)
+      warn("blotter: a source can only replace an activity, not a " .. target.kind)
       source = nil
     else
       src_name = source_name
@@ -962,12 +962,12 @@ function M.rename_summary(new_value, source_name)
 
   local function prompt_for_name()
     apply_rename(vim.fn.input({
-      prompt = string.format("worklog: rename %s: ", label),
+      prompt = string.format("blotter: rename %s: ", label),
       default = target.current,
     }))
   end
 
-  local picker_prompt = string.format("Worklog: rename/merge %s", label)
+  local picker_prompt = string.format("Blotter: rename/merge %s", label)
 
   -- Open the picker over the merge candidates plus any source items; both a
   -- Telescope picker and the vim.ui.select fallback let you pick a candidate (a
@@ -1061,8 +1061,8 @@ function M.rename_summary(new_value, source_name)
   open_picker(nil)
 end
 
-function M.order_worklogs()
-  local result, err = order_worklogs.run(buffer_lines())
+function M.order_blotters()
+  local result, err = order_blotters.run(buffer_lines())
   if not result then
     warn(err)
     return
@@ -1072,7 +1072,7 @@ function M.order_worklogs()
 
   if result.warnings and #result.warnings > 0 then
     warn(
-      "worklog: ordering set the tag/location/utc offset of order-dependent blots; review: "
+      "blotter: ordering set the tag/location/utc offset of order-dependent blots; review: "
         .. table.concat(result.warnings, ", ")
     )
   end
@@ -1084,14 +1084,14 @@ end
 
 -- Manually balance summary rounding by `delta` q-steps (a signed integer; 0 clears
 -- the cursor target's nudge). The cursor may sit on a summary row -- whose best
--- contributing blot is nudged for it -- or directly on a worklog blot.
+-- contributing blot is nudged for it -- or directly on a blot.
 function M.balance(arg)
   local delta = 1
 
   if arg ~= nil and arg ~= "" then
     delta = tonumber(arg)
     if delta == nil or delta ~= math.floor(delta) then
-      warn("worklog: BlotBalance expects an integer step count, e.g. +1, -2, or 0 to clear")
+      warn("blotter: BlotBalance expects an integer step count, e.g. +1, -2, or 0 to clear")
       return
     end
   end
@@ -1107,12 +1107,12 @@ end
 function M.open_today(day_offset)
   local settings = expanded_journal_settings()
   if settings == nil then
-    warn("worklog: journal.root is not configured")
+    warn("blotter: journal.root is not configured")
     return
   end
 
   if not can_abandon_current_buffer() then
-    warn("worklog: current buffer has unsaved changes")
+    warn("blotter: current buffer has unsaved changes")
     return
   end
 
@@ -1143,26 +1143,26 @@ function M.open_today(day_offset)
 
   -- A freshly created today file gets the current time and a summary, so it tracks
   -- the day from the start (live when auto_summary is enabled). The summary refresh
-  -- creates it the same way it would self-heal any other summary-less worklog.
+  -- creates it the same way it would self-heal any other summary-less blotter.
   apply_insert_time(os.date("%H:%M", now))
   apply_refresh(false)
 end
 
--- Jump to the `|step|`-th existing worklog before (step < 0) or after (step > 0)
--- the current buffer's day, skipping days that have no worklog. The anchor falls
+-- Jump to the `|step|`-th existing blotter before (step < 0) or after (step > 0)
+-- the current buffer's day, skipping days that have no blotter. The anchor falls
 -- back to today when the buffer is not a canonical journal file. Pure navigation:
 -- it never inserts the current time, even when it lands on today, and it never
--- creates a file (use :BlotterInit to start an arbitrary day). When no worklog
+-- creates a file (use :BlotterInit to start an arbitrary day). When no blotter
 -- exists in that direction it warns and stays put.
 function M.open_relative_day(step)
   local settings = expanded_journal_settings()
   if settings == nil then
-    warn("worklog: journal.root is not configured")
+    warn("blotter: journal.root is not configured")
     return
   end
 
   if not can_abandon_current_buffer() then
-    warn("worklog: current buffer has unsaved changes")
+    warn("blotter: current buffer has unsaved changes")
     return
   end
 
@@ -1175,7 +1175,7 @@ function M.open_relative_day(step)
   local target =
     journal.nearest_date(existing_journal_dates(settings), anchor, direction, math.abs(step))
   if not target then
-    warn(direction < 0 and "worklog: no earlier worklog" or "worklog: no later worklog")
+    warn(direction < 0 and "blotter: no earlier blotter" or "blotter: no later blotter")
     return
   end
 
@@ -1186,16 +1186,16 @@ end
 -- directory, file, and default header when it is empty. Unlike :BlotterToday it
 -- never stamps the current time, so it is the way to start an arbitrary past or
 -- future day -- the day-navigation commands deliberately only land on days that
--- already have a worklog.
+-- already have a blotter.
 function M.init_day(offset)
   local settings = expanded_journal_settings()
   if settings == nil then
-    warn("worklog: journal.root is not configured")
+    warn("blotter: journal.root is not configured")
     return
   end
 
   if not can_abandon_current_buffer() then
-    warn("worklog: current buffer has unsaved changes")
+    warn("blotter: current buffer has unsaved changes")
     return
   end
 
@@ -1210,9 +1210,9 @@ function M.init_day(offset)
   end
 
   -- Seed the empty summary so a freshly scaffolded day is a complete, valid
-  -- worklog from the start -- like a new today, just without the current-time
+  -- blotter from the start -- like a new today, just without the current-time
   -- blot. refresh_summaries creates the missing summary the same way it self-heals
-  -- any summary-less worklog.
+  -- any summary-less blotter.
   apply_refresh(false)
 end
 
@@ -1223,7 +1223,7 @@ end
 local function build_report_for_spec(spec)
   local settings = expanded_journal_settings()
   if settings == nil then
-    return nil, "worklog: journal.root is not configured"
+    return nil, "blotter: journal.root is not configured"
   end
 
   if spec.kind == "week" then
@@ -1271,7 +1271,7 @@ local function open_report(spec)
   end
 
   open_report_buffer(lines, report_buffer_name(spec, label_or_err))
-  vim.api.nvim_buf_set_var(0, "worklog_report", spec)
+  vim.api.nvim_buf_set_var(0, "blotter_report", spec)
 end
 
 -- Rebuild every open report buffer from its stored spec, mirroring how the
@@ -1283,7 +1283,7 @@ local function refresh_report_windows()
 
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local buf = vim.api.nvim_win_get_buf(win)
-    local ok, spec = pcall(vim.api.nvim_buf_get_var, buf, "worklog_report")
+    local ok, spec = pcall(vim.api.nvim_buf_get_var, buf, "blotter_report")
 
     if ok and type(spec) == "table" and not refreshed[buf] then
       refreshed[buf] = true
@@ -1397,7 +1397,7 @@ local function confirm_report_rename(target, value, changes)
   end
 
   local prompt = string.format(
-    "worklog: rename %s '%s' to '%s' in %d file(s)?\n%s",
+    "blotter: rename %s '%s' to '%s' in %d file(s)?\n%s",
     RENAME_PROMPT_LABEL[target.kind],
     target.current,
     value,
@@ -1415,7 +1415,7 @@ local function prompt_report_rename(target, candidates, apply)
 
   local function prompt_for_name()
     apply(vim.fn.input({
-      prompt = string.format("worklog: rename %s: ", label),
+      prompt = string.format("blotter: rename %s: ", label),
       default = target.current,
     }))
   end
@@ -1433,7 +1433,7 @@ local function prompt_report_rename(target, candidates, apply)
   choices[#choices + 1] = TYPE_NEW
 
   vim.ui.select(choices, {
-    prompt = string.format("Worklog: rename/merge %s across the report", label),
+    prompt = string.format("Blotter: rename/merge %s across the report", label),
     format_item = function(choice)
       if choice == TYPE_NEW then
         return "✎ Type a new name…"
@@ -1458,7 +1458,7 @@ end
 -- here -- a report acts on many days at once.
 rename_from_report = function(spec, new_value, source_name)
   if source_name then
-    warn("worklog: a source rename is not available from a report")
+    warn("blotter: a source rename is not available from a report")
     return
   end
 
@@ -1507,7 +1507,7 @@ rename_from_report = function(spec, new_value, source_name)
     end
 
     if #changes == 0 then
-      warn("worklog: no day in this report has that " .. RENAME_PROMPT_LABEL[target.kind])
+      warn("blotter: no day in this report has that " .. RENAME_PROMPT_LABEL[target.kind])
       return
     end
 
@@ -1547,19 +1547,19 @@ end
 -- mode. `off` installs nothing (manual :BlotterRefresh still works) but still
 -- clears any autocmds a previous setup() left behind.
 local function setup_auto_summary(mode)
-  local group = vim.api.nvim_create_augroup("WorklogAutoSummary", { clear = true })
+  local group = vim.api.nvim_create_augroup("BlotterAutoSummary", { clear = true })
   if mode == "off" then
     return
   end
 
-  local function on_worklog_buffer(opts, action)
+  local function on_blotter_buffer(opts, action)
     if vim.bo[opts.buf].filetype == "blotter" then
       action()
     end
   end
 
   local function refresh(opts)
-    on_worklog_buffer(opts, function()
+    on_blotter_buffer(opts, function()
       apply_refresh(true)
       refresh_report_windows()
     end)
@@ -1577,7 +1577,7 @@ local function setup_auto_summary(mode)
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
       group = group,
       callback = function(opts)
-        on_worklog_buffer(opts, function()
+        on_blotter_buffer(opts, function()
           generation = generation + 1
           local scheduled = generation
           -- Debounce: only the last change in a burst refreshes.
@@ -1611,10 +1611,10 @@ local function instantiate_sources()
       token_resolver = function(source_cfg)
         local ok, token = pcall(source_cfg.token)
         if not ok then
-          return nil, "worklog: source token() errored: " .. tostring(token)
+          return nil, "blotter: source token() errored: " .. tostring(token)
         end
         if type(token) ~= "string" or token == "" then
-          return nil, "worklog: source token() did not return a non-empty string"
+          return nil, "blotter: source token() did not return a non-empty string"
         end
         return token
       end,
@@ -1715,7 +1715,7 @@ function M.setup(options)
   })
 
   ensure_user_command("BlotterOrder", function()
-    M.order_worklogs()
+    M.order_blotters()
   end)
 
   ensure_user_command("BlotterCopy", function()

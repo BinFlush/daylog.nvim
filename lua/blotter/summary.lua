@@ -4,10 +4,10 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Semantic reporting for worklog blocks.
+-- Semantic reporting for blotter blocks.
 --
--- Summaries are built directly from semantic blots or worklog blocks. This
--- module owns the worklog domain of reporting: interval derivation, the report
+-- Summaries are built directly from semantic blots or blotter blocks. This
+-- module owns the blotter domain of reporting: interval derivation, the report
 -- sections, sorting, and logged totals. The generic grouping engine lives in
 -- projection.lua and the rounding arithmetic in quantize.lua.
 
@@ -22,7 +22,7 @@ local function build_intervals(blots)
     -- interval that spans a clock move -- a timezone crossing or a DST flip -- is
     -- its true length rather than the apparent local delta. `start`/`stop` stay the
     -- raw local clock (display only). With no offsets in play this is exactly
-    -- `next.minutes - current.minutes`, so a plain worklog is unchanged.
+    -- `next.minutes - current.minutes`, so a plain blotter is unchanged.
     local current_effective = current.minutes - (current.offset or 0)
     local next_effective = next.minutes - (next.offset or 0)
 
@@ -249,7 +249,7 @@ local function logged_totals_from_quantized_items(items)
 end
 
 -- Apply the shared summary tail: attach the manual-nudge totals sparsely (only when
--- nonzero, so a worklog with no manual balancing produces the identical structure),
+-- nonzero, so a blotter with no manual balancing produces the identical structure),
 -- derive and attach the logged totals from the main rows, and order every section.
 -- Both summarize_entries and combine_summaries finish through this so the
 -- sparse-nudge and logged-totals invariants are defined once.

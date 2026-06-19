@@ -7,12 +7,12 @@ local support = require("blotter.usecases.support")
 
 local M = {}
 
--- Refresh every valid worklog's summary so it matches its blots -- creating one
--- where missing -- and report the problems that stop a worklog from being summarized.
+-- Refresh every valid blotter's summary so it matches its blots -- creating one
+-- where missing -- and report the problems that stop a blotter from being summarized.
 --
--- Edits are conservative: a valid worklog's summary is created when missing and
+-- Edits are conservative: a valid blotter's summary is created when missing and
 -- rewritten when it exists but has drifted from its source; it is never removed. A
--- structurally broken document and currently-invalid worklogs are left untouched,
+-- structurally broken document and currently-invalid blotters are left untouched,
 -- so editing cannot churn or corrupt output, and an already-current summary yields
 -- no edit (which keeps the shell's auto-refresh idempotent and loop-free).
 --
@@ -45,8 +45,8 @@ function M.run(lines)
   -- or corrupt output) until it parses cleanly again; its problems still warn
   -- via diagnostics.collect above.
   if not analyze.structural_error(analysis) then
-    for _, block in ipairs(analysis.worklog_blocks) do
-      -- For a valid worklog: rewrite its summary, or create one when missing.
+    for _, block in ipairs(analysis.blotter_blocks) do
+      -- For a valid blotter: rewrite its summary, or create one when missing.
       if not analyze.find_block_diagnostic(analysis, block) then
         local region, computed, rendered = support.locate_summary(analysis, block)
 
@@ -59,8 +59,8 @@ function M.run(lines)
             })
           end
         else
-          -- No summary yet: create one so every valid worklog stays summarized.
-          -- Insert it after the worklog's last non-blank body line; the block spans
+          -- No summary yet: create one so every valid blotter stays summarized.
+          -- Insert it after the blotter's last non-blank body line; the block spans
           -- its trailing blank, so that blank separates the summary from the next
           -- block while the rendered leading blank separates body from summary.
           local insert_row = body.last_content_row(block)

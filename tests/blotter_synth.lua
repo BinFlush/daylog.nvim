@@ -1,7 +1,7 @@
--- Multi-mode random worklog generator for property/fuzz tests.
+-- Multi-mode random blotter generator for property/fuzz tests.
 --
 -- Knows nothing about any specific invariant: given a seeded RNG (tests/rng.lua)
--- and a mode name it emits a random VALID worklog -- header plus sorted
+-- and a mode name it emits a random VALID blotter -- header plus sorted
 -- timestamped blots with optional sticky tags/locations, notes, #ooo, clears
 -- (#-/@-), !L, occasional UTC offsets (utc±H), occasional manual rounding nudges
 -- (round±N), occasionally closing at 24:00. Returns { lines, params }; `params`
@@ -9,14 +9,14 @@
 --
 -- UTC offsets, when used, walk monotonically downward across the day (a westward
 -- traveller). Local times are strictly increasing and the offsets never increase,
--- so effective UTC time is strictly increasing too -- the worklog stays valid (no
+-- so effective UTC time is strictly increasing too -- the blotter stays valid (no
 -- false unordered-timestamps) while exercising the offset-reconciled duration math.
 --
 -- Modes only pick distributions; the emitted structure is identical:
 --   * maximal -- the general, assumption-free stress mode (whole clock, every q).
 --   * workday -- a ~7-to-5 day; several q values do not foot cleanly (1, 5, 10).
 --   * billing -- precise client tracking (q = 1 or 0.1h), heavy !L, decimal hours.
--- Reusable by any worklog property test.
+-- Reusable by any blotter property test.
 
 local WORDS = {
   "planning",
@@ -53,7 +53,7 @@ local WORDS = {
 
 local syntax = require("blotter.syntax")
 
--- Plausible UTC offsets in signed minutes, east to west. A worklog that uses
+-- Plausible UTC offsets in signed minutes, east to west. A blotter that uses
 -- offsets walks this list downward only (never back east), which keeps effective
 -- time strictly increasing for strictly increasing local times.
 local UTC_OFFSETS = { 330, 120, 60, 0, -240, -300, -480 }

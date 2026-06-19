@@ -18,7 +18,7 @@ local function warn(message)
 end
 
 function M.cache_path(name)
-  return vim.fn.stdpath("cache") .. "/worklog/sources/" .. name .. ".json"
+  return vim.fn.stdpath("cache") .. "/blotter/sources/" .. name .. ".json"
 end
 
 -- Read and validate the on-disk cache for a source, or nil when it is missing or
@@ -57,7 +57,7 @@ function M.write_cache(name, items, now)
   end)
 
   if not ok then
-    warn("worklog: failed to write source cache: " .. name)
+    warn("blotter: failed to write source cache: " .. name)
   end
 
   return ok
@@ -80,7 +80,7 @@ function M.sync(name, opts, cb)
 
   local source = registry.get(name)
   if not source then
-    warn("worklog: unknown source '" .. name .. "'")
+    warn("blotter: unknown source '" .. name .. "'")
     return cb(false)
   end
 
@@ -91,7 +91,7 @@ function M.sync(name, opts, cb)
       in_flight[name] = false
 
       if not items then
-        warn(fetch_err or ("worklog: sync failed: " .. name))
+        warn(fetch_err or ("blotter: sync failed: " .. name))
         return cb(false, fetch_err)
       end
 
@@ -102,7 +102,7 @@ function M.sync(name, opts, cb)
       end
 
       if not opts.silent then
-        notify(string.format("worklog: synced %d items from %s", #items, name))
+        notify(string.format("blotter: synced %d items from %s", #items, name))
       end
       cb(true)
     end)
@@ -110,7 +110,7 @@ function M.sync(name, opts, cb)
 
   if not ok then
     in_flight[name] = false
-    warn("worklog: sync failed: " .. tostring(err))
+    warn("blotter: sync failed: " .. tostring(err))
     cb(false)
   end
 end
@@ -129,7 +129,7 @@ function M.ensure_fresh(name, ttl, on_ready)
     return
   end
 
-  notify("worklog: syncing " .. name .. "…")
+  notify("blotter: syncing " .. name .. "…")
   M.sync(name, { silent = true }, function(ok)
     -- Only open the picker when the initial fetch succeeded; on failure sync has
     -- already warned, so don't surface an empty picker. A successful empty result

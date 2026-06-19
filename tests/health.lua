@@ -1,6 +1,6 @@
 return function(t)
   local health = require("blotter.health")
-  local worklog = require("blotter")
+  local blotter = require("blotter")
 
   local function capture_reports(methods, fn)
     local reports = {
@@ -80,14 +80,14 @@ return function(t)
   end
 
   t.test("setup can run more than once", function()
-    worklog.setup()
+    blotter.setup()
 
-    local ok, err = pcall(worklog.setup)
+    local ok, err = pcall(blotter.setup)
     t.ok(ok, err)
   end)
 
   t.test("health check reports core integration", function()
-    worklog.setup()
+    blotter.setup()
 
     local reports = capture_reports(modern_methods, function()
       health.check()
@@ -97,7 +97,7 @@ return function(t)
     t.eq(#reports.warn, 0)
     t.ok(includes(reports.start, "worklog.nvim"))
     t.ok(includes(reports.ok, 'require("blotter") succeeded'))
-    t.ok(includes(reports.ok, "worklog.setup is available"))
+    t.ok(includes(reports.ok, "blotter.setup is available"))
     t.ok(includes(reports.ok, ":BlotInsert is available"))
     t.ok(includes(reports.ok, ":BlotterToday is available"))
     t.ok(includes(reports.ok, ":BlotterInit is available"))
@@ -115,7 +115,7 @@ return function(t)
   end)
 
   t.test("health check supports legacy health api", function()
-    worklog.setup()
+    blotter.setup()
 
     local reports = capture_reports(legacy_methods, function()
       health.check()
@@ -130,7 +130,7 @@ return function(t)
 
   t.test("health check does not reset the user's configuration", function()
     local config = require("blotter.config")
-    worklog.setup({
+    blotter.setup({
       journal = { root = "/tmp/hc", directory = "%Y" },
       auto_summary = "idle",
     })
@@ -142,11 +142,11 @@ return function(t)
     t.eq(config.get().journal.root, "/tmp/hc")
     t.eq(config.get().auto_summary, "idle")
 
-    worklog.setup()
+    blotter.setup()
   end)
 
   t.test("health reports configured sources and a missing cache", function()
-    worklog.setup({
+    blotter.setup({
       sources = {
         ADO = {
           type = "azure_devops",
@@ -187,12 +187,12 @@ return function(t)
     end
     t.ok(warned, "expected a 'no cache yet' warning for ADO")
 
-    worklog.setup()
+    blotter.setup()
   end)
 
   t.test("health reports a registered custom source", function()
     local registry = require("blotter.sources.registry")
-    worklog.setup() -- clears the registry; no config sources declared
+    blotter.setup() -- clears the registry; no config sources declared
 
     registry.register("Jira", {
       fetch = function(cb)
@@ -223,6 +223,6 @@ return function(t)
     t.ok(includes(reports.start, "Sources"))
     t.ok(includes(reports.ok, "source Jira (registered) is configured"))
 
-    worklog.setup() -- clear the registry again
+    blotter.setup() -- clear the registry again
   end)
 end

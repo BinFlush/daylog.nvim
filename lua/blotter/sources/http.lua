@@ -1,7 +1,7 @@
 local M = {}
 
 -- Curl-based async HTTP transport. This is the only file in the source layer that
--- performs network IO (via vim.fn.jobstart). It knows nothing about worklog or
+-- performs network IO (via vim.fn.jobstart). It knows nothing about blotter or
 -- Azure DevOps -- it runs a request and hands back { status, body }.
 
 local DEFAULT_TIMEOUT_MS = 30000

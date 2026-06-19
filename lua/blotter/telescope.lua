@@ -2,7 +2,7 @@ local picker_helpers = require("blotter.sources.picker")
 
 local M = {}
 
--- Optional Telescope live-search picker for worklog sources.
+-- Optional Telescope live-search picker for blotter sources.
 --
 -- Shell + Telescope only; this module is never required by the core at load.
 -- init.lua requires it lazily, and only when Telescope is installed (and, for
@@ -57,7 +57,7 @@ local function live_search(source, opts)
               return
             end
             if err then
-              local message = err:match("^worklog:") and err or ("worklog: " .. err)
+              local message = err:match("^blotter:") and err or ("blotter: " .. err)
               vim.notify(message, vim.log.levels.WARN)
               return
             end
@@ -127,7 +127,7 @@ function M.live_pick(source, opts)
       if total and total > #items then
         vim.notify(
           string.format(
-            "worklog: showing first %d of %d matches; refine your search",
+            "blotter: showing first %d of %d matches; refine your search",
             #items,
             total
           ),
@@ -138,7 +138,7 @@ function M.live_pick(source, opts)
   })
 
   controller.picker = pickers.new(opts.theme or {}, {
-    prompt_title = opts.prompt or "Worklog",
+    prompt_title = opts.prompt or "Blotter",
     finder = finder_for(initial),
     -- Client-side fuzzy filtering of the current pool (respects fzf-native).
     sorter = conf.generic_sorter({}),
@@ -234,7 +234,7 @@ function M.rename_pick(opts)
   })
 
   controller.picker = pickers.new(opts.theme or {}, {
-    prompt_title = opts.prompt or "Worklog: rename / merge  (<CR> pick, <C-e> new name)",
+    prompt_title = opts.prompt or "Blotter: rename / merge  (<CR> pick, <C-e> new name)",
     finder = finder_for(initial),
     sorter = conf.generic_sorter({}),
     on_input_filter_cb = (source and source.search) and controller.on_input_filter_cb or nil,

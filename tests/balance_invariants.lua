@@ -3,7 +3,7 @@ return function(t)
   -- docs/architecture.md / the plan): footing and its corollaries are structural
   -- partition-sum identities, so they must hold for ANY per-cell nudge. This throws
   -- adversarial per-blot nudge vectors (wide range, mixed signs, forcing clamps) at
-  -- synthesized worklogs -- on top of the offsets/tags/locations/ooo/!L the synth
+  -- synthesized blotters -- on top of the offsets/tags/locations/ooo/!L the synth
   -- already varies -- and asserts, for the day summary AND a combined week:
   --   T1  every section's rows sum to its own total;
   --   T2  activity = Σtags = Σlocations, workday = Σlogged, activity - workday = Σooo;
@@ -17,7 +17,7 @@ return function(t)
   local summary = require("blotter.summary")
   local render = require("blotter.render")
   local Rng = dofile(cwd .. "/tests/rng.lua")
-  local synth = dofile(cwd .. "/tests/worklog_synth.lua")
+  local synth = dofile(cwd .. "/tests/blotter_synth.lua")
 
   local function eq(a, b, ctx)
     if a ~= b then
@@ -137,7 +137,7 @@ return function(t)
   -- own structure (wide range with mixed signs and zeros, forcing clamps).
   local function adversarial_day(seed, mode)
     local wl = synth.generate(Rng.new(seed), mode)
-    local block = analyze.get_active_worklog(analyze.analyze(document.parse(wl.lines)))
+    local block = analyze.get_active_blotter(analyze.analyze(document.parse(wl.lines)))
     if not block then
       return nil
     end

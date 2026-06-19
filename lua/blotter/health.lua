@@ -63,26 +63,26 @@ end
 function M.check()
   start("worklog.nvim")
 
-  local loaded, worklog = pcall(require, "blotter")
+  local loaded, blotter = pcall(require, "blotter")
   if loaded then
     ok('require("blotter") succeeded')
   else
     report_error('require("blotter") failed', {
-      tostring(worklog),
+      tostring(blotter),
     })
     return
   end
 
-  if type(worklog.setup) == "function" then
-    ok("worklog.setup is available")
+  if type(blotter.setup) == "function" then
+    ok("blotter.setup is available")
   else
-    report_error("worklog.setup is missing", {
+    report_error("blotter.setup is missing", {
       "Export a setup function from require('blotter').",
     })
     return
   end
 
-  -- Intentionally do not call worklog.setup() here: it would reset the user's
+  -- Intentionally do not call blotter.setup() here: it would reset the user's
   -- live configuration and refresh autocmds. The command checks below verify
   -- that setup has already been run.
   start("Commands")
@@ -130,7 +130,7 @@ function M.check()
       ok("curl is available")
     else
       report_error("curl is not on PATH", {
-        "Install curl; worklog source sync uses curl for HTTP.",
+        "Install curl; blotter source sync uses curl for HTTP.",
       })
     end
 

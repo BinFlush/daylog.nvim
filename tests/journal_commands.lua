@@ -4,10 +4,10 @@ return function(t)
   local with_mocked_confirm = helpers.with_mocked_confirm
   local with_mocked_time = helpers.with_mocked_time
   local with_temp_home_root = helpers.with_temp_home_root
-  local with_worklog_setup = helpers.with_worklog_setup
+  local with_blotter_setup = helpers.with_blotter_setup
   local write_journal_file = helpers.write_journal_file
 
-  helpers.setup_worklog()
+  helpers.setup_blotter()
 
   local function report_has_workday(buf, prefix)
     for _, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
@@ -29,7 +29,7 @@ return function(t)
       sec = 0,
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         tag = "ClientA",
         location = "office",
@@ -66,11 +66,11 @@ return function(t)
     end)
   end)
 
-  t.test("today reopened after navigating away does not duplicate the seeded worklog", function()
+  t.test("today reopened after navigating away does not duplicate the seeded blotter", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 18, hour = 8, min = 45, sec = 0 })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -86,7 +86,7 @@ return function(t)
 
         -- Navigate away (the unsaved buffer survives because hidden is set) and
         -- back: reopening today must reuse that buffer, not append a duplicate.
-        -- BlotterToday -1 is an exact jump (PrevDay would find no earlier worklog).
+        -- BlotterToday -1 is an exact jump (PrevDay would find no earlier blotter).
         vim.cmd("BlotterToday -1")
         vim.cmd("BlotterToday")
 
@@ -106,7 +106,7 @@ return function(t)
       sec = 0,
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -155,7 +155,7 @@ return function(t)
       sec = 0,
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -201,7 +201,7 @@ return function(t)
       sec = 0,
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -242,7 +242,7 @@ return function(t)
       "08:00 earlier",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -253,7 +253,7 @@ return function(t)
         vim.cmd("BlotterPrevDay")
         t.eq(vim.api.nvim_buf_get_name(0), today_path)
 
-        -- Fixing the order releases the guard; navigation skips to the prior worklog.
+        -- Fixing the order releases the guard; navigation skips to the prior blotter.
         vim.api.nvim_buf_set_lines(0, 1, 3, false, { "08:00 earlier", "09:00 later" })
         vim.cmd("BlotterPrevDay")
         t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
@@ -272,7 +272,7 @@ return function(t)
     })
 
     with_temp_home_root(function(relative_root, expanded_root)
-      with_worklog_setup({
+      with_blotter_setup({
         journal = {
           root = relative_root,
           directory = "%Y",
@@ -309,7 +309,7 @@ return function(t)
     vim.fn.mkdir(expected_dir, "p")
     vim.fn.writefile({}, expected_path)
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -359,7 +359,7 @@ return function(t)
     vim.fn.mkdir(expected_dir, "p")
     vim.fn.writefile({}, expected_path)
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         tag = "ClientA",
       },
@@ -402,7 +402,7 @@ return function(t)
       "09:00 done",
     }, expected_path)
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -453,7 +453,7 @@ return function(t)
       "09:00 done",
     }, expected_path)
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -477,7 +477,7 @@ return function(t)
   end)
 
   t.test("today does nothing when journal settings are missing", function()
-    with_worklog_setup({}, function()
+    with_blotter_setup({}, function()
       vim.cmd("enew!")
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
       vim.bo.modified = false
@@ -492,7 +492,7 @@ return function(t)
   t.test("today rejects invalid day offsets and leaves the current buffer unchanged", function()
     local root = vim.fn.tempname()
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -511,7 +511,7 @@ return function(t)
 
           t.eq(messages, {
             {
-              message = "worklog: day offset must be an integer",
+              message = "blotter: day offset must be an integer",
               level = vim.log.levels.WARN,
             },
           })
@@ -538,7 +538,7 @@ return function(t)
     local old_autowrite = vim.o.autowrite
     local old_autowriteall = vim.o.autowriteall
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -595,7 +595,7 @@ return function(t)
       local old_autowrite = vim.o.autowrite
       local old_autowriteall = vim.o.autowriteall
 
-      with_worklog_setup({
+      with_blotter_setup({
         journal = {
           root = root,
           directory = "%Y",
@@ -630,13 +630,13 @@ return function(t)
     end
   )
 
-  t.test("next day skips empty days to the next existing worklog", function()
+  t.test("next day skips empty days to the next existing blotter", function()
     local root = vim.fn.tempname()
     local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })
-    -- A gap (05-11) with no worklog is skipped; the next real worklog is 05-12.
+    -- A gap (05-11) with no blotter is skipped; the next real blotter is 05-12.
     local next_day = os.time({ year = 2026, month = 5, day = 12, hour = 12, min = 0, sec = 0 })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -666,14 +666,14 @@ return function(t)
     end)
   end)
 
-  t.test("prev day count skips that many existing worklogs backward", function()
+  t.test("prev day count skips that many existing blotters backward", function()
     local root = vim.fn.tempname()
     local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })
-    -- Two existing worklogs precede the open day; the count walks past the first.
+    -- Two existing blotters precede the open day; the count walks past the first.
     local nearer = os.time({ year = 2026, month = 5, day = 9, hour = 12, min = 0, sec = 0 })
     local target = os.time({ year = 2026, month = 5, day = 8, hour = 12, min = 0, sec = 0 })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -700,11 +700,11 @@ return function(t)
     end)
   end)
 
-  t.test("relative navigation warns and stays when no worklog lies that way", function()
+  t.test("relative navigation warns and stays when no blotter lies that way", function()
     local root = vim.fn.tempname()
     local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -717,11 +717,11 @@ return function(t)
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
-      -- The only worklog is the open one: there is nothing later or earlier.
+      -- The only blotter is the open one: there is nothing later or earlier.
       with_captured_notify(function(messages)
         vim.cmd("BlotterNextDay")
         t.eq(messages, {
-          { message = "worklog: no later worklog", level = vim.log.levels.WARN },
+          { message = "blotter: no later blotter", level = vim.log.levels.WARN },
         })
       end)
       t.eq(vim.api.nvim_buf_get_name(0), open_path)
@@ -729,7 +729,7 @@ return function(t)
       with_captured_notify(function(messages)
         vim.cmd("BlotterPrevDay")
         t.eq(messages, {
-          { message = "worklog: no earlier worklog", level = vim.log.levels.WARN },
+          { message = "blotter: no earlier blotter", level = vim.log.levels.WARN },
         })
       end)
       t.eq(vim.api.nvim_buf_get_name(0), open_path)
@@ -746,10 +746,10 @@ return function(t)
       min = 45,
       sec = 0,
     })
-    -- The nearest earlier worklog is several days back; today has no file.
+    -- The nearest earlier blotter is several days back; today has no file.
     local earlier = os.time({ year = 2026, month = 5, day = 15, hour = 12, min = 0, sec = 0 })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -764,7 +764,7 @@ return function(t)
 
       with_mocked_time(now, function()
         -- Anchored on today (the scratch buffer is not a journal file), the prior
-        -- worklog three days back is found.
+        -- blotter three days back is found.
         vim.cmd("BlotterPrevDay")
       end)
 
@@ -792,7 +792,7 @@ return function(t)
       sec = 0,
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -801,7 +801,7 @@ return function(t)
       local open_path = write_journal_file(root, "%Y", yesterday, {
         "--- blots ---",
       })
-      -- Today already has a worklog, so navigation lands on it rather than seeding.
+      -- Today already has a blotter, so navigation lands on it rather than seeding.
       local today_path = write_journal_file(root, "%Y", now, {
         "--- blots ---",
         "08:00 plan",
@@ -825,7 +825,7 @@ return function(t)
     local now = os.time({ year = 2026, month = 5, day = 18, hour = 8, min = 45, sec = 0 })
     local target = os.time({ year = 2026, month = 5, day = 16, hour = 12, min = 0, sec = 0 })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         tag = "ClientA",
         quantize_minutes = 30,
@@ -872,7 +872,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -894,7 +894,7 @@ return function(t)
   t.test("init rejects a non-integer offset and leaves the current buffer unchanged", function()
     local root = vim.fn.tempname()
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -906,7 +906,7 @@ return function(t)
         vim.cmd("BlotterInit nope")
 
         t.eq(messages, {
-          { message = "worklog: day offset must be an integer", level = vim.log.levels.WARN },
+          { message = "blotter: day offset must be an integer", level = vim.log.levels.WARN },
         })
       end)
 
@@ -918,7 +918,7 @@ return function(t)
   t.test("step commands reject invalid counts and leave the current buffer unchanged", function()
     local root = vim.fn.tempname()
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y",
@@ -937,7 +937,7 @@ return function(t)
 
           t.eq(messages, {
             {
-              message = "worklog: days count must be a positive integer",
+              message = "blotter: days count must be a positive integer",
               level = vim.log.levels.WARN,
             },
           })
@@ -999,7 +999,7 @@ return function(t)
       "10:40 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         duration_format = "hm",
       },
@@ -1083,7 +1083,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         duration_format = "hm",
       },
@@ -1154,7 +1154,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         duration_format = "hm",
       },
@@ -1217,7 +1217,7 @@ return function(t)
         "09:00 done",
       })
 
-      with_worklog_setup({
+      with_blotter_setup({
         journal = {
           root = relative_root,
           directory = "%Y/%V",
@@ -1249,7 +1249,7 @@ return function(t)
       sec = 0,
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y/%V",
@@ -1268,7 +1268,7 @@ return function(t)
         t.eq(t.get_lines(), { "scratch" })
         t.eq(messages, {
           {
-            message = "worklog: no journal worklogs found",
+            message = "blotter: no journal blotters found",
             level = vim.log.levels.WARN,
           },
         })
@@ -1277,7 +1277,7 @@ return function(t)
   end)
 
   t.test("days validates the requested count", function()
-    with_worklog_setup({}, function()
+    with_blotter_setup({}, function()
       t.reset({ "scratch" })
 
       local ok, err = pcall(vim.cmd, "BlotterDays")
@@ -1295,7 +1295,7 @@ return function(t)
 
           t.eq(messages, {
             {
-              message = "worklog: days count must be a positive integer",
+              message = "blotter: days count must be a positive integer",
               level = vim.log.levels.WARN,
             },
           })
@@ -1360,7 +1360,7 @@ return function(t)
       "stale",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         duration_format = "hm",
       },
@@ -1453,7 +1453,7 @@ return function(t)
       "11:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = {
         duration_format = "hm",
       },
@@ -1502,7 +1502,7 @@ return function(t)
       sec = 0,
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y/%V",
@@ -1521,7 +1521,7 @@ return function(t)
         t.eq(t.get_lines(), { "scratch" })
         t.eq(messages, {
           {
-            message = "worklog: no journal worklogs found",
+            message = "blotter: no journal blotters found",
             level = vim.log.levels.WARN,
           },
         })
@@ -1553,7 +1553,7 @@ return function(t)
       "08:00 plan",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = {
         root = root,
         directory = "%Y/%V",
@@ -1570,7 +1570,7 @@ return function(t)
         t.eq(t.get_lines(), { "scratch" })
         t.eq(messages, {
           {
-            message = "worklog: "
+            message = "blotter: "
               .. bad_path
               .. ": unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
             level = vim.log.levels.WARN,
@@ -1591,7 +1591,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       auto_summary = "save",
       defaults = { duration_format = "hm" },
       journal = { root = root, directory = "%Y/%V" },
@@ -1639,7 +1639,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       auto_summary = "save",
       defaults = { duration_format = "hm" },
       journal = { root = root, directory = "%Y" },
@@ -1691,7 +1691,7 @@ return function(t)
         "17:00",
       })
 
-      with_worklog_setup({
+      with_blotter_setup({
         journal = { root = "rel-journal", directory = "%Y" },
       }, function()
         vim.cmd("edit rel-journal/2026/2026-05-21.blot")
@@ -1704,7 +1704,7 @@ return function(t)
 
           t.eq(messages, {
             {
-              message = "worklog: this file is dated 2026-05-21, not today (2026-05-22); "
+              message = "blotter: this file is dated 2026-05-21, not today (2026-05-22); "
                 .. "refusing to insert the current time",
               level = vim.log.levels.WARN,
             },
@@ -1736,7 +1736,7 @@ return function(t)
       "08:00 plan",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = { root = root, directory = "%Y" },
     }, function()
       vim.cmd("edit " .. vim.fn.fnameescape(path))
@@ -1749,7 +1749,7 @@ return function(t)
 
         t.eq(messages, {
           {
-            message = "worklog: this file is dated 2026-05-19, not today (2026-05-22); "
+            message = "blotter: this file is dated 2026-05-19, not today (2026-05-22); "
               .. "refusing to insert the current time",
             level = vim.log.levels.WARN,
           },
@@ -1767,7 +1767,7 @@ return function(t)
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = { root = root, directory = "%Y" },
     }, function()
       t.reset({
@@ -1801,7 +1801,7 @@ return function(t)
       "08:00 plan",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = { root = root, directory = "%Y" },
     }, function()
       vim.cmd("edit " .. vim.fn.fnameescape(path))
@@ -1847,7 +1847,7 @@ return function(t)
       "2.50h workday",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = { root = root, directory = "%Y" },
     }, function()
       vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
@@ -1883,7 +1883,7 @@ return function(t)
     })
     local today_path = root .. "/2026/2026-05-22.blot"
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -1934,7 +1934,7 @@ return function(t)
     })
     local today_path = root .. "/2026/2026-05-22.blot"
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -1965,7 +1965,7 @@ return function(t)
     end)
   end)
 
-  t.test("repeat from another day inserts into an existing today worklog", function()
+  t.test("repeat from another day inserts into an existing today blotter", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })
@@ -1981,7 +1981,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -2011,7 +2011,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -2049,7 +2049,7 @@ return function(t)
       "08:00 earlier",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -2077,7 +2077,7 @@ return function(t)
     local today = os.time({ year = 2026, month = 5, day = 22, hour = 8, min = 0, sec = 0 })
     local today_path = write_journal_file(root, "%Y", today, { "", "  ", "" })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -2107,7 +2107,7 @@ return function(t)
     })
     local today_path = root .. "/2026/2026-05-22.blot"
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -2159,7 +2159,7 @@ return function(t)
     })
     local today_path = root .. "/2026/2026-05-22.blot"
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = { root = root, directory = "%Y" },
     }, function()
       vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
@@ -2180,7 +2180,7 @@ return function(t)
     end)
   end)
 
-  t.test("insert past midnight refuses when today's worklog already exists", function()
+  t.test("insert past midnight refuses when today's blotter already exists", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 0, min = 47, sec = 0 })
     local yesterday = os.time({ year = 2026, month = 5, day = 21, hour = 12, min = 0, sec = 0 })
@@ -2193,7 +2193,7 @@ return function(t)
       "00:10 already here",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = { root = root, directory = "%Y" },
     }, function()
       vim.cmd("edit " .. vim.fn.fnameescape(yesterday_path))
@@ -2208,7 +2208,7 @@ return function(t)
 
         t.eq(messages, {
           {
-            message = "worklog: today's worklog already exists; open it with :BlotterToday",
+            message = "blotter: today's blotter already exists; open it with :BlotterToday",
             level = vim.log.levels.WARN,
           },
         })
@@ -2232,7 +2232,7 @@ return function(t)
     })
     local today_path = root .. "/2026/2026-05-22.blot"
 
-    with_worklog_setup({
+    with_blotter_setup({
       journal = { root = root, directory = "%Y" },
     }, function()
       -- Today exists only as an unsaved buffer, never written to disk.
@@ -2254,7 +2254,7 @@ return function(t)
 
         t.eq(messages, {
           {
-            message = "worklog: today's worklog already exists; open it with :BlotterToday",
+            message = "blotter: today's blotter already exists; open it with :BlotterToday",
             level = vim.log.levels.WARN,
           },
         })
@@ -2286,7 +2286,7 @@ return function(t)
       "09:00 done",
     })
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()
@@ -2328,7 +2328,7 @@ return function(t)
     })
     local today_path = root .. "/2026/2026-05-22.blot"
 
-    with_worklog_setup({
+    with_blotter_setup({
       defaults = { tag = "ClientA", location = "office" },
       journal = { root = root, directory = "%Y" },
     }, function()

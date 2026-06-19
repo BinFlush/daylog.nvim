@@ -1,7 +1,7 @@
 local M = {}
 
 -- Pure helpers for the live-search picker. No Telescope and no Neovim API, so the
--- pooling/loop-guard logic stays unit-testable; worklog.telescope wires these into
+-- pooling/loop-guard logic stays unit-testable; blotter.telescope wires these into
 -- the actual finder/refresh glue.
 
 -- Union of the cached/default items and freshly fetched server results, deduped by

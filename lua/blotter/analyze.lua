@@ -2,14 +2,14 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Semantic analyzer for parsed worklog documents.
+-- Semantic analyzer for parsed blotter documents.
 --
--- This layer turns syntax nodes into worklog blocks, semantic blots, blot
+-- This layer turns syntax nodes into blotter blocks, semantic blots, blot
 -- items with attached note lines, and structured diagnostics. It is the main
 -- source of truth for command-time behavior.
 
 local INVALID_FIRST_HEADER_MESSAGE =
-  "worklog: first line must be a worklog header such as --- blots --- or --- blots #ClientA @office q=30 ---"
+  "blotter: first line must be a blotter header such as --- blots --- or --- blots #ClientA @office q=30 ---"
 local DEFAULT_DURATION_FORMAT = syntax.DURATION_DECIMAL
 
 local function push_diagnostic(diagnostics, diagnostic)
@@ -130,7 +130,7 @@ local function analyze_blot_items(block, diagnostics)
   local current_offset = block.header_offset
 
   for _, node in ipairs(block.body_nodes) do
-    if node.kind == syntax.NODE_KIND.ENTRY then
+    if node.kind == syntax.NODE_KIND.BLOT then
       local blot = semantic_entry_from_node(node, current_tag, current_location, current_offset)
 
       current_tag = blot.tag
@@ -138,7 +138,7 @@ local function analyze_blot_items(block, diagnostics)
       current_offset = blot.offset
 
       current = copy_fields(blot)
-      current.kind = syntax.NODE_KIND.ENTRY_ITEM
+      current.kind = syntax.NODE_KIND.BLOT_ITEM
       current.blot = node
       current.nodes = { node }
       current.start_row = node.row
@@ -150,9 +150,9 @@ local function analyze_blot_items(block, diagnostics)
         table.insert(current.nodes, node)
         current.end_row = node.row
       end
-    elseif node.kind == syntax.NODE_KIND.INVALID_ENTRY then
+    elseif node.kind == syntax.NODE_KIND.INVALID_BLOT then
       push_diagnostic(diagnostics, {
-        code = syntax.DIAGNOSTIC.INVALID_ENTRY,
+        code = syntax.DIAGNOSTIC.INVALID_BLOT,
         severity = "error",
         row = node.row,
         message = node.message,
@@ -187,7 +187,7 @@ local function analyze_blot_items(block, diagnostics)
         code = syntax.DIAGNOSTIC.MIDNIGHT_NOT_FINAL,
         severity = "error",
         row = blot_items[i].row or blot_items[i].start_row,
-        message = "24:00 must be the final blot in a worklog block",
+        message = "24:00 must be the final blot in a blotter block",
       })
       break
     end
@@ -196,12 +196,12 @@ local function analyze_blot_items(block, diagnostics)
   return blot_items, blots
 end
 
-local function is_worklog_header(node)
-  return node.kind == syntax.NODE_KIND.WORKLOG_HEADER
+local function is_blotter_header(node)
+  return node.kind == syntax.NODE_KIND.BLOTTER_HEADER
 end
 
 local function is_header(node)
-  return node.kind == syntax.NODE_KIND.WORKLOG_HEADER or node.kind == syntax.NODE_KIND.BLOCK_HEADER
+  return node.kind == syntax.NODE_KIND.BLOTTER_HEADER or node.kind == syntax.NODE_KIND.BLOCK_HEADER
 end
 
 -- Mark a single-valued header option `flag` as declared. On a repeat it emits the
@@ -211,10 +211,10 @@ end
 local function declare_once(result, diagnostics, flag, label, row)
   if result[flag] then
     push_diagnostic(diagnostics, {
-      code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
+      code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_OPTION,
       severity = "error",
       row = row,
-      message = "duplicate worklog header option: " .. label,
+      message = "duplicate blotter header option: " .. label,
     })
     return false
   end
@@ -223,7 +223,7 @@ local function declare_once(result, diagnostics, flag, label, row)
   return true
 end
 
-local function interpret_worklog_header(header, diagnostics)
+local function interpret_blotter_header(header, diagnostics)
   local result = {
     tag = nil,
     has_tag = false,
@@ -241,10 +241,10 @@ local function interpret_worklog_header(header, diagnostics)
     if token.kind == syntax.TOKEN_KIND.TAG then
       if result.has_tag then
         push_diagnostic(diagnostics, {
-          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
+          code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_METADATA,
           severity = "error",
           row = header.row,
-          message = "multiple worklog header tags are not allowed",
+          message = "multiple blotter header tags are not allowed",
         })
       else
         result.has_tag = true
@@ -253,10 +253,10 @@ local function interpret_worklog_header(header, diagnostics)
     elseif token.kind == syntax.TOKEN_KIND.LOCATION then
       if result.has_location then
         push_diagnostic(diagnostics, {
-          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
+          code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_METADATA,
           severity = "error",
           row = header.row,
-          message = "multiple worklog header locations are not allowed",
+          message = "multiple blotter header locations are not allowed",
         })
       else
         result.has_location = true
@@ -265,10 +265,10 @@ local function interpret_worklog_header(header, diagnostics)
     elseif token.kind == syntax.TOKEN_KIND.OFFSET then
       if result.has_offset then
         push_diagnostic(diagnostics, {
-          code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA,
+          code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_METADATA,
           severity = "error",
           row = header.row,
-          message = "multiple worklog header utc offsets are not allowed",
+          message = "multiple blotter header utc offsets are not allowed",
         })
       else
         result.has_offset = true
@@ -287,10 +287,10 @@ local function interpret_worklog_header(header, diagnostics)
         -- integers are taken.
         if token.value:match("^%d+$") == nil or quantize_minutes <= 0 then
           push_diagnostic(diagnostics, {
-            code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
+            code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_OPTION,
             severity = "error",
             row = header.row,
-            message = "worklog header option q must be a positive integer",
+            message = "blotter header option q must be a positive integer",
           })
         else
           result.quantize_minutes = quantize_minutes
@@ -300,10 +300,10 @@ local function interpret_worklog_header(header, diagnostics)
       if declare_once(result, diagnostics, "declared_duration", "d", header.row) then
         if not syntax.DURATION_FORMATS[token.value] then
           push_diagnostic(diagnostics, {
-            code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
+            code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_OPTION,
             severity = "error",
             row = header.row,
-            message = "worklog header option d must be dec or hm",
+            message = "blotter header option d must be dec or hm",
           })
         else
           result.duration_format = token.value
@@ -311,20 +311,20 @@ local function interpret_worklog_header(header, diagnostics)
       end
     else
       push_diagnostic(diagnostics, {
-        code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION,
+        code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_OPTION,
         severity = "error",
         row = header.row,
-        message = "unknown worklog header option: " .. token.key,
+        message = "unknown blotter header option: " .. token.key,
       })
     end
   end
 
   for _, token in ipairs(header.invalid_tokens or {}) do
     push_diagnostic(diagnostics, {
-      code = syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN,
+      code = syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_TOKEN,
       severity = "error",
       row = header.row,
-      message = "worklog header tokens must be #tag, @location, utc±H[:MM], or key=value: "
+      message = "blotter header tokens must be #tag, @location, utc±H[:MM], or key=value: "
         .. token,
     })
   end
@@ -332,12 +332,12 @@ local function interpret_worklog_header(header, diagnostics)
   return result
 end
 
-function M.is_worklog(block)
-  return block.kind == syntax.BLOCK_KIND.WORKLOG
+function M.is_blotter(block)
+  return block.kind == syntax.BLOCK_KIND.BLOTTER
 end
 
 function M.entry_from_node(node, current_tag, current_location, current_offset)
-  if node.kind ~= syntax.NODE_KIND.ENTRY then
+  if node.kind ~= syntax.NODE_KIND.BLOT then
     return nil
   end
 
@@ -359,7 +359,7 @@ function M.analyze(document)
   local header_nodes = {}
   local interpreted_headers = {}
   local blocks = {}
-  local worklog_blocks = {}
+  local blotter_blocks = {}
 
   for _, node in ipairs(document.nodes) do
     if is_header(node) then
@@ -368,8 +368,8 @@ function M.analyze(document)
   end
 
   for i, header in ipairs(header_nodes) do
-    if is_worklog_header(header) then
-      interpreted_headers[i] = interpret_worklog_header(header, diagnostics)
+    if is_blotter_header(header) then
+      interpreted_headers[i] = interpret_blotter_header(header, diagnostics)
     else
       interpreted_headers[i] = nil
     end
@@ -378,7 +378,7 @@ function M.analyze(document)
   if #header_nodes > 0 then
     local first = header_nodes[1]
 
-    if first.row ~= 1 or not is_worklog_header(first) then
+    if first.row ~= 1 or not is_blotter_header(first) then
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.INVALID_FIRST_HEADER,
         severity = "error",
@@ -392,7 +392,7 @@ function M.analyze(document)
     local next_header = header_nodes[i + 1]
     local interpreted_header = interpreted_headers[i] or {}
     local block = {
-      kind = is_worklog_header(header) and syntax.BLOCK_KIND.WORKLOG or syntax.BLOCK_KIND.GENERIC,
+      kind = is_blotter_header(header) and syntax.BLOCK_KIND.BLOTTER or syntax.BLOCK_KIND.GENERIC,
       header = header,
       start_row = header.row,
       body_start_row = header.row + 1,
@@ -402,19 +402,19 @@ function M.analyze(document)
       header_offset = interpreted_header.offset,
       header_quantize_minutes = interpreted_header.quantize_minutes,
       header_duration_format = interpreted_header.duration_format,
-      quantize_minutes = is_worklog_header(header)
+      quantize_minutes = is_blotter_header(header)
           and (interpreted_header.quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES)
         or nil,
-      duration_format = is_worklog_header(header)
+      duration_format = is_blotter_header(header)
           and (interpreted_header.duration_format or DEFAULT_DURATION_FORMAT)
         or nil,
     }
 
     block.body_nodes = body_nodes(document, block)
 
-    if M.is_worklog(block) then
+    if M.is_blotter(block) then
       block.blot_items, block.blots = analyze_blot_items(block, diagnostics)
-      table.insert(worklog_blocks, block)
+      table.insert(blotter_blocks, block)
     end
 
     table.insert(blocks, block)
@@ -425,16 +425,16 @@ function M.analyze(document)
     document = document,
     diagnostics = diagnostics,
     blocks = blocks,
-    worklog_blocks = worklog_blocks,
+    blotter_blocks = blotter_blocks,
   }
 end
 
-function M.get_active_worklog(analysis)
-  return analysis.worklog_blocks[#analysis.worklog_blocks]
+function M.get_active_blotter(analysis)
+  return analysis.blotter_blocks[#analysis.blotter_blocks]
 end
 
-function M.get_worklog_at_row(analysis, row)
-  for _, block in ipairs(analysis.worklog_blocks) do
+function M.get_blotter_at_row(analysis, row)
+  for _, block in ipairs(analysis.blotter_blocks) do
     if row >= block.start_row and row < block.end_row then
       return block
     end

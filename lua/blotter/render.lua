@@ -373,7 +373,7 @@ local function append_summary_lines(lines, summary, duration_format, options)
   end
 end
 
-function M.worklog_header_line(
+function M.blotter_header_line(
   header_tag,
   header_location,
   header_offset,
@@ -408,7 +408,7 @@ function M.worklog_header_line(
   return table.concat(header, " ") .. " ---"
 end
 
-function M.worklog_lines(
+function M.blotter_lines(
   lines,
   header_tag,
   header_location,
@@ -418,7 +418,7 @@ function M.worklog_lines(
 )
   local rendered = {
     "",
-    M.worklog_header_line(
+    M.blotter_header_line(
       header_tag,
       header_location,
       header_offset,

@@ -3,7 +3,7 @@ local support = require("blotter.usecases.support")
 
 local M = {}
 
--- Insert a fully-formed "HH:MM <text>" blot into the worklog containing the
+-- Insert a fully-formed "HH:MM <text>" blot into the blotter containing the
 -- cursor. `text` is the resolved activity string (no leading timestamp); it is
 -- sanitized here (blot.sanitize_text) so a value built from external data -- e.g.
 -- a work-item title ending in #x / @x / !L -- can never form trailing metadata,

@@ -4,7 +4,7 @@ return function(t)
   local with_mocked_date = helpers.with_mocked_date
   local with_mocked_input = helpers.with_mocked_input
 
-  helpers.setup_worklog()
+  helpers.setup_blotter()
 
   t.test("BlotterRefresh rebuilds a stale summary and is a no-op when current", function()
     t.reset({
@@ -47,7 +47,7 @@ return function(t)
     return false
   end
 
-  t.test("BlotterRefresh reports an out-of-order worklog as a diagnostic", function()
+  t.test("BlotterRefresh reports an out-of-order blotter as a diagnostic", function()
     t.reset({
       "--- blots ---",
       "09:00 later",
@@ -65,11 +65,11 @@ return function(t)
     vim.cmd("BlotterRefresh")
     t.ok(has_unordered_diagnostic(), "expected an unordered-timestamps diagnostic")
 
-    -- The invalid worklog's summary is left untouched rather than churned.
+    -- The invalid blotter's summary is left untouched rather than churned.
     t.eq(t.get_lines(), before)
   end)
 
-  t.test("BlotterRefresh reports an out-of-order worklog with no summary", function()
+  t.test("BlotterRefresh reports an out-of-order blotter with no summary", function()
     t.reset({
       "--- blots ---",
       "08:00 input 1",
@@ -98,7 +98,7 @@ return function(t)
     t.ok(not has_unordered_diagnostic(), "BlotterOrder should clear the diagnostic")
   end)
 
-  t.test("worklog order rewrites all worklog blocks", function()
+  t.test("blotter order rewrites all blotter blocks", function()
     t.reset({
       "--- blots #ProjectOrion @office ---",
       "08:30 later",
@@ -132,7 +132,7 @@ return function(t)
     })
   end)
 
-  t.test("copy uses latest active worklog and normalizes items", function()
+  t.test("copy uses latest active blotter and normalizes items", function()
     t.reset({
       "--- blots #ProjectOrion @office ---",
       "08:00 first",
@@ -182,7 +182,7 @@ return function(t)
     })
   end)
 
-  t.test("copy preserves explicit quantize on the active worklog header", function()
+  t.test("copy preserves explicit quantize on the active blotter header", function()
     t.reset({
       "--- blots #ProjectOrion @office ---",
       "08:00 first",
@@ -300,7 +300,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat inserts into explicit worklog block containing cursor", function()
+  t.test("repeat inserts into explicit blotter block containing cursor", function()
     t.reset({
       "--- blots #ProjectOrion @office ---",
       "08:04 bake strudel",
@@ -417,7 +417,7 @@ return function(t)
       vim.cmd("BlotRepeat")
     end)
 
-    -- The repeated blot is inserted into the worklog body, after "11:00 done".
+    -- The repeated blot is inserted into the blotter body, after "11:00 done".
     t.eq(t.get_lines()[5], "11:30 implementation")
   end)
 
@@ -532,7 +532,7 @@ return function(t)
     t.eq(t.get_lines()[6], "1.00h (+0m) fix the build")
   end)
 
-  t.test("insert orders into explicit worklog block after equal timestamps", function()
+  t.test("insert orders into explicit blotter block after equal timestamps", function()
     t.reset({
       "--- blots #ProjectOrion @office ---",
       "08:00 first",
@@ -554,7 +554,7 @@ return function(t)
     })
   end)
 
-  t.test("insert works from a later worklog header", function()
+  t.test("insert works from a later blotter header", function()
     t.reset({
       "--- blots #ProjectOrion @office ---",
       "08:00 raw",
@@ -582,7 +582,7 @@ return function(t)
     })
   end)
 
-  t.test("insert warns when no explicit worklog exists", function()
+  t.test("insert warns when no explicit blotter exists", function()
     t.reset({
       "08:00 raw",
       "09:00 done",
@@ -596,7 +596,7 @@ return function(t)
     })
   end)
 
-  t.test("repeat ignores non-worklog lines", function()
+  t.test("repeat ignores non-blotter lines", function()
     t.reset({
       "--- blots #ProjectOrion @office ---",
       "08:00 task",
@@ -633,7 +633,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog order emits clear tokens when sorting needs them and warns", function()
+  t.test("blotter order emits clear tokens when sorting needs them and warns", function()
     t.reset({
       "--- blots ---",
       "09:00 done",
@@ -645,7 +645,7 @@ return function(t)
 
       t.eq(messages, {
         {
-          message = "worklog: ordering set the tag/location/utc offset of order-dependent blots; review: 09:00 done",
+          message = "blotter: ordering set the tag/location/utc offset of order-dependent blots; review: 09:00 done",
           level = vim.log.levels.WARN,
         },
       })
@@ -658,7 +658,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog order sorts by effective utc time and warns about an offset change", function()
+  t.test("blotter order sorts by effective utc time and warns about an offset change", function()
     -- a@-4 = 15:00Z, b@+2 = 10:00Z: in real time b is earlier, so ordering swaps
     -- them (the local clock then reads high-to-low) and warns that a's inherited
     -- offset changed.
@@ -673,7 +673,7 @@ return function(t)
 
       t.eq(messages, {
         {
-          message = "worklog: ordering set the tag/location/utc offset of order-dependent blots; review: 11:00 a",
+          message = "blotter: ordering set the tag/location/utc offset of order-dependent blots; review: 11:00 a",
           level = vim.log.levels.WARN,
         },
       })
@@ -686,7 +686,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog log marks the source blot behind an unrounded summary row", function()
+  t.test("blotter log marks the source blot behind an unrounded summary row", function()
     t.reset({
       "--- blots ---",
       "08:00 implementation",
@@ -715,7 +715,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog log marks the source blot behind a quantized summary row", function()
+  t.test("blotter log marks the source blot behind a quantized summary row", function()
     t.reset({
       "--- blots q=30 ---",
       "08:00 implementation",
@@ -744,7 +744,7 @@ return function(t)
     })
   end)
 
-  t.test("worklog log unmarks an already logged summary row", function()
+  t.test("blotter log unmarks an already logged summary row", function()
     t.reset({
       "--- blots ---",
       "08:00 implementation !L",
@@ -771,7 +771,7 @@ return function(t)
   end)
 
   t.test(
-    "worklog log regression: multi-edit summary-refresh applies correctly through the real command path",
+    "blotter log regression: multi-edit summary-refresh applies correctly through the real command path",
     function()
       -- Exercises the full :BlotLog -> apply_result path with the reported
       -- bug case. The fix returns a summary-group refresh edit (higher rows)

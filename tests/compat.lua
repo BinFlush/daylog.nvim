@@ -1,9 +1,9 @@
 return function(t)
   local append_copy = require("blotter.usecases.append_copy")
-  local order_worklogs = require("blotter.usecases.order_worklogs")
+  local order_blotters = require("blotter.usecases.order_blotters")
   local refresh_summaries = require("blotter.usecases.refresh_summaries")
 
-  -- The summary refresh creates a summary for a worklog that lacks one, so it
+  -- The summary refresh creates a summary for a blotter that lacks one, so it
   -- produces the canonical summary for a v0.1.0 fixture.
   local function summarize(lines)
     return refresh_summaries.run(lines)
@@ -49,7 +49,7 @@ return function(t)
     },
     {
       name = "order_notes_and_clears",
-      run = order_worklogs.run,
+      run = order_blotters.run,
       expected_suffix = ".output",
     },
   }

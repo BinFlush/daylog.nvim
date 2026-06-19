@@ -14,7 +14,7 @@ function M.run(lines, row, time)
 
   if not ctx then
     -- The cursor may be on a main summary row; map it back to the source blot
-    -- and repeat that, into the worklog the summary belongs to. A nil summary
+    -- and repeat that, into the blotter the summary belongs to. A nil summary
     -- error means the cursor is not on the summary at all, so keep `err`.
     local entry_row, summary_err = summary_cursor.repeat_entry_row(lines, row)
     if not entry_row then
@@ -37,7 +37,7 @@ function M.run(lines, row, time)
   end
 
   if not current_item then
-    return nil, "worklog: current line is not a valid worklog blot"
+    return nil, "blotter: current line is not a valid blot"
   end
 
   local minutes, minutes_err = support.parse_clock_minutes(time)

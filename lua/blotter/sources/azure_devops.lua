@@ -70,16 +70,16 @@ function M.new(_name, cfg, deps)
   local function request(opts, cb)
     transport.request(opts, function(response, err)
       if err then
-        return cb(nil, "worklog: ADO sync failed: " .. err)
+        return cb(nil, "blotter: ADO sync failed: " .. err)
       end
 
       if response.status < 200 or response.status >= 300 then
-        return cb(nil, "worklog: ADO sync failed: HTTP " .. tostring(response.status))
+        return cb(nil, "blotter: ADO sync failed: HTTP " .. tostring(response.status))
       end
 
       local ok, decoded = pcall(json.decode, response.body)
       if not ok or type(decoded) ~= "table" then
-        return cb(nil, "worklog: ADO sync failed: invalid JSON response")
+        return cb(nil, "blotter: ADO sync failed: invalid JSON response")
       end
 
       cb(decoded, nil)

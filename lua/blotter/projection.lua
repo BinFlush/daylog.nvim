@@ -2,7 +2,7 @@ local M = {}
 
 -- Generic row grouping and projection.
 --
--- No worklog domain knowledge: callers pass the key fields that define a
+-- No blotter domain knowledge: callers pass the key fields that define a
 -- bucket's identity and the descriptive fields that survive into each projected
 -- row. summary.lua and quantize.lua build all their reporting sections on top of
 -- these helpers.
@@ -93,7 +93,7 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_blot_rows, n
     bucket.duration = bucket.duration + row.duration
     bucket.unrounded_duration = bucket.unrounded_duration + (row.unrounded_duration or row.duration)
     -- The manual rounding nudge stays sparse (absent unless a nonzero nudge
-    -- contributes), so a worklog with no manual balancing projects to byte-identical
+    -- contributes), so a blotter with no manual balancing projects to byte-identical
     -- rows. "max" folds an activity's intervals to its single row nudge; "sum"
     -- accumulates rows into a section's cumulative nudge.
     if row.nudge and row.nudge ~= 0 then

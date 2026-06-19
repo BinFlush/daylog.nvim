@@ -5,13 +5,13 @@ return function(t)
   local render = require("blotter.render")
   local summary = require("blotter.summary")
 
-  -- A full buffer (worklog body + its generated summary), so the cursor can sit on a
+  -- A full buffer (blotter body + its generated summary), so the cursor can sit on a
   -- real summary line exactly as in an open file.
-  local function buffer_with_summary(worklog_lines)
-    local analysis = analyze.analyze(document.parse(worklog_lines))
-    local block = analyze.get_active_worklog(analysis)
+  local function buffer_with_summary(blotter_lines)
+    local analysis = analyze.analyze(document.parse(blotter_lines))
+    local block = analyze.get_active_blotter(analysis)
     local out = {}
-    for _, line in ipairs(worklog_lines) do
+    for _, line in ipairs(blotter_lines) do
       out[#out + 1] = line
     end
     for _, line in

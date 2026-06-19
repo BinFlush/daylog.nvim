@@ -6,7 +6,7 @@ local M = {}
 -- Locate the summary row under the cursor (PURE).
 --
 -- Several commands act on a rendered summary row as a selector: the active
--- worklog is analyzed from source, its summary is recomputed, and the cursor line
+-- blotter is analyzed from source, its summary is recomputed, and the cursor line
 -- is matched against the layout the plugin would currently produce. This module
 -- centralizes that "which summary row is the cursor on" question so :BlotLog,
 -- :BlotRepeat (on a summary row), and :BlotRename share one staleness check.
@@ -17,8 +17,8 @@ local M = {}
 -- text -- against the freshly recomputed layout -- is the staleness guard: a row
 -- that no longer matches is refused rather than acted on stale.
 
-M.STALE = "worklog: summary row does not match the active worklog; regenerate the summary"
-M.AMBIGUOUS = "worklog: summary row matches multiple rows; regenerate the summary"
+M.STALE = "blotter: summary row does not match the active blotter; regenerate the summary"
+M.AMBIGUOUS = "blotter: summary row matches multiple rows; regenerate the summary"
 
 -- Layout kinds a cursor can meaningfully select (everything but blanks and the
 -- section headers).
@@ -30,16 +30,16 @@ local SELECTABLE = {
   [render.LAYOUT_KIND.TOTAL] = true,
 }
 
--- Resolve the cursor to a layout row of the active worklog's regenerated summary.
+-- Resolve the cursor to a layout row of the active blotter's regenerated summary.
 --
 -- Returns, in order of specificity:
 --   * result table when the cursor sits on exactly one selectable summary row;
---   * nil, nil when the cursor is not on the active worklog's summary at all
---     (the caller should fall back to its own handling, e.g. a worklog blot);
+--   * nil, nil when the cursor is not on the active blotter's summary at all
+--     (the caller should fall back to its own handling, e.g. a blot);
 --   * nil, message when the cursor is inside the summary region but the row is
 --     stale (matches nothing) or ambiguous (matches several rows).
 --
--- The result carries the active-worklog context, the located region, the
+-- The result carries the active-blotter context, the located region, the
 -- recomputed summary, the full layout, and the single matched layout row so
 -- callers can read its `kind`/`item` and rebuild the summary in place.
 function M.resolve(lines, cursor_row)
@@ -58,7 +58,7 @@ function M.resolve(lines, cursor_row)
   end
 
   -- The region spans the whole rendered summary (every section) within the active
-  -- worklog's tail, so a summary owned by an earlier worklog falls outside it and
+  -- blotter's tail, so a summary owned by an earlier blotter falls outside it and
   -- is correctly not selectable here.
   if cursor_row < region.start_row or cursor_row >= region.end_row then
     return nil, nil
@@ -93,12 +93,12 @@ function M.resolve(lines, cursor_row)
   }
 end
 
-M.ONLY_MAIN_ROW = "worklog: only a main summary row can be repeated"
+M.ONLY_MAIN_ROW = "blotter: only a main summary row can be repeated"
 
 -- Map a cursor on a main summary row to the latest source blot row that fed it,
 -- so "repeat this activity" works from the summary. The latest contributing blot
 -- carries the most recent tag/location for the activity. Returns the blot row, or
--- nil + an error -- a nil error means the cursor is not on the active worklog's
+-- nil + an error -- a nil error means the cursor is not on the active blotter's
 -- summary at all, so the caller keeps its own (blot-lookup) error.
 function M.repeat_entry_row(lines, cursor_row)
   local result, err = M.resolve(lines, cursor_row)

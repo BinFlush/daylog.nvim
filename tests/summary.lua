@@ -5,12 +5,12 @@ return function(t)
 
   local function block_from_lines(lines)
     local analysis = analyze.analyze(document.parse(lines))
-    return analysis.worklog_blocks[1]
+    return analysis.blotter_blocks[1]
   end
 
   local function block_at(lines, index)
     local analysis = analyze.analyze(document.parse(lines))
-    return analysis.worklog_blocks[index]
+    return analysis.blotter_blocks[index]
   end
 
   local function total_duration(items)
@@ -57,7 +57,7 @@ return function(t)
     return summarize_exact_entries(block.blots)
   end
 
-  t.test("summary summarizes semantic worklog blocks directly", function()
+  t.test("summary summarizes semantic blotter blocks directly", function()
     local block = block_from_lines({
       "--- blots #ProjectOrion @office ---",
       "08:00 plan",
@@ -260,7 +260,7 @@ return function(t)
     end
   )
 
-  t.test("quantized summary summarizes semantic worklog blocks directly", function()
+  t.test("quantized summary summarizes semantic blotter blocks directly", function()
     local block = block_from_lines({
       "--- blots @office q=30 ---",
       "08:00 plan",
@@ -562,7 +562,7 @@ return function(t)
       t.eq(result.logged_totals[2].logged, false)
       t.ok(
         result.logged_totals[2].duration >= result.logged_totals[1].duration,
-        "unlogged duration should be >= logged duration in this worklog"
+        "unlogged duration should be >= logged duration in this blotter"
       )
     end
   )
@@ -1539,7 +1539,7 @@ return function(t)
 
   t.test("a uniform header offset summarizes identically to no offset", function()
     -- The zero-overhead invariant: within one zone the base offset cancels in every
-    -- delta, so declaring utc+2 throughout matches a worklog with no offset at all.
+    -- delta, so declaring utc+2 throughout matches a blotter with no offset at all.
     local blots = { "08:00 plan", "08:30 call #sales", "09:15 done" }
     local plain = block_from_lines({
       "--- blots #ClientA @office ---",
@@ -1575,7 +1575,7 @@ return function(t)
     t.eq(s.location_totals[1].nudge, 1)
   end)
 
-  t.test("a no-nudge worklog summarizes with no nudge fields (zero overhead)", function()
+  t.test("a no-nudge blotter summarizes with no nudge fields (zero overhead)", function()
     local block = block_from_lines({
       "--- blots #ClientA @office q=15 ---",
       "08:00 task",

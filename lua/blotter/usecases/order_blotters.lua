@@ -7,13 +7,13 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Build the edit script for rewriting every worklog body in sorted order.
+-- Build the edit script for rewriting every blotter body in sorted order.
 -- The use case preserves existing rendering rules while taking structural and
 -- invalid-blot diagnostics from semantic analysis.
 
 function M.run(lines)
   local analysis = analyze.analyze(document.parse(lines))
-  local err = diagnostics.structural_or_missing_worklog_error(analysis)
+  local err = diagnostics.structural_or_missing_blotter_error(analysis)
   if err then
     return nil, err
   end
@@ -21,12 +21,12 @@ function M.run(lines)
   local edits = {}
   local warnings = {}
 
-  for i = #analysis.worklog_blocks, 1, -1 do
-    local block = analysis.worklog_blocks[i]
+  for i = #analysis.blotter_blocks, 1, -1 do
+    local block = analysis.blotter_blocks[i]
     local diagnostic = analyze.find_block_diagnostic(analysis, block)
 
-    if diagnostic and diagnostic.code == syntax.DIAGNOSTIC.INVALID_ENTRY then
-      return nil, diagnostics.invalid_entry_error(diagnostic)
+    if diagnostic and diagnostic.code == syntax.DIAGNOSTIC.INVALID_BLOT then
+      return nil, diagnostics.invalid_blot_error(diagnostic)
     end
 
     if diagnostic and diagnostic.code == syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS then

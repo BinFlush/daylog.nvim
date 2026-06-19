@@ -3,12 +3,12 @@ local text = require("blotter.text")
 
 local M = {}
 
--- Build the edit script for creating a new worklog block with optional default
+-- Build the edit script for creating a new blotter block with optional default
 -- header metadata.
 function M.run(lines, defaults)
   defaults = defaults or {}
 
-  local header = render.worklog_header_line(
+  local header = render.blotter_header_line(
     defaults.tag,
     defaults.location,
     defaults.utc,

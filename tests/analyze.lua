@@ -1,10 +1,10 @@
 return function(t)
   local analyze = require("blotter.analyze")
   local document = require("blotter.document")
-  local INVALID_FIRST_HEADER_MESSAGE = "worklog: first line must be a worklog header such as "
+  local INVALID_FIRST_HEADER_MESSAGE = "blotter: first line must be a blotter header such as "
     .. "--- blots --- or --- blots #ClientA @office q=30 ---"
 
-  t.test("analyze derives worklog blocks, items, and sticky metadata", function()
+  t.test("analyze derives blotter blocks, items, and sticky metadata", function()
     local analysis = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office q=30 d=hm ---",
       "08:00 plan",
@@ -25,9 +25,9 @@ return function(t)
     t.eq(analysis.kind, "analysis")
     t.eq(analysis.diagnostics, {})
     t.eq(#analysis.blocks, 3)
-    t.eq(#analysis.worklog_blocks, 2)
+    t.eq(#analysis.blotter_blocks, 2)
 
-    local first = analysis.worklog_blocks[1]
+    local first = analysis.blotter_blocks[1]
     t.eq(first.start_row, 1)
     t.eq(first.body_start_row, 2)
     t.eq(first.end_row, 9)
@@ -173,7 +173,7 @@ return function(t)
       },
     })
 
-    local second = analysis.worklog_blocks[2]
+    local second = analysis.blotter_blocks[2]
     t.eq(second.header_tag, "internal")
     t.eq(second.header_location, "office")
     t.eq(second.header_quantize_minutes, nil)
@@ -205,10 +205,10 @@ return function(t)
       },
     })
 
-    t.eq(analyze.get_active_worklog(analysis), analysis.worklog_blocks[2])
-    t.eq(analyze.get_worklog_at_row(analysis, 1), analysis.worklog_blocks[1])
-    t.eq(analyze.get_worklog_at_row(analysis, 13), analysis.worklog_blocks[2])
-    t.eq(analyze.get_worklog_at_row(analysis, 9), nil)
+    t.eq(analyze.get_active_blotter(analysis), analysis.blotter_blocks[2])
+    t.eq(analyze.get_blotter_at_row(analysis, 1), analysis.blotter_blocks[1])
+    t.eq(analyze.get_blotter_at_row(analysis, 13), analysis.blotter_blocks[2])
+    t.eq(analyze.get_blotter_at_row(analysis, 9), nil)
   end)
 
   t.test("analyze carries logged state without making it sticky", function()
@@ -219,7 +219,7 @@ return function(t)
       "10:00 done !L",
     }))
 
-    t.eq(analysis.worklog_blocks[1].blots, {
+    t.eq(analysis.blotter_blocks[1].blots, {
       {
         row = 2,
         minutes = 480,
@@ -276,7 +276,7 @@ return function(t)
         message = INVALID_FIRST_HEADER_MESSAGE,
       },
       {
-        code = "invalid_entry",
+        code = "invalid_blot",
         category = "block",
         severity = "error",
         row = 6,
@@ -292,8 +292,8 @@ return function(t)
       },
     })
 
-    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 60)
-    t.eq(analysis.worklog_blocks[1].quantize_minutes, 60)
+    t.eq(analysis.blotter_blocks[1].header_quantize_minutes, 60)
+    t.eq(analysis.blotter_blocks[1].quantize_minutes, 60)
   end)
 
   t.test("analyze rejects quantize values tonumber would accept but are not integers", function()
@@ -306,17 +306,17 @@ return function(t)
 
       t.eq(analysis.diagnostics, {
         {
-          code = "invalid_worklog_header_option",
+          code = "invalid_blotter_header_option",
           category = "structural",
           severity = "error",
           row = 1,
-          message = "worklog header option q must be a positive integer",
+          message = "blotter header option q must be a positive integer",
         },
       })
     end
   end)
 
-  t.test("analyze reports invalid worklog header metadata and options", function()
+  t.test("analyze reports invalid blotter header metadata and options", function()
     local analysis = analyze.analyze(document.parse({
       "--- blots #ProjectOrion #sales @office @home q=0 d=clock nope unknown=bar ---",
       "08:00 plan",
@@ -325,53 +325,53 @@ return function(t)
 
     t.eq(analysis.diagnostics, {
       {
-        code = "invalid_worklog_header_metadata",
+        code = "invalid_blotter_header_metadata",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "multiple worklog header tags are not allowed",
+        message = "multiple blotter header tags are not allowed",
       },
       {
-        code = "invalid_worklog_header_metadata",
+        code = "invalid_blotter_header_metadata",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "multiple worklog header locations are not allowed",
+        message = "multiple blotter header locations are not allowed",
       },
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "worklog header option q must be a positive integer",
+        message = "blotter header option q must be a positive integer",
       },
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "worklog header option d must be dec or hm",
+        message = "blotter header option d must be dec or hm",
       },
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "unknown worklog header option: unknown",
+        message = "unknown blotter header option: unknown",
       },
       {
-        code = "invalid_worklog_header_token",
+        code = "invalid_blotter_header_token",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "worklog header tokens must be #tag, @location, utc±H[:MM], or key=value: nope",
+        message = "blotter header tokens must be #tag, @location, utc±H[:MM], or key=value: nope",
       },
     })
 
-    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, nil)
-    t.eq(analysis.worklog_blocks[1].quantize_minutes, 15)
-    t.eq(analysis.worklog_blocks[1].header_duration_format, nil)
-    t.eq(analysis.worklog_blocks[1].duration_format, "dec")
+    t.eq(analysis.blotter_blocks[1].header_quantize_minutes, nil)
+    t.eq(analysis.blotter_blocks[1].quantize_minutes, 15)
+    t.eq(analysis.blotter_blocks[1].header_duration_format, nil)
+    t.eq(analysis.blotter_blocks[1].duration_format, "dec")
   end)
 
   t.test("analyze does not flag a two-digit-hour hhmm summary row", function()
@@ -411,37 +411,37 @@ return function(t)
 
     t.eq(analysis.diagnostics, {
       {
-        code = "invalid_worklog_header_metadata",
+        code = "invalid_blotter_header_metadata",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "multiple worklog header tags are not allowed",
+        message = "multiple blotter header tags are not allowed",
       },
       {
-        code = "invalid_worklog_header_metadata",
+        code = "invalid_blotter_header_metadata",
         category = "structural",
         severity = "error",
         row = 4,
-        message = "multiple worklog header tags are not allowed",
+        message = "multiple blotter header tags are not allowed",
       },
       {
-        code = "invalid_worklog_header_metadata",
+        code = "invalid_blotter_header_metadata",
         category = "structural",
         severity = "error",
         row = 7,
-        message = "multiple worklog header locations are not allowed",
+        message = "multiple blotter header locations are not allowed",
       },
       {
-        code = "invalid_worklog_header_metadata",
+        code = "invalid_blotter_header_metadata",
         category = "structural",
         severity = "error",
         row = 10,
-        message = "multiple worklog header locations are not allowed",
+        message = "multiple blotter header locations are not allowed",
       },
     })
   end)
 
-  t.test("analyze reports duplicate worklog header options", function()
+  t.test("analyze reports duplicate blotter header options", function()
     local analysis = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office q=30 d=dec q=60 d=hm ---",
       "08:00 plan",
@@ -450,28 +450,28 @@ return function(t)
 
     t.eq(analysis.diagnostics, {
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "duplicate worklog header option: q",
+        message = "duplicate blotter header option: q",
       },
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "duplicate worklog header option: d",
+        message = "duplicate blotter header option: d",
       },
     })
 
-    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 30)
-    t.eq(analysis.worklog_blocks[1].quantize_minutes, 30)
-    t.eq(analysis.worklog_blocks[1].header_duration_format, "dec")
-    t.eq(analysis.worklog_blocks[1].duration_format, "dec")
+    t.eq(analysis.blotter_blocks[1].header_quantize_minutes, 30)
+    t.eq(analysis.blotter_blocks[1].quantize_minutes, 30)
+    t.eq(analysis.blotter_blocks[1].header_duration_format, "dec")
+    t.eq(analysis.blotter_blocks[1].duration_format, "dec")
   end)
 
-  t.test("analyze reports invalid options on later worklog headers", function()
+  t.test("analyze reports invalid options on later blotter headers", function()
     local analysis = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office ---",
       "08:00 plan",
@@ -483,43 +483,43 @@ return function(t)
 
     t.eq(analysis.diagnostics, {
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 4,
-        message = "worklog header option q must be a positive integer",
+        message = "blotter header option q must be a positive integer",
       },
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 4,
-        message = "worklog header option d must be dec or hm",
+        message = "blotter header option d must be dec or hm",
       },
       {
-        code = "invalid_worklog_header_option",
+        code = "invalid_blotter_header_option",
         category = "structural",
         severity = "error",
         row = 4,
-        message = "unknown worklog header option: unknown",
+        message = "unknown blotter header option: unknown",
       },
       {
-        code = "invalid_worklog_header_token",
+        code = "invalid_blotter_header_token",
         category = "structural",
         severity = "error",
         row = 4,
-        message = "worklog header tokens must be #tag, @location, utc±H[:MM], or key=value: nope",
+        message = "blotter header tokens must be #tag, @location, utc±H[:MM], or key=value: nope",
       },
     })
 
-    t.eq(analysis.worklog_blocks[1].quantize_minutes, 15)
-    t.eq(analysis.worklog_blocks[2].header_quantize_minutes, nil)
-    t.eq(analysis.worklog_blocks[2].quantize_minutes, 15)
-    t.eq(analysis.worklog_blocks[2].header_duration_format, nil)
-    t.eq(analysis.worklog_blocks[2].duration_format, "dec")
+    t.eq(analysis.blotter_blocks[1].quantize_minutes, 15)
+    t.eq(analysis.blotter_blocks[2].header_quantize_minutes, nil)
+    t.eq(analysis.blotter_blocks[2].quantize_minutes, 15)
+    t.eq(analysis.blotter_blocks[2].header_duration_format, nil)
+    t.eq(analysis.blotter_blocks[2].duration_format, "dec")
   end)
 
-  t.test("analyze keeps quantize and duration format local to each worklog", function()
+  t.test("analyze keeps quantize and duration format local to each blotter", function()
     local analysis = analyze.analyze(document.parse({
       "--- blots #ProjectOrion @office q=30 d=hm ---",
       "08:00 plan",
@@ -533,18 +533,18 @@ return function(t)
     }))
 
     t.eq(analysis.diagnostics, {})
-    t.eq(analysis.worklog_blocks[1].header_quantize_minutes, 30)
-    t.eq(analysis.worklog_blocks[1].quantize_minutes, 30)
-    t.eq(analysis.worklog_blocks[1].header_duration_format, "hm")
-    t.eq(analysis.worklog_blocks[1].duration_format, "hm")
-    t.eq(analysis.worklog_blocks[2].header_quantize_minutes, 60)
-    t.eq(analysis.worklog_blocks[2].quantize_minutes, 60)
-    t.eq(analysis.worklog_blocks[2].header_duration_format, "dec")
-    t.eq(analysis.worklog_blocks[2].duration_format, "dec")
-    t.eq(analysis.worklog_blocks[3].header_quantize_minutes, nil)
-    t.eq(analysis.worklog_blocks[3].quantize_minutes, 15)
-    t.eq(analysis.worklog_blocks[3].header_duration_format, nil)
-    t.eq(analysis.worklog_blocks[3].duration_format, "dec")
+    t.eq(analysis.blotter_blocks[1].header_quantize_minutes, 30)
+    t.eq(analysis.blotter_blocks[1].quantize_minutes, 30)
+    t.eq(analysis.blotter_blocks[1].header_duration_format, "hm")
+    t.eq(analysis.blotter_blocks[1].duration_format, "hm")
+    t.eq(analysis.blotter_blocks[2].header_quantize_minutes, 60)
+    t.eq(analysis.blotter_blocks[2].quantize_minutes, 60)
+    t.eq(analysis.blotter_blocks[2].header_duration_format, "dec")
+    t.eq(analysis.blotter_blocks[2].duration_format, "dec")
+    t.eq(analysis.blotter_blocks[3].header_quantize_minutes, nil)
+    t.eq(analysis.blotter_blocks[3].quantize_minutes, 15)
+    t.eq(analysis.blotter_blocks[3].header_duration_format, nil)
+    t.eq(analysis.blotter_blocks[3].duration_format, "dec")
   end)
 
   t.test("analyze keeps sticky metadata nil until changed", function()
@@ -556,7 +556,7 @@ return function(t)
       "09:15 done",
     }))
 
-    t.eq(analysis.worklog_blocks[1].blots, {
+    t.eq(analysis.blotter_blocks[1].blots, {
       {
         row = 2,
         minutes = 480,
@@ -610,7 +610,7 @@ return function(t)
       "08:00 plan",
       "09:00 reset #- @-",
       "10:00 done",
-    })).worklog_blocks[1].blots
+    })).blotter_blocks[1].blots
 
     t.eq(blots[2], {
       row = 3,
@@ -645,7 +645,7 @@ return function(t)
       "09:00 client #ClientA @home",
       "10:00 reset #- @-",
       "11:00 done",
-    })).worklog_blocks[1]
+    })).blotter_blocks[1]
 
     t.eq(block.header_tag, nil)
     t.eq(block.header_location, nil)
@@ -706,7 +706,7 @@ return function(t)
       "08:30 lunch",
       "09:00 work #ProjectOrion",
       "09:30 done",
-    })).worklog_blocks[1].blots
+    })).blotter_blocks[1].blots
 
     t.eq(blots[1], {
       row = 2,
@@ -749,7 +749,7 @@ return function(t)
       "08:00 break #ooo",
       "09:00 resume #-",
       "10:00 done",
-    })).worklog_blocks[1].blots
+    })).blotter_blocks[1].blots
 
     t.eq(blots[2], {
       row = 3,
@@ -782,7 +782,7 @@ return function(t)
       "08:00 plan",
       "09:00 travel @client",
       "10:00 done",
-    })).worklog_blocks[1].blots
+    })).blotter_blocks[1].blots
 
     t.eq(blots[2], {
       row = 3,
@@ -814,7 +814,7 @@ return function(t)
       "08:00 travel @home",
       "09:00 arrive @-",
       "10:00 done",
-    })).worklog_blocks[1].blots
+    })).blotter_blocks[1].blots
 
     t.eq(blots[2], {
       row = 3,
@@ -847,7 +847,7 @@ return function(t)
       "08:00 plan",
       "09:00 internal #internal",
       "10:00 done",
-    })).worklog_blocks[1].blots
+    })).blotter_blocks[1].blots
 
     t.eq(blots[2], {
       row = 3,
@@ -885,8 +885,8 @@ return function(t)
     }))
 
     t.eq(analyze.structural_error(analysis), INVALID_FIRST_HEADER_MESSAGE)
-    t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), {
-      code = "invalid_entry",
+    t.eq(analyze.find_block_diagnostic(analysis, analysis.blotter_blocks[1]), {
+      code = "invalid_blot",
       category = "block",
       severity = "error",
       row = 6,
@@ -902,8 +902,8 @@ return function(t)
     }))
 
     t.eq(analysis.diagnostics, {})
-    t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), nil)
-    t.eq(analysis.worklog_blocks[1].blot_items[2].minutes, 1440)
+    t.eq(analyze.find_block_diagnostic(analysis, analysis.blotter_blocks[1]), nil)
+    t.eq(analysis.blotter_blocks[1].blot_items[2].minutes, 1440)
   end)
 
   t.test("analyze reports a 24:00 blot that is not the final blot", function()
@@ -919,11 +919,11 @@ return function(t)
       category = "block",
       severity = "error",
       row = 3,
-      message = "24:00 must be the final blot in a worklog block",
+      message = "24:00 must be the final blot in a blotter block",
     }
 
     t.eq(analysis.diagnostics, { diagnostic })
-    t.eq(analyze.find_block_diagnostic(analysis, analysis.worklog_blocks[1]), diagnostic)
+    t.eq(analyze.find_block_diagnostic(analysis, analysis.blotter_blocks[1]), diagnostic)
   end)
 
   t.test("analyze inherits a header utc offset and switches it on an explicit token", function()
@@ -933,7 +933,7 @@ return function(t)
       "11:00 resume utc-4",
       "12:00 done",
     }))
-    local block = analysis.worklog_blocks[1]
+    local block = analysis.blotter_blocks[1]
 
     t.eq(block.header_offset, 120)
     t.eq(block.blots[1].offset, 120) -- inherits the header base
@@ -987,11 +987,11 @@ return function(t)
     }))
     t.eq(analysis.diagnostics, {
       {
-        code = "invalid_worklog_header_metadata",
+        code = "invalid_blotter_header_metadata",
         category = "structural",
         severity = "error",
         row = 1,
-        message = "multiple worklog header utc offsets are not allowed",
+        message = "multiple blotter header utc offsets are not allowed",
       },
     })
   end)

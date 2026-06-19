@@ -2,18 +2,18 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Locator for a worklog's generated summary region.
+-- Locator for a blotter's generated summary region.
 --
--- A worklog has at most one summary, and it is derived output -- always exactly
+-- A blotter has at most one summary, and it is derived output -- always exactly
 -- `render(summarize(blots))`. The region is located two ways and the union is
 -- returned, so each covers the other's blind spot:
 --
 --   * Content alignment (`align_find`, a Needleman-Wunsch fitting alignment, see
 --     `fit_align`): line up the freshly rendered expected summary against the
---     worklog's tail. Format-agnostic and tolerant of edits -- a mangled header or
+--     blotter's tail. Format-agnostic and tolerant of edits -- a mangled header or
 --     a deleted row is folded into the matched span -- but it needs a few
 --     distinctive lines to anchor, so it fails when the fresh summary is nearly
---     empty (a worklog with no completed interval).
+--     empty (a blotter with no completed interval).
 --   * Structural recognition (`structural_find`): the contiguous run of generated
 --     summary lines in the tail -- section headers (`syntax.is_summary_section_header`)
 --     and `<duration> (+Nm)` rows -- separated by blanks. This finds an empty
@@ -31,7 +31,7 @@ local M = {}
 -- span free (free end gaps). The classic edit-distance DP -- an (m+1)x(n+1) cost matrix
 -- filled with match/substitute, delete (an expected line absent from actual) and insert
 -- (an extra actual line); its minimum-cost path locates where the rendered summary sits
--- in the worklog's tail even after edits. Returns { start, stop, matches } (1-based,
+-- in the blotter's tail even after edits. Returns { start, stop, matches } (1-based,
 -- inclusive bounds; `matches` = exact non-blank line matches) or nil when nothing
 -- aligns. Substitution/match is preferred over deletion on ties so an edited boundary
 -- line (a mangled header) stays inside the span; the caller trims boundary blanks so a
@@ -47,7 +47,7 @@ local function fit_align(expected, actual)
   -- blank match 0, any edit `miss` > m). Maximizing matches keeps an exactly-matchable
   -- line a match rather than a substitution of a neighbour (which would drop it from the
   -- span and duplicate it on rewrite); counting only *non-blank* matches stops a run of
-  -- blank lines from anchoring the span over the worklog body.
+  -- blank lines from anchoring the span over the blotter body.
   local miss = m + 1
   local dp = {}
   for a = 0, m do
@@ -112,16 +112,16 @@ local function fit_align(expected, actual)
   return { start = b + 1, stop = stop, matches = matches }
 end
 
--- The alignment window: from just after the worklog's last timestamped blot to the
--- next worklog header / EOF. Anchoring the window past the blots is a hard guarantee
+-- The alignment window: from just after the blotter's last timestamped blot to the
+-- next blotter header / EOF. Anchoring the window past the blots is a hard guarantee
 -- that they can never be drawn into the matched span and rewritten away -- the summary
 -- always follows the blots, and a deleted summary header only leaks its rows in as
 -- notes, which still sit after the last blot.
-local function tail_bounds(analysis, worklog_block)
+local function tail_bounds(analysis, blotter_block)
   local blocks = analysis.blocks
   local start_index
   for index, block in ipairs(blocks) do
-    if block == worklog_block then
+    if block == blotter_block then
       start_index = index
       break
     end
@@ -130,16 +130,16 @@ local function tail_bounds(analysis, worklog_block)
     return nil
   end
 
-  local tail_start = worklog_block.body_start_row
-  for _, node in ipairs(worklog_block.body_nodes or {}) do
-    if node.kind == syntax.NODE_KIND.ENTRY then
+  local tail_start = blotter_block.body_start_row
+  for _, node in ipairs(blotter_block.body_nodes or {}) do
+    if node.kind == syntax.NODE_KIND.BLOT then
       tail_start = node.row + 1
     end
   end
 
   local stop_row = analysis.document.row_count + 1
   for index = start_index + 1, #blocks do
-    if blocks[index].kind == syntax.BLOCK_KIND.WORKLOG then
+    if blocks[index].kind == syntax.BLOCK_KIND.BLOTTER then
       stop_row = blocks[index].start_row
       break
     end
@@ -149,15 +149,15 @@ local function tail_bounds(analysis, worklog_block)
 end
 
 -- Locate the summary by aligning `expected_lines` (the freshly rendered summary)
--- against the worklog's tail. Returns { start_row, end_row } (1-based, end_row
+-- against the blotter's tail. Returns { start_row, end_row } (1-based, end_row
 -- exclusive) or nil. Strong against edits, weak when `expected_lines` is nearly
 -- empty (too few distinctive lines to anchor).
-local function align_find(analysis, worklog_block, expected_lines)
+local function align_find(analysis, blotter_block, expected_lines)
   if not expected_lines or #expected_lines == 0 then
     return nil
   end
 
-  local tail_start, stop_row = tail_bounds(analysis, worklog_block)
+  local tail_start, stop_row = tail_bounds(analysis, blotter_block)
   if not tail_start then
     return nil
   end
@@ -197,20 +197,20 @@ local function align_find(analysis, worklog_block, expected_lines)
 end
 
 -- Locate the summary as the contiguous run of generated summary sections in the
--- worklog's tail. The run is *anchored* on the first bare in-file summary header
+-- blotter's tail. The run is *anchored* on the first bare in-file summary header
 -- (the banner or a bare tags/locations/logged/totals). A generated section runs
 -- from its header to the next blank line, and *every* line in between belongs to
 -- the summary -- a `(+Nm)` row or junk left inside the section alike -- so a refresh
 -- rewrites the whole section and regenerates any stray content away. A blank ends
 -- the section; the next non-blank line continues the run only if it is another
 -- section header. So a line after a blank that is not a header is a free note and
--- ends the run (kept), as does the next worklog or EOF. Anchoring on a header (not a
+-- ends the run (kept), as does the next blotter or EOF. Anchoring on a header (not a
 -- lone row) keeps a leaked summary-shaped note from starting a run; a genuinely
 -- deleted header is recovered by content alignment instead. This finds an empty
 -- summary (its headers survive), spans a jumble of duplicated or stale sections, and
 -- pulls in junk sitting inside a section, while leaving prose after the summary out.
-local function structural_find(analysis, worklog_block)
-  local tail_start, stop_row = tail_bounds(analysis, worklog_block)
+local function structural_find(analysis, blotter_block)
+  local tail_start, stop_row = tail_bounds(analysis, blotter_block)
   if not tail_start then
     return nil
   end
@@ -242,14 +242,14 @@ local function structural_find(analysis, worklog_block)
   return { start_row = start, end_row = stop + 1 }
 end
 
--- Locate `worklog_block`'s generated summary region, returning { start_row,
+-- Locate `blotter_block`'s generated summary region, returning { start_row,
 -- end_row } (1-based, end_row exclusive) or nil. The union of content alignment
 -- and structural recognition (see the module comment): alignment handles edited
 -- summaries, structural recognition handles empty ones and collapses a jumble of
 -- duplicated/stale generated sections into the single region a refresh rewrites.
-function M.find(analysis, worklog_block, expected_lines)
-  local aligned = align_find(analysis, worklog_block, expected_lines)
-  local structural = structural_find(analysis, worklog_block)
+function M.find(analysis, blotter_block, expected_lines)
+  local aligned = align_find(analysis, blotter_block, expected_lines)
+  local structural = structural_find(analysis, blotter_block)
 
   if not aligned then
     return structural

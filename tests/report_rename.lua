@@ -7,16 +7,16 @@ return function(t)
   local with_captured_notify = helpers.with_captured_notify
   local with_mocked_confirm = helpers.with_mocked_confirm
   local with_mocked_time = helpers.with_mocked_time
-  local with_worklog_setup = helpers.with_worklog_setup
+  local with_blotter_setup = helpers.with_blotter_setup
   local write_journal_file = helpers.write_journal_file
 
-  helpers.setup_worklog()
+  helpers.setup_blotter()
 
   -- A complete day file: the given header + blots followed by a blank line and the
   -- generated summary, the way a real journal day exists on disk (every valid
-  -- worklog carries a summary). run_by_value needs that summary region to rewrite.
+  -- blotter carries a summary). run_by_value needs that summary region to rewrite.
   local function with_summary(source_lines)
-    local block = analyze.get_active_worklog(analyze.analyze(document.parse(source_lines)))
+    local block = analyze.get_active_blotter(analyze.analyze(document.parse(source_lines)))
     local rendered = render.summary_lines(summary.summarize_block(block), block.duration_format, {
       leading_blank = false,
       quantize_minutes = block.quantize_minutes,
@@ -57,7 +57,7 @@ return function(t)
 
   local function open_week()
     local p1 = write_journal_file(
-      vim.g._wkl_root,
+      vim.g._blot_root,
       "%Y/%V",
       d1,
       with_summary({
@@ -68,7 +68,7 @@ return function(t)
       })
     )
     local p2 = write_journal_file(
-      vim.g._wkl_root,
+      vim.g._blot_root,
       "%Y/%V",
       d2,
       with_summary({
@@ -87,10 +87,10 @@ return function(t)
   end
 
   t.test("renaming an aggregate activity from a week report rewrites every day file", function()
-    vim.g._wkl_root = vim.fn.tempname()
+    vim.g._blot_root = vim.fn.tempname()
 
-    with_worklog_setup({
-      journal = { root = vim.g._wkl_root, directory = "%Y/%V" },
+    with_blotter_setup({
+      journal = { root = vim.g._blot_root, directory = "%Y/%V" },
     }, function()
       local p1, p2 = open_week()
 
@@ -113,10 +113,10 @@ return function(t)
   end)
 
   t.test("renaming a per-day row from a week report touches only that day", function()
-    vim.g._wkl_root = vim.fn.tempname()
+    vim.g._blot_root = vim.fn.tempname()
 
-    with_worklog_setup({
-      journal = { root = vim.g._wkl_root, directory = "%Y/%V" },
+    with_blotter_setup({
+      journal = { root = vim.g._blot_root, directory = "%Y/%V" },
     }, function()
       local p1, p2 = open_week()
 
@@ -135,10 +135,10 @@ return function(t)
   end)
 
   t.test("declining the confirmation leaves every day file untouched", function()
-    vim.g._wkl_root = vim.fn.tempname()
+    vim.g._blot_root = vim.fn.tempname()
 
-    with_worklog_setup({
-      journal = { root = vim.g._wkl_root, directory = "%Y/%V" },
+    with_blotter_setup({
+      journal = { root = vim.g._blot_root, directory = "%Y/%V" },
     }, function()
       local p1, p2 = open_week()
 
@@ -154,10 +154,10 @@ return function(t)
   end)
 
   t.test("a report header row reports it is not renamable", function()
-    vim.g._wkl_root = vim.fn.tempname()
+    vim.g._blot_root = vim.fn.tempname()
 
-    with_worklog_setup({
-      journal = { root = vim.g._wkl_root, directory = "%Y/%V" },
+    with_blotter_setup({
+      journal = { root = vim.g._blot_root, directory = "%Y/%V" },
     }, function()
       open_week()
 
@@ -167,7 +167,7 @@ return function(t)
       with_captured_notify(function(messages)
         vim.cmd("BlotRename coding")
         t.ok(#messages == 1, "one warning")
-        t.ok(messages[1].message:match("^worklog:"), "worklog-prefixed warning")
+        t.ok(messages[1].message:match("^blotter:"), "blotter-prefixed warning")
       end)
     end)
   end)

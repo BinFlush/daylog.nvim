@@ -1,7 +1,7 @@
 local M = {}
 
 -- Pure cache codec and policy for source items. No IO and no Neovim API: the
--- shell (worklog.sources.sync) reads/writes files and injects a JSON decoder, so
+-- shell (blotter.sources.sync) reads/writes files and injects a JSON decoder, so
 -- the envelope validation, TTL math, and local filtering stay unit-testable.
 
 local VERSION = 1
@@ -22,15 +22,15 @@ end
 function M.decode(json, decode_fn)
   local ok, decoded = pcall(decode_fn, json)
   if not ok or type(decoded) ~= "table" then
-    return nil, "worklog: source cache is corrupt"
+    return nil, "blotter: source cache is corrupt"
   end
 
   if decoded.version ~= VERSION then
-    return nil, "worklog: source cache version is unsupported"
+    return nil, "blotter: source cache version is unsupported"
   end
 
   if type(decoded.items) ~= "table" then
-    return nil, "worklog: source cache is corrupt"
+    return nil, "blotter: source cache is corrupt"
   end
 
   return {

@@ -5,7 +5,7 @@ local M = {}
 -- Syntax-preserving document parser.
 --
 -- Every source line becomes an explicit node so higher layers can derive
--- worklog meaning without losing original layout, raw text, or source rows.
+-- blotter meaning without losing original layout, raw text, or source rows.
 
 local function normalize_text(text)
   text = text:gsub("%s+", " ")
@@ -36,7 +36,7 @@ local function parse_metadata_token(token)
   -- A `utc±H[:MM]` offset is sticky metadata too; the value is signed minutes and
   -- there is no clear form (you change the offset, you do not unset it). Shared by
   -- the blot trailing-run scan (via parse_blot_control_token) and the header
-  -- tokenizer (parse_worklog_tokens), so both recognize it with one grammar.
+  -- tokenizer (parse_blotter_tokens), so both recognize it with one grammar.
   local offset = syntax.parse_utc_offset(token)
   if offset ~= nil then
     return syntax.TOKEN_KIND.OFFSET, offset, false
@@ -56,8 +56,8 @@ local function parse_blot_control_token(token)
   end
 
   -- A `round±N` rounding-balance marker is per-blot and non-sticky (like !L), so it
-  -- is recognized here in the blot trailing run only -- never in the worklog header
-  -- (parse_worklog_tokens uses parse_metadata_token, which does not see it).
+  -- is recognized here in the blot trailing run only -- never in the blotter header
+  -- (parse_blotter_tokens uses parse_metadata_token, which does not see it).
   local nudge = syntax.parse_round_nudge(token)
   if nudge ~= nil then
     return syntax.TOKEN_KIND.NUDGE, nudge, false
@@ -66,7 +66,7 @@ local function parse_blot_control_token(token)
   return nil, nil, false
 end
 
-local function parse_worklog_tokens(text)
+local function parse_blotter_tokens(text)
   local result = {
     metadata_tokens = {},
     option_tokens = {},
@@ -206,10 +206,10 @@ local function parse_header(line, row)
   end
 
   if options_text ~= nil then
-    local options = parse_worklog_tokens(options_text)
+    local options = parse_blotter_tokens(options_text)
 
     return {
-      kind = syntax.NODE_KIND.WORKLOG_HEADER,
+      kind = syntax.NODE_KIND.BLOTTER_HEADER,
       row = row,
       raw = line,
       metadata_tokens = options.metadata_tokens,
@@ -239,7 +239,7 @@ local function parse_blot(line, row)
 
   -- A summary row ("16:00 (+0m) workday") is byte-for-byte an blot timestamp plus a
   -- (+Nm) rounding marker; treat it as a note, not an blot. This keeps a d=hm summary
-  -- row that leaks into a worklog body (e.g. after its summary header is deleted) from
+  -- row that leaks into a blotter body (e.g. after its summary header is deleted) from
   -- being miscounted as a real blot; the highlighter (highlight.lua) shares the rule.
   if rest:match("^%s+%([%+%-]%d+m%)") then
     return nil
@@ -247,7 +247,7 @@ local function parse_blot(line, row)
 
   if rest ~= "" and not rest:match("^%s") then
     return {
-      kind = syntax.NODE_KIND.INVALID_ENTRY,
+      kind = syntax.NODE_KIND.INVALID_BLOT,
       row = row,
       raw = line,
       message = "expected whitespace after the time",
@@ -257,12 +257,12 @@ local function parse_blot(line, row)
   hh = tonumber(hh)
   mm = tonumber(mm)
 
-  -- 24:00 is a valid end-of-day boundary; it lets a worklog close its final
+  -- 24:00 is a valid end-of-day boundary; it lets a blotter close its final
   -- task at midnight, contiguous with the next day's 00:00.
   local valid_time = (hh <= 23 and mm <= 59) or (hh == 24 and mm == 0)
   if not valid_time then
     return {
-      kind = syntax.NODE_KIND.INVALID_ENTRY,
+      kind = syntax.NODE_KIND.INVALID_BLOT,
       row = row,
       raw = line,
       message = "invalid time",
@@ -273,7 +273,7 @@ local function parse_blot(line, row)
   local metadata, err = parse_blot_metadata(text)
   if err then
     return {
-      kind = syntax.NODE_KIND.INVALID_ENTRY,
+      kind = syntax.NODE_KIND.INVALID_BLOT,
       row = row,
       raw = line,
       message = err,
@@ -281,7 +281,7 @@ local function parse_blot(line, row)
   end
 
   return {
-    kind = syntax.NODE_KIND.ENTRY,
+    kind = syntax.NODE_KIND.BLOT,
     row = row,
     raw = line,
     minutes = hh * 60 + mm,
@@ -323,7 +323,7 @@ local function parse_line(line, row)
   }
 end
 
--- Classify a single whitespace-delimited token as worklog metadata: returns
+-- Classify a single whitespace-delimited token as blotter metadata: returns
 -- (kind, value, clear) for a #tag / @location / #- / @- / !L, or nil otherwise.
 -- Exposed so the highlighter (highlight.lua) classifies trailing-run and header
 -- tokens with the very same grammar the parser uses, rather than a second copy.
@@ -373,7 +373,7 @@ function M.summary_duration_length(line)
   return nil
 end
 
--- Whether a token is a key=value option (only meaningful in a worklog header).
+-- Whether a token is a key=value option (only meaningful in a blotter header).
 function M.is_option_token(text)
   return text:match("^[%w_%-]+=") ~= nil
 end
@@ -382,9 +382,9 @@ function M.parse_line(line, row)
   return parse_line(line, row or 1)
 end
 
--- Parse a worklog file into syntax-preserving line nodes.
+-- Parse a blotter file into syntax-preserving line nodes.
 -- The returned document keeps every input line as an explicit node so later
--- semantic analysis can preserve source layout while deriving worklog meaning.
+-- semantic analysis can preserve source layout while deriving blotter meaning.
 function M.parse(lines)
   local nodes = {}
 

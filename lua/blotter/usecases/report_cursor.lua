@@ -8,7 +8,7 @@ local M = {}
 -- summaries. Like the in-file summary, each rendered row is only a selector: it
 -- points back at a recomputed summary item. This module maps a 1-based cursor row of
 -- the flat report layout (render.week_report_layout / days_report_layout) to which
--- worklogs to rewrite and what item to rename:
+-- blotters to rewrite and what item to rename:
 --
 --   * an aggregate row renames the item across every day of the period (the shell
 --     fans the rename out, by value, over all the day files);
@@ -17,7 +17,7 @@ local M = {}
 -- The actual rewrite is done per file by rename_summary.run_by_value, so the report
 -- stays a pure projection -- this only decides the target and the file scope.
 
-M.NOT_A_ROW = "worklog: put the cursor on a summary item, tag, or location row of the report"
+M.NOT_A_ROW = "blotter: put the cursor on a summary item, tag, or location row of the report"
 
 -- Map `cursor_row` (1-based) within `layout` to { scope, path?, date_label?, target }
 -- where `target` is the { kind, current, tag? } rename_summary acts on. Returns nil

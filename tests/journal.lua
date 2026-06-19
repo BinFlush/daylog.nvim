@@ -32,10 +32,10 @@ return function(t)
 
     t.eq(
       journal.path_for_date({
-        root = "/tmp/worklog",
+        root = "/tmp/blotter",
         directory = "",
       }, now),
-      "/tmp/worklog/2026-05-18.blot"
+      "/tmp/blotter/2026-05-18.blot"
     )
   end)
 
@@ -51,10 +51,10 @@ return function(t)
 
     t.eq(
       journal.path_for_date({
-        root = "/tmp/worklog/",
+        root = "/tmp/blotter/",
         directory = "/%Y/%V/",
       }, now),
-      "/tmp/worklog/2026/21/2026-05-18.blot"
+      "/tmp/blotter/2026/21/2026-05-18.blot"
     )
   end)
 
@@ -171,10 +171,10 @@ return function(t)
   end)
 
   t.test("journal resolves canonical paths with an empty directory template", function()
-    local settings = { root = "/tmp/worklog", directory = "" }
+    local settings = { root = "/tmp/blotter", directory = "" }
 
     t.eq(
-      journal.date_label(journal.date_from_path(settings, "/tmp/worklog/2026-05-18.blot")),
+      journal.date_label(journal.date_from_path(settings, "/tmp/blotter/2026-05-18.blot")),
       "2026-05-18"
     )
   end)

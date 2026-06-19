@@ -147,7 +147,7 @@ return function(t)
     end)
 
     local source = new_source(base_cfg(), transport, function()
-      return nil, "worklog: token missing"
+      return nil, "blotter: token missing"
     end)
 
     local captured
@@ -156,7 +156,7 @@ return function(t)
     end)
 
     t.eq(captured.items, nil)
-    t.eq(captured.err, "worklog: token missing")
+    t.eq(captured.err, "blotter: token missing")
     t.eq(#transport.seen, 0)
   end)
 
@@ -245,7 +245,7 @@ return function(t)
       return { status = 200, body = "{}" }
     end)
     local source = new_source(base_cfg(), transport, function()
-      return nil, "worklog: token missing"
+      return nil, "blotter: token missing"
     end)
 
     local captured
@@ -254,7 +254,7 @@ return function(t)
     end)
 
     t.eq(captured.items, nil)
-    t.eq(captured.err, "worklog: token missing")
+    t.eq(captured.err, "blotter: token missing")
     t.eq(#transport.seen, 0)
   end)
 

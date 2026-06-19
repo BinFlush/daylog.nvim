@@ -310,7 +310,7 @@ return function(t)
       "1.00h (+0m) workday",
     }, 9, "whatever")
 
-    t.eq(err, "worklog: a totals row cannot be renamed")
+    t.eq(err, "blotter: a totals row cannot be renamed")
   end)
 
   t.test("rename refuses the (untagged) tag group", function()
@@ -332,7 +332,7 @@ return function(t)
       "2.00h (+0m) workday",
     }, 12, "newtag")
 
-    t.eq(err, "worklog: the (untagged) group cannot be renamed; tag the blots first")
+    t.eq(err, "blotter: the (untagged) group cannot be renamed; tag the blots first")
   end)
 
   t.test("rename rejects an invalid tag name", function()
@@ -351,7 +351,7 @@ return function(t)
       "1.00h (+0m) workday",
     }, 9, "bad name")
 
-    t.eq(err, "worklog: a tag or location name must be letters, digits, underscores, or hyphens")
+    t.eq(err, "blotter: a tag or location name must be letters, digits, underscores, or hyphens")
   end)
 
   t.test("rename rejects empty activity text", function()
@@ -364,7 +364,7 @@ return function(t)
       "1.00h (+0m) plan",
     }, 6, "   ")
 
-    t.eq(err, "worklog: the activity text cannot be empty")
+    t.eq(err, "blotter: the activity text cannot be empty")
   end)
 
   t.test("rename refuses the same name", function()
@@ -383,7 +383,7 @@ return function(t)
       "1.00h (+0m) workday",
     }, 9, "proj")
 
-    t.eq(err, "worklog: the new name matches the current name")
+    t.eq(err, "blotter: the new name matches the current name")
   end)
 
   t.test("rename refuses when the cursor is not on a summary row", function()
@@ -396,7 +396,7 @@ return function(t)
       "1.00h (+0m) plan",
     }, 2, "whatever")
 
-    t.eq(err, "worklog: put the cursor on a summary item, tag, or location row to rename it")
+    t.eq(err, "blotter: put the cursor on a summary item, tag, or location row to rename it")
   end)
 
   local function rename_by_value(lines, target, new_value)
@@ -468,13 +468,13 @@ return function(t)
     t.eq(err, nil)
   end)
 
-  t.test("run_by_value surfaces an error when the worklog is invalid", function()
+  t.test("run_by_value surfaces an error when the blotter is invalid", function()
     local _, err = rename_summary.run_by_value({
       "--- blots ---",
       "09:00 later",
       "08:00 earlier",
     }, { kind = "item", current = "later", tag = nil }, "whatever")
 
-    t.ok(err ~= nil, "an invalid worklog yields an error")
+    t.ok(err ~= nil, "an invalid blotter yields an error")
   end)
 end

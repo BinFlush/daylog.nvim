@@ -7,8 +7,8 @@ local M = {}
 
 -- Toggle the logged state of the main summary row under the cursor.
 --
--- A worklog has a single summary. The rendered row is only a selector: the active
--- worklog is analyzed from source, the matching summary item is recomputed, the
+-- A blotter has a single summary. The rendered row is only a selector: the active
+-- blotter is analyzed from source, the matching summary item is recomputed, the
 -- contributing source blots gain or lose a trailing !L, and the one summary is
 -- rebuilt from the updated source. The summary is a pure projection, so the rebuild
 -- needs no note preservation.
@@ -18,8 +18,8 @@ local M = {}
 -- location, logged, or total row is not loggable). Out-of-office rows cannot be
 -- marked, and the contributing blots must already agree on their logged state.
 
-local REFUSE_OOO = "worklog: refusing to mark out-of-office time as logged"
-local INCONSISTENT_SOURCE = "worklog: logged marking is inconsistent; regenerate the summary"
+local REFUSE_OOO = "blotter: refusing to mark out-of-office time as logged"
+local INCONSISTENT_SOURCE = "blotter: logged marking is inconsistent; regenerate the summary"
 
 -- Recompute the summary with `logged` toggled on the target source rows, by copying
 -- the block's semantic blots and flipping them in memory. This avoids re-parsing
@@ -38,7 +38,7 @@ function M.run(lines, cursor_row)
   local result, err = summary_cursor.resolve(lines, cursor_row)
   if not result then
     -- resolve surfaces STALE/AMBIGUOUS directly. On a silent decline -- the cursor is
-    -- not on the active worklog's summary, or that worklog is invalid -- surface the
+    -- not on the active blotter's summary, or that blotter is invalid -- surface the
     -- precise reason (a block diagnostic when present), else the generic stale message.
     if err then
       return nil, err

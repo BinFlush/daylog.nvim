@@ -9,7 +9,7 @@ local M = {}
 -- Past-midnight carryover helpers.
 --
 -- These pure helpers support rolling an activity that was running across
--- midnight from one day's worklog into the next. The shell layer captures the
+-- midnight from one day's blotter into the next. The shell layer captures the
 -- activity, closes the source day at the 24:00 boundary, then seeds the target
 -- day with the continuation at 00:00.
 
@@ -27,7 +27,7 @@ local function activity_from_item(item)
   }
 end
 
--- The activity in effect at the end of the active worklog, i.e. the final
+-- The activity in effect at the end of the active blotter, i.e. the final
 -- blot when it still has activity text. Returns nil when nothing was running
 -- (no blots, the day already closed with a bare timestamp, or the final blot
 -- is the 24:00 end-of-day boundary).
@@ -47,7 +47,7 @@ function M.last_running_entry(lines)
 end
 
 -- The activity item on the given row, or nil. Only looks at real timestamped
--- blots in the worklog block at `row`.
+-- blots in the blotter block at `row`.
 local function item_at_row(lines, row)
   local ctx = support.get_validated_at_row(lines, row)
   if not ctx then
@@ -86,11 +86,11 @@ function M.entry_at_row(lines, row)
   end
 
   local _, err = support.get_validated_at_row(lines, row)
-  return nil, err or "worklog: current line is not a valid worklog blot"
+  return nil, err or "blotter: current line is not a valid blot"
 end
 
 -- Insert one formatted blot for `activity` at `minutes` into the active
--- worklog, placed at the sorted position with sticky metadata resolved.
+-- blotter, placed at the sorted position with sticky metadata resolved.
 function M.seed_edit(lines, activity, minutes)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -118,7 +118,7 @@ function M.seed_edit(lines, activity, minutes)
   )
 end
 
--- Append a bare 24:00 blot that closes the active worklog's final task at the
+-- Append a bare 24:00 blot that closes the active blotter's final task at the
 -- day boundary. The sticky metadata is carried so the close stays bare.
 function M.close_edit(lines)
   local ctx, err = support.get_validated_active(lines)

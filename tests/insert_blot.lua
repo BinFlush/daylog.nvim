@@ -72,10 +72,10 @@ return function(t)
     }, 1, "25:00", "x")
 
     t.eq(result, nil)
-    t.eq(err, "worklog: invalid current time: invalid time")
+    t.eq(err, "blotter: invalid current time: invalid time")
   end)
 
-  t.test("insert_blot rejects a cursor outside any worklog", function()
+  t.test("insert_blot rejects a cursor outside any blotter", function()
     local result, err = insert_blot.run({
       "08:00 raw",
       "09:00 done",

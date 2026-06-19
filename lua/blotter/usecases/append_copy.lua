@@ -6,7 +6,7 @@ local support = require("blotter.usecases.support")
 
 local M = {}
 
--- Build the edit script for appending a normalized copy of the active worklog,
+-- Build the edit script for appending a normalized copy of the active blotter,
 -- followed by its summary, so the copy is self-describing from the moment it is
 -- created (matching how a freshly opened today file already carries a summary).
 
@@ -17,7 +17,7 @@ function M.run(lines)
     return nil, err
   end
 
-  local rendered = render.worklog_lines(
+  local rendered = render.blotter_lines(
     body.normalized_lines(ctx.block, blot.format),
     ctx.block.header_tag,
     ctx.block.header_location,

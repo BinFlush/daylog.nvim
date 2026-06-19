@@ -2,9 +2,9 @@ local M = {}
 
 -- Small text predicates with no dependencies and no Neovim API (PURE).
 
--- Whether `lines` holds no worklog content: nil, empty, or only blank/whitespace
+-- Whether `lines` holds no blotter content: nil, empty, or only blank/whitespace
 -- lines. Every layer agrees on what "empty" means through this one predicate -- the
--- shell's buffer check, new_worklog's create-in-place guard, and the journal
+-- shell's buffer check, new_blotter's create-in-place guard, and the journal
 -- report's empty-day skip -- so a nil line list counts as empty rather than erroring.
 function M.is_empty(lines)
   if lines == nil then

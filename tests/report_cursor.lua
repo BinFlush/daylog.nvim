@@ -8,7 +8,7 @@ return function(t)
   -- Build a single day's summary the way the report pipeline (week.lua) does.
   local function day_summary(lines)
     local analysis = analyze.analyze(document.parse(lines))
-    local block = analyze.get_active_worklog(analysis)
+    local block = analyze.get_active_blotter(analysis)
     return summary.summarize_block(block), block.quantize_minutes
   end
 

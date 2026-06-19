@@ -6,7 +6,7 @@ return function(t)
 
   local function block_from_lines(lines)
     local analysis = analyze.analyze(document.parse(lines))
-    return analysis.worklog_blocks[1]
+    return analysis.blotter_blocks[1]
   end
 
   t.test("body insert index places new blots after equal timestamps", function()

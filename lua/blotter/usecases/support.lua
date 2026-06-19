@@ -11,7 +11,7 @@ local M = {}
 
 -- Shared use-case helpers.
 --
--- The use-case layer works from fully analyzed worklog context and returns edit
+-- The use-case layer works from fully analyzed blotter context and returns edit
 -- scripts plus cursor actions. These helpers centralize context lookup,
 -- validation, and edit-building so individual command modules can stay small
 -- and focused on one operation each.
@@ -27,7 +27,7 @@ function M.validate_context(ctx)
 end
 
 function M.get_validated_active(lines)
-  local ctx, err = context.get_active_worklog_context(lines)
+  local ctx, err = context.get_active_blotter_context(lines)
   if not ctx then
     return nil, err
   end
@@ -36,7 +36,7 @@ function M.get_validated_active(lines)
 end
 
 function M.get_validated_at_row(lines, row)
-  local ctx, err = context.get_worklog_context_at_row(lines, row)
+  local ctx, err = context.get_blotter_context_at_row(lines, row)
   if not ctx then
     return nil, err
   end
@@ -167,14 +167,14 @@ function M.rewrite_entry_lines(block, fn)
   return edits
 end
 
--- The render options for a worklog's in-file summary: no leading blank (the region
+-- The render options for a blotter's in-file summary: no leading blank (the region
 -- starts at its header) plus the block's quantize bucket. Named once so every
 -- in-place summary render stays in step on this single fact.
 function M.summary_render_options(block)
   return { leading_blank = false, quantize_minutes = block.quantize_minutes }
 end
 
--- Locate a worklog block's existing summary region, returning it alongside the
+-- Locate a blotter block's existing summary region, returning it alongside the
 -- freshly computed summary and its rendered (in-file) lines. The region is found by
 -- rendering the current summary and matching it against the block's tail (see
 -- summary_block). Returns nil region when no summary exists yet; callers reuse
@@ -192,7 +192,7 @@ function M.parse_clock_minutes(time)
   local parsed, err = blot.parse(time)
 
   if not parsed then
-    return nil, "worklog: invalid current time: " .. (err or tostring(time))
+    return nil, "blotter: invalid current time: " .. (err or tostring(time))
   end
 
   return parsed.minutes

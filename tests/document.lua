@@ -15,7 +15,7 @@ return function(t)
     t.eq(doc.row_count, 5)
     t.eq(doc.nodes, {
       {
-        kind = "worklog_header",
+        kind = "blotter_header",
         row = 1,
         raw = "--- blots #ProjectOrion @office q=30 ---",
         metadata_tokens = {
@@ -68,10 +68,10 @@ return function(t)
     })
   end)
 
-  t.test("document parse requires worklog to be its own word in a header", function()
-    t.eq(document.parse_line("--- blots ---").kind, "worklog_header")
-    t.eq(document.parse_line("--- blots #ClientA ---").kind, "worklog_header")
-    t.eq(document.parse_line("--- blots---").kind, "worklog_header")
+  t.test("document parse requires blotter to be its own word in a header", function()
+    t.eq(document.parse_line("--- blots ---").kind, "blotter_header")
+    t.eq(document.parse_line("--- blots #ClientA ---").kind, "blotter_header")
+    t.eq(document.parse_line("--- blots---").kind, "blotter_header")
     t.eq(document.parse_line("--- blotss ---").kind, "block_header")
     t.eq(document.parse_line("--- blots#sales ---").kind, "block_header")
     t.eq(document.parse_line("--- blotss to review ---").kind, "block_header")
@@ -113,9 +113,9 @@ return function(t)
     })
   end)
 
-  t.test("document parse keeps worklog header metadata and options", function()
+  t.test("document parse keeps blotter header metadata and options", function()
     t.eq(document.parse_line("--- blots #ProjectOrion @office q=30 nope ---"), {
-      kind = "worklog_header",
+      kind = "blotter_header",
       row = 1,
       raw = "--- blots #ProjectOrion @office q=30 nope ---",
       metadata_tokens = {
@@ -141,7 +141,7 @@ return function(t)
     })
 
     t.eq(document.parse_line("--- blots q=foo unknown=bar #internal @home ---"), {
-      kind = "worklog_header",
+      kind = "blotter_header",
       row = 1,
       raw = "--- blots q=foo unknown=bar #internal @home ---",
       metadata_tokens = {
@@ -235,7 +235,7 @@ return function(t)
 
   t.test("document parse recognizes clear tokens in headers and blots", function()
     t.eq(document.parse_line("--- blots #- @- q=30 ---"), {
-      kind = "worklog_header",
+      kind = "blotter_header",
       row = 1,
       raw = "--- blots #- @- q=30 ---",
       metadata_tokens = {
@@ -277,14 +277,14 @@ return function(t)
 
   t.test("document parse rejects duplicate trailing !L and keeps !L invalid in headers", function()
     t.eq(document.parse_line("08:04 plan !L #sales !L"), {
-      kind = "invalid_entry",
+      kind = "invalid_blot",
       row = 1,
       raw = "08:04 plan !L #sales !L",
       message = "duplicate trailing !L markers are not allowed",
     })
 
     t.eq(document.parse_line("--- blots !L ---"), {
-      kind = "worklog_header",
+      kind = "blotter_header",
       row = 1,
       raw = "--- blots !L ---",
       metadata_tokens = {},
@@ -303,25 +303,25 @@ return function(t)
 
     t.eq(doc.nodes, {
       {
-        kind = "invalid_entry",
+        kind = "invalid_blot",
         row = 1,
         raw = "08:00 plan #sales #meeting",
         message = "multiple trailing tags are not allowed",
       },
       {
-        kind = "invalid_entry",
+        kind = "invalid_blot",
         row = 2,
         raw = "08:00 plan @office @home",
         message = "multiple trailing locations are not allowed",
       },
       {
-        kind = "invalid_entry",
+        kind = "invalid_blot",
         row = 3,
         raw = "24:30 no",
         message = "invalid time",
       },
       {
-        kind = "invalid_entry",
+        kind = "invalid_blot",
         row = 4,
         raw = "08:00x",
         message = "expected whitespace after the time",
@@ -343,14 +343,14 @@ return function(t)
 
   t.test("document parse rejects times past 24:00", function()
     t.eq(document.parse_line("24:01"), {
-      kind = "invalid_entry",
+      kind = "invalid_blot",
       row = 1,
       raw = "24:01",
       message = "invalid time",
     })
 
     t.eq(document.parse_line("25:00"), {
-      kind = "invalid_entry",
+      kind = "invalid_blot",
       row = 1,
       raw = "25:00",
       message = "invalid time",
@@ -360,7 +360,7 @@ return function(t)
   t.test("document parses a summary-shaped timestamp row as a note, not an blot", function()
     -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte an blot timestamp
     -- plus a (+Nm) marker; the marker makes it a note so it can never be miscounted as
-    -- an blot if it leaks into a worklog body.
+    -- an blot if it leaks into a blotter body.
     local doc = document.parse({ "16:00 (+0m) workday", "16:00 standup" })
     t.eq(doc.nodes[1].kind, "note_line")
     t.eq(doc.nodes[2].kind, "blot")
@@ -422,7 +422,7 @@ return function(t)
 
   t.test("document rejects a duplicate trailing utc offset", function()
     t.eq(document.parse_line("08:00 plan utc+2 utc-4"), {
-      kind = "invalid_entry",
+      kind = "invalid_blot",
       row = 1,
       raw = "08:00 plan utc+2 utc-4",
       message = "multiple trailing utc offsets are not allowed",
@@ -431,7 +431,7 @@ return function(t)
 
   t.test("document routes a header utc offset into metadata tokens", function()
     t.eq(document.parse_line("--- blots @office utc+2 q=30 ---"), {
-      kind = "worklog_header",
+      kind = "blotter_header",
       row = 1,
       raw = "--- blots @office utc+2 q=30 ---",
       metadata_tokens = {
@@ -483,7 +483,7 @@ return function(t)
     t.eq(node.text, "take another round")
 
     t.eq(document.parse_line("08:00 plan round+1 round-1"), {
-      kind = "invalid_entry",
+      kind = "invalid_blot",
       row = 1,
       raw = "08:00 plan round+1 round-1",
       message = "multiple trailing round markers are not allowed",

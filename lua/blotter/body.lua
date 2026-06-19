@@ -3,9 +3,9 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Worklog body reconstruction helpers.
+-- Blotter body reconstruction helpers.
 --
--- This module owns rewriting semantic worklog blocks back into editable block
+-- This module owns rewriting semantic blotter blocks back into editable block
 -- bodies. It derives canonical body lines, sorted body lines, and insert points
 -- directly from semantic block items instead of reparsing raw lines.
 

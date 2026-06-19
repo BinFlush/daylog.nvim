@@ -4,9 +4,9 @@ local syntax = require("blotter.syntax")
 
 local M = {}
 
--- Semantic worklog blot codec.
+-- Semantic blot codec.
 --
--- This module is responsible for the smallest meaningful worklog unit: a single
+-- This module is responsible for the smallest meaningful blotter unit: a single
 -- timestamped blot line. It parses one source line into semantic blot data
 -- and formats semantic blots back into canonical source lines.
 
@@ -60,7 +60,7 @@ end
 function M.parse(line, current_tag, current_location, current_offset)
   local node = document.parse_line(line)
 
-  if node.kind == syntax.NODE_KIND.INVALID_ENTRY then
+  if node.kind == syntax.NODE_KIND.INVALID_BLOT then
     return false, node.message
   end
 

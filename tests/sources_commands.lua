@@ -5,7 +5,7 @@ return function(t)
   local registry = require("blotter.sources.registry")
   local sync = require("blotter.sources.sync")
 
-  helpers.setup_worklog()
+  helpers.setup_blotter()
 
   local FAKE_ITEMS = {
     { id = "1", title = "Item one", type = "Bug", state = "Active" },
@@ -96,7 +96,7 @@ return function(t)
     })
   end)
 
-  t.test("BlotInsert <source> errors without opening the picker outside a worklog", function()
+  t.test("BlotInsert <source> errors without opening the picker outside a blotter", function()
     register_fake()
     t.reset({
       "--- blots #ProjectOrion @office ---",
@@ -106,10 +106,10 @@ return function(t)
       "--- summary q=15 d=dec ---",
       "1.00h first",
     })
-    t.set_cursor(5, 0) -- on the summary header, outside the worklog block
+    t.set_cursor(5, 0) -- on the summary header, outside the blotter block
 
     -- Detect whether the (stubbed) picker is ever reached. The fix must bail
-    -- before this, just like a bare :BlotInsert outside a worklog.
+    -- before this, just like a bare :BlotInsert outside a blotter.
     local picker_opened = false
     local old_ensure = sync.ensure_fresh
     sync.ensure_fresh = function()
@@ -129,10 +129,10 @@ return function(t)
       error(err, 0)
     end
 
-    t.ok(not picker_opened, "picker must not open when the cursor is outside a worklog")
+    t.ok(not picker_opened, "picker must not open when the cursor is outside a blotter")
     t.eq(captured, {
       {
-        message = "worklog: current line is not inside a worklog block",
+        message = "blotter: current line is not inside a blotter block",
         level = vim.log.levels.WARN,
       },
     })
@@ -157,7 +157,7 @@ return function(t)
     with_captured_notify(function(messages)
       vim.cmd("BlotInsert NOPE")
       t.eq(messages, {
-        { message = "worklog: unknown source 'NOPE'", level = vim.log.levels.WARN },
+        { message = "blotter: unknown source 'NOPE'", level = vim.log.levels.WARN },
       })
     end)
 
@@ -188,7 +188,7 @@ return function(t)
     })
   end)
 
-  -- Put the cursor on the active worklog's "review" main summary row (its line ends
+  -- Put the cursor on the active blotter's "review" main summary row (its line ends
   -- with ") review"; the blot "08:00 review" does not), after a refresh.
   local function on_review_summary_row()
     t.reset({ "--- blots ---", "08:00 review", "09:00 done" })

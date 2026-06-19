@@ -3,12 +3,12 @@ return function(t)
   local carryover = require("blotter.usecases.carryover")
   local insert_now = require("blotter.usecases.insert_now")
   local log_current = require("blotter.usecases.log_current")
-  local new_worklog = require("blotter.usecases.new_worklog")
-  local order_worklogs = require("blotter.usecases.order_worklogs")
+  local new_blotter = require("blotter.usecases.new_blotter")
+  local order_blotters = require("blotter.usecases.order_blotters")
   local repeat_current = require("blotter.usecases.repeat_current")
 
-  t.test("new_worklog usecase creates the initial header in an empty buffer", function()
-    local result = new_worklog.run({ "" })
+  t.test("new_blotter usecase creates the initial header in an empty buffer", function()
+    local result = new_blotter.run({ "" })
 
     t.eq(result, {
       edits = {
@@ -22,8 +22,8 @@ return function(t)
     })
   end)
 
-  t.test("new_worklog usecase appends a header with defaults", function()
-    local result = new_worklog.run({ "notes" }, {
+  t.test("new_blotter usecase appends a header with defaults", function()
+    local result = new_blotter.run({ "notes" }, {
       tag = "ClientA",
       location = "office",
       quantize_minutes = 30,
@@ -42,8 +42,8 @@ return function(t)
     })
   end)
 
-  t.test("new_worklog usecase reuses a trailing blank line when appending", function()
-    local result = new_worklog.run({ "notes", "" }, {
+  t.test("new_blotter usecase reuses a trailing blank line when appending", function()
+    local result = new_blotter.run({ "notes", "" }, {
       tag = "ClientA",
     })
 
@@ -87,7 +87,7 @@ return function(t)
     }, 1, "25:00")
 
     t.eq(result, nil)
-    t.eq(err, "worklog: invalid current time: invalid time")
+    t.eq(err, "blotter: invalid current time: invalid time")
   end)
 
   t.test("insert_now appends a new blot before trailing blank lines", function()
@@ -375,11 +375,11 @@ return function(t)
     }, 2, "25:00")
 
     t.eq(result, nil)
-    t.eq(err, "worklog: invalid current time: invalid time")
+    t.eq(err, "blotter: invalid current time: invalid time")
   end)
 
   t.test("repeat_current repeats the activity behind a main summary row", function()
-    -- Cursor on the "planning" summary row (line 7) repeats it into the worklog,
+    -- Cursor on the "planning" summary row (line 7) repeats it into the blotter,
     -- exactly as if the cursor were on its source blot. The sticky location has
     -- since moved to @home, so the replay re-emits @office to preserve meaning.
     local result = repeat_current.run({
@@ -471,7 +471,7 @@ return function(t)
     }, 11, "11:30")
 
     t.eq(result, nil)
-    t.eq(err, "worklog: only a main summary row can be repeated")
+    t.eq(err, "blotter: only a main summary row can be repeated")
   end)
 
   t.test("repeat_current refuses a stale summary row", function()
@@ -493,7 +493,7 @@ return function(t)
     }, 8, "11:00")
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
   t.test("carryover.entry_at_row resolves a main summary row to its source blot", function()
@@ -518,8 +518,8 @@ return function(t)
     t.eq(activity.tag, "ClientA")
   end)
 
-  t.test("order_worklogs sorts an unambiguous out-of-order worklog", function()
-    local result = order_worklogs.run({
+  t.test("order_blotters sorts an unambiguous out-of-order blotter", function()
+    local result = order_blotters.run({
       "--- blots #ClientA ---",
       "09:00 review",
       "08:00 setup",
@@ -541,8 +541,8 @@ return function(t)
     })
   end)
 
-  t.test("order_worklogs sorts and warns about order-dependent metadata", function()
-    local result = order_worklogs.run({
+  t.test("order_blotters sorts and warns about order-dependent metadata", function()
+    local result = order_blotters.run({
       "--- blots #ProjectOrion @office ---",
       "08:30 later",
       "08:00 earlier #sales @client",
@@ -565,8 +565,8 @@ return function(t)
     })
   end)
 
-  t.test("order_worklogs sorts, emitting a tag clear, and warns", function()
-    local result = order_worklogs.run({
+  t.test("order_blotters sorts, emitting a tag clear, and warns", function()
+    local result = order_blotters.run({
       "--- blots ---",
       "09:00 done",
       "08:00 plan #sales",
@@ -587,8 +587,8 @@ return function(t)
     })
   end)
 
-  t.test("order_worklogs usecase preserves !L", function()
-    local result = order_worklogs.run({
+  t.test("order_blotters usecase preserves !L", function()
+    local result = order_blotters.run({
       "--- blots #sales ---",
       "09:00 done",
       "08:00 plan !L",
@@ -608,8 +608,8 @@ return function(t)
     })
   end)
 
-  t.test("order_worklogs sorts, emitting a location clear, and warns", function()
-    local result = order_worklogs.run({
+  t.test("order_blotters sorts, emitting a location clear, and warns", function()
+    local result = order_blotters.run({
       "--- blots #sales ---",
       "09:00 done",
       "08:00 plan @client",
@@ -822,7 +822,7 @@ return function(t)
     })
   end)
 
-  t.test("log_current refuses when the cursor is inside the worklog body", function()
+  t.test("log_current refuses when the cursor is inside the blotter body", function()
     local result, err = log_current.run({
       "--- blots ---",
       "08:00 implementation",
@@ -833,7 +833,7 @@ return function(t)
     }, 2)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
   t.test("log_current refuses tag-total rows inside the summary block", function()
@@ -850,7 +850,7 @@ return function(t)
     }, 9)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
   t.test("log_current refuses total rows", function()
@@ -867,7 +867,7 @@ return function(t)
     }, 9)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
   t.test("log_current refuses the summary section header line", function()
@@ -881,7 +881,7 @@ return function(t)
     }, 5)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
   t.test("log_current refuses a main row ambiguous with another summary line", function()
@@ -901,7 +901,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row matches multiple rows; regenerate the summary")
+    t.eq(err, "blotter: summary row matches multiple rows; regenerate the summary")
   end)
 
   t.test("log_current unmarks an already logged summary row", function()
@@ -947,7 +947,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: refusing to mark out-of-office time as logged")
+    t.eq(err, "blotter: refusing to mark out-of-office time as logged")
   end)
 
   t.test("log_current refuses stale summary rows that no longer match the source", function()
@@ -961,10 +961,10 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
-  t.test("log_current refuses when the active worklog has diagnostics", function()
+  t.test("log_current refuses when the active blotter has diagnostics", function()
     local result, err = log_current.run({
       "--- blots ---",
       "09:00 done",
@@ -975,16 +975,16 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder")
+    t.eq(err, "blotter: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder")
   end)
 
   t.test(
-    "log_current refuses summary blocks owned by a non-active worklog even when content would match",
+    "log_current refuses summary blocks owned by a non-active blotter even when content would match",
     function()
-      -- The cursor row's text matches what the active worklog's recomputed
+      -- The cursor row's text matches what the active blotter's recomputed
       -- summary would render, so the content match alone could not save us;
       -- only the ownership check (block.start_row < active.start_row) keeps
-      -- the plugin from logging row 9 in the active worklog.
+      -- the plugin from logging row 9 in the active blotter.
       local result, err = log_current.run({
         "--- blots ---",
         "08:00 implementation",
@@ -999,7 +999,7 @@ return function(t)
       }, 6)
 
       t.eq(result, nil)
-      t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+      t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
     end
   )
 
@@ -1014,13 +1014,13 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
-  t.test("log_current refuses labeled summary-like headers after the active worklog", function()
+  t.test("log_current refuses labeled summary-like headers after the active blotter", function()
     -- Headers like `--- summary exact 2026-W21 ---` are produced for weekly
     -- and range reports in scratch buffers; if pasted into source they must
-    -- not be treated as the active worklog's summary section.
+    -- not be treated as the active blotter's summary section.
     local result, err = log_current.run({
       "--- blots ---",
       "08:00 implementation",
@@ -1031,11 +1031,11 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: summary row does not match the active worklog; regenerate the summary")
+    t.eq(err, "blotter: summary row does not match the active blotter; regenerate the summary")
   end)
 
   t.test(
-    "log_current refuses summary-shaped block headers placed before the active worklog",
+    "log_current refuses summary-shaped block headers placed before the active blotter",
     function()
       local result, err = log_current.run({
         "--- summary q=15 d=dec ---",
@@ -1047,13 +1047,13 @@ return function(t)
       }, 2)
 
       -- The leading block is rejected by the structural parser because the
-      -- first line is not a worklog header. This proves :BlotLog cannot be
-      -- coerced into logging the active worklog through a pre-active "summary"
+      -- first line is not a blotter header. This proves :BlotLog cannot be
+      -- coerced into logging the active blotter through a pre-active "summary"
       -- block.
       t.eq(result, nil)
       t.eq(
         err,
-        "worklog: first line must be a worklog header such as "
+        "blotter: first line must be a blotter header such as "
           .. "--- blots --- or --- blots #ClientA @office q=30 ---"
       )
     end
@@ -1338,8 +1338,8 @@ return function(t)
     })
   end)
 
-  t.test("new_worklog usecase stamps a base utc offset from defaults", function()
-    local result = new_worklog.run({ "" }, { utc = 120 })
+  t.test("new_blotter usecase stamps a base utc offset from defaults", function()
+    local result = new_blotter.run({ "" }, { utc = 120 })
     t.eq(result.edits[1].lines, { "--- blots utc+2 ---" })
   end)
 
@@ -1393,7 +1393,7 @@ return function(t)
     })
     t.eq(activity.offset, -240)
 
-    -- Seeded into a fresh next-day worklog with no base, the carried offset re-emits.
+    -- Seeded into a fresh next-day blotter with no base, the carried offset re-emits.
     local result = carryover.seed_edit({ "--- blots ---" }, activity, 0)
     t.eq(result, {
       edits = {

@@ -1,8 +1,8 @@
 return function(t)
   local refresh_summaries = require("blotter.usecases.refresh_summaries")
 
-  t.test("refresh regenerates a hand-edited summary header from the worklog params", function()
-    -- The worklog header is the single source of truth; the summary banner is
+  t.test("refresh regenerates a hand-edited summary header from the blotter params", function()
+    -- The blotter header is the single source of truth; the summary banner is
     -- read-only display, so an edited q=/d= is overwritten on the next refresh.
     local result = refresh_summaries.run({
       "--- blots q=30 ---",
@@ -48,7 +48,7 @@ return function(t)
     })
   end)
 
-  t.test("refresh collapses a stale summary when the worklog shrinks to empty", function()
+  t.test("refresh collapses a stale summary when the blotter shrinks to empty", function()
     -- Removing the only completed interval leaves one blot (no intervals), so the
     -- fresh summary is empty. The large stale summary is still located
     -- (structurally) and replaced in place, instead of a second summary being added.
@@ -211,8 +211,8 @@ return function(t)
     })
   end)
 
-  t.test("refresh of a grown summary keeps the worklog blots", function()
-    -- A fresh worklog's empty summary, after a same-time :BlotInsert added a second
+  t.test("refresh of a grown summary keeps the blots", function()
+    -- A fresh blotter's empty summary, after a same-time :BlotInsert added a second
     -- blot, must be replaced in place -- not swallow the blots above it. The edit
     -- starts at the old summary (index 4), leaving the two blots untouched.
     local result = refresh_summaries.run({
@@ -248,7 +248,7 @@ return function(t)
   end)
 
   t.test("refresh restores a deleted summary row without eating an blot", function()
-    -- Deleting a summary row is undone in place; the worklog's blots (here the final
+    -- Deleting a summary row is undone in place; the blotter's blots (here the final
     -- 21:00 close) are never drawn into the rewrite -- the window starts after them.
     local result = refresh_summaries.run({
       "--- blots #sometag @location q=15 d=dec ---",
@@ -368,7 +368,7 @@ return function(t)
     t.eq(result, { edits = {}, warnings = {} })
   end)
 
-  t.test("refresh updates only the changed worklog among several", function()
+  t.test("refresh updates only the changed blotter among several", function()
     local result = refresh_summaries.run({
       "--- blots ---",
       "08:00 a",
@@ -440,7 +440,7 @@ return function(t)
     })
   end)
 
-  t.test("refresh creates a summary for a worklog that has none", function()
+  t.test("refresh creates a summary for a blotter that has none", function()
     local result = refresh_summaries.run({
       "--- blots ---",
       "08:00 plan",
@@ -468,7 +468,7 @@ return function(t)
     })
   end)
 
-  t.test("refresh creates a summary for a non-last worklog in the right place", function()
+  t.test("refresh creates a summary for a non-last blotter in the right place", function()
     local result = refresh_summaries.run({
       "--- blots ---",
       "08:00 a",
@@ -485,8 +485,8 @@ return function(t)
       "1.00h (+0m) workday",
     })
 
-    -- The first worklog's summary lands after its last blot (row 3); the blank
-    -- before the second worklog stays as the separator. The second worklog's
+    -- The first blotter's summary lands after its last blot (row 3); the blank
+    -- before the second blotter stays as the separator. The second blotter's
     -- summary is already current, so it is left untouched.
     t.eq(result, {
       warnings = {},
@@ -507,7 +507,7 @@ return function(t)
     })
   end)
 
-  t.test("refresh warns instead of churning an invalid worklog with a summary", function()
+  t.test("refresh warns instead of churning an invalid blotter with a summary", function()
     local result = refresh_summaries.run({
       "--- blots ---",
       "09:00 later",
@@ -526,13 +526,13 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
+          message = "blotter: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
         },
       },
     })
   end)
 
-  t.test("refresh warns about an invalid worklog even with no summary", function()
+  t.test("refresh warns about an invalid blotter even with no summary", function()
     local result = refresh_summaries.run({
       "--- blots ---",
       "09:00 later",
@@ -545,13 +545,13 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
+          message = "blotter: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
         },
       },
     })
   end)
 
-  t.test("refresh warns about timestamps with no worklog header at all", function()
+  t.test("refresh warns about timestamps with no blotter header at all", function()
     local result = refresh_summaries.run({
       "08:00 a",
       "07:00 b",
@@ -562,7 +562,7 @@ return function(t)
       warnings = {
         {
           row = 1,
-          message = "worklog: no worklog block found; first line must be a worklog header "
+          message = "blotter: no blotter block found; first line must be a blotter header "
             .. "such as --- blots --- or --- blots #ClientA @office q=30 ---",
         },
       },
@@ -591,12 +591,12 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "worklog: first line must be a worklog header such as --- blots --- or "
+          message = "blotter: first line must be a blotter header such as --- blots --- or "
             .. "--- blots #ClientA @office q=30 ---",
         },
         {
           row = 3,
-          message = "worklog: unordered timestamps near lines 3 and 4; fix manually or run :BlotterOrder",
+          message = "blotter: unordered timestamps near lines 3 and 4; fix manually or run :BlotterOrder",
         },
       },
     })

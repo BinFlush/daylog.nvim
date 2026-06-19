@@ -7,12 +7,12 @@ local text = require("blotter.text")
 
 local M = {}
 
-local function strip_worklog_prefix(message)
-  return message:match("^worklog:%s*(.*)$") or message
+local function strip_blotter_prefix(message)
+  return message:match("^blotter:%s*(.*)$") or message
 end
 
 local function prefixed_file_error(path, message)
-  return string.format("worklog: %s: %s", path, strip_worklog_prefix(message))
+  return string.format("blotter: %s: %s", path, strip_blotter_prefix(message))
 end
 
 local function analyze_day(day)
@@ -26,20 +26,20 @@ local function analyze_day(day)
     return nil, prefixed_file_error(day.path, diagnostics.message(analysis.diagnostics[1]))
   end
 
-  -- A non-empty day with no worklog and no timestamped blots (e.g. a "day off"
+  -- A non-empty day with no blotter and no timestamped blots (e.g. a "day off"
   -- note) is skipped like an empty day instead of aborting the whole report.
-  if #analysis.worklog_blocks == 0 and not diagnostics.has_blot_node(analysis.document) then
+  if #analysis.blotter_blocks == 0 and not diagnostics.has_blot_node(analysis.document) then
     return nil, nil
   end
 
-  local err = diagnostics.structural_or_missing_worklog_error(analysis)
+  local err = diagnostics.structural_or_missing_blotter_error(analysis)
   if err then
     return nil, prefixed_file_error(day.path, err)
   end
 
   -- Expose the day's own quantization bucket so the multi-day report can label
   -- each day section with its `q=`.
-  local block = analyze.get_active_worklog(analysis)
+  local block = analyze.get_active_blotter(analysis)
 
   return {
     date_label = day.date_label,
@@ -69,7 +69,7 @@ function M.build_report(days)
   end
 
   if #report.days == 0 then
-    return nil, "worklog: no journal worklogs found"
+    return nil, "blotter: no journal blotters found"
   end
 
   report.summary = summary.combine_summaries(day_summaries)

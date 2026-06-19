@@ -16,7 +16,7 @@ local M = {}
 -- what a token is; this file only decides which highlight group each token gets.
 --
 -- A span is { line, col_start, col_end, group, priority }: 0-based byte columns,
--- end exclusive, matching the extmark API. Whole-line "base" spans (a worklog
+-- end exclusive, matching the extmark API. Whole-line "base" spans (a blotter
 -- header, a block header, a note) use a lower priority than the narrower token
 -- spans layered over them, so e.g. a #tag inside a header wins at its own cells.
 
@@ -30,19 +30,19 @@ local M = {}
 -- free notes, and block headers -- stays muted. All are default links, so a user's
 -- own `:highlight` overrides still win.
 M.GROUPS = {
-  WorklogHeader = "Title",
-  WorklogBlockHeader = "NonText",
-  WorklogTimestamp = "Statement",
-  WorklogTag = "Identifier",
-  WorklogOoo = "WarningMsg",
-  WorklogLocation = "Function",
+  BlotterHeader = "Title",
+  BlotterBlockHeader = "NonText",
+  BlotterTimestamp = "Statement",
+  BlotterTag = "Identifier",
+  BlotterOoo = "WarningMsg",
+  BlotterLocation = "Function",
   BlotLogged = "Special",
-  WorklogDuration = "Special",
-  WorklogQuantError = "Comment",
-  WorklogOption = "PreProc",
-  WorklogOffset = "Type",
-  WorklogNudge = "Constant",
-  WorklogNote = "Comment",
+  BlotterDuration = "Special",
+  BlotterQuantError = "Comment",
+  BlotterOption = "PreProc",
+  BlotterOffset = "Type",
+  BlotterNudge = "Constant",
+  BlotterNote = "Comment",
 }
 
 local BASE_PRIORITY = 100
@@ -51,16 +51,16 @@ local TOKEN_PRIORITY = 110
 -- The timestamp is always a zero-padded HH:MM (5 bytes); 24:00 included.
 local TIMESTAMP_WIDTH = 5
 
--- Header-token diagnostics that make a worklog header invalid (so it renders as a
+-- Header-token diagnostics that make a blotter header invalid (so it renders as a
 -- plain block header with no token highlighting), as opposed to INVALID_FIRST_HEADER,
 -- which is about document position, not the header line's own validity.
 local HEADER_TOKEN_DIAGNOSTICS = {
-  [syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_OPTION] = true,
-  [syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_METADATA] = true,
-  [syntax.DIAGNOSTIC.INVALID_WORKLOG_HEADER_TOKEN] = true,
+  [syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_OPTION] = true,
+  [syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_METADATA] = true,
+  [syntax.DIAGNOSTIC.INVALID_BLOTTER_HEADER_TOKEN] = true,
 }
 
--- The worklog header rows the analyzer flagged for bad tokens (so the highlighter
+-- The blotter header rows the analyzer flagged for bad tokens (so the highlighter
 -- demotes them to a block header).
 local function invalid_header_rows(analysis)
   local rows = {}
@@ -102,15 +102,15 @@ local function control_group(token)
   local kind, value = document.classify_control_token(token)
   if kind == syntax.TOKEN_KIND.TAG then
     if value == syntax.OUT_OF_OFFICE_TAG then
-      return "WorklogOoo"
+      return "BlotterOoo"
     end
-    return "WorklogTag"
+    return "BlotterTag"
   elseif kind == syntax.TOKEN_KIND.LOCATION then
-    return "WorklogLocation"
+    return "BlotterLocation"
   elseif kind == syntax.TOKEN_KIND.OFFSET then
-    return "WorklogOffset"
+    return "BlotterOffset"
   elseif kind == syntax.TOKEN_KIND.NUDGE then
-    return "WorklogNudge"
+    return "BlotterNudge"
   elseif kind == syntax.TOKEN_KIND.LOGGED then
     return "BlotLogged"
   end
@@ -158,7 +158,7 @@ end
 -- Every (+Nm) / (-Nm) rounding marker on the line.
 local function push_quant_errors(spans, row, line)
   for _, span in ipairs(document.quant_error_spans(line)) do
-    push(spans, row, span.col_start, span.col_end, "WorklogQuantError", TOKEN_PRIORITY)
+    push(spans, row, span.col_start, span.col_end, "BlotterQuantError", TOKEN_PRIORITY)
   end
 end
 
@@ -166,10 +166,10 @@ end
 -- trailing #tag / @location the row still carries. The leading field is an blot's
 -- timestamp (a `16:00 ...` row that carried no marker) or a rendered duration token.
 local function push_summary_row(spans, row, line, kind)
-  local duration = kind == syntax.NODE_KIND.ENTRY and TIMESTAMP_WIDTH
+  local duration = kind == syntax.NODE_KIND.BLOT and TIMESTAMP_WIDTH
     or document.summary_duration_length(line)
   if duration then
-    push(spans, row, 0, duration, "WorklogDuration", TOKEN_PRIORITY)
+    push(spans, row, 0, duration, "BlotterDuration", TOKEN_PRIORITY)
   end
   push_quant_errors(spans, row, line)
   push_trailing_metadata(spans, row, line)
@@ -181,16 +181,16 @@ end
 -- note, never as a summary item, and a comment can't masquerade as one. Summary
 -- rows are highlighted only inside a section (see push_summary_row).
 local function push_note(spans, row, line)
-  push(spans, row, 0, #line, "WorklogNote", BASE_PRIORITY)
+  push(spans, row, 0, #line, "BlotterNote", BASE_PRIORITY)
 end
 
-local function push_worklog_header(spans, row, line)
-  push(spans, row, 0, #line, "WorklogHeader", BASE_PRIORITY)
+local function push_blotter_header(spans, row, line)
+  push(spans, row, 0, #line, "BlotterHeader", BASE_PRIORITY)
 
   for _, token in ipairs(document.tokens(line)) do
     local group = control_group(token.text)
     if not group and document.is_option_token(token.text) then
-      group = "WorklogOption"
+      group = "BlotterOption"
     end
     if group then
       push(spans, row, token.col_start, token.col_end, group, TOKEN_PRIORITY)
@@ -198,7 +198,7 @@ local function push_worklog_header(spans, row, line)
   end
 end
 
--- Compute the highlight spans for a worklog buffer's lines.
+-- Compute the highlight spans for a blotter buffer's lines.
 function M.spans(lines)
   local parsed = document.parse(lines)
   local analysis = analyze.analyze(parsed)
@@ -211,17 +211,17 @@ function M.spans(lines)
       local index = row - 1
       local kind = parsed.nodes[row].kind
 
-      if kind == syntax.NODE_KIND.WORKLOG_HEADER and not invalid_headers[row] then
-        push_worklog_header(spans, index, line)
-      elseif kind == syntax.NODE_KIND.WORKLOG_HEADER or kind == syntax.NODE_KIND.BLOCK_HEADER then
-        push(spans, index, 0, #line, "WorklogBlockHeader", BASE_PRIORITY)
+      if kind == syntax.NODE_KIND.BLOTTER_HEADER and not invalid_headers[row] then
+        push_blotter_header(spans, index, line)
+      elseif kind == syntax.NODE_KIND.BLOTTER_HEADER or kind == syntax.NODE_KIND.BLOCK_HEADER then
+        push(spans, index, 0, #line, "BlotterBlockHeader", BASE_PRIORITY)
       elseif in_summary[row] then
         push_summary_row(spans, index, line, kind)
-      elseif kind == syntax.NODE_KIND.ENTRY then
-        push(spans, index, 0, TIMESTAMP_WIDTH, "WorklogTimestamp", TOKEN_PRIORITY)
+      elseif kind == syntax.NODE_KIND.BLOT then
+        push(spans, index, 0, TIMESTAMP_WIDTH, "BlotterTimestamp", TOKEN_PRIORITY)
         push_trailing_metadata(spans, index, line)
       else
-        -- A NOTE_LINE, or an INVALID_ENTRY whose time the parser rejected (so it is
+        -- A NOTE_LINE, or an INVALID_BLOT whose time the parser rejected (so it is
         -- not a timestamp): a free note. A summary-shaped line outside a summary
         -- section is a note, not a summary row.
         push_note(spans, index, line)

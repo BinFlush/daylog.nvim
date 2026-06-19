@@ -7,7 +7,7 @@ return function(t)
   -- a plain blot whose trailing tokens did NOT become metadata.
   local function parses_clean(text)
     local node = document.parse_line("08:00 " .. text)
-    return node.kind == syntax.NODE_KIND.ENTRY
+    return node.kind == syntax.NODE_KIND.BLOT
       and node.explicit_tag == nil
       and node.explicit_tag_clear == nil
       and node.explicit_location == nil

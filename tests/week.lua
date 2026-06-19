@@ -262,11 +262,11 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "worklog: /tmp/2026-05-18.blot: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder"
+      "blotter: /tmp/2026-05-18.blot: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder"
     )
   end)
 
-  t.test("build_report skips a prose-only day with no worklog", function()
+  t.test("build_report skips a prose-only day with no blotter", function()
     local report = week.build_report({
       {
         date_label = "2026-05-18",
@@ -289,7 +289,7 @@ return function(t)
     t.eq(report.summary.workday_total, 60)
   end)
 
-  t.test("build_report aborts on timestamped blots with no worklog header", function()
+  t.test("build_report aborts on timestamped blots with no blotter header", function()
     local report, err = week.build_report({
       {
         date_label = "2026-05-18",
@@ -304,8 +304,8 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "worklog: /tmp/2026-05-18.blot: no worklog block found; first line must be a "
-        .. "worklog header such as --- blots --- or --- blots #ClientA @office q=30 ---"
+      "blotter: /tmp/2026-05-18.blot: no blotter block found; first line must be a "
+        .. "blotter header such as --- blots --- or --- blots #ClientA @office q=30 ---"
     )
   end)
 
@@ -313,7 +313,7 @@ return function(t)
     local report, err = week.build_report({})
 
     t.eq(report, nil)
-    t.eq(err, "worklog: no journal worklogs found")
+    t.eq(err, "blotter: no journal blotters found")
   end)
 
   t.test("build_week_report derives monday to sunday journal paths and label", function()

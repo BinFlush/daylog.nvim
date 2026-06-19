@@ -10,7 +10,7 @@ local M = {}
 -- Quantization rounds durations to the block's q= bucket by largest remainder, so
 -- residuals can leave an aggregate (a day, hence a week) one or more q-steps off a
 -- clean total. This use case lets the cursor on a summary row -- or directly on a
--- worklog blot -- shift the rounding by N q-steps. With the cursor on a summary
+-- blot -- shift the rounding by N q-steps. With the cursor on a summary
 -- row the optimality calculator finds the best contributing fine-grained row(s) to
 -- nudge (least added error); on an blot it nudges that blot's row. A fine-grained
 -- row is summed from its intervals before quantizing, so its nudge is one value the
@@ -23,10 +23,9 @@ local M = {}
 -- A delta of 0 clears the cursor target's nudge: on a summary row it removes every
 -- marker contributing to that row's scope; on an blot it removes that blot's marker.
 
-M.NOT_BALANCEABLE =
-  "worklog: put the cursor on a summary row or a worklog blot to balance its rounding"
-M.CANNOT_DOWN = "worklog: cannot round down further here; the contributing items are already empty"
-M.NOTHING = "worklog: nothing to balance on this line"
+M.NOT_BALANCEABLE = "blotter: put the cursor on a summary row or a blot to balance its rounding"
+M.CANNOT_DOWN = "blotter: cannot round down further here; the contributing items are already empty"
+M.NOTHING = "blotter: nothing to balance on this line"
 
 -- The set of fine-grained rows a cursor line governs. A main row scopes its own
 -- (text, tag) across locations; tag/location/logged totals scope that group; the
@@ -199,7 +198,7 @@ local function summary_blot_changes(block, layout_row, delta)
   return blot_changes_for_rows(rows, row_changes, current_blot_nudge)
 end
 
--- The per-blot nudge changes for a cursor directly on a worklog blot: nudge the
+-- The per-blot nudge changes for a cursor directly on a blot: nudge the
 -- fine-grained row that blot belongs to, setting every interval of that row to the
 -- new value. Returns nil when the cursor blot starts no interval (e.g. the closing
 -- blot of the day), which therefore contributes to no row and cannot be rounded.
@@ -296,7 +295,7 @@ function M.run(lines, cursor_row, delta)
     return nil, resolve_err
   end
 
-  -- The cursor is not on the active worklog's summary; try a worklog blot directly.
+  -- The cursor is not on the active blotter's summary; try a blot directly.
   local ctx, ctx_err = support.get_validated_active(lines)
   if not ctx then
     return nil, ctx_err or M.NOT_BALANCEABLE

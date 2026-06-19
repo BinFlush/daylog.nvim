@@ -3,7 +3,7 @@ local support = require("blotter.usecases.support")
 local M = {}
 
 -- Build the edit script for inserting a fresh timestamped line into the
--- worklog containing the cursor.
+-- blotter containing the cursor.
 
 function M.run(lines, row, time)
   local ctx, err = support.get_validated_at_row(lines, row)

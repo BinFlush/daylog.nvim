@@ -1,5 +1,5 @@
 local journal = require("blotter.journal")
-local worklog = require("blotter")
+local blotter = require("blotter")
 
 local M = {}
 
@@ -52,11 +52,11 @@ function M.with_mocked_confirm(choice, fn)
   end
 end
 
-function M.with_worklog_setup(options, fn)
-  worklog.setup(options)
+function M.with_blotter_setup(options, fn)
+  blotter.setup(options)
 
   local ok, err = xpcall(fn, debug.traceback)
-  worklog.setup()
+  blotter.setup()
 
   if not ok then
     error(err, 0)
@@ -128,8 +128,8 @@ function M.with_temp_home_root(fn)
   end
 end
 
-function M.setup_worklog()
-  worklog.setup()
+function M.setup_blotter()
+  blotter.setup()
 end
 
 return M

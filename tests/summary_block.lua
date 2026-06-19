@@ -20,7 +20,7 @@ return function(t)
 
   local function locate(lines)
     local analysis = analyze_lines(lines)
-    local block = analyze.get_active_worklog(analysis)
+    local block = analyze.get_active_blotter(analysis)
     return summary_block.find(analysis, block, expected_for(block))
   end
 
@@ -71,8 +71,8 @@ return function(t)
     t.eq(fit_align({ "a" }, {}), nil)
   end)
 
-  t.test("fit_align does not let blank matches pull the span over the worklog body", function()
-    -- Regression: a fresh worklog's small summary growing after a same-time insert. An
+  t.test("fit_align does not let blank matches pull the span over the blotter body", function()
+    -- Regression: a fresh blotter's small summary growing after a same-time insert. An
     -- blot-swallowing span must not tie the real summary by matching extra blank lines,
     -- so the span starts at the old summary header (4), not the blot (1).
     local expected = {
@@ -216,7 +216,7 @@ return function(t)
     )
   end)
 
-  t.test("summary_block locates a summary when the worklog has no completed interval", function()
+  t.test("summary_block locates a summary when the blotter has no completed interval", function()
     -- One blot -> no intervals -> an empty fresh summary that alignment cannot
     -- anchor; structural recognition still locates the stale summary to rewrite, so
     -- a refresh replaces it instead of stacking a second summary below it.
@@ -351,7 +351,7 @@ return function(t)
     )
   end)
 
-  t.test("summary_block bounds a region to its worklog and ignores others", function()
+  t.test("summary_block bounds a region to its blotter and ignores others", function()
     local analysis = analyze_lines({
       "--- blots ---",
       "08:00 plan",
@@ -367,7 +367,7 @@ return function(t)
       "10:00 tea",
       "11:00 done",
     })
-    local first, second = analysis.worklog_blocks[1], analysis.worklog_blocks[2]
+    local first, second = analysis.blotter_blocks[1], analysis.blotter_blocks[2]
     t.eq(summary_block.find(analysis, first, expected_for(first)), { start_row = 5, end_row = 10 })
     t.eq(summary_block.find(analysis, second, expected_for(second)), nil)
   end)
