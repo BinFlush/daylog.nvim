@@ -4,7 +4,7 @@ local M = {}
 
 -- Resolve a cursor on a multi-day report to a rename target (PURE).
 --
--- The :WorklogWeek / :WorklogDays report is a read-only projection of several days'
+-- The :BlotterWeek / :BlotterDays report is a read-only projection of several days'
 -- summaries. Like the in-file summary, each rendered row is only a selector: it
 -- points back at a recomputed summary item. This module maps a 1-based cursor row of
 -- the flat report layout (render.week_report_layout / days_report_layout) to which

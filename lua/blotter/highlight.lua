@@ -36,7 +36,7 @@ M.GROUPS = {
   WorklogTag = "Identifier",
   WorklogOoo = "WarningMsg",
   WorklogLocation = "Function",
-  WorklogLogged = "Special",
+  BlotLogged = "Special",
   WorklogDuration = "Special",
   WorklogQuantError = "Comment",
   WorklogOption = "PreProc",
@@ -112,7 +112,7 @@ local function control_group(token)
   elseif kind == syntax.TOKEN_KIND.NUDGE then
     return "WorklogNudge"
   elseif kind == syntax.TOKEN_KIND.LOGGED then
-    return "WorklogLogged"
+    return "BlotLogged"
   end
   return nil
 end

@@ -559,7 +559,7 @@ end
 -- originating command at the current time. Returns true when it took over the
 -- request (carried over, declined, or intentionally refused), false when this is
 -- not a carryover situation -- leaving guard_current_time to fall back to the
--- cross-day repeat (:WorklogRepeat) or to hard-block (:WorklogInsert).
+-- cross-day repeat (:BlotRepeat) or to hard-block (:BlotInsert).
 local function run_carryover(settings, command, now)
   local lines = buffer_lines()
 
@@ -580,17 +580,17 @@ local function run_carryover(settings, command, now)
   end
 
   -- A today that already holds content has no room for a fresh 00:00 carry-over.
-  -- For :WorklogRepeat, decline (return false) so guard_current_time falls through
+  -- For :BlotRepeat, decline (return false) so guard_current_time falls through
   -- to the normal cross-day repeat, inserting the cursor activity into the existing
   -- today -- exactly as repeating from any other day does. There is nothing to
-  -- carry for :WorklogInsert, so it still points the user at :WorklogToday.
+  -- carry for :BlotInsert, so it still points the user at :BlotterToday.
   local today_path = journal.path_for_date(settings, now)
   if journal_path_has_content(today_path) then
     if command == "repeat" then
       return false
     end
 
-    warn("worklog: today's worklog already exists; open it with :WorklogToday")
+    warn("worklog: today's worklog already exists; open it with :BlotterToday")
     return true
   end
 
@@ -644,7 +644,7 @@ local function run_carryover(settings, command, now)
 end
 
 -- Bring the activity under the cursor into today's worklog at the current time,
--- used when :WorklogRepeat runs on another day's file. The browsed day is left
+-- used when :BlotRepeat runs on another day's file. The browsed day is left
 -- untouched; today is opened (created if needed) and the window switches to it.
 local function run_cross_day_repeat(settings, now)
   -- Capture the activity before open_journal_file switches the buffer away.
@@ -720,8 +720,8 @@ local function guard_current_time(command)
     return true
   end
 
-  -- :WorklogRepeat on any other day brings the cursor activity into today instead
-  -- of refusing; :WorklogInsert still refuses (there is no activity to carry).
+  -- :BlotRepeat on any other day brings the cursor activity into today instead
+  -- of refusing; :BlotInsert still refuses (there is no activity to carry).
   if command == "repeat" then
     run_cross_day_repeat(settings, now)
     return true
@@ -752,7 +752,7 @@ end
 -- current time. Offline-first: reads the source's local cache and opens
 -- vim.ui.select (Telescope/fzf/snacks take over if installed). On pick the
 -- configured "{id} {title}" template is inserted; cancelling falls back to a bare
--- timestamp, exactly like :WorklogInsert with no argument.
+-- timestamp, exactly like :BlotInsert with no argument.
 function M.insert_from_source(name)
   if guard_current_time("insert") then
     return
@@ -765,7 +765,7 @@ function M.insert_from_source(name)
   end
 
   -- Refuse a cursor outside a worklog now, before opening the async picker
-  -- (cache read, optional network, a UI round trip), exactly as :WorklogInsert
+  -- (cache read, optional network, a UI round trip), exactly as :BlotInsert
   -- with no argument refuses up front. insert_entry re-validates at apply time
   -- too, since the buffer can change under the picker -- this is the fail-fast.
   local cursor_ctx, cursor_err = support.get_validated_at_row(buffer_lines(), cursor_row())
@@ -799,7 +799,7 @@ function M.insert_from_source(name)
     -- With Telescope and a searchable source, type-as-you-search across the whole
     -- tracker (cached items show at an empty prompt). Otherwise the offline cache
     -- via vim.ui.select. Both insert through insert_choice; cancelling leaves a
-    -- bare timestamp, like a plain :WorklogInsert.
+    -- bare timestamp, like a plain :BlotInsert.
     if has_telescope and source.search then
       require("blotter.telescope").live_pick(source, {
         initial_items = items,
@@ -891,7 +891,7 @@ local rename_from_report
 -- `source_name`, when given, replaces an activity with a work item from that
 -- source: the picker also lists (and live-searches) the source's items, and a
 -- chosen item renames the activity to its `to_entry_text` (sanitized), exactly like
--- :WorklogInsert. A source only applies to an activity row, and with one source
+-- :BlotInsert. A source only applies to an activity row, and with one source
 -- configured it is offered automatically.
 function M.rename_summary(new_value, source_name)
   -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
@@ -1049,7 +1049,7 @@ function M.rename_summary(new_value, source_name)
   end
 
   -- Source items load from the (offline) cache before opening, refreshing in the
-  -- background when stale -- the same offline-first path as :WorklogInsert.
+  -- background when stale -- the same offline-first path as :BlotInsert.
   if source then
     local ttl = ((config.get().sources or {})[src_name] or {}).ttl or 1800
     sources_sync.ensure_fresh(src_name, ttl, function(items)
@@ -1091,7 +1091,7 @@ function M.balance(arg)
   if arg ~= nil and arg ~= "" then
     delta = tonumber(arg)
     if delta == nil or delta ~= math.floor(delta) then
-      warn("worklog: WorklogBalance expects an integer step count, e.g. +1, -2, or 0 to clear")
+      warn("worklog: BlotBalance expects an integer step count, e.g. +1, -2, or 0 to clear")
       return
     end
   end
@@ -1152,7 +1152,7 @@ end
 -- the current buffer's day, skipping days that have no worklog. The anchor falls
 -- back to today when the buffer is not a canonical journal file. Pure navigation:
 -- it never inserts the current time, even when it lands on today, and it never
--- creates a file (use :WorklogInit to start an arbitrary day). When no worklog
+-- creates a file (use :BlotterInit to start an arbitrary day). When no worklog
 -- exists in that direction it warns and stays put.
 function M.open_relative_day(step)
   local settings = expanded_journal_settings()
@@ -1183,7 +1183,7 @@ function M.open_relative_day(step)
 end
 
 -- Create (or open) the journal file `offset` days from today, scaffolding the
--- directory, file, and default header when it is empty. Unlike :WorklogToday it
+-- directory, file, and default header when it is empty. Unlike :BlotterToday it
 -- never stamps the current time, so it is the way to start an arbitrary past or
 -- future day -- the day-navigation commands deliberately only land on days that
 -- already have a worklog.
@@ -1544,7 +1544,7 @@ function M.open_days(count, aggregate_only)
 end
 
 -- Wire the autocmds that drive automatic summary refresh for the configured
--- mode. `off` installs nothing (manual :WorklogRefresh still works) but still
+-- mode. `off` installs nothing (manual :BlotterRefresh still works) but still
 -- clears any autocmds a previous setup() left behind.
 local function setup_auto_summary(mode)
   local group = vim.api.nvim_create_augroup("WorklogAutoSummary", { clear = true })
@@ -1652,7 +1652,7 @@ function M.setup(options)
   filetype.register()
   instantiate_sources()
 
-  ensure_user_command("WorklogInsert", function(args)
+  ensure_user_command("BlotInsert", function(args)
     local name = args.fargs[1]
     if not name then
       M.insert_now()
@@ -1667,20 +1667,20 @@ function M.setup(options)
     end,
   })
 
-  register_parsed_command("WorklogToday", parse_day_offset, M.open_today)
-  register_parsed_command("WorklogInit", parse_day_offset, M.init_day)
-  register_parsed_command("WorklogNextDay", parse_step_count, M.open_relative_day)
-  register_parsed_command("WorklogPrevDay", parse_step_count, function(count)
+  register_parsed_command("BlotterToday", parse_day_offset, M.open_today)
+  register_parsed_command("BlotterInit", parse_day_offset, M.init_day)
+  register_parsed_command("BlotterNextDay", parse_step_count, M.open_relative_day)
+  register_parsed_command("BlotterPrevDay", parse_step_count, function(count)
     M.open_relative_day(-count)
   end)
 
-  ensure_user_command("WorklogWeek", function(args)
+  ensure_user_command("BlotterWeek", function(args)
     M.open_week(args.bang)
   end, {
     bang = true,
   })
 
-  ensure_user_command("WorklogDays", function(args)
+  ensure_user_command("BlotterDays", function(args)
     local count, err = parse_positive_integer(args.args)
     if not count then
       warn(err)
@@ -1693,14 +1693,14 @@ function M.setup(options)
     nargs = 1,
   })
 
-  ensure_user_command("WorklogRepeat", function()
+  ensure_user_command("BlotRepeat", function()
     M.repeat_current()
   end)
 
   -- A lone argument that names a configured source opens the picker against that
   -- source (to replace an activity with a work item); any other argument is the new
   -- value to rename to directly; no argument opens the picker.
-  ensure_user_command("WorklogRename", function(args)
+  ensure_user_command("BlotRename", function(args)
     local arg = args.args
     if arg ~= "" and sources_registry.get(arg) then
       M.rename_summary(nil, arg)
@@ -1714,29 +1714,29 @@ function M.setup(options)
     complete = source_complete,
   })
 
-  ensure_user_command("WorklogOrder", function()
+  ensure_user_command("BlotterOrder", function()
     M.order_worklogs()
   end)
 
-  ensure_user_command("WorklogCopy", function()
+  ensure_user_command("BlotterCopy", function()
     M.append_copy()
   end)
 
-  ensure_user_command("WorklogLog", function()
+  ensure_user_command("BlotLog", function()
     M.log_current()
   end)
 
-  ensure_user_command("WorklogBalance", function(args)
+  ensure_user_command("BlotBalance", function(args)
     M.balance(args.args)
   end, {
     nargs = "?",
   })
 
-  ensure_user_command("WorklogRefresh", function()
+  ensure_user_command("BlotterRefresh", function()
     M.refresh()
   end)
 
-  ensure_user_command("WorklogSync", function(args)
+  ensure_user_command("BlotterSync", function(args)
     M.sync_source(args.fargs[1])
   end, {
     nargs = "?",

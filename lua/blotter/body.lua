@@ -108,7 +108,7 @@ local function rebuild_lines(
 end
 
 -- Order by effective UTC time, then by original index to break ties stably. Both
--- :WorklogOrder's reorder and its change-warning sort through this one rule, so a
+-- :BlotterOrder's reorder and its change-warning sort through this one rule, so a
 -- divergence can't make the warning describe a different order than the rewrite.
 local function less_by_effective_time(a_eff, a_index, b_eff, b_index)
   if a_eff == b_eff then
@@ -131,7 +131,7 @@ local function sorted_items(items)
     table.insert(result, clone_item(item, item.row, item.index, lines))
   end
 
-  -- Sort by effective UTC time so :WorklogOrder agrees with the effective
+  -- Sort by effective UTC time so :BlotterOrder agrees with the effective
   -- unordered-timestamps check; without offsets this is the raw-minute order.
   table.sort(result, function(a, b)
     return less_by_effective_time(
@@ -200,7 +200,7 @@ end
 -- The entries whose effective tag or location would change when the block is
 -- sorted by time. Each entry item carries its buffer-order effective metadata;
 -- this re-resolves sticky state in time-sorted order and reports every entry
--- that differs (as { minutes, text }), so :WorklogOrder can warn that it set
+-- that differs (as { minutes, text }), so :BlotterOrder can warn that it set
 -- those values from the original order. Empty when sorting is unambiguous.
 function M.sort_changes_metadata(block)
   local order = {}

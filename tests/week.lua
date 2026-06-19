@@ -262,7 +262,7 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "worklog: /tmp/2026-05-18.blot: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder"
+      "worklog: /tmp/2026-05-18.blot: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder"
     )
   end)
 

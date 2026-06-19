@@ -212,7 +212,7 @@ return function(t)
   end)
 
   t.test("refresh of a grown summary keeps the worklog entries", function()
-    -- A fresh worklog's empty summary, after a same-time :WorklogInsert added a second
+    -- A fresh worklog's empty summary, after a same-time :BlotInsert added a second
     -- entry, must be replaced in place -- not swallow the entries above it. The edit
     -- starts at the old summary (index 4), leaving the two entries untouched.
     local result = refresh_summaries.run({
@@ -526,7 +526,7 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
+          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
         },
       },
     })
@@ -545,7 +545,7 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
+          message = "worklog: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
         },
       },
     })
@@ -596,7 +596,7 @@ return function(t)
         },
         {
           row = 3,
-          message = "worklog: unordered timestamps near lines 3 and 4; fix manually or run :WorklogOrder",
+          message = "worklog: unordered timestamps near lines 3 and 4; fix manually or run :BlotterOrder",
         },
       },
     })

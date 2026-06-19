@@ -6,7 +6,7 @@ return function(t)
 
   helpers.setup_worklog()
 
-  t.test("WorklogRefresh rebuilds a stale summary and is a no-op when current", function()
+  t.test("BlotterRefresh rebuilds a stale summary and is a no-op when current", function()
     t.reset({
       "--- blots ---",
       "08:00 plan",
@@ -19,7 +19,7 @@ return function(t)
       "0.50h (+0m) workday",
     })
 
-    vim.cmd("WorklogRefresh")
+    vim.cmd("BlotterRefresh")
     t.eq(t.get_lines(), {
       "--- blots ---",
       "08:00 plan",
@@ -33,7 +33,7 @@ return function(t)
     })
 
     -- Running again leaves the now-current summary untouched.
-    vim.cmd("WorklogRefresh")
+    vim.cmd("BlotterRefresh")
     t.eq(t.get_lines()[6], "2.00h (+0m) plan")
   end)
 
@@ -47,7 +47,7 @@ return function(t)
     return false
   end
 
-  t.test("WorklogRefresh reports an out-of-order worklog as a diagnostic", function()
+  t.test("BlotterRefresh reports an out-of-order worklog as a diagnostic", function()
     t.reset({
       "--- blots ---",
       "09:00 later",
@@ -62,25 +62,25 @@ return function(t)
     })
     local before = t.get_lines()
 
-    vim.cmd("WorklogRefresh")
+    vim.cmd("BlotterRefresh")
     t.ok(has_unordered_diagnostic(), "expected an unordered-timestamps diagnostic")
 
     -- The invalid worklog's summary is left untouched rather than churned.
     t.eq(t.get_lines(), before)
   end)
 
-  t.test("WorklogRefresh reports an out-of-order worklog with no summary", function()
+  t.test("BlotterRefresh reports an out-of-order worklog with no summary", function()
     t.reset({
       "--- blots ---",
       "08:00 input 1",
       "07:10 input 2",
     })
 
-    vim.cmd("WorklogRefresh")
+    vim.cmd("BlotterRefresh")
     t.ok(has_unordered_diagnostic(), "expected a diagnostic even without a summary")
   end)
 
-  t.test("WorklogOrder clears the out-of-order diagnostic", function()
+  t.test("BlotterOrder clears the out-of-order diagnostic", function()
     t.reset({
       "--- blots ---",
       "09:00 later",
@@ -88,14 +88,14 @@ return function(t)
       "10:00 done",
     })
 
-    vim.cmd("WorklogRefresh")
+    vim.cmd("BlotterRefresh")
     t.ok(has_unordered_diagnostic(), "expected a diagnostic before fixing")
 
-    -- Fixing via :WorklogOrder must clear the diagnostic on its own: a command
+    -- Fixing via :BlotterOrder must clear the diagnostic on its own: a command
     -- edit does not fire the auto-refresh autocmds, so the command refreshes the
     -- diagnostics itself.
-    vim.cmd("WorklogOrder")
-    t.ok(not has_unordered_diagnostic(), "WorklogOrder should clear the diagnostic")
+    vim.cmd("BlotterOrder")
+    t.ok(not has_unordered_diagnostic(), "BlotterOrder should clear the diagnostic")
   end)
 
   t.test("worklog order rewrites all worklog blocks", function()
@@ -115,7 +115,7 @@ return function(t)
       "12:00 done #internal @home",
     })
 
-    vim.cmd("WorklogOrder")
+    vim.cmd("BlotterOrder")
     t.eq(t.get_lines(), {
       "--- blots #ProjectOrion @office ---",
       "08:00 earlier #sales",
@@ -148,7 +148,7 @@ return function(t)
       "12:00",
     })
 
-    vim.cmd("WorklogCopy")
+    vim.cmd("BlotterCopy")
     t.eq(t.get_lines(), {
       "--- blots #ProjectOrion @office ---",
       "08:00 first",
@@ -193,7 +193,7 @@ return function(t)
       "12:00",
     })
 
-    vim.cmd("WorklogCopy")
+    vim.cmd("BlotterCopy")
     t.eq(t.get_lines(), {
       "--- blots #ProjectOrion @office ---",
       "08:00 first",
@@ -229,7 +229,7 @@ return function(t)
       "10:00 done",
     })
 
-    vim.cmd("WorklogCopy")
+    vim.cmd("BlotterCopy")
     t.eq(t.get_lines(), {
       "--- blots ---",
       "08:00 break #ooo @home",
@@ -268,7 +268,7 @@ return function(t)
       "11:00 done",
     })
 
-    vim.cmd("WorklogCopy")
+    vim.cmd("BlotterCopy")
     t.eq(t.get_lines(), {
       "--- blots #- @- ---",
       "08:00 plan",
@@ -317,7 +317,7 @@ return function(t)
     t.set_cursor(10, 0)
 
     with_mocked_date("14:37", function()
-      vim.cmd("WorklogRepeat")
+      vim.cmd("BlotRepeat")
     end)
 
     t.eq(t.get_lines()[12], "14:37 tea")
@@ -333,7 +333,7 @@ return function(t)
     t.set_cursor(2, 0)
 
     with_mocked_date("08:30", function()
-      vim.cmd("WorklogRepeat")
+      vim.cmd("BlotRepeat")
     end)
 
     t.eq(t.get_lines(), {
@@ -354,7 +354,7 @@ return function(t)
     t.set_cursor(2, 0)
 
     with_mocked_date("08:30", function()
-      vim.cmd("WorklogRepeat")
+      vim.cmd("BlotRepeat")
     end)
 
     t.eq(t.get_lines(), {
@@ -377,7 +377,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_date("08:30", function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       t.eq(t.get_lines(), {
@@ -414,7 +414,7 @@ return function(t)
     t.set_cursor(8, 0) -- the "implementation" main summary row
 
     with_mocked_date("11:30", function()
-      vim.cmd("WorklogRepeat")
+      vim.cmd("BlotRepeat")
     end)
 
     -- The repeated entry is inserted into the worklog body, after "11:00 done".
@@ -444,7 +444,7 @@ return function(t)
     })
     t.set_cursor(11, 0) -- the "#ClientA" tag total
 
-    vim.cmd("WorklogRename Globex")
+    vim.cmd("BlotRename Globex")
 
     local lines = t.get_lines()
     t.eq(lines[1], "--- blots #Globex @office ---")
@@ -467,7 +467,7 @@ return function(t)
     t.set_cursor(6, 0) -- the "implementation" main row
 
     with_mocked_input("coding", function()
-      vim.cmd("WorklogRename")
+      vim.cmd("BlotRename")
     end)
 
     t.eq(t.get_lines()[2], "08:00 coding")
@@ -494,14 +494,14 @@ return function(t)
     })
     t.set_cursor(11, 0) -- the "#a" tag total; its only merge candidate is "b"
 
-    -- No Telescope in the test env, so :WorklogRename uses vim.ui.select; pick the
+    -- No Telescope in the test env, so :BlotRename uses vim.ui.select; pick the
     -- first offered candidate ("b") to merge #a into #b.
     local old_select = vim.ui.select
     vim.ui.select = function(items, _, on_choice)
       on_choice(items[1])
     end
     local ok, err = pcall(function()
-      vim.cmd("WorklogRename")
+      vim.cmd("BlotRename")
     end)
     vim.ui.select = old_select
     if not ok then
@@ -526,7 +526,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("WorklogRename fix the build")
+    vim.cmd("BlotRename fix the build")
 
     t.eq(t.get_lines()[2], "08:00 fix the build")
     t.eq(t.get_lines()[6], "1.00h (+0m) fix the build")
@@ -542,7 +542,7 @@ return function(t)
     t.set_cursor(1, 0)
 
     with_mocked_date("08:00", function()
-      vim.cmd("WorklogInsert")
+      vim.cmd("BlotInsert")
     end)
 
     t.eq(t.get_lines(), {
@@ -567,7 +567,7 @@ return function(t)
     t.set_cursor(5, 0)
 
     with_mocked_date("10:30", function()
-      vim.cmd("WorklogInsert")
+      vim.cmd("BlotInsert")
     end)
 
     t.eq(t.get_lines(), {
@@ -589,7 +589,7 @@ return function(t)
     })
     t.set_cursor(1, 0)
 
-    vim.cmd("WorklogInsert")
+    vim.cmd("BlotInsert")
     t.eq(t.get_lines(), {
       "08:00 raw",
       "09:00 done",
@@ -607,7 +607,7 @@ return function(t)
     })
     t.set_cursor(5, 0)
 
-    vim.cmd("WorklogRepeat")
+    vim.cmd("BlotRepeat")
     t.eq(t.get_lines(), {
       "--- blots #ProjectOrion @office ---",
       "08:00 task",
@@ -625,7 +625,7 @@ return function(t)
       "09:00 done",
     })
 
-    vim.cmd("WorklogCopy")
+    vim.cmd("BlotterCopy")
     t.eq(t.get_lines(), {
       "--- blots #ProjectOrion @office ---",
       "08:00 plan #sales #meeting",
@@ -641,7 +641,7 @@ return function(t)
     })
 
     with_captured_notify(function(messages)
-      vim.cmd("WorklogOrder")
+      vim.cmd("BlotterOrder")
 
       t.eq(messages, {
         {
@@ -669,7 +669,7 @@ return function(t)
     })
 
     with_captured_notify(function(messages)
-      vim.cmd("WorklogOrder")
+      vim.cmd("BlotterOrder")
 
       t.eq(messages, {
         {
@@ -697,7 +697,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("WorklogLog")
+    vim.cmd("BlotLog")
 
     t.eq(t.get_lines(), {
       "--- blots ---",
@@ -726,7 +726,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("WorklogLog")
+    vim.cmd("BlotLog")
 
     t.eq(t.get_lines(), {
       "--- blots q=30 ---",
@@ -755,7 +755,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("WorklogLog")
+    vim.cmd("BlotLog")
 
     t.eq(t.get_lines(), {
       "--- blots ---",
@@ -773,7 +773,7 @@ return function(t)
   t.test(
     "worklog log regression: multi-edit summary-refresh applies correctly through the real command path",
     function()
-      -- Exercises the full :WorklogLog -> apply_result path with the reported
+      -- Exercises the full :BlotLog -> apply_result path with the reported
       -- bug case. The fix returns a summary-group refresh edit (higher rows)
       -- before source-entry edits (lower rows); this test proves apply_result
       -- applies them in that order without index drift.
@@ -804,7 +804,7 @@ return function(t)
       })
       t.set_cursor(12, 0)
 
-      vim.cmd("WorklogLog")
+      vim.cmd("BlotLog")
 
       t.eq(t.get_lines(), {
         "--- blots #someproject @office ---",

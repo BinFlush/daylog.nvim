@@ -86,19 +86,19 @@ function M.check()
   -- live configuration and refresh autocmds. The command checks below verify
   -- that setup has already been run.
   start("Commands")
-  check_command("WorklogInsert")
-  check_command("WorklogToday")
-  check_command("WorklogInit")
-  check_command("WorklogNextDay")
-  check_command("WorklogPrevDay")
-  check_command("WorklogDays")
-  check_command("WorklogWeek")
-  check_command("WorklogRepeat")
-  check_command("WorklogCopy")
-  check_command("WorklogOrder")
-  check_command("WorklogLog")
-  check_command("WorklogRefresh")
-  check_command("WorklogSync")
+  check_command("BlotInsert")
+  check_command("BlotterToday")
+  check_command("BlotterInit")
+  check_command("BlotterNextDay")
+  check_command("BlotterPrevDay")
+  check_command("BlotterDays")
+  check_command("BlotterWeek")
+  check_command("BlotRepeat")
+  check_command("BlotterCopy")
+  check_command("BlotterOrder")
+  check_command("BlotLog")
+  check_command("BlotterRefresh")
+  check_command("BlotterSync")
 
   start("Filetype")
   if vim.filetype.match({ filename = "example.blot" }) == "blotter" then
@@ -150,12 +150,12 @@ function M.check()
           ok(string.format("source %s cache is readable (%d items)", name, #(cache.items or {})))
         else
           warn(string.format("source %s cache is unreadable or corrupt", name), {
-            "Run :WorklogSync " .. name .. " to rebuild it.",
+            "Run :BlotterSync " .. name .. " to rebuild it.",
           })
         end
       else
         warn(string.format("source %s has no cache yet", name), {
-          "Run :WorklogSync " .. name .. " or pick from it once.",
+          "Run :BlotterSync " .. name .. " or pick from it once.",
         })
       end
     end

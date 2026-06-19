@@ -45,7 +45,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday")
+        vim.cmd("BlotterToday")
       end)
 
       local expected_dir = root .. "/" .. os.date("%Y/%V", now)
@@ -81,14 +81,14 @@ return function(t)
 
       with_mocked_time(now, function()
         -- Seed today, then leave it unsaved.
-        vim.cmd("WorklogToday")
+        vim.cmd("BlotterToday")
         local seeded = t.get_lines()
 
         -- Navigate away (the unsaved buffer survives because hidden is set) and
         -- back: reopening today must reuse that buffer, not append a duplicate.
-        -- WorklogToday -1 is an exact jump (PrevDay would find no earlier worklog).
-        vim.cmd("WorklogToday -1")
-        vim.cmd("WorklogToday")
+        -- BlotterToday -1 is an exact jump (PrevDay would find no earlier worklog).
+        vim.cmd("BlotterToday -1")
+        vim.cmd("BlotterToday")
 
         t.eq(t.get_lines(), seeded)
       end)
@@ -116,7 +116,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday 0")
+        vim.cmd("BlotterToday 0")
       end)
 
       t.eq(
@@ -165,7 +165,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday -1")
+        vim.cmd("BlotterToday -1")
       end)
 
       local path = root
@@ -211,7 +211,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday +1")
+        vim.cmd("BlotterToday +1")
       end)
 
       local path = root
@@ -250,12 +250,12 @@ return function(t)
         vim.cmd("edit " .. vim.fn.fnameescape(today_path))
 
         -- The out-of-order entries keep navigation on today.
-        vim.cmd("WorklogPrevDay")
+        vim.cmd("BlotterPrevDay")
         t.eq(vim.api.nvim_buf_get_name(0), today_path)
 
         -- Fixing the order releases the guard; navigation skips to the prior worklog.
         vim.api.nvim_buf_set_lines(0, 1, 3, false, { "08:00 earlier", "09:00 later" })
-        vim.cmd("WorklogPrevDay")
+        vim.cmd("BlotterPrevDay")
         t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
       end)
     end)
@@ -282,7 +282,7 @@ return function(t)
         vim.bo.modified = false
 
         with_mocked_time(now, function()
-          vim.cmd("WorklogToday")
+          vim.cmd("BlotterToday")
         end)
 
         t.eq(
@@ -319,7 +319,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday")
+        vim.cmd("BlotterToday")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
@@ -372,7 +372,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday 1")
+        vim.cmd("BlotterToday 1")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
@@ -412,7 +412,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday")
+        vim.cmd("BlotterToday")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
@@ -463,7 +463,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogToday -1")
+        vim.cmd("BlotterToday -1")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
@@ -482,7 +482,7 @@ return function(t)
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
       vim.bo.modified = false
 
-      vim.cmd("WorklogToday")
+      vim.cmd("BlotterToday")
 
       t.eq(vim.api.nvim_buf_get_name(0), "")
       t.eq(t.get_lines(), { "scratch" })
@@ -501,10 +501,10 @@ return function(t)
       t.reset({ "scratch" })
 
       for _, command in ipairs({
-        "WorklogToday nope",
-        "WorklogToday 1.5",
-        "WorklogToday --1",
-        "WorklogToday +",
+        "BlotterToday nope",
+        "BlotterToday 1.5",
+        "BlotterToday --1",
+        "BlotterToday +",
       }) do
         with_captured_notify(function(messages)
           vim.cmd(command)
@@ -552,7 +552,7 @@ return function(t)
         vim.cmd("enew!")
         vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
 
-        vim.cmd("WorklogToday")
+        vim.cmd("BlotterToday")
 
         t.eq(vim.api.nvim_buf_get_name(0), "")
         t.eq(t.get_lines(), { "scratch" })
@@ -610,7 +610,7 @@ return function(t)
           vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
 
           with_mocked_time(now, function()
-            vim.cmd("WorklogToday -1")
+            vim.cmd("BlotterToday -1")
           end)
 
           t.eq(vim.api.nvim_buf_get_name(0), "")
@@ -653,7 +653,7 @@ return function(t)
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
-      vim.cmd("WorklogNextDay")
+      vim.cmd("BlotterNextDay")
 
       local path = root
         .. "/"
@@ -687,7 +687,7 @@ return function(t)
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
-      vim.cmd("WorklogPrevDay 2")
+      vim.cmd("BlotterPrevDay 2")
 
       local path = root
         .. "/"
@@ -719,7 +719,7 @@ return function(t)
 
       -- The only worklog is the open one: there is nothing later or earlier.
       with_captured_notify(function(messages)
-        vim.cmd("WorklogNextDay")
+        vim.cmd("BlotterNextDay")
         t.eq(messages, {
           { message = "worklog: no later worklog", level = vim.log.levels.WARN },
         })
@@ -727,7 +727,7 @@ return function(t)
       t.eq(vim.api.nvim_buf_get_name(0), open_path)
 
       with_captured_notify(function(messages)
-        vim.cmd("WorklogPrevDay")
+        vim.cmd("BlotterPrevDay")
         t.eq(messages, {
           { message = "worklog: no earlier worklog", level = vim.log.levels.WARN },
         })
@@ -765,7 +765,7 @@ return function(t)
       with_mocked_time(now, function()
         -- Anchored on today (the scratch buffer is not a journal file), the prior
         -- worklog three days back is found.
-        vim.cmd("WorklogPrevDay")
+        vim.cmd("BlotterPrevDay")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
@@ -810,7 +810,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogNextDay")
+        vim.cmd("BlotterNextDay")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
@@ -840,7 +840,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogInit -2")
+        vim.cmd("BlotterInit -2")
       end)
 
       local path = root
@@ -882,7 +882,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogInit 2")
+        vim.cmd("BlotterInit 2")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), existing_path)
@@ -903,7 +903,7 @@ return function(t)
       t.reset({ "scratch" })
 
       with_captured_notify(function(messages)
-        vim.cmd("WorklogInit nope")
+        vim.cmd("BlotterInit nope")
 
         t.eq(messages, {
           { message = "worklog: day offset must be an integer", level = vim.log.levels.WARN },
@@ -927,10 +927,10 @@ return function(t)
       t.reset({ "scratch" })
 
       for _, command in ipairs({
-        "WorklogNextDay nope",
-        "WorklogPrevDay 0",
-        "WorklogNextDay 1.5",
-        "WorklogPrevDay -1",
+        "BlotterNextDay nope",
+        "BlotterPrevDay 0",
+        "BlotterNextDay 1.5",
+        "BlotterPrevDay -1",
       }) do
         with_captured_notify(function(messages)
           vim.cmd(command)
@@ -1014,7 +1014,7 @@ return function(t)
       local windows_before = #vim.api.nvim_tabpage_list_wins(0)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogWeek")
+        vim.cmd("BlotterWeek")
       end)
 
       t.eq(#vim.api.nvim_tabpage_list_wins(0), windows_before + 1)
@@ -1104,7 +1104,7 @@ return function(t)
       t.ok(vim.bo.modified)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogWeek")
+        vim.cmd("BlotterWeek")
       end)
 
       local has_two_hours, has_one_hour = false, false
@@ -1167,7 +1167,7 @@ return function(t)
       t.reset({ "notes" })
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogWeek!")
+        vim.cmd("BlotterWeek!")
       end)
 
       t.eq(
@@ -1227,7 +1227,7 @@ return function(t)
         t.reset({ "notes" })
 
         with_mocked_time(now, function()
-          vim.cmd("WorklogWeek")
+          vim.cmd("BlotterWeek")
         end)
 
         t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "blotter-week-2026-W21.blot")
@@ -1260,7 +1260,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("WorklogWeek")
+          vim.cmd("BlotterWeek")
         end)
 
         t.eq(#vim.api.nvim_tabpage_list_wins(0), 1)
@@ -1280,15 +1280,15 @@ return function(t)
     with_worklog_setup({}, function()
       t.reset({ "scratch" })
 
-      local ok, err = pcall(vim.cmd, "WorklogDays")
+      local ok, err = pcall(vim.cmd, "BlotterDays")
       t.ok(not ok)
       t.ok(tostring(err):match("E471") ~= nil)
 
       for _, command in ipairs({
-        "WorklogDays nope",
-        "WorklogDays 0",
-        "WorklogDays -1",
-        "WorklogDays 1.5",
+        "BlotterDays nope",
+        "BlotterDays 0",
+        "BlotterDays -1",
+        "BlotterDays 1.5",
       }) do
         with_captured_notify(function(messages)
           vim.cmd(command)
@@ -1373,7 +1373,7 @@ return function(t)
       t.reset({ "notes" })
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogDays 4")
+        vim.cmd("BlotterDays 4")
       end)
 
       t.eq(
@@ -1466,7 +1466,7 @@ return function(t)
       t.reset({ "notes" })
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogDays! 3")
+        vim.cmd("BlotterDays! 3")
       end)
 
       t.eq(
@@ -1513,7 +1513,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("WorklogDays 3")
+          vim.cmd("BlotterDays 3")
         end)
 
         t.eq(#vim.api.nvim_tabpage_list_wins(0), 1)
@@ -1563,7 +1563,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("WorklogDays 3")
+          vim.cmd("BlotterDays 3")
         end)
 
         t.eq(vim.api.nvim_buf_get_name(0), "")
@@ -1572,7 +1572,7 @@ return function(t)
           {
             message = "worklog: "
               .. bad_path
-              .. ": unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder",
+              .. ": unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
             level = vim.log.levels.WARN,
           },
         })
@@ -1604,7 +1604,7 @@ return function(t)
       local monday_win = vim.api.nvim_get_current_win()
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogWeek")
+        vim.cmd("BlotterWeek")
       end)
       local report_buf = vim.api.nvim_get_current_buf()
 
@@ -1651,7 +1651,7 @@ return function(t)
       local source_win = vim.api.nvim_get_current_win()
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogDays 2")
+        vim.cmd("BlotterDays 2")
       end)
       local report_buf = vim.api.nvim_get_current_buf()
 
@@ -1699,7 +1699,7 @@ return function(t)
 
         with_captured_notify(function(messages)
           with_mocked_time(now, function()
-            vim.cmd("WorklogInsert")
+            vim.cmd("BlotInsert")
           end)
 
           t.eq(messages, {
@@ -1744,7 +1744,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("WorklogInsert")
+          vim.cmd("BlotInsert")
         end)
 
         t.eq(messages, {
@@ -1777,7 +1777,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("WorklogInsert")
+          vim.cmd("BlotInsert")
         end)
 
         t.eq(messages, {})
@@ -1809,7 +1809,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("WorklogInsert")
+          vim.cmd("BlotInsert")
         end)
 
         t.eq(messages, {})
@@ -1855,7 +1855,7 @@ return function(t)
 
       with_mocked_confirm(1, function()
         with_mocked_time(now, function()
-          vim.cmd("WorklogInsert")
+          vim.cmd("BlotInsert")
         end)
       end)
 
@@ -1892,7 +1892,7 @@ return function(t)
 
       with_mocked_confirm(1, function()
         with_mocked_time(now, function()
-          vim.cmd("WorklogInsert")
+          vim.cmd("BlotInsert")
         end)
       end)
 
@@ -1942,7 +1942,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       -- Switched to a fresh today, with the activity at the current time.
@@ -1989,7 +1989,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       -- deep work is inserted at 10:00, after the existing entries.
@@ -2019,7 +2019,7 @@ return function(t)
       t.set_cursor(1, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       -- Stayed on the browsed day, unchanged.
@@ -2057,7 +2057,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       -- Stayed on the browsed day rather than being switched onto the broken today.
@@ -2085,7 +2085,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       -- The whitespace today is initialized fresh, with the header on line 1.
@@ -2116,7 +2116,7 @@ return function(t)
 
       with_mocked_confirm(1, function()
         with_mocked_time(now, function()
-          vim.cmd("WorklogRepeat")
+          vim.cmd("BlotRepeat")
         end)
       end)
 
@@ -2167,7 +2167,7 @@ return function(t)
 
       with_mocked_confirm(2, function()
         with_mocked_time(now, function()
-          vim.cmd("WorklogInsert")
+          vim.cmd("BlotInsert")
         end)
       end)
 
@@ -2202,13 +2202,13 @@ return function(t)
       with_captured_notify(function(messages)
         with_mocked_confirm(1, function()
           with_mocked_time(now, function()
-            vim.cmd("WorklogInsert")
+            vim.cmd("BlotInsert")
           end)
         end)
 
         t.eq(messages, {
           {
-            message = "worklog: today's worklog already exists; open it with :WorklogToday",
+            message = "worklog: today's worklog already exists; open it with :BlotterToday",
             level = vim.log.levels.WARN,
           },
         })
@@ -2248,13 +2248,13 @@ return function(t)
       with_captured_notify(function(messages)
         with_mocked_confirm(1, function()
           with_mocked_time(now, function()
-            vim.cmd("WorklogInsert")
+            vim.cmd("BlotInsert")
           end)
         end)
 
         t.eq(messages, {
           {
-            message = "worklog: today's worklog already exists; open it with :WorklogToday",
+            message = "worklog: today's worklog already exists; open it with :BlotterToday",
             level = vim.log.levels.WARN,
           },
         })
@@ -2296,7 +2296,7 @@ return function(t)
       -- No confirm is mocked: the carryover prompt must never appear, since this is
       -- a plain cross-day repeat into the existing today.
       with_mocked_time(now, function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       -- Switched to today, with the cursor entry brought in at the current time.
@@ -2344,7 +2344,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("WorklogRepeat")
+        vim.cmd("BlotRepeat")
       end)
 
       -- Switched to the unsaved today buffer, with the entry inserted there.

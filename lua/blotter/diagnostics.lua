@@ -19,7 +19,7 @@ end
 
 function M.unordered_error(diagnostic)
   return string.format(
-    "worklog: unordered timestamps near lines %d and %d; fix manually or run :WorklogOrder",
+    "worklog: unordered timestamps near lines %d and %d; fix manually or run :BlotterOrder",
     diagnostic.row,
     diagnostic.row2
   )

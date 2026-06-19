@@ -148,7 +148,7 @@ function M.live_pick(source, opts)
 
       -- Closing the prompt (pick or cancel) marks the picker done so a late search
       -- response stops refreshing/notifying. Cancelling also leaves a bare timestamp,
-      -- matching :WorklogInsert.
+      -- matching :BlotInsert.
       vim.api.nvim_create_autocmd("BufWipeout", {
         buffer = prompt_bufnr,
         once = true,
@@ -176,7 +176,7 @@ function M.live_pick(source, opts)
   controller.picker:find()
 end
 
--- A picker for :WorklogRename's merge UX, optionally augmented with a source's
+-- A picker for :BlotRename's merge UX, optionally augmented with a source's
 -- work-items so an activity can be replaced with a tracked item (see init.lua).
 -- Type to filter the existing same-kind values (tags / locations / activities) and,
 -- when `source` is given, its work-items too; <CR> renames into the highlighted one

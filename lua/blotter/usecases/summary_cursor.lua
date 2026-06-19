@@ -8,8 +8,8 @@ local M = {}
 -- Several commands act on a rendered summary row as a selector: the active
 -- worklog is analyzed from source, its summary is recomputed, and the cursor line
 -- is matched against the layout the plugin would currently produce. This module
--- centralizes that "which summary row is the cursor on" question so :WorklogLog,
--- :WorklogRepeat (on a summary row), and :WorklogRename share one staleness check.
+-- centralizes that "which summary row is the cursor on" question so :BlotLog,
+-- :BlotRepeat (on a summary row), and :BlotRename share one staleness check.
 --
 -- The summary is a pure projection, so the rendered row carries no authority: it
 -- only points back at recomputed `summary_items` / `tag_totals` / `location_totals`

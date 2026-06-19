@@ -33,7 +33,7 @@ return function(t)
     return out
   end
 
-  -- Monday/Wednesday of ISO week 21, with a Thursday anchor so :WorklogWeek covers
+  -- Monday/Wednesday of ISO week 21, with a Thursday anchor so :BlotterWeek covers
   -- both. directory "%Y/%V" places them under the same week folder.
   local d1 = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
   local d2 = os.time({ year = 2026, month = 5, day = 20, hour = 12, min = 0, sec = 0 })
@@ -80,7 +80,7 @@ return function(t)
     )
 
     with_mocked_time(week_time, function()
-      vim.cmd("WorklogWeek")
+      vim.cmd("BlotterWeek")
     end)
 
     return p1, p2
@@ -99,7 +99,7 @@ return function(t)
       vim.api.nvim_win_set_cursor(0, { row, 0 })
 
       with_mocked_confirm(1, function()
-        vim.cmd("WorklogRename coding")
+        vim.cmd("BlotRename coding")
       end)
 
       -- Both day files on disk are rewritten, summaries included.
@@ -125,7 +125,7 @@ return function(t)
       vim.api.nvim_win_set_cursor(0, { row, 0 })
 
       with_mocked_confirm(1, function()
-        vim.cmd("WorklogRename coding")
+        vim.cmd("BlotRename coding")
       end)
 
       -- Only day 1 (the cursor's day) changed; day 2 is untouched.
@@ -145,7 +145,7 @@ return function(t)
       vim.api.nvim_win_set_cursor(0, { activity_row("implementation", true), 0 })
 
       with_mocked_confirm(2, function() -- No
-        vim.cmd("WorklogRename coding")
+        vim.cmd("BlotRename coding")
       end)
 
       t.ok(vim.tbl_contains(vim.fn.readfile(p1), "08:00 implementation"), "day 1 unchanged")
@@ -165,7 +165,7 @@ return function(t)
       vim.api.nvim_win_set_cursor(0, { 1, 0 })
 
       with_captured_notify(function(messages)
-        vim.cmd("WorklogRename coding")
+        vim.cmd("BlotRename coding")
         t.ok(#messages == 1, "one warning")
         t.ok(messages[1].message:match("^worklog:"), "worklog-prefixed warning")
       end)

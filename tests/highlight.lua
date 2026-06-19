@@ -74,7 +74,7 @@ return function(t)
     t.eq(group_at(4, col_of(4, "@-")), "WorklogLocation")
 
     -- Logged marker.
-    t.eq(group_at(5, col_of(5, "!L")), "WorklogLogged")
+    t.eq(group_at(5, col_of(5, "!L")), "BlotLogged")
 
     -- Generated section header and quantized summary row. The row sits inside the
     -- summary section, ended by the blank line below.
@@ -160,7 +160,7 @@ return function(t)
     )
 
     -- One of each, in any order, is valid and all three highlight.
-    t.eq(group_at(4, col_of(4, "!L")), "WorklogLogged")
+    t.eq(group_at(4, col_of(4, "!L")), "BlotLogged")
     t.eq(group_at(4, col_of(4, "@b")), "WorklogLocation")
     t.eq(group_at(4, col_of(4, "#a")), "WorklogTag")
   end)
@@ -346,7 +346,7 @@ return function(t)
   end)
 
   t.test("a labeled multi-day report section highlights its rows", function()
-    -- :WorklogWeek / :WorklogDays produce labeled headers the old syntax file did
+    -- :BlotterWeek / :BlotterDays produce labeled headers the old syntax file did
     -- not recognize; the parser-driven highlighter does, so report rows highlight.
     load({
       "--- day summary 2026-05-18 q=30 ---",
@@ -408,7 +408,7 @@ return function(t)
     -- the highlighting of the #tag and !L on either side of it in the trailing run.
     t.eq(group_at(2, col_of(2, "round+1")), "WorklogNudge")
     t.eq(group_at(2, col_of(2, "#ClientA")), "WorklogTag")
-    t.eq(group_at(2, col_of(2, "!L")), "WorklogLogged")
+    t.eq(group_at(2, col_of(2, "!L")), "BlotLogged")
 
     -- It also highlights where it is propagated onto summary rows and the total.
     t.eq(group_at(5, col_of(5, "round+1")), "WorklogNudge")

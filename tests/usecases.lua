@@ -497,7 +497,7 @@ return function(t)
   end)
 
   t.test("carryover.entry_at_row resolves a main summary row to its source entry", function()
-    -- The cross-day :WorklogRepeat path uses entry_at_row; a cursor on a summary
+    -- The cross-day :BlotRepeat path uses entry_at_row; a cursor on a summary
     -- row maps back to the source entry so it works from the summary too.
     local activity = carryover.entry_at_row({
       "--- blots #ClientA ---",
@@ -975,7 +975,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "worklog: unordered timestamps near lines 2 and 3; fix manually or run :WorklogOrder")
+    t.eq(err, "worklog: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder")
   end)
 
   t.test(
@@ -1047,7 +1047,7 @@ return function(t)
       }, 2)
 
       -- The leading block is rejected by the structural parser because the
-      -- first line is not a worklog header. This proves :WorklogLog cannot be
+      -- first line is not a worklog header. This proves :BlotLog cannot be
       -- coerced into logging the active worklog through a pre-active "summary"
       -- block.
       t.eq(result, nil)
@@ -1122,7 +1122,7 @@ return function(t)
   t.test(
     "log_current regression: quantized summary group with note line and partial logging",
     function()
-      -- Reported bug: :WorklogLog updated the source entry but left the
+      -- Reported bug: :BlotLog updated the source entry but left the
       -- rendered summary stale. After the fix the full group — including the
       -- newly required logged section — is replaced in one atomic edit.
       local lines = {
