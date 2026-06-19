@@ -183,20 +183,12 @@ local function identity(value)
   return value
 end
 
-function M.run(lines, cursor_row, new_value)
-  local result, err = summary_cursor.resolve(lines, cursor_row)
-  if not result then
-    return nil, err or M.NOT_A_ROW
-  end
-
-  local target, classify_err = classify(result.layout_row)
-  if not target then
-    return nil, classify_err
-  end
-
-  local block = result.ctx.block
-  local item = result.layout_row.item
-
+-- Build the rename edit script for one worklog block: rewrite the affected source
+-- entries (and the header token when it declared the renamed value), then rebuild
+-- the one summary in place. `item` is the recomputed summary item the rename acts
+-- on and `region` is its summary's location; `target.kind` selects the rename mode.
+-- Shared by the cursor-driven M.run and the value-driven M.run_by_value.
+local function build_rename(block, region, item, target, new_value)
   local ops = {
     rename_tag = identity,
     rename_loc = identity,
@@ -297,8 +289,8 @@ function M.run(lines, cursor_row, new_value)
   local rendered =
     render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
   table.insert(edits, {
-    start_index = result.region.start_row - 1,
-    end_index = result.region.end_row - 1,
+    start_index = region.start_row - 1,
+    end_index = region.end_row - 1,
     lines = rendered,
   })
 
@@ -309,6 +301,71 @@ function M.run(lines, cursor_row, new_value)
   end)
 
   return { edits = edits }
+end
+
+-- Find the recomputed summary item a value-keyed target names, or nil when the
+-- worklog has no such item. For an activity the tag scopes the match (the same text
+-- under a different tag is a different item), mirroring how the summary groups rows.
+local function find_target_item(recomputed, target)
+  if target.kind == "tag" then
+    for _, item in ipairs(recomputed.tag_totals or {}) do
+      if item.tag == target.current then
+        return item
+      end
+    end
+  elseif target.kind == "location" then
+    for _, item in ipairs(recomputed.location_totals or {}) do
+      if item.location == target.current then
+        return item
+      end
+    end
+  else
+    for _, item in ipairs(recomputed.summary_items or {}) do
+      if (item.text or "") == target.current and item.tag == target.tag then
+        return item
+      end
+    end
+  end
+
+  return nil
+end
+
+function M.run(lines, cursor_row, new_value)
+  local result, err = summary_cursor.resolve(lines, cursor_row)
+  if not result then
+    return nil, err or M.NOT_A_ROW
+  end
+
+  local target, classify_err = classify(result.layout_row)
+  if not target then
+    return nil, classify_err
+  end
+
+  return build_rename(result.ctx.block, result.region, result.layout_row.item, target, new_value)
+end
+
+-- Rename by value rather than by cursor: act on the active worklog's summary item
+-- identified by `target` ({ kind, current, tag? }). Returns the edit script; nil
+-- with no error when the value is not present in this worklog (the day is simply
+-- unaffected, so the multi-day rename skips it); or nil + err when the worklog is
+-- invalid. This is what lets one rename fan out across every day of a report.
+function M.run_by_value(lines, target, new_value)
+  local ctx, err = support.get_validated_active(lines)
+  if not ctx then
+    return nil, err
+  end
+
+  local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
+  if not region then
+    return nil, nil
+  end
+
+  local item = find_target_item(recomputed, target)
+  if not item then
+    return nil, nil
+  end
+
+  return build_rename(ctx.block, region, item, target, new_value)
 end
 
 return M

@@ -398,4 +398,83 @@ return function(t)
 
     t.eq(err, "worklog: put the cursor on a summary item, tag, or location row to rename it")
   end)
+
+  local function rename_by_value(lines, target, new_value)
+    local result, err = rename_summary.run_by_value(lines, target, new_value)
+    if not result then
+      return nil, err
+    end
+    return apply(lines, result)
+  end
+
+  t.test("run_by_value renames an activity found by text and tag", function()
+    local out = rename_by_value({
+      "--- worklog #ClientA ---",
+      "08:00 implementation",
+      "09:00 meeting",
+      "10:00 implementation",
+      "11:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) implementation",
+      "1.00h (+0m) meeting",
+      "",
+      "--- tags ---",
+      "3.00h (+0m) #ClientA",
+      "",
+      "--- totals ---",
+      "3.00h (+0m) workday",
+    }, { kind = "item", current = "implementation", tag = "ClientA" }, "coding")
+
+    t.eq(out[2], "08:00 coding")
+    t.eq(out[4], "10:00 coding")
+    t.eq(out[8], "2.00h (+0m) coding")
+  end)
+
+  t.test("run_by_value renames a tag everywhere it is effective", function()
+    local out = rename_by_value({
+      "--- worklog #ClientA ---",
+      "08:00 plan",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #ClientA",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    }, { kind = "tag", current = "ClientA" }, "ClientB")
+
+    t.eq(out[1], "--- worklog #ClientB ---")
+    t.eq(out[9], "1.00h (+0m) #ClientB")
+  end)
+
+  t.test("run_by_value returns nil with no error when the value is absent", function()
+    local result, err = rename_summary.run_by_value({
+      "--- worklog ---",
+      "08:00 plan",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    }, { kind = "item", current = "nonexistent", tag = nil }, "whatever")
+
+    t.eq(result, nil)
+    t.eq(err, nil)
+  end)
+
+  t.test("run_by_value surfaces an error when the worklog is invalid", function()
+    local _, err = rename_summary.run_by_value({
+      "--- worklog ---",
+      "09:00 later",
+      "08:00 earlier",
+    }, { kind = "item", current = "later", tag = nil }, "whatever")
+
+    t.ok(err ~= nil, "an invalid worklog yields an error")
+  end)
 end
