@@ -34,13 +34,16 @@ M.INVALID_NAME = "worklog: a tag or location name must be letters, digits, under
 M.EMPTY_TEXT = "worklog: the activity text cannot be empty"
 M.SAME_NAME = "worklog: the new name matches the current name"
 
--- Classify the resolved layout row into a rename target { kind, current }.
-local function classify(layout_row)
+-- Classify a summary layout row into a rename target { kind, current, tag? }. The
+-- `tag` is the activity's tag scope (an item is identified by text *and* tag), used
+-- by run_by_value / the report rename to find the same item in another worklog. The
+-- single-file run ignores it (it acts on the cursor's exact item). PURE.
+function M.classify(layout_row)
   local kind = layout_row.kind
   local item = layout_row.item
 
   if kind == render.LAYOUT_KIND.SUMMARY_ITEM then
-    return { kind = "item", current = item.text or "" }
+    return { kind = "item", current = item.text or "", tag = item.tag }
   elseif kind == render.LAYOUT_KIND.TAG_TOTAL then
     if item.tag == nil then
       return nil, M.CANNOT_UNTAGGED
@@ -103,7 +106,7 @@ function M.resolve(lines, cursor_row)
     return nil, err or M.NOT_A_ROW
   end
 
-  local target, classify_err = classify(result.layout_row)
+  local target, classify_err = M.classify(result.layout_row)
   if not target then
     return nil, classify_err
   end
@@ -336,7 +339,7 @@ function M.run(lines, cursor_row, new_value)
     return nil, err or M.NOT_A_ROW
   end
 
-  local target, classify_err = classify(result.layout_row)
+  local target, classify_err = M.classify(result.layout_row)
   if not target then
     return nil, classify_err
   end

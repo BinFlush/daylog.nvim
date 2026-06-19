@@ -472,32 +472,68 @@ local function report_headers(prefix, label, leading_blank, quantize_minutes)
   }
 end
 
--- Render the per-day sections (unless aggregate-only) followed by the aggregate
--- section. `aggregate_prefix` is the only thing that differs between a week
--- report (`week`) and a trailing-days report (`range`).
-local function period_report_lines(report, duration_format, options, aggregate_prefix)
-  local lines = {}
+-- The ordered sections of a period report: each per-day section (unless
+-- aggregate-only) followed by the aggregate section. Each carries the summary and
+-- the labeled headers to render it with; the per-day sections also carry the date
+-- label and source path so the layout can trace a row back to one file.
+-- `aggregate_prefix` is the only thing that differs between a week report (`week`)
+-- and a trailing-days report (`range`).
+local function report_sections(report, options, aggregate_prefix)
   options = options or {}
+  local sections = {}
 
   if not options.aggregate_only then
     for index, day in ipairs(report.days) do
-      append_summary_lines(
-        lines,
-        day.summary,
-        duration_format,
-        report_headers("day", day.date_label, index > 1, day.quantize_minutes)
-      )
+      sections[#sections + 1] = {
+        scope = "day",
+        date_label = day.date_label,
+        path = day.path,
+        summary = day.summary,
+        headers = report_headers("day", day.date_label, index > 1, day.quantize_minutes),
+      }
     end
   end
 
-  append_summary_lines(
-    lines,
-    report.summary,
-    duration_format,
-    report_headers(aggregate_prefix, report.period_label, #lines > 0)
-  )
+  -- The aggregate gets a leading blank only when day sections precede it, matching
+  -- the original `#lines > 0` test.
+  sections[#sections + 1] = {
+    scope = "aggregate",
+    summary = report.summary,
+    headers = report_headers(aggregate_prefix, report.period_label, #sections > 0),
+  }
+
+  return sections
+end
+
+local function period_report_lines(report, duration_format, options, aggregate_prefix)
+  local lines = {}
+
+  for _, section in ipairs(report_sections(report, options, aggregate_prefix)) do
+    append_summary_lines(lines, section.summary, duration_format, section.headers)
+  end
 
   return lines
+end
+
+-- The flat layout of a period report: one entry per rendered line (so a 1-based
+-- line number indexes straight into it), each tagged with the section it belongs
+-- to -- a per-day section (scope "day", with its date_label/path) or the aggregate
+-- (scope "aggregate"). Built from the same sections as period_report_lines, so the
+-- rows stay in lockstep with what the buffer shows; cursor resolution reads `kind`,
+-- `item`, and `scope` off a row.
+local function period_report_layout(report, duration_format, options, aggregate_prefix)
+  local rows = {}
+
+  for _, section in ipairs(report_sections(report, options, aggregate_prefix)) do
+    for _, row in ipairs(build_summary_layout(section.summary, duration_format, section.headers)) do
+      row.scope = section.scope
+      row.date_label = section.date_label
+      row.path = section.path
+      rows[#rows + 1] = row
+    end
+  end
+
+  return rows
 end
 
 function M.week_report_lines(report, duration_format, options)
@@ -506,6 +542,14 @@ end
 
 function M.days_report_lines(report, duration_format, options)
   return period_report_lines(report, duration_format, options, "range")
+end
+
+function M.week_report_layout(report, duration_format, options)
+  return period_report_layout(report, duration_format, options, "week")
+end
+
+function M.days_report_layout(report, duration_format, options)
+  return period_report_layout(report, duration_format, options, "range")
 end
 
 return M
