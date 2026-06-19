@@ -12,6 +12,7 @@ local new_worklog = require("worklog.usecases.new_worklog")
 local order_worklogs = require("worklog.usecases.order_worklogs")
 local refresh_summaries = require("worklog.usecases.refresh_summaries")
 local rename_summary = require("worklog.usecases.rename_summary")
+local report_cursor = require("worklog.usecases.report_cursor")
 local render = require("worklog.render")
 local repeat_current = require("worklog.usecases.repeat_current")
 local sources_http = require("worklog.sources.http")
@@ -876,6 +877,11 @@ end
 
 local RENAME_PROMPT_LABEL = { item = "activity", tag = "tag", location = "location" }
 
+-- Renaming from a multi-day report is wired below, after the report infrastructure
+-- it depends on (build_report_for_spec, refresh_report_windows). Forward-declared so
+-- M.rename_summary can dispatch to it.
+local rename_from_report
+
 -- Rename what the summary row under the cursor stands for: an activity (main
 -- row), a #tag (tag total), or an @location (location total). The rename
 -- propagates into the attached worklog and rebuilds the summary. Renaming to a
@@ -888,6 +894,15 @@ local RENAME_PROMPT_LABEL = { item = "activity", tag = "tag", location = "locati
 -- :WorklogInsert. A source only applies to an activity row, and with one source
 -- configured it is offered automatically.
 function M.rename_summary(new_value, source_name)
+  -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
+  -- per-day row; the rename fans out across the relevant day files instead of the
+  -- current buffer.
+  local is_report, report_spec = pcall(vim.api.nvim_buf_get_var, 0, "worklog_report")
+  if is_report and type(report_spec) == "table" then
+    rename_from_report(report_spec, new_value, source_name)
+    return
+  end
+
   local row = cursor_row()
   local target, err = rename_summary.resolve(buffer_lines(), row)
   if not target then
@@ -1201,22 +1216,27 @@ function M.init_day(offset)
   apply_refresh(false)
 end
 
--- Build the display lines for a report spec, reading each day through
--- journal_lines so open buffers (saved or not) are reflected. Returns the lines
--- and the period label, or nil and an error message.
-local function build_report_lines(spec)
+-- Build the report object for a spec, reading each day through journal_lines so
+-- open buffers (saved or not) are reflected. Returns the report (its days each
+-- carrying a path) or nil and an error message. Shared by the line renderer and the
+-- report rename, so both see the same period and days.
+local function build_report_for_spec(spec)
   local settings = expanded_journal_settings()
   if settings == nil then
     return nil, "worklog: journal.root is not configured"
   end
 
-  local report, err
   if spec.kind == "week" then
-    report, err = week.build_week_report(settings, spec.anchor, journal_lines)
-  else
-    report, err = week.build_days_report(settings, spec.anchor, spec.count, journal_lines)
+    return week.build_week_report(settings, spec.anchor, journal_lines)
   end
 
+  return week.build_days_report(settings, spec.anchor, spec.count, journal_lines)
+end
+
+-- Build the display lines for a report spec. Returns the lines and the period
+-- label, or nil and an error message.
+local function build_report_lines(spec)
+  local report, err = build_report_for_spec(spec)
   if not report then
     return nil, err
   end
@@ -1280,6 +1300,234 @@ local function refresh_report_windows()
       end
     end
   end
+end
+
+-- Apply an edit script (0-based, sorted highest-start-first by the usecase) to a
+-- plain line list, returning the new list. Used to compute a day file's rewritten
+-- content off-buffer for the multi-day rename.
+local function lines_with_edits(lines, edits)
+  local out = {}
+  for i, line in ipairs(lines) do
+    out[i] = line
+  end
+
+  for _, edit in ipairs(edits) do
+    local next_out = {}
+    for i = 1, edit.start_index do
+      next_out[#next_out + 1] = out[i]
+    end
+    for _, line in ipairs(edit.lines) do
+      next_out[#next_out + 1] = line
+    end
+    for i = edit.end_index + 1, #out do
+      next_out[#next_out + 1] = out[i]
+    end
+    out = next_out
+  end
+
+  return out
+end
+
+-- The day files a resolved report row acts on: one path for a per-day row, every
+-- day of the period for an aggregate row.
+local function report_target_paths(report, resolved)
+  if resolved.scope == "day" then
+    return { resolved.path }
+  end
+
+  local paths = {}
+  for _, day in ipairs(report.days) do
+    paths[#paths + 1] = day.path
+  end
+  return paths
+end
+
+-- The other same-kind values in the aggregate summary, as merge targets for the
+-- report rename picker (mirrors rename_summary's in-file merge candidates).
+local function report_merge_candidates(report, target)
+  local aggregate = report.summary
+  local seen, candidates = {}, {}
+
+  local function add(value)
+    if value ~= nil and value ~= target.current and not seen[value] then
+      seen[value] = true
+      candidates[#candidates + 1] = value
+    end
+  end
+
+  if target.kind == "tag" then
+    for _, item in ipairs(aggregate.tag_totals or {}) do
+      add(item.tag)
+    end
+  elseif target.kind == "location" then
+    for _, item in ipairs(aggregate.location_totals or {}) do
+      add(item.location)
+    end
+  else
+    for _, item in ipairs(aggregate.summary_items or {}) do
+      if item.tag == target.tag then
+        add(item.text)
+      end
+    end
+  end
+
+  return candidates
+end
+
+-- Write a day file's new content: into its open buffer when one exists (so the user
+-- saves it, and the report -- which reads buffers first -- reflects it at once),
+-- otherwise straight to disk. The summary was already rebuilt into `new_lines`.
+local function write_journal_change(path, new_lines)
+  local buf = loaded_buffer_for_path(path)
+  if buf then
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, new_lines)
+    if vim.bo[buf].filetype == "worklog" then
+      M.highlight_buffer(buf)
+    end
+    return
+  end
+
+  vim.fn.writefile(new_lines, path)
+end
+
+local function confirm_report_rename(target, value, changes)
+  local names = {}
+  for _, change in ipairs(changes) do
+    names[#names + 1] = "  " .. vim.fn.fnamemodify(change.path, ":t")
+  end
+
+  local prompt = string.format(
+    "worklog: rename %s '%s' to '%s' in %d file(s)?\n%s",
+    RENAME_PROMPT_LABEL[target.kind],
+    target.current,
+    value,
+    #changes,
+    table.concat(names, "\n")
+  )
+
+  return vim.fn.confirm(prompt, "&Yes\n&No", 1) == 1
+end
+
+-- Prompt for the new value across the report: a vim.ui.select over the merge
+-- candidates (plus a type-a-new-name option), or a plain input when there are none.
+local function prompt_report_rename(target, candidates, apply)
+  local label = RENAME_PROMPT_LABEL[target.kind]
+
+  local function prompt_for_name()
+    apply(vim.fn.input({
+      prompt = string.format("worklog: rename %s: ", label),
+      default = target.current,
+    }))
+  end
+
+  if #candidates == 0 then
+    prompt_for_name()
+    return
+  end
+
+  local TYPE_NEW = {}
+  local choices = {}
+  for _, value in ipairs(candidates) do
+    choices[#choices + 1] = value
+  end
+  choices[#choices + 1] = TYPE_NEW
+
+  vim.ui.select(choices, {
+    prompt = string.format("Worklog: rename/merge %s across the report", label),
+    format_item = function(choice)
+      if choice == TYPE_NEW then
+        return "✎ Type a new name…"
+      end
+      return choice
+    end,
+  }, function(choice)
+    if not choice then
+      return
+    end
+    if choice == TYPE_NEW then
+      prompt_for_name()
+      return
+    end
+    apply(choice)
+  end)
+end
+
+-- Rename an item from a multi-day report, fanning the rename out (by value) across
+-- the day files the resolved row covers, writing each affected file after a
+-- confirmation, then rebuilding the open reports. A source rename is not offered
+-- here -- a report acts on many days at once.
+rename_from_report = function(spec, new_value, source_name)
+  if source_name then
+    warn("worklog: a source rename is not available from a report")
+    return
+  end
+
+  local report, err = build_report_for_spec(spec)
+  if not report then
+    warn(err)
+    return
+  end
+
+  local duration_format = config.get().defaults.duration_format
+  local layout_fn = spec.kind == "week" and render.week_report_layout or render.days_report_layout
+  local layout = layout_fn(report, duration_format, { aggregate_only = spec.aggregate_only })
+
+  local resolved, resolve_err = report_cursor.resolve(layout, cursor_row())
+  if not resolved then
+    warn(resolve_err)
+    return
+  end
+
+  local target = resolved.target
+  local paths = report_target_paths(report, resolved)
+  local target_buf = vim.api.nvim_get_current_buf()
+
+  local function apply(value)
+    if value == nil or value == "" or value == target.current then
+      return
+    end
+    if buffer_changed(target_buf, "rename") then
+      return
+    end
+
+    -- Compute every file's rewrite up front; a day that lacks the item is skipped,
+    -- and a (defensive) failure aborts before anything is written.
+    local changes = {}
+    for _, path in ipairs(paths) do
+      local lines = journal_lines(path)
+      if lines then
+        local result, run_err = rename_summary.run_by_value(lines, target, value)
+        if result then
+          changes[#changes + 1] = { path = path, lines = lines_with_edits(lines, result.edits) }
+        elseif run_err then
+          warn(run_err)
+          return
+        end
+      end
+    end
+
+    if #changes == 0 then
+      warn("worklog: no day in this report has that " .. RENAME_PROMPT_LABEL[target.kind])
+      return
+    end
+
+    if not confirm_report_rename(target, value, changes) then
+      return
+    end
+
+    for _, change in ipairs(changes) do
+      write_journal_change(change.path, change.lines)
+    end
+
+    refresh_report_windows()
+  end
+
+  if new_value ~= nil then
+    apply(new_value)
+    return
+  end
+
+  prompt_report_rename(target, report_merge_candidates(report, target), apply)
 end
 
 function M.open_week(aggregate_only)
