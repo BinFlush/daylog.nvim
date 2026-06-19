@@ -133,6 +133,17 @@ an in-file summary tracks its entries. Each day section in a report labels its
 header with that day's own `q=` bucket (`week.lua` carries `quantize_minutes`
 per day; the aggregate header stays bare).
 
+The report is read-only but is now an actionable surface: `:WorklogRename` on it
+renames an item across days. `render.*_report_layout` exposes the report as a flat
+layout (one row per rendered line, tagged with its section scope), so
+`usecases/report_cursor` maps the cursor to a target and the file scope (an
+aggregate row spans the period, a per-day row one file). The rename then fans out
+**by value** -- `rename_summary.run_by_value` re-finds the item in each day's own
+recomputed summary and rewrites that file -- so no cross-file provenance has to be
+threaded through `combine_summaries`; each day stays self-describing. The shell
+writes each affected file (open buffer or disk) after a confirmation and rebuilds
+the open reports.
+
 ## Parsing and semantics
 
 `document.lua` parses source lines into syntax nodes, preserving raw text, row

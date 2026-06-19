@@ -336,6 +336,8 @@ Open a scratch report for the current ISO week from
   following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
   the weekly aggregate summary.
+- The report is read-only, but |:WorklogRename| acts on it: a row renames the
+  item across the period (aggregate row) or in one day (per-day row).
 - Non-empty invalid journal files abort the report instead of producing partial
   totals.
 
@@ -360,6 +362,8 @@ Open a scratch report for the last N journal dates from
   following `auto_summary` (see |worklog-auto-summary|).
 - With `!`, the scratch buffer omits the per-day review sections and shows only
   the range aggregate summary.
+- The report is read-only, but |:WorklogRename| acts on it: a row renames the
+  item across the period (aggregate row) or in one day (per-day row).
 - Non-empty invalid journal files abort the report instead of producing partial
   totals.
 
@@ -488,6 +492,12 @@ attached worklog and rebuilding its summary.
   text is sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active worklog's summary; a row that no longer
   matches the recomputed summary is refused (run |:WorklogRefresh| first).
+- From a |:WorklogWeek| / |:WorklogDays| report you can rename across days: on an
+  aggregate (period) row the item is renamed in every day of the report, on a
+  per-day row in that one day's file. Days that do not contain the item are skipped.
+  After a confirmation listing the affected files, each is rewritten -- in its open
+  buffer if one exists (save it yourself), otherwise on disk -- and the report
+  rebuilds. A source replacement is not offered from a report.
 
                                         *:WorklogBalance* *worklog-balance*
 :WorklogBalance [steps]

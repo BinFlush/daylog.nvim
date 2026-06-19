@@ -84,6 +84,13 @@ happen, but they are called out clearly in this changelog.
   (today plus a signed offset), scaffolding the directory, default header, and an
   empty summary when the day is new. Unlike `:WorklogToday` it never stamps the
   current time, so it is the way to start a past or future day.
+- `:WorklogRename` now works on a `:WorklogWeek` / `:WorklogDays` report: with the
+  cursor on an aggregate row it renames the item across every day of the period; on
+  a per-day row, in that one day's file. It rewrites each affected day by value
+  (skipping days that lack the item) after a confirmation listing the files --
+  editing an open buffer in place or writing to disk -- then rebuilds the report.
+  Activities, tags, and locations are all renamable, mirroring the single-day
+  rename; a source replacement is not offered from a report.
 
 ### Changed
 
