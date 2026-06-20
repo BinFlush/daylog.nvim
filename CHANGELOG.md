@@ -20,7 +20,7 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to blotter blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
-## Unreleased
+## 0.8.0 - 2026-06-20
 
 ### Changed
 
