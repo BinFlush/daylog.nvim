@@ -21,7 +21,7 @@ local sources_registry = require("blotter.sources.registry")
 local sources_sync = require("blotter.sources.sync")
 local support = require("blotter.usecases.support")
 local text = require("blotter.text")
-local week = require("blotter.week")
+local report_buffers = require("blotter.report")
 
 local M = {}
 
@@ -32,7 +32,6 @@ local cursor_row = buffer.cursor_row
 local publish_diagnostics = buffer.publish_diagnostics
 local apply_result = buffer.apply_result
 local run_buffer_usecase = buffer.run_buffer_usecase
-local with_preserved_cursor = buffer.with_preserved_cursor
 local buffer_changed = buffer.buffer_changed
 local apply_refresh = buffer.apply_refresh
 
@@ -48,6 +47,11 @@ local can_abandon_current_buffer = journal_io.can_abandon_current_buffer
 local open_journal_file = journal_io.open_journal_file
 local edit_journal_file = journal_io.edit_journal_file
 local current_buffer_journal_date = journal_io.current_buffer_journal_date
+
+-- Report buffers, rebound as locals.
+local build_report_for_spec = report_buffers.build_report_for_spec
+local open_report = report_buffers.open_report
+local refresh_report_windows = report_buffers.refresh_report_windows
 
 local function ensure_user_command(name, callback, options)
   if vim.fn.exists(":" .. name) == 2 then
@@ -82,22 +86,6 @@ local function apply_insert_blot(time, entry_text)
 
   apply_result(result)
   return true
-end
-
-local function unique_buffer_name(base_name)
-  if vim.fn.bufexists(base_name) == 0 then
-    return base_name
-  end
-
-  local suffix = 2
-  local candidate = base_name .. "#" .. suffix
-
-  while vim.fn.bufexists(candidate) == 1 do
-    suffix = suffix + 1
-    candidate = base_name .. "#" .. suffix
-  end
-
-  return candidate
 end
 
 local function parse_positive_integer(value)
@@ -137,27 +125,6 @@ local function parse_day_offset(value)
   end
 
   return number
-end
-
-local function open_report_buffer(lines, name)
-  vim.cmd("botright new")
-  vim.bo.buftype = "nofile"
-  vim.bo.bufhidden = "wipe"
-  vim.bo.buflisted = false
-  vim.bo.swapfile = false
-  if name then
-    vim.api.nvim_buf_set_name(0, unique_buffer_name(name))
-  end
-  vim.bo.modifiable = true
-  vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
-  vim.api.nvim_win_set_cursor(0, { 1, 0 })
-  vim.bo.modified = false
-  vim.bo.modifiable = false
-
-  -- Reports are scratch buffers (no blotter filetype, so no ftplugin), so apply
-  -- the parser-driven highlighter directly. The same recognizer handles the
-  -- labeled multi-day section headers and their duration rows.
-  M.highlight_buffer(0)
 end
 
 -- Today's blotter must be left in a valid state: leaving a broken today (out-of-order
@@ -841,92 +808,6 @@ function M.init_day(offset)
   -- blot. refresh_summaries creates the missing summary the same way it self-heals
   -- any summary-less blotter.
   apply_refresh(false)
-end
-
--- Build the report object for a spec, reading each day through journal_lines so
--- open buffers (saved or not) are reflected. Returns the report (its days each
--- carrying a path) or nil and an error message. Shared by the line renderer and the
--- report rename, so both see the same period and days.
-local function build_report_for_spec(spec)
-  local settings = expanded_journal_settings()
-  if settings == nil then
-    return nil, "blotter: journal.root is not configured"
-  end
-
-  if spec.kind == "week" then
-    return week.build_week_report(settings, spec.anchor, journal_lines)
-  end
-
-  return week.build_days_report(settings, spec.anchor, spec.count, journal_lines)
-end
-
--- Build the display lines for a report spec. Returns the lines and the period
--- label, or nil and an error message.
-local function build_report_lines(spec)
-  local report, err = build_report_for_spec(spec)
-  if not report then
-    return nil, err
-  end
-
-  local options = { aggregate_only = spec.aggregate_only }
-  local duration_format = config.get().defaults.duration_format
-  local render_report = spec.kind == "week" and render.week_report_lines or render.days_report_lines
-
-  return render_report(report, duration_format, options), report.period_label
-end
-
-local function report_buffer_name(spec, label)
-  local prefix
-  if spec.kind == "week" then
-    prefix = spec.aggregate_only and "blotter-week-summary-" or "blotter-week-"
-  else
-    prefix = spec.aggregate_only and "blotter-days-summary-" or "blotter-days-"
-  end
-
-  return prefix .. label .. ".blot"
-end
-
--- Open a fresh scratch report for a spec and tag the buffer with that spec, so
--- the auto-summary autocmds can rebuild it in place when a dependent journal
--- buffer changes. The anchor is pinned at open time, so the report keeps
--- covering the same period for as long as it stays open.
-local function open_report(spec)
-  local lines, label_or_err = build_report_lines(spec)
-  if not lines then
-    warn(label_or_err)
-    return
-  end
-
-  open_report_buffer(lines, report_buffer_name(spec, label_or_err))
-  vim.api.nvim_buf_set_var(0, "blotter_report", spec)
-end
-
--- Rebuild every open report buffer from its stored spec, mirroring how the
--- in-file summaries refresh. A build failure (e.g. a dependent day is mid-edit
--- and invalid) leaves the last good report untouched rather than flicker, and
--- an unchanged report is left alone so the cursor never jumps needlessly.
-local function refresh_report_windows()
-  local refreshed = {}
-
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    local buf = vim.api.nvim_win_get_buf(win)
-    local ok, spec = pcall(vim.api.nvim_buf_get_var, buf, "blotter_report")
-
-    if ok and type(spec) == "table" and not refreshed[buf] then
-      refreshed[buf] = true
-      local lines = build_report_lines(spec)
-
-      if lines and not vim.deep_equal(lines, vim.api.nvim_buf_get_lines(buf, 0, -1, false)) then
-        with_preserved_cursor(win, buf, function()
-          vim.bo[buf].modifiable = true
-          vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-          vim.bo[buf].modified = false
-          vim.bo[buf].modifiable = false
-          M.highlight_buffer(buf)
-        end)
-      end
-    end
-  end
 end
 
 -- Apply an edit script (0-based, sorted highest-start-first by the usecase) to a
