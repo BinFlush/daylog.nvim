@@ -24,7 +24,7 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
-- **Renamed the plugin to Blotter** (breaking, no migration). An entry is now a
+- **Renamed the plugin to Blotter** (breaking). An entry is now a
   *blot*, a block of blots is a *blotter*. Files use the `.blot` extension (was
   `.wkl`) with `--- blots ... ---` block headers (was `--- worklog ... ---`), and
   the filetype is `blotter` (was `worklog`). Commands are split by scope: item
@@ -34,9 +34,16 @@ happen, but they are called out clearly in this changelog.
   `:BlotterPrevDay`, `:BlotterWeek`, `:BlotterDays`, `:BlotterCopy`,
   `:BlotterOrder`, `:BlotterRefresh`, `:BlotterSync`). The Lua module is
   `require("blotter")`, health is `:checkhealth blotter`, and messages are
-  prefixed `blotter:`. The old names, the old format, and `.wkl` files are not
-  supported — existing files must be converted (rename to `.blot` and change each
-  `--- worklog ... ---` header to `--- blots ... ---`).
+  prefixed `blotter:`. Update your config to match: change
+  `require("worklog").setup(...)` to `require("blotter").setup(...)` (the option
+  keys are unchanged), point your plugin spec at the renamed repo, and rename any
+  `:Worklog*` keymaps to their `:Blot*` / `:Blotter*` equivalents. The old names,
+  the old format, and `.wkl` files are not supported. Convert an existing journal
+  tree with
+  `scripts/migrate-to-blotter.sh <journal-root>` — a dry run by default; pass
+  `--apply` to perform it (and `--backup` to keep `.wkl.bak` copies). It rewrites
+  each `--- worklog ... ---` header to `--- blots ... ---` and renames `.wkl` →
+  `.blot`.
 
 ### Added
 
