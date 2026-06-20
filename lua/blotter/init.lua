@@ -4,6 +4,7 @@ local balance_summary = require("blotter.usecases.balance_summary")
 local carryover = require("blotter.usecases.carryover")
 local config = require("blotter.config")
 local buffer = require("blotter.buffer")
+local commands = require("blotter.commands")
 local insert_blot = require("blotter.usecases.insert_blot")
 local insert_now = require("blotter.usecases.insert_now")
 local journal = require("blotter.journal")
@@ -53,14 +54,6 @@ local build_report_for_spec = report_buffers.build_report_for_spec
 local open_report = report_buffers.open_report
 local refresh_report_windows = report_buffers.refresh_report_windows
 
-local function ensure_user_command(name, callback, options)
-  if vim.fn.exists(":" .. name) == 2 then
-    return
-  end
-
-  vim.api.nvim_create_user_command(name, callback, options or {})
-end
-
 local function apply_insert_time(time)
   local lines = buffer_lines()
   local row = cursor_row()
@@ -86,45 +79,6 @@ local function apply_insert_blot(time, entry_text)
 
   apply_result(result)
   return true
-end
-
-local function parse_positive_integer(value)
-  if type(value) ~= "string" or value:match("^%d+$") == nil then
-    return nil, "blotter: days count must be a positive integer"
-  end
-
-  local number = tonumber(value)
-  if number == nil or number <= 0 then
-    return nil, "blotter: days count must be a positive integer"
-  end
-
-  return number
-end
-
--- An optional positive day-step count; an empty argument defaults to 1.
-local function parse_step_count(value)
-  if value == nil or value == "" then
-    return 1
-  end
-
-  return parse_positive_integer(value)
-end
-
-local function parse_day_offset(value)
-  if value == nil or value == "" then
-    return 0
-  end
-
-  if type(value) ~= "string" or value:match("^[+-]?%d+$") == nil then
-    return nil, "blotter: day offset must be an integer"
-  end
-
-  local number = tonumber(value)
-  if number == nil then
-    return nil, "blotter: day offset must be an integer"
-  end
-
-  return number
 end
 
 -- Today's blotter must be left in a valid state: leaving a broken today (out-of-order
@@ -329,17 +283,6 @@ local function guard_current_time(command)
     )
   )
   return true
-end
-
--- Command-line completion over configured source names (first argument only).
-local function source_complete(arglead)
-  local matches = {}
-  for _, name in ipairs(sources_registry.names()) do
-    if name:sub(1, #arglead) == arglead then
-      table.insert(matches, name)
-    end
-  end
-  return matches
 end
 
 -- Bring a work item from a configured source into the current blotter at the
@@ -1136,122 +1079,11 @@ local function instantiate_sources()
   end
 end
 
--- Register a command whose single optional argument is parsed, warned-on, then
--- dispatched. `parse(args.args) -> value | nil, err`; on a successful (non-nil) parse
--- `dispatch(value)` runs, else the error is warned. The day-navigation commands share
--- this shape -- the `== nil` check (not `not value`) keeps a 0 day-offset from being
--- swallowed.
-local function register_parsed_command(name, parse, dispatch)
-  ensure_user_command(name, function(args)
-    local value, err = parse(args.args)
-    if value == nil then
-      warn(err)
-      return
-    end
-
-    dispatch(value)
-  end, {
-    nargs = "?",
-  })
-end
-
 function M.setup(options)
   config.setup(options)
   filetype.register()
   instantiate_sources()
-
-  ensure_user_command("BlotInsert", function(args)
-    local name = args.fargs[1]
-    if not name then
-      M.insert_now()
-      return
-    end
-
-    M.insert_from_source(name)
-  end, {
-    nargs = "?",
-    complete = function(arglead)
-      return source_complete(arglead)
-    end,
-  })
-
-  register_parsed_command("BlotterToday", parse_day_offset, M.open_today)
-  register_parsed_command("BlotterInit", parse_day_offset, M.init_day)
-  register_parsed_command("BlotterNextDay", parse_step_count, M.open_relative_day)
-  register_parsed_command("BlotterPrevDay", parse_step_count, function(count)
-    M.open_relative_day(-count)
-  end)
-
-  ensure_user_command("BlotterWeek", function(args)
-    M.open_week(args.bang)
-  end, {
-    bang = true,
-  })
-
-  ensure_user_command("BlotterDays", function(args)
-    local count, err = parse_positive_integer(args.args)
-    if not count then
-      warn(err)
-      return
-    end
-
-    M.open_days(count, args.bang)
-  end, {
-    bang = true,
-    nargs = 1,
-  })
-
-  ensure_user_command("BlotRepeat", function()
-    M.repeat_current()
-  end)
-
-  -- A lone argument that names a configured source opens the picker against that
-  -- source (to replace an activity with a work item); any other argument is the new
-  -- value to rename to directly; no argument opens the picker.
-  ensure_user_command("BlotRename", function(args)
-    local arg = args.args
-    if arg ~= "" and sources_registry.get(arg) then
-      M.rename_summary(nil, arg)
-    elseif arg ~= "" then
-      M.rename_summary(arg)
-    else
-      M.rename_summary()
-    end
-  end, {
-    nargs = "*",
-    complete = source_complete,
-  })
-
-  ensure_user_command("BlotterOrder", function()
-    M.order_blotters()
-  end)
-
-  ensure_user_command("BlotterCopy", function()
-    M.append_copy()
-  end)
-
-  ensure_user_command("BlotLog", function()
-    M.log_current()
-  end)
-
-  ensure_user_command("BlotBalance", function(args)
-    M.balance(args.args)
-  end, {
-    nargs = "?",
-  })
-
-  ensure_user_command("BlotterRefresh", function()
-    M.refresh()
-  end)
-
-  ensure_user_command("BlotterSync", function(args)
-    M.sync_source(args.fargs[1])
-  end, {
-    nargs = "?",
-    complete = function(arglead)
-      return source_complete(arglead)
-    end,
-  })
+  commands.register(M)
 
   setup_auto_summary(config.get().auto_summary)
 end
