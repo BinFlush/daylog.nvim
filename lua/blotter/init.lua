@@ -1,12 +1,10 @@
 local filetype = require("blotter.filetype")
 local append_copy = require("blotter.usecases.append_copy")
 local balance_summary = require("blotter.usecases.balance_summary")
-local carryover = require("blotter.usecases.carryover")
 local config = require("blotter.config")
 local buffer = require("blotter.buffer")
 local commands = require("blotter.commands")
-local insert_blot = require("blotter.usecases.insert_blot")
-local insert_now = require("blotter.usecases.insert_now")
+local current_time = require("blotter.current_time")
 local journal = require("blotter.journal")
 local log_current = require("blotter.usecases.log_current")
 local journal_io = require("blotter.journal_io")
@@ -19,7 +17,6 @@ local sources_picker = require("blotter.sources.picker")
 local sources_registry = require("blotter.sources.registry")
 local sources_sync = require("blotter.sources.sync")
 local support = require("blotter.usecases.support")
-local text = require("blotter.text")
 local report_buffers = require("blotter.report")
 
 local M = {}
@@ -38,8 +35,6 @@ M.highlight_buffer = buffer.highlight_buffer
 M.rename_summary = rename.summary
 
 -- Day-file IO, rebound as locals.
-local journal_lines = journal_io.journal_lines
-local journal_path_has_content = journal_io.journal_path_has_content
 local existing_journal_dates = journal_io.existing_journal_dates
 local expanded_journal_settings = journal_io.expanded_journal_settings
 local can_abandon_current_buffer = journal_io.can_abandon_current_buffer
@@ -51,32 +46,10 @@ local current_buffer_journal_date = journal_io.current_buffer_journal_date
 local open_report = report_buffers.open_report
 local refresh_report_windows = report_buffers.refresh_report_windows
 
-local function apply_insert_time(time)
-  local lines = buffer_lines()
-  local row = cursor_row()
-  local result, err = insert_now.run(lines, row, time)
-  if not result then
-    warn(err)
-    return false
-  end
-
-  apply_result(result)
-  return true
-end
-
--- Insert a fully-resolved "HH:MM <text>" blot at the cursor's blotter and enter
--- insert mode. Mirrors apply_insert_time but carries an activity string (the text
--- is built and sanitized by the source layer before it gets here).
-local function apply_insert_blot(time, entry_text)
-  local result, err = insert_blot.run(buffer_lines(), cursor_row(), time, entry_text)
-  if not result then
-    warn(err)
-    return false
-  end
-
-  apply_result(result)
-  return true
-end
+-- Current-time stamping + carryover, rebound as locals.
+local guard_current_time = current_time.guard_current_time
+local apply_insert_time = current_time.apply_insert_time
+local apply_insert_blot = current_time.apply_insert_blot
 
 -- Today's blotter must be left in a valid state: leaving a broken today (out-of-order
 -- blots, an invalid blot, ...) would silently stop tracking the active day, so the
@@ -96,189 +69,6 @@ local function refuse_when_today_has_errors(settings)
 
   publish_diagnostics(warnings)
   warn("blotter: today's blotter has errors; fix them before leaving the day")
-  return true
-end
-
--- Roll a task that ran across midnight into today: close the previous day at
--- 24:00, open/create today, continue the activity from 00:00, then apply the
--- originating command at the current time. Returns true when it took over the
--- request (carried over, declined, or intentionally refused), false when this is
--- not a carryover situation -- leaving guard_current_time to fall back to the
--- cross-day repeat (:BlotRepeat) or to hard-block (:BlotInsert).
-local function run_carryover(settings, command, now)
-  local lines = buffer_lines()
-
-  local carried = carryover.last_running_entry(lines)
-  if not carried then
-    return false
-  end
-
-  -- Capture the cursor blot before the buffer switches away.
-  local repeated
-  if command == "repeat" then
-    local err
-    repeated, err = carryover.entry_at_row(lines, cursor_row())
-    if not repeated then
-      warn(err)
-      return true
-    end
-  end
-
-  -- A today that already holds content has no room for a fresh 00:00 carry-over.
-  -- For :BlotRepeat, decline (return false) so guard_current_time falls through
-  -- to the normal cross-day repeat, inserting the cursor activity into the existing
-  -- today -- exactly as repeating from any other day does. There is nothing to
-  -- carry for :BlotInsert, so it still points the user at :BlotterToday.
-  local today_path = journal.path_for_date(settings, now)
-  if journal_path_has_content(today_path) then
-    if command == "repeat" then
-      return false
-    end
-
-    warn("blotter: today's blotter already exists; open it with :BlotterToday")
-    return true
-  end
-
-  local prompt = string.format("Past midnight: carry '%s' over to today's blotter?", carried.text)
-  if vim.fn.confirm(prompt, "&Yes\n&No", 1) ~= 1 then
-    return true
-  end
-
-  local close, close_err = carryover.close_edit(lines)
-  if not close then
-    warn(close_err)
-    return true
-  end
-  apply_result(close)
-
-  -- Refresh the previous day's summary so the carried-over 24:00 close is
-  -- reflected on disk regardless of the auto_summary mode (apply_result only
-  -- republishes diagnostics; it does not recompute summaries).
-  apply_refresh(false)
-
-  if not pcall(vim.cmd, "silent write") then
-    warn("blotter: failed to save the previous day before carrying over")
-    return true
-  end
-
-  if not open_journal_file(settings, now) then
-    return true
-  end
-
-  local seed, seed_err = carryover.seed_edit(buffer_lines(), carried, 0)
-  if not seed then
-    warn(seed_err)
-    return true
-  end
-  apply_result(seed)
-
-  if command == "repeat" then
-    local clock = os.date("*t", now)
-    local seed_repeat, seed_repeat_err =
-      carryover.seed_edit(buffer_lines(), repeated, clock.hour * 60 + clock.min)
-    if not seed_repeat then
-      warn(seed_repeat_err)
-      return true
-    end
-    apply_result(seed_repeat)
-  else
-    apply_insert_time(os.date("%H:%M", now))
-  end
-
-  return true
-end
-
--- Bring the activity under the cursor into today's blotter at the current time,
--- used when :BlotRepeat runs on another day's file. The browsed day is left
--- untouched; today is opened (created if needed) and the window switches to it.
-local function run_cross_day_repeat(settings, now)
-  -- Capture the activity before open_journal_file switches the buffer away.
-  local activity, err = carryover.entry_at_row(buffer_lines(), cursor_row())
-  if not activity then
-    warn(err)
-    return
-  end
-
-  -- Opening today switches the window away from the browsed day; refuse cleanly when
-  -- that buffer cannot be abandoned (unsaved with 'hidden' off), the same way the day
-  -- navigation does, instead of surfacing a raw E37 from the :edit below. The browsed
-  -- day is left untouched, so -- unlike carryover -- it is not saved on the user's behalf.
-  if not can_abandon_current_buffer() then
-    warn("blotter: current buffer has unsaved changes")
-    return
-  end
-
-  local clock = os.date("*t", now)
-  local minutes = clock.hour * 60 + clock.min
-
-  -- If today already holds a blotter, confirm the activity can be inserted there before
-  -- switching to it, so a broken today is reported while staying on the browsed day
-  -- rather than yanking the window across and only then failing. A missing/empty (or
-  -- whitespace-only) today is initialized fresh by open_journal_file and always seeds.
-  local today_lines = journal_lines(journal.path_for_date(settings, now))
-  if today_lines and not text.is_empty(today_lines) then
-    local ok, validate_err = carryover.seed_edit(today_lines, activity, minutes)
-    if not ok then
-      warn(validate_err)
-      return
-    end
-  end
-
-  if not open_journal_file(settings, now) then
-    return
-  end
-
-  local seed, seed_err = carryover.seed_edit(buffer_lines(), activity, minutes)
-  if not seed then
-    warn(seed_err)
-    return
-  end
-
-  apply_result(seed)
-  apply_refresh(false)
-end
-
--- Refuse to stamp the current time into a day that is not today. When the
--- buffer is not a canonical journal file the guard stays silent so the plugin
--- keeps working on arbitrary files. Returns true when the request was handled
--- (blocked, carried over, or repeated into today) and the caller should stop.
-local function guard_current_time(command)
-  local settings = expanded_journal_settings()
-  if settings == nil then
-    return false
-  end
-
-  local file_date = current_buffer_journal_date(settings)
-  if file_date == nil then
-    return false
-  end
-
-  local now = os.time()
-  if journal.same_date(file_date, now) then
-    return false
-  end
-
-  if
-    journal.same_date(file_date, journal.offset_date(now, -1))
-    and run_carryover(settings, command, now)
-  then
-    return true
-  end
-
-  -- :BlotRepeat on any other day brings the cursor activity into today instead
-  -- of refusing; :BlotInsert still refuses (there is no activity to carry).
-  if command == "repeat" then
-    run_cross_day_repeat(settings, now)
-    return true
-  end
-
-  warn(
-    string.format(
-      "blotter: this file is dated %s, not today (%s); refusing to insert the current time",
-      journal.date_label(file_date),
-      journal.date_label(now)
-    )
-  )
   return true
 end
 
