@@ -7,17 +7,17 @@ All notable user-facing changes to this project are documented here.
 `main` is the active development branch and may receive ongoing changes.
 
 Tagged releases are the compatibility points for users who need reproducible
-`.wkl` parsing, summaries, and rendering.
+`.blot` parsing, summaries, and rendering.
 
-`worklog.nvim` is pre-1.0, so breaking syntax or semantic changes may still
+`blotter.nvim` is pre-1.0, so breaking syntax or semantic changes may still
 happen, but they are called out clearly in this changelog.
 
-- The project aims to preserve existing valid `.wkl` files where practical.
+- The project aims to preserve existing valid `.blot` files where practical.
 - Unknown or unsupported header options are reported as diagnostics, not
   silently ignored.
 - Patch releases may change derived results when they fix miscomputed
   behavior; those changes are documented here.
-- Compatibility applies to worklog blocks and their semantics. Generated
+- Compatibility applies to blotter blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
 ## Unreleased
