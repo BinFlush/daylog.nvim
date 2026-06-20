@@ -137,6 +137,7 @@ dofile(root .. "/tests/compat.lua")(t)
 dofile(root .. "/tests/invariants.lua")(t)
 dofile(root .. "/tests/summary_fuzz.lua")(t)
 dofile(root .. "/tests/balance_invariants.lua")(t)
+dofile(root .. "/tests/regen_invariants.lua")(t)
 
 restore_output()
 
