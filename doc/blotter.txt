@@ -102,7 +102,7 @@ Rules:
 - `24:00` is valid only as the final timestamped blot of a blotter block,
   where it closes the last task at midnight (contiguous with the next day's
   `00:00`). A `24:00` blot followed by another timestamped blot is an error.
-- Non-timestamped lines under an blot are notes.
+- Non-timestamped lines under a blot are notes.
 - Notes move with their timestamped blot when copied or ordered.
 - `!L` marks the interval started by that blot as already logged externally.
 - `utc±H[:MM]` sets the UTC offset in effect from that blot on; see
@@ -147,7 +147,7 @@ Examples:
   @client
 <
 
-Both are sticky. When an blot omits a tag or location, it inherits the current
+Both are sticky. When a blot omits a tag or location, it inherits the current
 value from the header or previous blots.
 
 Example:
@@ -196,7 +196,7 @@ The special tag `#ooo` means out of office.
 `#ooo` is sticky until another tag or `#-` replaces it.
 
                                                        *blotter-utc-offset*
-`utc±H[:MM]` records the absolute UTC offset of an blot: a third sticky
+`utc±H[:MM]` records the absolute UTC offset of a blot: a third sticky
 dimension alongside `#tag` and `@location`, for when the clock moves under you
 (crossing a timezone while travelling, or a DST flip).
 

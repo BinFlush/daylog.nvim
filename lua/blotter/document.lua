@@ -237,8 +237,8 @@ local function parse_blot(line, row)
     return nil
   end
 
-  -- A summary row ("16:00 (+0m) workday") is byte-for-byte an blot timestamp plus a
-  -- (+Nm) rounding marker; treat it as a note, not an blot. This keeps a d=hm summary
+  -- A summary row ("16:00 (+0m) workday") is byte-for-byte a blot timestamp plus a
+  -- (+Nm) rounding marker; treat it as a note, not a blot. This keeps a d=hm summary
   -- row that leaks into a blotter body (e.g. after its summary header is deleted) from
   -- being miscounted as a real blot; the highlighter (highlight.lua) shares the rule.
   if rest:match("^%s+%([%+%-]%d+m%)") then
@@ -344,7 +344,7 @@ function M.tokens(line)
 end
 
 -- The (+Nm) / (-Nm) rounding markers on a line as 0-based byte spans. This is the
--- same marker shape parse_blot refuses to read as an blot (so a summary row never
+-- same marker shape parse_blot refuses to read as a blot (so a summary row never
 -- counts as one); reusing it keeps the reader and the highlighter in lockstep.
 function M.quant_error_spans(line)
   local spans = {}
@@ -356,9 +356,9 @@ end
 
 -- The byte length of a line's leading summary-duration token, or nil. A decimal
 -- ("2.00h") or a single-digit-hour h:mm ("0:30") is always a duration (neither can
--- be an blot timestamp, which is a zero-padded HH:MM). A two-digit-hour HH:MM
+-- be a blot timestamp, which is a zero-padded HH:MM). A two-digit-hour HH:MM
 -- ("16:00") is a duration only immediately before a rounding marker -- otherwise it
--- is an blot timestamp -- mirroring the blot/summary split parse_blot makes.
+-- is a blot timestamp -- mirroring the blot/summary split parse_blot makes.
 function M.summary_duration_length(line)
   local decimal = line:match("^%d+%.%d+h")
   if decimal then

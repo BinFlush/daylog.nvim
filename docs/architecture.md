@@ -40,7 +40,7 @@ interval that starts at the blot.
 14:00-17:00  client followup   #ClientA   @client
 ```
 
-`#tag` and `@location` are sticky: if an blot omits one, it inherits the current
+`#tag` and `@location` are sticky: if a blot omits one, it inherits the current
 value. `#-` clears the active tag and `@-` the active location. `#ooo` marks
 out-of-office time — it contributes to `activity` but not `workday`.
 

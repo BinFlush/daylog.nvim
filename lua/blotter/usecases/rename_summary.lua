@@ -21,7 +21,7 @@ local M = {}
 --
 -- Tag/location renames are value substitutions: only the header token and the
 -- explicit tokens that named the old value are rewritten. Sticky inheritance is
--- preserved automatically -- an blot that inherited the old value now inherits
+-- preserved automatically -- a blot that inherited the old value now inherits
 -- the new one from the same (rewritten) source -- so unrelated lines are left
 -- untouched. Only lines whose canonical rendering actually changes are edited.
 
@@ -164,7 +164,7 @@ local function build_source_edits(block, ops)
       local line =
         blot.format(fields, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
 
-      -- An blot that only inherited the renamed value renders identically (it
+      -- A blot that only inherited the renamed value renders identically (it
       -- still has no token), so only emit an edit when the line truly changes.
       if line ~= item.blot.raw then
         table.insert(edits, {

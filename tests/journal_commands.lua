@@ -2001,7 +2001,7 @@ return function(t)
     end)
   end)
 
-  t.test("repeat on another day with the cursor off an blot warns and does nothing", function()
+  t.test("repeat on another day with the cursor off a blot warns and does nothing", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 10, min = 0, sec = 0 })
     local past = os.time({ year = 2026, month = 5, day = 19, hour = 12, min = 0, sec = 0 })

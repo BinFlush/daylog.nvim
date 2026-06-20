@@ -72,14 +72,14 @@ function M.parse(line, current_tag, current_location, current_offset)
   return analyze.copy_fields(blot)
 end
 
--- A control token is exactly what the parser peels from an blot's trailing run, so
+-- A control token is exactly what the parser peels from a blot's trailing run, so
 -- defer to the one grammar document exports rather than forking the patterns here --
 -- a future control token then stays parenthesized automatically.
 local function is_dangerous_token(token)
   return document.classify_control_token(token) ~= nil
 end
 
--- Make `text` safe to use as an blot's activity text so it can never grow
+-- Make `text` safe to use as a blot's activity text so it can never grow
 -- trailing metadata. The parser peels metadata by scanning whitespace tokens from
 -- the end while they are control tokens (#tag, @loc, #-, @-, !L); wrap each token
 -- in the trailing run of such tokens in parentheses so the scan stops at a plain

@@ -163,7 +163,7 @@ local function push_quant_errors(spans, row, line)
 end
 
 -- A row inside a summary section: its leading duration, rounding marker(s), and any
--- trailing #tag / @location the row still carries. The leading field is an blot's
+-- trailing #tag / @location the row still carries. The leading field is a blot's
 -- timestamp (a `16:00 ...` row that carried no marker) or a rendered duration token.
 local function push_summary_row(spans, row, line, kind)
   local duration = kind == syntax.NODE_KIND.BLOT and TIMESTAMP_WIDTH

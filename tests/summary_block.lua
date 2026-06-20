@@ -171,7 +171,7 @@ return function(t)
     )
   end)
 
-  t.test("summary_block keeps an blot flush against a header-less summary", function()
+  t.test("summary_block keeps a blot flush against a header-less summary", function()
     -- The summary header was deleted AND there is no separator blank, so the rows sit
     -- directly under the final blot (21:00 done). The window starts after the last
     -- blot, so that blot can never be drawn into the span and rewritten away.

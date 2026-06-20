@@ -53,26 +53,27 @@ Restart Neovim and run `:Lazy sync`. Everything is optional — see
 [Configuration](#configuration) or `:help blotter-config`. Needs Neovim 0.8+ (and
 `curl`, only if you use external [sources](#sources)).
 
-blotter sets no keymaps; map the commands you use, for example:
+blotter sets no keymaps; map the commands you use. The examples use a `<leader>b`
+prefix for the mnemonic, but it often collides with buffer maps — swap in whatever
+prefix is free in your config:
 
 ```lua
 -- global
-vim.keymap.set("n", "<leader>wt", "<cmd>BlotterToday<cr>",   { desc = "Blotter: today" })
-vim.keymap.set("n", "<leader>wi", "<cmd>BlotInsert<cr>",  { desc = "Blotter: insert time" })
-vim.keymap.set("n", "<leader>wk", "<cmd>BlotterWeek<cr>",    { desc = "Blotter: week report" })
-vim.keymap.set("n", "<leader>wd", "<cmd>BlotterDays<cr>",    { desc = "Blotter: days report" })
-vim.keymap.set("n", "<leader>ww", "<cmd>BlotterCopy<cr>",    { desc = "Blotter: copy block" })
-vim.keymap.set("n", "<leader>wo", "<cmd>BlotterOrder<cr>",   { desc = "Blotter: order blots" })
-vim.keymap.set("n", "<leader>wf", "<cmd>BlotterRefresh<cr>", { desc = "Blotter: refresh summaries" })
-vim.keymap.set("n", "]w",         "<cmd>BlotterNextDay<cr>", { desc = "Blotter: next day" })
-vim.keymap.set("n", "[w",         "<cmd>BlotterPrevDay<cr>", { desc = "Blotter: prev day" })
+vim.keymap.set("n", "<leader>bt", "<cmd>BlotterToday<cr>",   { desc = "Blotter: today" })
+vim.keymap.set("n", "<leader>bi", "<cmd>BlotInsert<cr>",     { desc = "Blotter: insert time" })
+vim.keymap.set("n", "<leader>bw", "<cmd>BlotterWeek<cr>",    { desc = "Blotter: week report" })
+vim.keymap.set("n", "<leader>bc", "<cmd>BlotterCopy<cr>",    { desc = "Blotter: copy block" })
+vim.keymap.set("n", "<leader>bo", "<cmd>BlotterOrder<cr>",   { desc = "Blotter: order blots" })
+vim.keymap.set("n", "<leader>bf", "<cmd>BlotterRefresh<cr>", { desc = "Blotter: refresh summaries" })
+vim.keymap.set("n", "]b",         "<cmd>BlotterNextDay<cr>", { desc = "Blotter: next day" })
+vim.keymap.set("n", "[b",         "<cmd>BlotterPrevDay<cr>", { desc = "Blotter: prev day" })
 
--- with the cursor on a summary row or an blot
-vim.keymap.set("n", "<leader>wr", "<cmd>BlotRepeat<cr>",     { desc = "Blotter: repeat activity" })
-vim.keymap.set("n", "<leader>wR", "<cmd>BlotRename<cr>",     { desc = "Blotter: rename" })
-vim.keymap.set("n", "<leader>wl", "<cmd>BlotLog<cr>",        { desc = "Blotter: toggle logged" })
-vim.keymap.set("n", "<leader>wb", "<cmd>BlotBalance +1<cr>", { desc = "Blotter: round up a step" })
-vim.keymap.set("n", "<leader>wB", "<cmd>BlotBalance -1<cr>", { desc = "Blotter: round down a step" })
+-- with the cursor on a summary row or a blot
+vim.keymap.set("n", "<leader>br", "<cmd>BlotRepeat<cr>",     { desc = "Blotter: repeat activity" })
+vim.keymap.set("n", "<leader>bR", "<cmd>BlotRename<cr>",     { desc = "Blotter: rename" })
+vim.keymap.set("n", "<leader>bl", "<cmd>BlotLog<cr>",        { desc = "Blotter: toggle logged" })
+vim.keymap.set("n", "<leader>b+", "<cmd>BlotBalance +1<cr>", { desc = "Blotter: round up a step" })
+vim.keymap.set("n", "<leader>b-", "<cmd>BlotBalance -1<cr>", { desc = "Blotter: round down a step" })
 ```
 
 ## A typical day
@@ -127,7 +128,7 @@ bucket (`q=`) in the header or on any blot:
 17:00 done
 ```
 
-Tags and locations are sticky — an blot that omits one inherits the previous
+Tags and locations are sticky — a blot that omits one inherits the previous
 value. The rest of the grammar (clearing with `#-` / `@-`, out-of-office `#ooo`,
 the `!L` marker, the `d=hm` duration format) is in `:help blotter-format`.
 
@@ -138,7 +139,7 @@ the `!L` marker, the `d=hm` duration format) is in `:help blotter-format`.
 | `:BlotterToday [offset]` | Open today's journal (creating it on first use); a nonzero offset only navigates |
 | `:BlotterNextDay` / `:BlotterPrevDay [count]` | Step between journal days |
 | `:BlotInsert [source]` | Stamp the current time; with a source name, pick a work item to insert (see [Sources](#sources)) |
-| `:BlotRepeat` | Repeat the activity under the cursor (an blot or its main summary row) at the current time |
+| `:BlotRepeat` | Repeat the activity under the cursor (a blot or its main summary row) at the current time |
 | `:BlotterWeek[!]` / `:BlotterDays[!] {n}` | Open a week / last-N-days report (`!` for totals only) |
 | `:BlotLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
 | `:BlotRename [name\|source]` | Rename (or merge) the activity, tag, or location of the summary row under the cursor; for an activity, name a [source](#sources) to replace it with a tracked work item |
@@ -159,7 +160,7 @@ hand? Set `auto_summary = "off"` and use `:BlotterRefresh`. More in
 
 ## Sources
 
-Pull work items straight from a tracker into an blot. **Azure DevOps** is built
+Pull work items straight from a tracker into a blot. **Azure DevOps** is built
 in: configure a named source, then `:BlotInsert <name>` opens a picker and
 inserts the chosen item as `{id} {title}`.
 

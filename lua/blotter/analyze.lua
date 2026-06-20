@@ -40,7 +40,7 @@ end
 
 M.copy_fields = copy_fields
 
--- An blot's effective UTC time in minutes: the written local clock minus its
+-- A blot's effective UTC time in minutes: the written local clock minus its
 -- sticky UTC offset. With no offsets in play (`offset` nil everywhere) this is
 -- identically the raw `minutes`, so duration and ordering are unchanged. Durations
 -- and the unordered-timestamps check reconcile across a clock move via this; the
@@ -66,7 +66,7 @@ end
 -- value is inherited. The offset is sticky like location but has no clear form (you
 -- switch it, you never unset it). `prev` is a { tag, location, offset } state and
 -- `item` is anything carrying the explicit_* fields (a syntax node, a semantic
--- blot, or an blot item), so this is the single definition of the
+-- blot, or a blot item), so this is the single definition of the
 -- clear/explicit/inherit rule -- the analyzer, the body reorder, and rename all
 -- resolve through it, keeping explicit-over-silent one rule rather than three
 -- hand-rolls that can drift.

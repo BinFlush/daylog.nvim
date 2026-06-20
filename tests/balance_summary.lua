@@ -100,7 +100,7 @@ return function(t)
     t.eq(cleared, sample())
   end)
 
-  t.test("balance set directly on an blot marks that blot", function()
+  t.test("balance set directly on a blot marks that blot", function()
     local out = run(sample(), "08:50 review", 1)
 
     t.eq(out[3], "08:50 review round+1")
@@ -167,7 +167,7 @@ return function(t)
     t.eq(out[row_of(out, "(-12m) review")], "1.50h (-12m) review round+1")
   end)
 
-  t.test("balance refuses an blot that starts no interval", function()
+  t.test("balance refuses a blot that starts no interval", function()
     -- The closing blot of the day starts no interval, so it belongs to no
     -- quantization row and cannot be rounded.
     local lines = sample()

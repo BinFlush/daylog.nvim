@@ -12,7 +12,7 @@ local M = {}
 -- clean total. This use case lets the cursor on a summary row -- or directly on a
 -- blot -- shift the rounding by N q-steps. With the cursor on a summary
 -- row the optimality calculator finds the best contributing fine-grained row(s) to
--- nudge (least added error); on an blot it nudges that blot's row. A fine-grained
+-- nudge (least added error); on a blot it nudges that blot's row. A fine-grained
 -- row is summed from its intervals before quantizing, so its nudge is one value the
 -- whole stretch shares: ALL of the row's contributing blots get the marker (it is
 -- not a per-interval amount that would multiply). The marker lives on blots (the
@@ -21,7 +21,7 @@ local M = {}
 -- a partition that foots to its (shifted) total.
 --
 -- A delta of 0 clears the cursor target's nudge: on a summary row it removes every
--- marker contributing to that row's scope; on an blot it removes that blot's marker.
+-- marker contributing to that row's scope; on a blot it removes that blot's marker.
 
 M.NOT_BALANCEABLE = "blotter: put the cursor on a summary row or a blot to balance its rounding"
 M.CANNOT_DOWN = "blotter: cannot round down further here; the contributing items are already empty"

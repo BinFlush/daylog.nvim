@@ -61,7 +61,7 @@ happen, but they are called out clearly in this changelog.
   `39.75h (+15m)` when the true total is `40.00h`); this nudges it. With the cursor
   on a summary row the least-error contributing blot is rounded further (the
   workday/activity total scopes all work, a main row its activity, a
-  tag/location/logged total that group); with the cursor on an blot that blot is
+  tag/location/logged total that group); with the cursor on a blot that blot is
   nudged directly. The chosen blots gain a non-sticky `round±N` marker, the one
   summary is rebuilt, and the marker shows on every affected summary row so it
   stays visible and adjustable (re-run to add more, opposite sign to undo, `0` to

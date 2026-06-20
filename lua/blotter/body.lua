@@ -148,7 +148,7 @@ end
 -- The block's last non-blank body line. Appending here keeps trailing blank lines
 -- (a visual gap before the summary) as separation instead of stepping past them;
 -- notes stay with their blot, only blank lines are skipped. Returns the header row
--- for an blot-less block.
+-- for a blot-less block.
 function M.last_content_row(block)
   local row = block.start_row
 

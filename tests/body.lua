@@ -153,7 +153,7 @@ return function(t)
     })
   end)
 
-  t.test("body sort_changes_metadata flags an blot whose inherited offset would change", function()
+  t.test("body sort_changes_metadata flags a blot whose inherited offset would change", function()
     -- Sorted by effective time the order becomes b, a; a (no explicit offset) would
     -- then inherit a different offset than it did in buffer order, so it is reported
     -- on the same channel as a tag/location change.

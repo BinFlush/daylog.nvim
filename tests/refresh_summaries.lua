@@ -247,7 +247,7 @@ return function(t)
     })
   end)
 
-  t.test("refresh restores a deleted summary row without eating an blot", function()
+  t.test("refresh restores a deleted summary row without eating a blot", function()
     -- Deleting a summary row is undone in place; the blotter's blots (here the final
     -- 21:00 close) are never drawn into the rewrite -- the window starts after them.
     local result = refresh_summaries.run({
