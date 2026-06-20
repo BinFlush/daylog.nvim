@@ -1,17 +1,17 @@
 return function(t)
-  local analyze = require("worklog.analyze")
-  local balance = require("worklog.usecases.balance_summary")
-  local document = require("worklog.document")
-  local render = require("worklog.render")
-  local summary = require("worklog.summary")
+  local analyze = require("blotter.analyze")
+  local balance = require("blotter.usecases.balance_summary")
+  local document = require("blotter.document")
+  local render = require("blotter.render")
+  local summary = require("blotter.summary")
 
-  -- A full buffer (worklog body + its generated summary), so the cursor can sit on a
+  -- A full buffer (blotter body + its generated summary), so the cursor can sit on a
   -- real summary line exactly as in an open file.
-  local function buffer_with_summary(worklog_lines)
-    local analysis = analyze.analyze(document.parse(worklog_lines))
-    local block = analyze.get_active_worklog(analysis)
+  local function buffer_with_summary(blotter_lines)
+    local analysis = analyze.analyze(document.parse(blotter_lines))
+    local block = analyze.get_active_blotter(analysis)
     local out = {}
-    for _, line in ipairs(worklog_lines) do
+    for _, line in ipairs(blotter_lines) do
       out[#out + 1] = line
     end
     for _, line in
@@ -67,16 +67,16 @@ return function(t)
   -- plan 50min, review 45min, q=15 -> plan 0.75h(+5m) / review 0.75h(+0m) / workday 1.50h(+5m).
   local function sample()
     return buffer_with_summary({
-      "--- worklog #ClientA @office q=15 ---",
+      "--- blots #ClientA @office q=15 ---",
       "08:00 plan",
       "08:50 review",
       "09:35 done",
     })
   end
 
-  t.test("balance rounds the workday total up, marking the least-error entry", function()
+  t.test("balance rounds the workday total up, marking the least-error blot", function()
     -- plan has the larger remainder (5m vs review's 0m), so it is the cheapest to
-    -- round up; the marker lands on its entry and every containing section shifts.
+    -- round up; the marker lands on its blot and every containing section shifts.
     local out = run(sample(), "workday", 1)
 
     t.eq(out[2], "08:00 plan round+1")
@@ -100,7 +100,7 @@ return function(t)
     t.eq(cleared, sample())
   end)
 
-  t.test("balance set directly on an entry marks that entry", function()
+  t.test("balance set directly on an blot marks that blot", function()
     local out = run(sample(), "08:50 review", 1)
 
     t.eq(out[3], "08:50 review round+1")
@@ -121,7 +121,7 @@ return function(t)
   t.test("balance applies multiple steps to distinct best rows", function()
     -- Two equal-remainder activities; +2 on the total rounds up both.
     local lines = buffer_with_summary({
-      "--- worklog #ClientA q=15 ---",
+      "--- blots #ClientA q=15 ---",
       "08:00 plan",
       "08:50 review",
       "09:40 done",
@@ -136,7 +136,7 @@ return function(t)
     -- A single 10-min task at q=15 rounds up to 0.25h naturally; one -1 takes it to
     -- 0.00h, and a second has nowhere to go.
     local lines = buffer_with_summary({
-      "--- worklog #ClientA q=15 ---",
+      "--- blots #ClientA q=15 ---",
       "08:00 task",
       "08:10 done",
     })
@@ -153,7 +153,7 @@ return function(t)
     -- the row up one bucket marks ALL THREE intervals and lands at 1.50h -- not three
     -- buckets (2.00h), which a per-interval/additive marker would produce.
     local lines = buffer_with_summary({
-      "--- worklog #ClientA @office q=15 ---",
+      "--- blots #ClientA @office q=15 ---",
       "08:00 review",
       "08:26 review",
       "08:52 review",
@@ -167,8 +167,8 @@ return function(t)
     t.eq(out[row_of(out, "(-12m) review")], "1.50h (-12m) review round+1")
   end)
 
-  t.test("balance refuses an entry that starts no interval", function()
-    -- The closing entry of the day starts no interval, so it belongs to no
+  t.test("balance refuses an blot that starts no interval", function()
+    -- The closing blot of the day starts no interval, so it belongs to no
     -- quantization row and cannot be rounded.
     local lines = sample()
     local _, err = balance.run(lines, row_of(lines, "09:35 done"), 1)
@@ -181,7 +181,7 @@ return function(t)
     -- the workday total's scope.
     local function sample_ooo()
       return buffer_with_summary({
-        "--- worklog #ClientA @office q=15 ---",
+        "--- blots #ClientA @office q=15 ---",
         "08:00 work",
         "08:45 lunch #ooo",
         "09:35 done",
@@ -202,9 +202,9 @@ return function(t)
     t.eq(wd[row_of(wd, ") workday")], "1.00h (-15m) workday round+1")
   end)
 
-  t.test("balance refuses when the cursor is not on a summary row or entry", function()
+  t.test("balance refuses when the cursor is not on a summary row or blot", function()
     local lines = sample()
-    local _, err = balance.run(lines, row_of(lines, "--- worklog"), 1)
+    local _, err = balance.run(lines, row_of(lines, "--- blots"), 1)
     t.eq(err, balance.NOT_BALANCEABLE)
   end)
 end

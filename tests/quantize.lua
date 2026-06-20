@@ -1,6 +1,6 @@
 return function(t)
-  local quantize = require("worklog.quantize")
-  local projection = require("worklog.projection")
+  local quantize = require("blotter.quantize")
+  local projection = require("blotter.projection")
 
   -- The aggregate fuzz suites assert that summaries foot; these pin the per-row
   -- arithmetic at the module boundary, where a reshuffled tie-break or a broken

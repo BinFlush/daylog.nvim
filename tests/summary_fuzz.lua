@@ -8,7 +8,7 @@ return function(t)
   local BASE_SEED = 1234567
   local SAMPLE_PER_MODE = 400
 
-  t.test("summary display footing holds across random worklogs (fuzz)", function()
+  t.test("summary display footing holds across random blotters (fuzz)", function()
     local master = footing.Rng.new(BASE_SEED)
     for _, mode in ipairs(footing.synth.MODES) do
       for _ = 1, SAMPLE_PER_MODE do

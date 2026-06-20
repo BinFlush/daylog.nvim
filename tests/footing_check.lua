@@ -1,7 +1,7 @@
--- Shared footing-invariant check for one synthesized worklog.
+-- Shared footing-invariant check for one synthesized blotter.
 --
--- Given a per-iteration seed and a mode name it synthesizes a worklog
--- (tests/worklog_synth.lua), summarizes it, renders both duration formats, and
+-- Given a per-iteration seed and a mode name it synthesizes a blotter
+-- (tests/blotter_synth.lua), summarizes it, renders both duration formats, and
 -- returns a detailed error report for the first section that fails to foot (its
 -- displayed rows do not sum to the displayed total), or nil when every section
 -- foots. Shared by the always-on suite sample (tests/summary_fuzz.lua) and the
@@ -9,12 +9,12 @@
 
 local cwd = vim.fn.getcwd()
 local Rng = dofile(cwd .. "/tests/rng.lua")
-local synth = dofile(cwd .. "/tests/worklog_synth.lua")
-local document = require("worklog.document")
-local analyze = require("worklog.analyze")
-local summary = require("worklog.summary")
-local render = require("worklog.render")
-local diagnostics = require("worklog.diagnostics")
+local synth = dofile(cwd .. "/tests/blotter_synth.lua")
+local document = require("blotter.document")
+local analyze = require("blotter.analyze")
+local summary = require("blotter.summary")
+local render = require("blotter.render")
+local diagnostics = require("blotter.diagnostics")
 
 local M = { Rng = Rng, synth = synth }
 
@@ -75,7 +75,7 @@ end
 -- Built only on failure (guarded by the caller) so the hot loop stays cheap.
 local function report(sub, mode, wl, fmt, rendered, msg)
   return string.format(
-    "%s\n  replay: synth.generate(Rng.new(%d), %q)  fmt=%s\n--- worklog ---\n%s\n--- rendered ---\n%s",
+    "%s\n  replay: synth.generate(Rng.new(%d), %q)  fmt=%s\n--- blots ---\n%s\n--- rendered ---\n%s",
     msg,
     sub,
     mode,
@@ -85,21 +85,21 @@ local function report(sub, mode, wl, fmt, rendered, msg)
   )
 end
 
--- Synthesize one worklog and check that every displayed section sums to its
+-- Synthesize one blotter and check that every displayed section sums to its
 -- total. Returns nil on success, or a detailed report string on failure.
 function M.check(sub, mode)
   local wl = synth.generate(Rng.new(sub), mode)
 
   local analysis = analyze.analyze(document.parse(wl.lines))
   if #analysis.diagnostics > 0 then
-    local msg = "synth produced an invalid worklog: "
+    local msg = "synth produced an invalid blotter: "
       .. diagnostics.message(analysis.diagnostics[1])
     return report(sub, mode, wl, "-", {}, msg)
   end
 
-  local block = analyze.get_active_worklog(analysis)
+  local block = analyze.get_active_blotter(analysis)
   if not block then
-    return report(sub, mode, wl, "-", {}, "synth produced no active worklog")
+    return report(sub, mode, wl, "-", {}, "synth produced no active blotter")
   end
 
   local s = summary.summarize_block(block)

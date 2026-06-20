@@ -1,9 +1,9 @@
 return function(t)
-  -- Contract test for the parser-driven highlighter (lua/worklog/highlight.lua).
+  -- Contract test for the parser-driven highlighter (lua/blotter/highlight.lua).
   -- Highlighting is derived from the same parse the plugin reads a file with, so
   -- this guards that every canonical token classifies as the expected group. When
   -- a new token is added to the parser, add it here too.
-  local highlight = require("worklog.highlight")
+  local highlight = require("blotter.highlight")
 
   local current_spans = {}
   local current_lines = {}
@@ -40,7 +40,7 @@ return function(t)
 
   t.test("the highlighter classifies canonical tokens", function()
     load({
-      "--- worklog #ClientA @office q=30 ---",
+      "--- blots #ClientA @office q=30 ---",
       "08:00 planning #ClientA @office",
       "10:00 meeting #ooo",
       "12:00 resume #- @-",
@@ -55,56 +55,56 @@ return function(t)
       "12:34xyz",
     })
 
-    -- Worklog header and its contained metadata/option tokens.
-    t.eq(group_at(1, 1), "WorklogHeader")
-    t.eq(group_at(1, col_of(1, "#ClientA")), "WorklogTag")
-    t.eq(group_at(1, col_of(1, "@office")), "WorklogLocation")
-    t.eq(group_at(1, col_of(1, "q=30")), "WorklogOption")
+    -- Blotter header and its contained metadata/option tokens.
+    t.eq(group_at(1, 1), "BlotterHeader")
+    t.eq(group_at(1, col_of(1, "#ClientA")), "BlotterTag")
+    t.eq(group_at(1, col_of(1, "@office")), "BlotterLocation")
+    t.eq(group_at(1, col_of(1, "q=30")), "BlotterOption")
 
     -- Entry timestamp and trailing sticky metadata.
-    t.eq(group_at(2, 1), "WorklogTimestamp")
-    t.eq(group_at(2, col_of(2, "#ClientA")), "WorklogTag")
-    t.eq(group_at(2, col_of(2, "@office")), "WorklogLocation")
+    t.eq(group_at(2, 1), "BlotterTimestamp")
+    t.eq(group_at(2, col_of(2, "#ClientA")), "BlotterTag")
+    t.eq(group_at(2, col_of(2, "@office")), "BlotterLocation")
 
     -- #ooo is highlighted distinctly from a plain tag.
-    t.eq(group_at(3, col_of(3, "#ooo")), "WorklogOoo")
+    t.eq(group_at(3, col_of(3, "#ooo")), "BlotterOoo")
 
     -- Clear tokens read as ordinary tag/location metadata.
-    t.eq(group_at(4, col_of(4, "#-")), "WorklogTag")
-    t.eq(group_at(4, col_of(4, "@-")), "WorklogLocation")
+    t.eq(group_at(4, col_of(4, "#-")), "BlotterTag")
+    t.eq(group_at(4, col_of(4, "@-")), "BlotterLocation")
 
     -- Logged marker.
-    t.eq(group_at(5, col_of(5, "!L")), "WorklogLogged")
+    t.eq(group_at(5, col_of(5, "!L")), "BlotLogged")
 
     -- Generated section header and quantized summary row. The row sits inside the
     -- summary section, ended by the blank line below.
-    t.eq(group_at(6, 1), "WorklogBlockHeader")
-    t.eq(group_at(7, 1), "WorklogDuration")
-    t.eq(group_at(7, col_of(7, "(+2m)")), "WorklogQuantError")
+    t.eq(group_at(6, 1), "BlotterBlockHeader")
+    t.eq(group_at(7, 1), "BlotterDuration")
+    t.eq(group_at(7, col_of(7, "(+2m)")), "BlotterQuantError")
 
     -- Free-form note line (after the summary section's terminating blank).
-    t.eq(group_at(9, 1), "WorklogNote")
+    t.eq(group_at(9, 1), "BlotterNote")
 
     -- A '#' that is not part of the trailing metadata run is plain text, never a
     -- tag, mirroring the parser's trailing-only metadata rule.
-    t.eq(group_at(10, 1), "WorklogTimestamp")
+    t.eq(group_at(10, 1), "BlotterTimestamp")
     t.ok(
-      group_at(10, col_of(10, "#Q1")) ~= "WorklogTag",
+      group_at(10, col_of(10, "#Q1")) ~= "BlotterTag",
       "mid-text #Q1 must not highlight as a tag"
     )
 
     -- 24:00 is a valid end-of-day boundary and still highlights as a timestamp.
-    t.eq(group_at(11, 1), "WorklogTimestamp")
+    t.eq(group_at(11, 1), "BlotterTimestamp")
 
     -- Out-of-range times mirror the parser's rejection: 99:99 is not a timestamp.
     t.ok(
-      group_at(12, 1) ~= "WorklogTimestamp",
+      group_at(12, 1) ~= "BlotterTimestamp",
       "out-of-range 99:99 must not highlight as a timestamp"
     )
 
-    -- A time glued to non-whitespace is not an entry for the parser, so it must
+    -- A time glued to non-whitespace is not an blot for the parser, so it must
     -- not highlight as a timestamp either.
-    t.ok(group_at(13, 1) ~= "WorklogTimestamp", "12:34xyz must not highlight as a timestamp")
+    t.ok(group_at(13, 1) ~= "BlotterTimestamp", "12:34xyz must not highlight as a timestamp")
   end)
 
   t.test(
@@ -117,15 +117,15 @@ return function(t)
       })
 
       -- A trailing space after metadata still highlights; the parser ignores it.
-      t.eq(group_at(1, col_of(1, "#tag")), "WorklogTag")
+      t.eq(group_at(1, col_of(1, "#tag")), "BlotterTag")
 
       -- Tag and location in either order, with trailing spaces, both highlight.
-      t.eq(group_at(2, col_of(2, "@home")), "WorklogLocation")
-      t.eq(group_at(2, col_of(2, "#tag")), "WorklogTag")
+      t.eq(group_at(2, col_of(2, "@home")), "BlotterLocation")
+      t.eq(group_at(2, col_of(2, "#tag")), "BlotterTag")
 
       -- Metadata followed by ordinary text is plain text, mirroring the parser.
       t.ok(
-        group_at(3, col_of(3, "#tag")) ~= "WorklogTag",
+        group_at(3, col_of(3, "#tag")) ~= "BlotterTag",
         "a tag before trailing text must not highlight"
       )
     end
@@ -139,89 +139,89 @@ return function(t)
       "11:00 task !L @b #a",
     })
 
-    -- Two tags: the parser rejects the entry, so neither tag highlights.
-    t.ok(group_at(1, col_of(1, "#a")) ~= "WorklogTag", "first of two tags must not highlight")
-    t.ok(group_at(1, col_of(1, "#b")) ~= "WorklogTag", "second of two tags must not highlight")
+    -- Two tags: the parser rejects the blot, so neither tag highlights.
+    t.ok(group_at(1, col_of(1, "#a")) ~= "BlotterTag", "first of two tags must not highlight")
+    t.ok(group_at(1, col_of(1, "#b")) ~= "BlotterTag", "second of two tags must not highlight")
 
     -- Two locations: likewise neither highlights.
     t.ok(
-      group_at(2, col_of(2, "@a")) ~= "WorklogLocation",
+      group_at(2, col_of(2, "@a")) ~= "BlotterLocation",
       "first of two locations must not highlight"
     )
     t.ok(
-      group_at(2, col_of(2, "@b")) ~= "WorklogLocation",
+      group_at(2, col_of(2, "@b")) ~= "BlotterLocation",
       "second of two locations must not highlight"
     )
 
     -- A repeated kind anywhere in the run invalidates the whole run.
     t.ok(
-      group_at(3, col_of(3, "#a")) ~= "WorklogTag",
+      group_at(3, col_of(3, "#a")) ~= "BlotterTag",
       "a repeated tag around !L must not highlight"
     )
 
     -- One of each, in any order, is valid and all three highlight.
-    t.eq(group_at(4, col_of(4, "!L")), "WorklogLogged")
-    t.eq(group_at(4, col_of(4, "@b")), "WorklogLocation")
-    t.eq(group_at(4, col_of(4, "#a")), "WorklogTag")
+    t.eq(group_at(4, col_of(4, "!L")), "BlotLogged")
+    t.eq(group_at(4, col_of(4, "@b")), "BlotterLocation")
+    t.eq(group_at(4, col_of(4, "#a")), "BlotterTag")
   end)
 
-  t.test("a header with a repeated tag or location is not a worklog header", function()
+  t.test("a header with a repeated tag or location is not a blotter header", function()
     load({
-      "--- worklog #a #b ---",
-      "--- worklog @a @b ---",
-      "--- worklog #a @b q=30 ---",
-      "--- worklog @b #a ---",
+      "--- blots #a #b ---",
+      "--- blots @a @b ---",
+      "--- blots #a @b q=30 ---",
+      "--- blots @b #a ---",
     })
 
     -- Duplicate tag: the whole header falls back to a generic block header and the
     -- metadata is not highlighted, mirroring the parser rejecting the header.
-    t.eq(group_at(1, 1), "WorklogBlockHeader")
-    t.ok(group_at(1, col_of(1, "#a")) ~= "WorklogTag", "a duplicate header tag must not highlight")
+    t.eq(group_at(1, 1), "BlotterBlockHeader")
+    t.ok(group_at(1, col_of(1, "#a")) ~= "BlotterTag", "a duplicate header tag must not highlight")
 
     -- Duplicate location: likewise.
-    t.eq(group_at(2, 1), "WorklogBlockHeader")
+    t.eq(group_at(2, 1), "BlotterBlockHeader")
     t.ok(
-      group_at(2, col_of(2, "@a")) ~= "WorklogLocation",
+      group_at(2, col_of(2, "@a")) ~= "BlotterLocation",
       "a duplicate header location must not highlight"
     )
 
     -- One tag and one location (any order, intermixed with options) stays valid.
-    t.eq(group_at(3, 1), "WorklogHeader")
-    t.eq(group_at(3, col_of(3, "#a")), "WorklogTag")
-    t.eq(group_at(3, col_of(3, "@b")), "WorklogLocation")
-    t.eq(group_at(3, col_of(3, "q=30")), "WorklogOption")
-    t.eq(group_at(4, 1), "WorklogHeader")
-    t.eq(group_at(4, col_of(4, "#a")), "WorklogTag")
-    t.eq(group_at(4, col_of(4, "@b")), "WorklogLocation")
+    t.eq(group_at(3, 1), "BlotterHeader")
+    t.eq(group_at(3, col_of(3, "#a")), "BlotterTag")
+    t.eq(group_at(3, col_of(3, "@b")), "BlotterLocation")
+    t.eq(group_at(3, col_of(3, "q=30")), "BlotterOption")
+    t.eq(group_at(4, 1), "BlotterHeader")
+    t.eq(group_at(4, col_of(4, "#a")), "BlotterTag")
+    t.eq(group_at(4, col_of(4, "@b")), "BlotterLocation")
   end)
 
   t.test("only valid header options highlight; the parser's rejects fall back", function()
     load({
-      "--- worklog q=30 ---", -- 1 valid quantize
-      "--- worklog d=dec ---", -- 2 valid duration
-      "--- worklog d=hm ---", -- 3 valid duration
-      "--- worklog q=01 ---", -- 4 leading zero, value > 0 (parser accepts)
-      "--- worklog #a @b q=5 d=hm ---", -- 5 all four, any order
-      "--- worklog q=abc ---", -- 6 non-numeric value
-      "--- worklog q=0 ---", -- 7 not positive
-      "--- worklog q=1.5 ---", -- 8 not an integer
-      "--- worklog d=foo ---", -- 9 value not dec/hm
-      "--- worklog foo=bar ---", -- 10 unknown option
-      "--- worklog q=15 q=30 ---", -- 11 duplicate option
-      "--- worklog hello ---", -- 12 junk token
+      "--- blots q=30 ---", -- 1 valid quantize
+      "--- blots d=dec ---", -- 2 valid duration
+      "--- blots d=hm ---", -- 3 valid duration
+      "--- blots q=01 ---", -- 4 leading zero, value > 0 (parser accepts)
+      "--- blots #a @b q=5 d=hm ---", -- 5 all four, any order
+      "--- blots q=abc ---", -- 6 non-numeric value
+      "--- blots q=0 ---", -- 7 not positive
+      "--- blots q=1.5 ---", -- 8 not an integer
+      "--- blots d=foo ---", -- 9 value not dec/hm
+      "--- blots foo=bar ---", -- 10 unknown option
+      "--- blots q=15 q=30 ---", -- 11 duplicate option
+      "--- blots hello ---", -- 12 junk token
     })
 
-    -- Valid options highlight as options inside a worklog header.
-    t.eq(group_at(1, 1), "WorklogHeader")
-    t.eq(group_at(1, col_of(1, "q=30")), "WorklogOption")
-    t.eq(group_at(2, col_of(2, "d=dec")), "WorklogOption")
-    t.eq(group_at(3, col_of(3, "d=hm")), "WorklogOption")
-    t.eq(group_at(4, col_of(4, "q=01")), "WorklogOption")
-    t.eq(group_at(5, 1), "WorklogHeader")
-    t.eq(group_at(5, col_of(5, "#a")), "WorklogTag")
-    t.eq(group_at(5, col_of(5, "@b")), "WorklogLocation")
-    t.eq(group_at(5, col_of(5, "q=5")), "WorklogOption")
-    t.eq(group_at(5, col_of(5, "d=hm")), "WorklogOption")
+    -- Valid options highlight as options inside a blotter header.
+    t.eq(group_at(1, 1), "BlotterHeader")
+    t.eq(group_at(1, col_of(1, "q=30")), "BlotterOption")
+    t.eq(group_at(2, col_of(2, "d=dec")), "BlotterOption")
+    t.eq(group_at(3, col_of(3, "d=hm")), "BlotterOption")
+    t.eq(group_at(4, col_of(4, "q=01")), "BlotterOption")
+    t.eq(group_at(5, 1), "BlotterHeader")
+    t.eq(group_at(5, col_of(5, "#a")), "BlotterTag")
+    t.eq(group_at(5, col_of(5, "@b")), "BlotterLocation")
+    t.eq(group_at(5, col_of(5, "q=5")), "BlotterOption")
+    t.eq(group_at(5, col_of(5, "d=hm")), "BlotterOption")
 
     -- Anything the parser rejects makes the line a plain block header, and the
     -- offending token is not highlighted as an option.
@@ -236,9 +236,9 @@ return function(t)
     }
     for _, case in ipairs(rejects) do
       local lnum, token = case[1], case[2]
-      t.eq(group_at(lnum, 1), "WorklogBlockHeader")
+      t.eq(group_at(lnum, 1), "BlotterBlockHeader")
       t.ok(
-        group_at(lnum, col_of(lnum, token)) ~= "WorklogOption",
+        group_at(lnum, col_of(lnum, token)) ~= "BlotterOption",
         string.format("%q on line %d must not highlight as an option", token, lnum)
       )
     end
@@ -246,18 +246,18 @@ return function(t)
 
   t.test("a line with an invalid timestamp does not highlight trailing metadata", function()
     load({
-      "25:00 task #tag", -- out-of-range time: not an entry for the parser
-      "12:34xyz #tag", -- time glued to text: not an entry either
+      "25:00 task #tag", -- out-of-range time: not an blot for the parser
+      "12:34xyz #tag", -- time glued to text: not an blot either
     })
 
     -- The whole line is a free-form note, so the trailing #tag is not metadata.
-    t.ok(group_at(1, 1) ~= "WorklogTimestamp", "25:00 is not a timestamp")
+    t.ok(group_at(1, 1) ~= "BlotterTimestamp", "25:00 is not a timestamp")
     t.ok(
-      group_at(1, col_of(1, "#tag")) ~= "WorklogTag",
-      "#tag on an invalid entry must not highlight"
+      group_at(1, col_of(1, "#tag")) ~= "BlotterTag",
+      "#tag on an invalid blot must not highlight"
     )
     t.ok(
-      group_at(2, col_of(2, "#tag")) ~= "WorklogTag",
+      group_at(2, col_of(2, "#tag")) ~= "BlotterTag",
       "#tag after a glued time must not highlight"
     )
   end)
@@ -275,21 +275,21 @@ return function(t)
     })
 
     -- A duration/(+Nm)-shaped line, with no section, is a plain note.
-    t.eq(group_at(1, 1), "WorklogNote")
+    t.eq(group_at(1, 1), "BlotterNote")
     t.ok(
-      group_at(1, col_of(1, "(+4m)")) ~= "WorklogQuantError",
+      group_at(1, col_of(1, "(+4m)")) ~= "BlotterQuantError",
       "(+4m) inside a note is not a rounding marker"
     )
-    t.eq(group_at(2, 1), "WorklogNote")
-    t.eq(group_at(3, 1), "WorklogNote")
+    t.eq(group_at(2, 1), "BlotterNote")
+    t.eq(group_at(3, 1), "BlotterNote")
 
-    -- A zero-padded HH:MM entry still reads as a timestamp.
-    t.eq(group_at(4, 1), "WorklogTimestamp")
+    -- A zero-padded HH:MM blot still reads as a timestamp.
+    t.eq(group_at(4, 1), "BlotterTimestamp")
   end)
 
   t.test("a summary-shaped note below the summary stays a note", function()
     load({
-      "--- worklog #A ---",
+      "--- blots #A ---",
       "08:00 a #A",
       "09:00 done",
       "",
@@ -303,21 +303,21 @@ return function(t)
     })
 
     -- The real summary and totals rows (inside their sections) are durations.
-    t.eq(group_at(6, 1), "WorklogDuration")
-    t.eq(group_at(9, 1), "WorklogDuration")
+    t.eq(group_at(6, 1), "BlotterDuration")
+    t.eq(group_at(9, 1), "BlotterDuration")
 
     -- The trailing comment, after the summary, is a note despite its shape, so it
     -- can't be mistaken for a real summary item.
-    t.eq(group_at(11, 1), "WorklogNote")
+    t.eq(group_at(11, 1), "BlotterNote")
     t.ok(
-      group_at(11, col_of(11, "(+0m)")) ~= "WorklogQuantError",
+      group_at(11, col_of(11, "(+0m)")) ~= "BlotterQuantError",
       "the comment's (+0m) is not a rounding marker"
     )
   end)
 
   t.test("two-digit-hour hhmm summary rows highlight as durations via block context", function()
     load({
-      "--- worklog d=hm ---",
+      "--- blots d=hm ---",
       "08:00 deep work",
       "",
       "--- summary q=15 d=dec ---",
@@ -328,25 +328,25 @@ return function(t)
       "16:00 workday",
     })
 
-    -- An entry in the worklog body still reads as a timestamp.
-    t.eq(group_at(2, 1), "WorklogTimestamp")
+    -- An blot in the blotter body still reads as a timestamp.
+    t.eq(group_at(2, 1), "BlotterTimestamp")
 
     -- Generated section headers stay block headers.
-    t.eq(group_at(4, 1), "WorklogBlockHeader")
-    t.eq(group_at(8, 1), "WorklogBlockHeader")
+    t.eq(group_at(4, 1), "BlotterBlockHeader")
+    t.eq(group_at(8, 1), "BlotterBlockHeader")
 
     -- Inside a summary section a two-digit-hour hhmm row is a duration, not a
     -- timestamp -- the case the line matches alone cannot resolve.
-    t.eq(group_at(5, 1), "WorklogDuration")
-    t.eq(group_at(9, 1), "WorklogDuration")
+    t.eq(group_at(5, 1), "BlotterDuration")
+    t.eq(group_at(9, 1), "BlotterDuration")
 
     -- Single-digit-hour rows and trailing metadata still highlight inside it.
-    t.eq(group_at(6, 1), "WorklogDuration")
-    t.eq(group_at(5, col_of(5, "#ClientA")), "WorklogTag")
+    t.eq(group_at(6, 1), "BlotterDuration")
+    t.eq(group_at(5, col_of(5, "#ClientA")), "BlotterTag")
   end)
 
   t.test("a labeled multi-day report section highlights its rows", function()
-    -- :WorklogWeek / :WorklogDays produce labeled headers the old syntax file did
+    -- :BlotterWeek / :BlotterDays produce labeled headers the old syntax file did
     -- not recognize; the parser-driven highlighter does, so report rows highlight.
     load({
       "--- day summary 2026-05-18 q=30 ---",
@@ -360,41 +360,41 @@ return function(t)
     })
 
     -- Labeled report headers are block headers.
-    t.eq(group_at(1, 1), "WorklogBlockHeader")
-    t.eq(group_at(4, 1), "WorklogBlockHeader")
-    t.eq(group_at(7, 1), "WorklogBlockHeader")
+    t.eq(group_at(1, 1), "BlotterBlockHeader")
+    t.eq(group_at(4, 1), "BlotterBlockHeader")
+    t.eq(group_at(7, 1), "BlotterBlockHeader")
 
     -- Their rows are summary durations with rounding markers and trailing metadata.
-    t.eq(group_at(2, 1), "WorklogDuration")
-    t.eq(group_at(2, col_of(2, "(+0m)")), "WorklogQuantError")
-    t.eq(group_at(2, col_of(2, "#ClientA")), "WorklogTag")
-    t.eq(group_at(5, 1), "WorklogDuration")
-    t.eq(group_at(8, 1), "WorklogDuration")
+    t.eq(group_at(2, 1), "BlotterDuration")
+    t.eq(group_at(2, col_of(2, "(+0m)")), "BlotterQuantError")
+    t.eq(group_at(2, col_of(2, "#ClientA")), "BlotterTag")
+    t.eq(group_at(5, 1), "BlotterDuration")
+    t.eq(group_at(8, 1), "BlotterDuration")
   end)
 
   t.test("utc offset tokens highlight as a muted offset group", function()
     load({
-      "--- worklog @office utc+2 ---",
+      "--- blots @office utc+2 ---",
       "11:00 resume utc-4",
       "12:00 talk utc-x",
     })
 
-    -- On the header and in an entry's trailing run, a valid utc token is its own
+    -- On the header and in an blot's trailing run, a valid utc token is its own
     -- muted group, distinct from tag/location.
-    t.eq(group_at(1, col_of(1, "utc+2")), "WorklogOffset")
-    t.eq(group_at(2, col_of(2, "utc-4")), "WorklogOffset")
+    t.eq(group_at(1, col_of(1, "utc+2")), "BlotterOffset")
+    t.eq(group_at(2, col_of(2, "utc-4")), "BlotterOffset")
 
     -- A malformed utc token is plain activity text, never an offset (it fails the
     -- same parse the reader uses).
     t.ok(
-      group_at(3, col_of(3, "utc-x")) ~= "WorklogOffset",
+      group_at(3, col_of(3, "utc-x")) ~= "BlotterOffset",
       "a malformed utc token must not highlight as an offset"
     )
   end)
 
   t.test("a round nudge highlights distinctly and keeps the trailing run intact", function()
     load({
-      "--- worklog #ClientA q=15 ---",
+      "--- blots #ClientA q=15 ---",
       "08:00 plan #ClientA round+1 !L",
       "",
       "--- summary q=15 d=dec ---",
@@ -404,24 +404,24 @@ return function(t)
       "1.00h (-10m) workday round+1",
     })
 
-    -- The marker is its own group on an entry, and -- crucially -- it does not break
+    -- The marker is its own group on an blot, and -- crucially -- it does not break
     -- the highlighting of the #tag and !L on either side of it in the trailing run.
-    t.eq(group_at(2, col_of(2, "round+1")), "WorklogNudge")
-    t.eq(group_at(2, col_of(2, "#ClientA")), "WorklogTag")
-    t.eq(group_at(2, col_of(2, "!L")), "WorklogLogged")
+    t.eq(group_at(2, col_of(2, "round+1")), "BlotterNudge")
+    t.eq(group_at(2, col_of(2, "#ClientA")), "BlotterTag")
+    t.eq(group_at(2, col_of(2, "!L")), "BlotLogged")
 
     -- It also highlights where it is propagated onto summary rows and the total.
-    t.eq(group_at(5, col_of(5, "round+1")), "WorklogNudge")
-    t.eq(group_at(8, col_of(8, "round+1")), "WorklogNudge")
+    t.eq(group_at(5, col_of(5, "round+1")), "BlotterNudge")
+    t.eq(group_at(8, col_of(8, "round+1")), "BlotterNudge")
 
     -- The metadata groups are bright, not muted: none links to Comment.
-    t.ok(highlight.GROUPS.WorklogNudge ~= "Comment", "nudge must not be a comment")
-    t.ok(highlight.GROUPS.WorklogOffset ~= "Comment", "utc offset must not be a comment")
-    t.ok(highlight.GROUPS.WorklogTag ~= "Comment", "tag must not be a comment")
-    t.ok(highlight.GROUPS.WorklogLocation ~= "Comment", "location must not be a comment")
+    t.ok(highlight.GROUPS.BlotterNudge ~= "Comment", "nudge must not be a comment")
+    t.ok(highlight.GROUPS.BlotterOffset ~= "Comment", "utc offset must not be a comment")
+    t.ok(highlight.GROUPS.BlotterTag ~= "Comment", "tag must not be a comment")
+    t.ok(highlight.GROUPS.BlotterLocation ~= "Comment", "location must not be a comment")
 
     -- A bare 'round' word in activity text is not a nudge.
     load({ "08:00 wrap up the round" })
-    t.ok(group_at(1, col_of(1, "round")) ~= "WorklogNudge", "a bare 'round' is not a nudge")
+    t.ok(group_at(1, col_of(1, "round")) ~= "BlotterNudge", "a bare 'round' is not a nudge")
   end)
 end

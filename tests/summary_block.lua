@@ -1,9 +1,9 @@
 return function(t)
-  local analyze = require("worklog.analyze")
-  local document = require("worklog.document")
-  local render = require("worklog.render")
-  local summary = require("worklog.summary")
-  local summary_block = require("worklog.summary_block")
+  local analyze = require("blotter.analyze")
+  local document = require("blotter.document")
+  local render = require("blotter.render")
+  local summary = require("blotter.summary")
+  local summary_block = require("blotter.summary_block")
 
   local function analyze_lines(lines)
     return analyze.analyze(document.parse(lines))
@@ -20,7 +20,7 @@ return function(t)
 
   local function locate(lines)
     local analysis = analyze_lines(lines)
-    local block = analyze.get_active_worklog(analysis)
+    local block = analyze.get_active_blotter(analysis)
     return summary_block.find(analysis, block, expected_for(block))
   end
 
@@ -71,10 +71,10 @@ return function(t)
     t.eq(fit_align({ "a" }, {}), nil)
   end)
 
-  t.test("fit_align does not let blank matches pull the span over the worklog body", function()
-    -- Regression: a fresh worklog's small summary growing after a same-time insert. An
-    -- entry-swallowing span must not tie the real summary by matching extra blank lines,
-    -- so the span starts at the old summary header (4), not the entry (1).
+  t.test("fit_align does not let blank matches pull the span over the blotter body", function()
+    -- Regression: a fresh blotter's small summary growing after a same-time insert. An
+    -- blot-swallowing span must not tie the real summary by matching extra blank lines,
+    -- so the span starts at the old summary header (4), not the blot (1).
     local expected = {
       "--- summary q=15 d=dec ---",
       "0.00h (+0m) hey",
@@ -103,7 +103,7 @@ return function(t)
   t.test("summary_block locates an intact summary", function()
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -120,7 +120,7 @@ return function(t)
   t.test("summary_block locates a quantized summary", function()
     t.eq(
       locate({
-        "--- worklog q=30 ---",
+        "--- blots q=30 ---",
         "08:00 plan",
         "08:34 done",
         "",
@@ -139,7 +139,7 @@ return function(t)
     -- rewrites it rather than orphaning it.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -158,7 +158,7 @@ return function(t)
     -- alignment still finds them; the leading separator blank stays outside the span.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -171,13 +171,13 @@ return function(t)
     )
   end)
 
-  t.test("summary_block keeps an entry flush against a header-less summary", function()
+  t.test("summary_block keeps an blot flush against a header-less summary", function()
     -- The summary header was deleted AND there is no separator blank, so the rows sit
-    -- directly under the final entry (21:00 done). The window starts after the last
-    -- entry, so that entry can never be drawn into the span and rewritten away.
+    -- directly under the final blot (21:00 done). The window starts after the last
+    -- blot, so that blot can never be drawn into the span and rewritten away.
     t.eq(
       locate({
-        "--- worklog #sometag @location q=15 d=dec ---",
+        "--- blots #sometag @location q=15 d=dec ---",
         "20:10 hey",
         "20:33 hey2",
         "21:00 done",
@@ -202,7 +202,7 @@ return function(t)
     -- are substitutions, so a refresh can rewrite them to the current form.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -216,13 +216,13 @@ return function(t)
     )
   end)
 
-  t.test("summary_block locates a summary when the worklog has no completed interval", function()
-    -- One entry -> no intervals -> an empty fresh summary that alignment cannot
+  t.test("summary_block locates a summary when the blotter has no completed interval", function()
+    -- One blot -> no intervals -> an empty fresh summary that alignment cannot
     -- anchor; structural recognition still locates the stale summary to rewrite, so
     -- a refresh replaces it instead of stacking a second summary below it.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "",
         "--- summary q=15 d=dec ---",
@@ -240,7 +240,7 @@ return function(t)
     -- one region, so a refresh collapses them.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "",
         "--- summary q=15 d=dec ---",
@@ -262,7 +262,7 @@ return function(t)
     -- A note written below the summary is not swallowed into the region.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -284,7 +284,7 @@ return function(t)
     -- note -- it must not extend the region, or a refresh would delete it.
     t.eq(
       locate({
-        "--- worklog #A ---",
+        "--- blots #A ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -309,7 +309,7 @@ return function(t)
     -- after-a-blank note above, which is left outside.
     t.eq(
       locate({
-        "--- worklog #ClientA @office ---",
+        "--- blots #ClientA @office ---",
         "05:40 plan",
         "10:00 build",
         "11:00 review",
@@ -333,14 +333,14 @@ return function(t)
   end)
 
   t.test("summary_block returns nil when there is no summary", function()
-    t.eq(locate({ "--- worklog ---", "08:00 plan", "09:00 done" }), nil)
+    t.eq(locate({ "--- blots ---", "08:00 plan", "09:00 done" }), nil)
   end)
 
   t.test("summary_block returns nil for unrelated tail content", function()
     -- A stray note that is not the summary must not be grabbed as one.
     t.eq(
       locate({
-        "--- worklog ---",
+        "--- blots ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -351,9 +351,9 @@ return function(t)
     )
   end)
 
-  t.test("summary_block bounds a region to its worklog and ignores others", function()
+  t.test("summary_block bounds a region to its blotter and ignores others", function()
     local analysis = analyze_lines({
-      "--- worklog ---",
+      "--- blots ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -363,11 +363,11 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
       "",
-      "--- worklog ---",
+      "--- blots ---",
       "10:00 tea",
       "11:00 done",
     })
-    local first, second = analysis.worklog_blocks[1], analysis.worklog_blocks[2]
+    local first, second = analysis.blotter_blocks[1], analysis.blotter_blocks[2]
     t.eq(summary_block.find(analysis, first, expected_for(first)), { start_row = 5, end_row = 10 })
     t.eq(summary_block.find(analysis, second, expected_for(second)), nil)
   end)

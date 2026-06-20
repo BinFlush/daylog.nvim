@@ -1,27 +1,27 @@
 return function(t)
-  local analyze = require("worklog.analyze")
-  local document = require("worklog.document")
-  local render = require("worklog.render")
-  local summary = require("worklog.summary")
-  local report_cursor = require("worklog.usecases.report_cursor")
+  local analyze = require("blotter.analyze")
+  local document = require("blotter.document")
+  local render = require("blotter.render")
+  local summary = require("blotter.summary")
+  local report_cursor = require("blotter.usecases.report_cursor")
 
   -- Build a single day's summary the way the report pipeline (week.lua) does.
   local function day_summary(lines)
     local analysis = analyze.analyze(document.parse(lines))
-    local block = analyze.get_active_worklog(analysis)
+    local block = analyze.get_active_blotter(analysis)
     return summary.summarize_block(block), block.quantize_minutes
   end
 
   -- A two-day week report whose days both carry "implementation" under #ClientA.
   local function sample_report()
     local s1, q1 = day_summary({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "08:00 implementation",
       "10:00 meeting",
       "11:00 done",
     })
     local s2, q2 = day_summary({
-      "--- worklog #ClientA ---",
+      "--- blots #ClientA ---",
       "09:00 implementation",
       "12:00 review",
       "13:00 done",
@@ -31,13 +31,13 @@ return function(t)
       days = {
         {
           date_label = "2026-05-18",
-          path = "/j/2026-05-18.wkl",
+          path = "/j/2026-05-18.blot",
           summary = s1,
           quantize_minutes = q1,
         },
         {
           date_label = "2026-05-19",
-          path = "/j/2026-05-19.wkl",
+          path = "/j/2026-05-19.blot",
           summary = s2,
           quantize_minutes = q2,
         },
@@ -79,7 +79,7 @@ return function(t)
 
     local resolved = report_cursor.resolve(layout, index)
     t.eq(resolved.scope, "day")
-    t.eq(resolved.path, "/j/2026-05-18.wkl")
+    t.eq(resolved.path, "/j/2026-05-18.blot")
     t.eq(resolved.target, { kind = "item", current = "implementation", tag = "ClientA" })
   end)
 

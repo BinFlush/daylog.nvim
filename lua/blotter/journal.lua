@@ -1,0 +1,193 @@
+local M = {}
+
+local function midday_date(timestamp)
+  local date = os.date("*t", timestamp)
+  date.hour = 12
+  date.min = 0
+  date.sec = 0
+  return date
+end
+
+-- A timestamp at midday on the given calendar date. Anchoring at 12:00 keeps day
+-- arithmetic clear of DST edges (a day never lands on a skipped/!repeated midnight),
+-- and os.time normalizes out-of-range days (e.g. day 32 -> the next month). Named
+-- once so every date helper builds its timestamps the same way.
+local function midday_time(year, month, day)
+  return os.time({ year = year, month = month, day = day, hour = 12, min = 0, sec = 0 })
+end
+
+local function iso_weekday(timestamp)
+  return ((os.date("*t", timestamp).wday + 5) % 7) + 1
+end
+
+local function trim_trailing_slashes(value)
+  return value:gsub("/+$", "")
+end
+
+local function trim_directory_slashes(value)
+  local trimmed = trim_trailing_slashes(value)
+  return trimmed:gsub("^/+", "")
+end
+
+function M.directory_path(journal, now)
+  local path = trim_trailing_slashes(journal.root)
+  local directory = trim_directory_slashes(os.date(journal.directory, now))
+
+  if directory == "" then
+    return path
+  end
+
+  return path .. "/" .. directory
+end
+
+function M.filename(now)
+  return M.date_label(now) .. ".blot"
+end
+
+function M.date_label(now)
+  return os.date("%Y-%m-%d", now)
+end
+
+function M.same_date(a, b)
+  return M.date_label(a) == M.date_label(b)
+end
+
+-- Parse a journal filename (`YYYY-MM-DD.blot`) into a midday timestamp.
+-- Returns nil when the name is not a valid dated journal filename. The
+-- round-trip label check rejects out-of-range dates such as 2026-02-30.
+function M.parse_date_label(name)
+  local year, month, day = name:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)%.blot$")
+  if not year then
+    return nil
+  end
+
+  local timestamp = midday_time(tonumber(year), tonumber(month), tonumber(day))
+
+  if M.date_label(timestamp) ~= year .. "-" .. month .. "-" .. day then
+    return nil
+  end
+
+  return timestamp
+end
+
+function M.week_label(now)
+  return os.date("%G-W%V", now)
+end
+
+function M.date_range_label(first, last)
+  return M.date_label(first) .. ".." .. M.date_label(last)
+end
+
+function M.path_for_date(journal, now)
+  return M.directory_path(journal, now) .. "/" .. M.filename(now)
+end
+
+local function forward_slashes(value)
+  return (value:gsub("\\", "/"))
+end
+
+-- Resolve the journal date a path represents, or nil when the path is not a
+-- canonical journal file. The path is canonical only when it equals the path
+-- the configuration would generate for the date in its filename, so the
+-- `directory` template is honored and dated files outside the tree are ignored.
+-- Both `/` and `\` separators are accepted so Windows buffer paths resolve too.
+function M.date_from_path(journal, path)
+  local basename = path:match("[^/\\]+$") or path
+  local timestamp = M.parse_date_label(basename)
+  if not timestamp then
+    return nil
+  end
+
+  if forward_slashes(M.path_for_date(journal, timestamp)) ~= forward_slashes(path) then
+    return nil
+  end
+
+  return timestamp
+end
+
+function M.offset_date(now, offset_days)
+  local anchor = midday_date(now)
+  local offset = offset_days or 0
+
+  return midday_time(anchor.year, anchor.month, anchor.day + offset)
+end
+
+function M.iso_week_dates(now)
+  local anchor = midday_date(now)
+  local monday = {
+    year = anchor.year,
+    month = anchor.month,
+    day = anchor.day - (iso_weekday(now) - 1),
+    hour = 12,
+    min = 0,
+    sec = 0,
+  }
+  local dates = {}
+
+  for offset = 0, 6 do
+    table.insert(dates, midday_time(monday.year, monday.month, monday.day + offset))
+  end
+
+  return dates
+end
+
+function M.trailing_dates(now, count)
+  local anchor = midday_date(now)
+  local dates = {}
+
+  for offset = count - 1, 0, -1 do
+    table.insert(dates, midday_time(anchor.year, anchor.month, anchor.day - offset))
+  end
+
+  return dates
+end
+
+-- The timestamp of the `count`-th existing journal date strictly past `anchor` in
+-- `direction` (+1 later, -1 earlier), or nil when fewer than `count` exist that
+-- way. `dates` is any list of day timestamps; they are compared and de-duplicated
+-- by their canonical `date_label`, so a day present twice (e.g. an unsaved buffer
+-- and the file on disk) counts once, and the strict comparison excludes the anchor
+-- day itself. The labels sort lexically, which for `YYYY-MM-DD` is chronological.
+function M.nearest_date(dates, anchor, direction, count)
+  count = count or 1
+  local anchor_label = M.date_label(anchor)
+  local by_label = {}
+  local labels = {}
+
+  for _, date in ipairs(dates) do
+    local label = M.date_label(date)
+    if by_label[label] == nil then
+      by_label[label] = date
+      table.insert(labels, label)
+    end
+  end
+
+  table.sort(labels, function(a, b)
+    -- Order so the closest candidate in `direction` is visited first.
+    if direction < 0 then
+      return a > b
+    end
+    return a < b
+  end)
+
+  local found = 0
+  for _, label in ipairs(labels) do
+    local past
+    if direction < 0 then
+      past = label < anchor_label
+    else
+      past = label > anchor_label
+    end
+
+    if past then
+      found = found + 1
+      if found == count then
+        return by_label[label]
+      end
+    end
+  end
+
+  return nil
+end
+
+return M

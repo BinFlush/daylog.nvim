@@ -1,5 +1,5 @@
 return function(t)
-  local azure = require("worklog.sources.azure_devops")
+  local azure = require("blotter.sources.azure_devops")
 
   -- A fake transport returns canned responses by request and records what it saw,
   -- so the provider is exercised entirely offline.
@@ -147,7 +147,7 @@ return function(t)
     end)
 
     local source = new_source(base_cfg(), transport, function()
-      return nil, "worklog: token missing"
+      return nil, "blotter: token missing"
     end)
 
     local captured
@@ -156,14 +156,14 @@ return function(t)
     end)
 
     t.eq(captured.items, nil)
-    t.eq(captured.err, "worklog: token missing")
+    t.eq(captured.err, "blotter: token missing")
     t.eq(#transport.seen, 0)
   end)
 
-  t.test("to_entry_text expands the template (sanitization happens at insert)", function()
+  t.test("to_blot_text expands the template (sanitization happens at insert)", function()
     local source = new_source(base_cfg(), fake_transport(function() end))
-    t.eq(source.to_entry_text({ id = "5", title = "Fix login" }), "5 Fix login")
-    t.eq(source.to_entry_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
+    t.eq(source.to_blot_text({ id = "5", title = "Fix login" }), "5 Fix login")
+    t.eq(source.to_blot_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
   end)
 
   t.test("format_item defaults include id, type, state and title", function()
@@ -245,7 +245,7 @@ return function(t)
       return { status = 200, body = "{}" }
     end)
     local source = new_source(base_cfg(), transport, function()
-      return nil, "worklog: token missing"
+      return nil, "blotter: token missing"
     end)
 
     local captured
@@ -254,7 +254,7 @@ return function(t)
     end)
 
     t.eq(captured.items, nil)
-    t.eq(captured.err, "worklog: token missing")
+    t.eq(captured.err, "blotter: token missing")
     t.eq(#transport.seen, 0)
   end)
 

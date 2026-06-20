@@ -1,0 +1,1 @@
+require("blotter.filetype").register()

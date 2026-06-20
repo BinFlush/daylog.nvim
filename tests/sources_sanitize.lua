@@ -1,13 +1,13 @@
 return function(t)
-  local entry = require("worklog.entry")
-  local document = require("worklog.document")
-  local syntax = require("worklog.syntax")
+  local blot = require("blotter.blot")
+  local document = require("blotter.document")
+  local syntax = require("blotter.syntax")
 
   -- The load-bearing guard: sanitized text dropped after a timestamp must parse as
-  -- a plain entry whose trailing tokens did NOT become metadata.
+  -- a plain blot whose trailing tokens did NOT become metadata.
   local function parses_clean(text)
     local node = document.parse_line("08:00 " .. text)
-    return node.kind == syntax.NODE_KIND.ENTRY
+    return node.kind == syntax.NODE_KIND.BLOT
       and node.explicit_tag == nil
       and node.explicit_tag_clear == nil
       and node.explicit_location == nil
@@ -24,29 +24,29 @@ return function(t)
 
   for _, case in ipairs(cases) do
     t.test("sanitize neutralizes trailing metadata: " .. case.input, function()
-      local out = entry.sanitize_text(case.input)
+      local out = blot.sanitize_text(case.input)
       t.eq(out, case.expected)
       t.ok(parses_clean(out), "sanitized text must not parse as trailing metadata")
     end)
   end
 
   t.test("sanitize leaves a mid-text token untouched", function()
-    local out = entry.sanitize_text("5 Fix #flaky tests")
+    local out = blot.sanitize_text("5 Fix #flaky tests")
     t.eq(out, "5 Fix #flaky tests")
     t.ok(parses_clean(out))
   end)
 
   t.test("sanitize collapses whitespace", function()
-    t.eq(entry.sanitize_text("  1234   Fix   login  "), "1234 Fix login")
+    t.eq(blot.sanitize_text("  1234   Fix   login  "), "1234 Fix login")
   end)
 
   t.test("sanitize wraps an all-metadata title", function()
-    local out = entry.sanitize_text("#1234")
+    local out = blot.sanitize_text("#1234")
     t.eq(out, "(#1234)")
     t.ok(parses_clean(out))
   end)
 
   t.test("sanitize returns empty text unchanged", function()
-    t.eq(entry.sanitize_text("   "), "")
+    t.eq(blot.sanitize_text("   "), "")
   end)
 end

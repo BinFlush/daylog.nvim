@@ -7,47 +7,70 @@ All notable user-facing changes to this project are documented here.
 `main` is the active development branch and may receive ongoing changes.
 
 Tagged releases are the compatibility points for users who need reproducible
-`.wkl` parsing, summaries, and rendering.
+`.blot` parsing, summaries, and rendering.
 
-`worklog.nvim` is pre-1.0, so breaking syntax or semantic changes may still
+`blotter.nvim` is pre-1.0, so breaking syntax or semantic changes may still
 happen, but they are called out clearly in this changelog.
 
-- The project aims to preserve existing valid `.wkl` files where practical.
+- The project aims to preserve existing valid `.blot` files where practical.
 - Unknown or unsupported header options are reported as diagnostics, not
   silently ignored.
 - Patch releases may change derived results when they fix miscomputed
   behavior; those changes are documented here.
-- Compatibility applies to worklog blocks and their semantics. Generated
+- Compatibility applies to blotter blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
 ## Unreleased
 
+### Changed
+
+- **Renamed the plugin to Blotter** (breaking). An entry is now a
+  *blot*, a block of blots is a *blotter*. Files use the `.blot` extension (was
+  `.wkl`) with `--- blots ... ---` block headers (was `--- worklog ... ---`), and
+  the filetype is `blotter` (was `worklog`). Commands are split by scope: item
+  actions take the `Blot` prefix (`:BlotInsert`, `:BlotRepeat`, `:BlotRename`,
+  `:BlotLog`, `:BlotBalance`) and journal/report/housekeeping actions take the
+  `Blotter` prefix (`:BlotterToday`, `:BlotterInit`, `:BlotterNextDay`,
+  `:BlotterPrevDay`, `:BlotterWeek`, `:BlotterDays`, `:BlotterCopy`,
+  `:BlotterOrder`, `:BlotterRefresh`, `:BlotterSync`). The Lua module is
+  `require("blotter")`, health is `:checkhealth blotter`, and messages are
+  prefixed `blotter:`. Update your config to match: change
+  `require("worklog").setup(...)` to `require("blotter").setup(...)` (the option
+  keys are unchanged), point your plugin spec at the renamed repo, and rename any
+  `:Worklog*` keymaps to their `:Blot*` / `:Blotter*` equivalents. The old names,
+  the old format, and `.wkl` files are not supported. Convert an existing journal
+  tree with
+  `scripts/migrate-to-blotter.sh <journal-root>` — a dry run by default; pass
+  `--apply` to perform it (and `--backup` to keep `.wkl.bak` copies). It rewrites
+  each `--- worklog ... ---` header to `--- blots ... ---` and renames `.wkl` →
+  `.blot`.
+
 ### Added
 
-- `:WorklogRename` can replace an activity with a tracked work item: when the
+- `:BlotRename` can replace an activity with a tracked work item: when the
   cursor is on an activity row and a source is configured, the rename picker also
   lists and live-searches that source's items (alongside the merge candidates), and
-  picking one renames the activity to the item's entry text (`{id} {title}`), just
-  like `:WorklogInsert`. With one source it is offered automatically; with several,
-  name it as the argument (`:WorklogRename {source}`, tab-completed). An argument
+  picking one renames the activity to the item's blot text (`{id} {title}`), just
+  like `:BlotInsert`. With one source it is offered automatically; with several,
+  name it as the argument (`:BlotRename {source}`, tab-completed). An argument
   that is not a source name still renames directly to that text. Tag/location rows
   are unaffected.
-- `:WorklogBalance [steps]` manually balances summary rounding by a signed number
+- `:BlotBalance [steps]` manually balances summary rounding by a signed number
   of `q=` steps (default `+1`, `0` clears). Largest-remainder rounding can leave a
   day — and therefore a week — a step or two short of a clean total (e.g.
   `39.75h (+15m)` when the true total is `40.00h`); this nudges it. With the cursor
-  on a summary row the least-error contributing entry is rounded further (the
+  on a summary row the least-error contributing blot is rounded further (the
   workday/activity total scopes all work, a main row its activity, a
-  tag/location/logged total that group); with the cursor on an entry that entry is
-  nudged directly. The chosen entries gain a non-sticky `round±N` marker, the one
+  tag/location/logged total that group); with the cursor on an blot that blot is
+  nudged directly. The chosen blots gain a non-sticky `round±N` marker, the one
   summary is rebuilt, and the marker shows on every affected summary row so it
   stays visible and adjustable (re-run to add more, opposite sign to undo, `0` to
   clear). Because a week report sums its days without re-rounding, balancing one
   day reconciles the week total automatically. Every section still foots to its
-  (shifted) total; a worklog with no marker is byte-for-byte unchanged. The new
-  `WorklogNudge` highlight group colours the marker; `utc±H` offsets now also
-  highlight as a distinct bright group (`WorklogOffset` → `Type`) rather than as a
-  comment. See `:help worklog-balance`.
+  (shifted) total; a blotter with no marker is byte-for-byte unchanged. The new
+  `BlotterNudge` highlight group colours the marker; `utc±H` offsets now also
+  highlight as a distinct bright group (`BlotterOffset` → `Type`) rather than as a
+  comment. See `:help blotter-balance`.
 - UTC-offset markers (`utc±H[:MM]`) record when the clock moves under you while
   travelling or across a DST flip — a third sticky dimension alongside `#tag` and
   `@location`. The sign is required (a bare `utc` stays plain text), so the marker
@@ -56,35 +79,35 @@ happen, but they are called out clearly in this changelog.
   ordering reconcile in effective UTC time (`local - offset`) — so an interval
   spanning a westward move counts forward, not backwards — while the displayed
   times, the `24:00` boundary, carryover, and the journal date stay the written
-  local clock. A worklog with no `utc` marker is byte-for-byte unchanged. A new
+  local clock. A blotter with no `utc` marker is byte-for-byte unchanged. A new
   `defaults.utc` (`'+2'`, `'-4'`, `'+5:30'`, or `'auto'`) stamps a base offset
-  into headers created by `:WorklogToday`. See `:help worklog-utc-offset`.
-- `:WorklogRename [name]` renames what the summary row under the cursor stands
-  for, propagating into the attached worklog and rebuilding the summary: a main
-  row renames the activity text of its source entries, a tag-total row renames
+  into headers created by `:BlotterToday`. See `:help blotter-utc-offset`.
+- `:BlotRename [name]` renames what the summary row under the cursor stands
+  for, propagating into the attached blotter and rebuilding the summary: a main
+  row renames the activity text of its source blots, a tag-total row renames
   that `#tag`, and a location-total row renames that `@location`. Tag/location
   renames rewrite only the header token and the explicit tokens that named the
   old value, so sticky inheritance is preserved and unrelated lines are left
   untouched. Renaming to a name that already exists merges the two; with no
   argument the command offers a picker of the other same-kind values to merge
   into (a Telescope picker that also lets you type a fresh name via `<C-e>`, or a
-  `vim.ui.select` list plus a "type a new name" entry), falling back to a plain
+  `vim.ui.select` list plus a "type a new name" blot), falling back to a plain
   prompt when there is nothing to merge into.
-- `:WorklogRepeat` now works from the summary: with the cursor on a main summary
-  row, it repeats the latest source entry that produced that row, so an activity
+- `:BlotRepeat` now works from the summary: with the cursor on a main summary
+  row, it repeats the latest source blot that produced that row, so an activity
   can be resumed straight from the summary (including across days). Tag, location,
-  and total rows are not eligible. Repeating a timestamped entry is unchanged.
-- Week/days reports (`:WorklogWeek` / `:WorklogDays`) now show each day's own `q=`
+  and total rows are not eligible. Repeating a timestamped blot is unchanged.
+- Week/days reports (`:BlotterWeek` / `:BlotterDays`) now show each day's own `q=`
   bucket in its section header (e.g. `--- day summary 2026-05-18 q=30 ---`), so a
   period mixing different quanta stays legible. The aggregate summary header is
   unchanged.
-- The `:WorklogWeek` / `:WorklogDays` report buffers are now syntax-highlighted,
+- The `:BlotterWeek` / `:BlotterDays` report buffers are now syntax-highlighted,
   including the labeled multi-day section headers and their duration rows.
-- `:WorklogInit [offset]` creates (or opens) the journal file for an arbitrary day
+- `:BlotterInit [offset]` creates (or opens) the journal file for an arbitrary day
   (today plus a signed offset), scaffolding the directory, default header, and an
-  empty summary when the day is new. Unlike `:WorklogToday` it never stamps the
+  empty summary when the day is new. Unlike `:BlotterToday` it never stamps the
   current time, so it is the way to start a past or future day.
-- `:WorklogRename` now works on a `:WorklogWeek` / `:WorklogDays` report: with the
+- `:BlotRename` now works on a `:BlotterWeek` / `:BlotterDays` report: with the
   cursor on an aggregate row it renames the item across every day of the period; on
   a per-day row, in that one day's file. It rewrites each affected day by value
   (skipping days that lack the item) after a confirmation listing the files --
@@ -94,39 +117,39 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
-- Syntax highlighting is now derived from the worklog parser and applied as
+- Syntax highlighting is now derived from the blotter parser and applied as
   extmarks, replacing the separate Vimscript syntax file. Highlighting therefore
   always matches how the plugin parses a file (one grammar, not two) and no longer
-  depends on `:syntax on`. The highlight group names are unchanged (`WorklogTag`,
-  `WorklogDuration`, `WorklogOoo`, ...), so existing `highlight` overrides keep
+  depends on `:syntax on`. The highlight group names are unchanged (`BlotterTag`,
+  `BlotterDuration`, `BlotterOoo`, ...), so existing `highlight` overrides keep
   working. A duration / `(+Nm)`-shaped line is highlighted as a summary row only
   inside a generated summary section; the same shape written as a free comment
   (outside a section) stays a note, so a comment can't masquerade as a summary item.
   Generated section headers (`--- summary ---`, `--- tags ---`, `--- totals ---`,
   ...) now link to `NonText` instead of `Comment`, so they read as a muted but
-  distinct colour rather than blending into notes; override `WorklogBlockHeader` to
+  distinct colour rather than blending into notes; override `BlotterBlockHeader` to
   taste.
-- The `:WorklogInsert {source}` picker now renders work items as aligned columns
+- The `:BlotInsert {source}` picker now renders work items as aligned columns
   -- the id, `[type/state]`, and (for multi-project sources) the project line up,
   with the variable-width title last -- instead of a ragged trailing column when
   titles differ in length. Sources can opt in via a new optional `format_items`
-  contract method (`worklog.sources.picker.align` does the column padding).
-- `:WorklogLog` now shares the same summary-row resolver as `:WorklogRename` and
-  `:WorklogRepeat`, so its staleness and ambiguity checks are identical. One
+  contract method (`blotter.sources.picker.align` does the column padding).
+- `:BlotLog` now shares the same summary-row resolver as `:BlotRename` and
+  `:BlotRepeat`, so its staleness and ambiguity checks are identical. One
   consequence: a main summary row whose rendered line is byte-identical to another
   summary line (e.g. an activity literally named `workday`, matching the workday
   total) is now refused as ambiguous rather than logged.
-- `:WorklogNextDay` / `:WorklogPrevDay` now jump to the next/previous day that
-  actually has a worklog, skipping empty days, and warn (staying put) when none
-  exists in that direction; `[count]` steps over that many worklogs. Previously
+- `:BlotterNextDay` / `:BlotterPrevDay` now jump to the next/previous day that
+  actually has a blotter, skipping empty days, and warn (staying put) when none
+  exists in that direction; `[count]` steps over that many blotters. Previously
   they stepped exactly one calendar day and opened an empty buffer for a missing
-  day. Use `:WorklogInit` to create a day that does not exist yet, or
-  `:WorklogToday <offset>` for an exact-date jump (unchanged).
+  day. Use `:BlotterInit` to create a day that does not exist yet, or
+  `:BlotterToday <offset>` for an exact-date jump (unchanged).
 
 ### Fixed
 
-- Refreshing a worklog whose summary shrank to (almost) nothing -- e.g. after
-  deleting all but one entry, leaving no completed interval -- no longer stacks a
+- Refreshing a blotter whose summary shrank to (almost) nothing -- e.g. after
+  deleting all but one blot, leaving no completed interval -- no longer stacks a
   second summary below the stale one. The summary region is now located by the
   union of content alignment and structural recognition, so refresh replaces the
   existing summary in place, and a buffer already jumbled by the old behavior
@@ -140,11 +163,11 @@ happen, but they are called out clearly in this changelog.
   values are now distributed with the same largest-remainder method used for
   minute quantization, so every visible column foots. `d=hm` is exact and
   unchanged, and footing values render identically to before.
-- `:WorklogInsert {source}` now refuses up front when the cursor is outside a
-  worklog, with the same error as plain `:WorklogInsert`, instead of opening the
+- `:BlotInsert {source}` now refuses up front when the cursor is outside a
+  blotter, with the same error as plain `:BlotInsert`, instead of opening the
   picker and only failing after an item is chosen.
-- `:WorklogRepeat` on yesterday's worklog now brings the cursor entry into today
-  when today already exists, instead of refusing with "today's worklog already
+- `:BlotRepeat` on yesterday's blotter now brings the cursor blot into today
+  when today already exists, instead of refusing with "today's blotter already
   exists". Previously a still-running task at the end of yesterday routed the
   command through the past-midnight carryover, which refuses once today exists;
   it now falls back to the normal cross-day repeat like any other past day.
