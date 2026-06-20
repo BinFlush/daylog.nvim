@@ -228,4 +228,53 @@ return function(t)
     -- have actually materialized a summary (else the assertion above is vacuous).
     t.ok(materialized_rounds == 3 * 300, "every round materialized a summary to mutate")
   end)
+
+  -- Rung 2: refresh is idempotent -- one pass reaches a fixed point, so a second pass
+  -- makes no edits. This is the loop-free guarantee the auto-refresh autocmd relies on
+  -- (apply_refresh early-returns when #edits == 0); the documented "an already-current
+  -- summary yields no edit". The critical thing it stresses: refresh must be able to
+  -- RE-LOCATE the summary it just wrote (whether it replaced an existing region or
+  -- created a fresh one after a mutation destroyed the old one) -- otherwise the second
+  -- pass appends yet another summary and the buffer never stabilises.
+  t.test(
+    "regen is idempotent: a second refresh after any summary mutation makes no edits",
+    function()
+      local master = Rng.new(20260621)
+
+      for _, mode in ipairs(synth.MODES) do
+        for _ = 1, 300 do
+          local seed = master:int(1, 2147483646)
+          local rng = Rng.new(seed)
+
+          local source = synth.generate(rng, mode).lines
+          local k = #source
+
+          local materialized = regen(source)
+          if #materialized > k then
+            local mutator = MUTATORS[rng:int(1, #MUTATORS)]
+            local mutated = mutator[2](rng, materialized, k)
+
+            -- One refresh should land on a fixed point...
+            local once = regen(mutated)
+            -- ...so refreshing that result must want nothing further.
+            local again = refresh_summaries.run(once)
+
+            if #again.edits > 0 then
+              error(
+                string.format(
+                  "%s seed=%d mutator=%s: refresh is not idempotent -- the second pass still "
+                    .. "wants %d edit(s) (the buffer never stabilises)",
+                  mode,
+                  seed,
+                  mutator[1],
+                  #again.edits
+                ),
+                0
+              )
+            end
+          end
+        end
+      end
+    end
+  )
 end
