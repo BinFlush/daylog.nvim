@@ -97,10 +97,39 @@ local function tail_bounds(analysis, blotter_block)
     end
   end
 
-  local stop_row = analysis.document.row_count + 1
+  -- Search limit: the next real blotter header, or EOF.
+  local limit = analysis.document.row_count + 1
   for index = start_index + 1, #blocks do
     if blocks[index].kind == syntax.BLOCK_KIND.BLOTTER then
-      stop_row = blocks[index].start_row
+      limit = blocks[index].start_row
+      break
+    end
+  end
+
+  -- The summary zone ends where the NEXT blotter begins within [tail_start, limit). A
+  -- one-character-corrupted `--- blots ---` no longer parses as a blotter, so scanning
+  -- only for the next BLOTTER would let the blast run to EOF and WIPE that blotter's
+  -- blots. Instead stop at the first blot line below the summary -- the next blotter's
+  -- blots; the summary itself has none -- backed up over a directly-preceding
+  -- `--- ... ---` header line (a corrupted blots header) so it is preserved with its
+  -- blots, never swept. So a blast can never cross into another blotter's content.
+  local nodes = analysis.document.nodes
+  local stop_row = limit
+  for row = tail_start, limit - 1 do
+    if nodes[row] and nodes[row].kind == syntax.NODE_KIND.BLOT then
+      stop_row = row
+      local above = row - 1
+      while
+        above >= tail_start
+        and nodes[above]
+        and nodes[above].kind == syntax.NODE_KIND.BLANK_LINE
+      do
+        above = above - 1
+      end
+      local raw = (above >= tail_start and nodes[above] and nodes[above].raw) or ""
+      if raw:match("^%-%-%-.*%-%-%-$") and not syntax.is_infile_summary_header(raw) then
+        stop_row = above
+      end
       break
     end
   end

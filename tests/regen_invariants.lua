@@ -446,4 +446,111 @@ return function(t)
       end
     end
   end)
+
+  -- Cardinal multi-blotter guarantee: a refresh NEVER loses a blot from any blotter,
+  -- even when a (non-first) blotter's header is corrupted so it no longer parses as a
+  -- blotter -- a one-char typo, a dropped dash, an obliterated header, or a deleted
+  -- header line. A previous summary's blast must not run through the damaged header into
+  -- the next blotter's blots (the data-loss bug this round fixes).
+  t.test("regen never loses a blot when a stacked blotter's header is corrupted", function()
+    local master = Rng.new(20260624)
+    local CORRUPT = {
+      {
+        "drop a char from 'blots'",
+        function(h)
+          return (h:gsub("blots", "blts", 1))
+        end,
+      },
+      {
+        "drop a leading dash",
+        function(h)
+          return (h:gsub("^%-%-%-", "--"))
+        end,
+      },
+      {
+        "obliterate to prose",
+        function(_)
+          return "todo see blockers later"
+        end,
+      },
+      {
+        "delete the header line",
+        function(_)
+          return nil
+        end,
+      }, -- nil drops the line
+    }
+
+    local function blot_counts(lines)
+      local counts = {}
+      for _, line in ipairs(lines) do
+        if line:match("^%d%d:%d%d") then
+          counts[line] = (counts[line] or 0) + 1
+        end
+      end
+      return counts
+    end
+
+    for _, mode in ipairs(synth.MODES) do
+      for _ = 1, 80 do
+        local seed = master:int(1, 2147483646)
+        local rng = Rng.new(seed)
+
+        -- Stack 2-3 synth blotters into one document, then materialize it.
+        local source = {}
+        for b = 1, rng:int(2, 3) do
+          if b > 1 then
+            source[#source + 1] = ""
+            source[#source + 1] = ""
+          end
+          for _, line in ipairs(synth.generate(Rng.new(seed * 7 + b), mode).lines) do
+            source[#source + 1] = line
+          end
+        end
+        local materialized = regen(source)
+        local before = blot_counts(materialized)
+
+        -- Corrupt a random NON-FIRST blotter header.
+        local header_rows = {}
+        for row, line in ipairs(materialized) do
+          if line:match("^%-%-%- blots") then
+            header_rows[#header_rows + 1] = row
+          end
+        end
+        if #header_rows >= 2 then
+          local target = header_rows[rng:int(2, #header_rows)]
+          local corrupt = CORRUPT[rng:int(1, #CORRUPT)]
+          local mutated = {}
+          for row, line in ipairs(materialized) do
+            if row == target then
+              local replaced = corrupt[2](line)
+              if replaced ~= nil then
+                mutated[#mutated + 1] = replaced
+              end
+            else
+              mutated[#mutated + 1] = line
+            end
+          end
+
+          local after = blot_counts(regen(mutated))
+          for line, n in pairs(before) do
+            if (after[line] or 0) < n then
+              error(
+                string.format(
+                  "%s seed=%d corruption=%s: blot %q lost (had %d, now %d) after refresh",
+                  mode,
+                  seed,
+                  corrupt[1],
+                  line,
+                  n,
+                  after[line] or 0
+                ),
+                0
+              )
+            end
+          end
+        end
+      end
+    end
+  end)
 end
