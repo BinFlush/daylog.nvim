@@ -1072,46 +1072,56 @@ return function(t)
     )
   end)
 
-  -- ===================== left untouched / no-ops =====================
+  t.test(
+    "scenario: an unrelated --- foo --- header above blots is recovered into a blotter",
+    function()
+      t.eq(
+        regen({
+          "--- blots ---",
+          "09:00 a",
+          "10:00 done",
+          "",
+          "",
+          "--- summary q=15 d=dec ---",
+          "1.00h (+0m) a",
+          "",
+          "--- totals ---",
+          "1.00h (+0m) workday",
+          "",
+          "",
+          "--- notes ---", -- unrelated header above an orphan blot run
+          "13:00 b",
+          "14:00 done",
+        }),
+        {
+          "--- blots ---",
+          "09:00 a",
+          "10:00 done",
+          "",
+          "",
+          "--- summary q=15 d=dec ---",
+          "1.00h (+0m) a",
+          "",
+          "--- totals ---",
+          "1.00h (+0m) workday",
+          "",
+          "",
+          "--- blots ---",
+          "13:00 b",
+          "14:00 done",
+          "",
+          "",
+          "--- summary q=15 d=dec ---",
+          "1.00h (+0m) b", -- recovered as a blotter and summarized
+          "",
+          "--- totals ---",
+          "1.00h (+0m) workday",
+        }
+      )
+    end
+  )
 
-  t.test("scenario: a --- notes --- block that contains blot-shaped lines is left alone", function()
-    t.eq(
-      regen({
-        "--- blots ---",
-        "09:00 a",
-        "10:00 done",
-        "",
-        "",
-        "--- summary q=15 d=dec ---",
-        "1.00h (+0m) a",
-        "",
-        "--- totals ---",
-        "1.00h (+0m) workday",
-        "",
-        "",
-        "--- notes ---", -- deliberate section, not a blots header
-        "13:00 b",
-        "14:00 done",
-      }),
-      {
-        "--- blots ---",
-        "09:00 a",
-        "10:00 done",
-        "",
-        "",
-        "--- summary q=15 d=dec ---",
-        "1.00h (+0m) a",
-        "",
-        "--- totals ---",
-        "1.00h (+0m) workday",
-        "",
-        "",
-        "--- notes ---", -- left untouched (no blotter fabricated)
-        "13:00 b",
-        "14:00 done",
-      }
-    )
-  end)
+  -- ===================== left untouched / no-ops =====================
 
   t.test("scenario: a corrupted FIRST header is a structural no-op", function()
     t.eq(

@@ -48,8 +48,8 @@ happen, but they are called out clearly in this changelog.
   blots, and the damaged header is **reconstructed**: its surviving parameters (`q=`, `d=`,
   `#tag`, `@location`, `utc±H`) are read back when present, otherwise a header is
   synthesized from the previous blotter's metadata — so the blotter is recognized and
-  summarized again. A deliberate `--- notes ---`-style section that merely contains
-  blot-shaped lines is left untouched.
+  summarized again. (Any timestamped run below a summary is treated as a blotter, even
+  under an unrelated `--- … ---` line, which carries no meaning of its own.)
 
 ## 0.8.0 - 2026-06-20
 

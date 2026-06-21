@@ -234,24 +234,14 @@ local function recover_header_edits(analysis)
       local hdr_is_summary = hdr_raw ~= nil
         and (syntax.is_infile_summary_header(hdr_raw) or syntax.is_summary_row(hdr_raw))
       local hdr_is_blot = hdr >= 1 and nodes[hdr] and nodes[hdr].kind == syntax.NODE_KIND.BLOT
-      local hdr_is_block = hdr_raw ~= nil and hdr_raw:match("^%-%-%- .* %-%-%-$") ~= nil
-      local hdr_header_ish = false
-      if hdr_raw then
-        local _, header_ish = read_header_params(hdr_raw)
-        hdr_header_ish = header_ish
-      end
-
-      -- Only recover when there is a preceding valid blotter to anchor on (and to
-      -- supply metadata). A document that is all orphan blots -- no blotter at all -- is
-      -- a "no blotter found" problem the user must fix, not something to fabricate a
-      -- header for. A corrupted FIRST header is a structural error and never reaches here.
-      -- A deliberate foreign section (e.g. `--- notes ---`) that merely happens to contain
-      -- blot-shaped lines is NOT a corrupted blots header -- a `--- ... ---` line with
-      -- neither a fuzzy "blots" keyword nor any blots parameter -- so it is left alone.
-      local foreign_section = hdr_is_block and not hdr_header_ish
-
+      -- Only recover when there is a preceding valid blotter to anchor on (and to supply
+      -- metadata). A document that is all orphan blots -- no blotter at all -- is a "no
+      -- blotter found" problem the user must fix, not something to fabricate a header for.
+      -- A corrupted FIRST header is a structural error and never reaches here. Any line
+      -- above an orphan blot run otherwise IS that blotter's header -- damaged, obliterated,
+      -- or an unrelated `--- foo ---` (which carries no semantics) -- so reconstruct it.
       local prev = previous_blotter(row)
-      if prev and not foreign_section then
+      if prev then
         if hdr_raw == nil or hdr_is_summary or hdr_is_blot then
           -- No header line remains (deleted, or only a summary/blot sits above): synthesize
           -- one from the previous blotter and insert it directly above the blots.
