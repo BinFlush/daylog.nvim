@@ -34,6 +34,9 @@ happen, but they are called out clearly in this changelog.
   This changes derived output: existing one-blank-separated summaries are rewritten
   to the two-blank layout on the next refresh; valid `.blot` bodies and their blots
   are untouched.
+- Stacked blotters are also separated by **two** blank lines: a refresh now keeps the
+  two-blank gap between one blotter's summary and the next blotter's header (trimmed
+  to none at end of file), instead of collapsing it.
 
 ## 0.8.0 - 2026-06-20
 

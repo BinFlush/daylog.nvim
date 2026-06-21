@@ -24,7 +24,9 @@ local M = {}
 
 -- The blast layout: the body, then exactly two blank separator lines, then the
 -- content-only summary render. The two blanks are emitted by the blast (not by the
--- render), so the separator is normalized however a border edit mangled it.
+-- render), so the separator is normalized however a border edit mangled it. When
+-- another blotter follows, the same two blanks are emitted as a trailing separator so
+-- stacked blotters stay two blanks apart; at EOF none are added.
 local SEPARATOR = { "", "" }
 
 -- The block's last timestamped blot row, or its header row when blot-less. The hard
@@ -67,13 +69,18 @@ end
 
 -- The 0-based edit replacing [body_end .. zone_end) with the canonical separator +
 -- content, true when that zone is already exactly canonical (so no edit is emitted).
-local function canonical_edit(lines, body_end, zone_end, content)
+local function canonical_edit(lines, body_end, zone_end, content, trailing)
   local want = {}
   for _, line in ipairs(SEPARATOR) do
     want[#want + 1] = line
   end
   for _, line in ipairs(content) do
     want[#want + 1] = line
+  end
+  if trailing then
+    for _, line in ipairs(SEPARATOR) do
+      want[#want + 1] = line
+    end
   end
 
   local matches = (zone_end - 1 - body_end) == #want
@@ -125,7 +132,11 @@ function M.run(lines)
           zone_end = stop
         end
 
-        local edit, already_canonical = canonical_edit(lines, body_end, zone_end, content)
+        -- Another blotter follows when the zone ends at its header rather than EOF
+        -- (zone_end points past the last line only at EOF). Keep the canonical two-blank
+        -- separator between this summary and that next blotter.
+        local trailing = zone_end <= #lines
+        local edit, already_canonical = canonical_edit(lines, body_end, zone_end, content, trailing)
         if not already_canonical then
           table.insert(edits, edit)
         end
