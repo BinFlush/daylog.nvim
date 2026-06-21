@@ -20,6 +20,21 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to blotter blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Changed
+
+- A blotter's generated summary is now separated from its body by **two** blank
+  lines (previously one), and a summary refresh **regenerates the entire summary
+  zone** — from the summary banner (`--- summary q=N d=fmt ---`) down to the next
+  blotter or end of file — discarding anything found inside it (mid-summary prose,
+  stranded or duplicated generated rows, trailing junk). The summary is derived,
+  edit-free output, so put annotations on blots, never in the summary. A trailing
+  note written below the summary is now regenerated away rather than preserved.
+  This changes derived output: existing one-blank-separated summaries are rewritten
+  to the two-blank layout on the next refresh; valid `.blot` bodies and their blots
+  are untouched.
+
 ## 0.8.0 - 2026-06-20
 
 ### Changed

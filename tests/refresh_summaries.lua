@@ -16,12 +16,14 @@ return function(t)
       "0.50h (+4m) workday",
     })
 
-    t.eq(result.edits[1].lines[1], "--- summary q=30 d=dec ---")
+    -- The blast emits two separator blanks before the regenerated banner.
+    t.eq(result.edits[1].lines[3], "--- summary q=30 d=dec ---")
   end)
 
   t.test("refresh restores a summary whose header was deleted (no duplicate)", function()
-    -- `dd` on the "--- summary ... ---" line leaks the rows into the body; refresh
-    -- re-aligns them and rewrites the full summary in place, with no second summary.
+    -- `dd` on the "--- summary ... ---" line leaks the rows into the body; with no
+    -- banner the shape fallback anchors on the surviving rows, and the blast rewrites
+    -- the whole zone (separator included) in place, with no second summary.
     local result = refresh_summaries.run({
       "--- blots ---",
       "08:00 plan",
@@ -35,9 +37,11 @@ return function(t)
 
     t.eq(result.edits, {
       {
-        start_index = 4,
+        start_index = 3,
         end_index = 8,
         lines = {
+          "",
+          "",
           "--- summary q=15 d=dec ---",
           "2.00h (+0m) plan",
           "",
@@ -71,9 +75,11 @@ return function(t)
 
     t.eq(result.edits, {
       {
-        start_index = 3,
+        start_index = 2,
         end_index = 14,
         lines = {
+          "",
+          "",
           "--- summary q=15 d=dec ---",
           "",
           "--- totals ---",
@@ -111,9 +117,11 @@ return function(t)
 
     t.eq(result.edits, {
       {
-        start_index = 3,
+        start_index = 2,
         end_index = 19,
         lines = {
+          "",
+          "",
           "--- summary q=15 d=dec ---",
           "",
           "--- totals ---",
@@ -150,8 +158,9 @@ return function(t)
 
     t.eq(#result.edits, 1)
     local edit = result.edits[1]
-    -- The region runs from the summary header through the junk line.
-    t.eq(edit.start_index, 5)
+    -- The zone runs from the body end (after the last blot) through the junk line at
+    -- EOF; the blast rewrites separator + summary and discards everything below.
+    t.eq(edit.start_index, 4)
     t.eq(edit.end_index, 18)
     -- The rewritten summary ends at the workday total; the junk line is gone.
     t.eq(edit.lines[#edit.lines], "5.25h (+5m) workday")
@@ -160,9 +169,10 @@ return function(t)
     end
   end)
 
-  t.test("refresh preserves a summary-shaped note written below the summary", function()
-    -- A note like "3.00h (+0m) billed ..." sits after the (current) summary. It is
-    -- not part of the summary region, so refresh emits no edit and never deletes it.
+  t.test("refresh regenerates a summary-shaped note written below the summary", function()
+    -- The summary is an edit-free, entirely-generated zone: a summary-shaped line
+    -- written below it ("3.00h (+0m) billed ...") sits inside the zone, so the blast
+    -- discards it. (Annotations belong on a blot, never in the summary.)
     local result = refresh_summaries.run({
       "--- blots #A ---",
       "08:00 a",
@@ -180,7 +190,24 @@ return function(t)
       "3.00h (+0m) billed to client X",
     })
 
-    t.eq(result.edits, {})
+    t.eq(result.edits, {
+      {
+        start_index = 3,
+        end_index = 14,
+        lines = {
+          "",
+          "",
+          "--- summary q=15 d=dec ---",
+          "1.00h (+0m) a",
+          "",
+          "--- tags ---",
+          "1.00h (+0m) #A",
+          "",
+          "--- totals ---",
+          "1.00h (+0m) workday",
+        },
+      },
+    })
   end)
 
   t.test("refresh restores an edited section header (no orphan)", function()
@@ -198,9 +225,11 @@ return function(t)
 
     t.eq(result.edits, {
       {
-        start_index = 4,
+        start_index = 3,
         end_index = 9,
         lines = {
+          "",
+          "",
           "--- summary q=15 d=dec ---",
           "2.00h (+0m) plan",
           "",
@@ -213,8 +242,8 @@ return function(t)
 
   t.test("refresh of a grown summary keeps the blots", function()
     -- A fresh blotter's empty summary, after a same-time :BlotInsert added a second
-    -- blot, must be replaced in place -- not swallow the blots above it. The edit
-    -- starts at the old summary (index 4), leaving the two blots untouched.
+    -- blot, must be replaced in place -- not swallow the blots above it. The blast
+    -- starts at the body end (after the second blot), leaving the two blots untouched.
     local result = refresh_summaries.run({
       "--- blots #sometag @location q=15 d=dec ---",
       "08:00 hey",
@@ -228,9 +257,11 @@ return function(t)
 
     t.eq(result.edits, {
       {
-        start_index = 4,
+        start_index = 3,
         end_index = 8,
         lines = {
+          "",
+          "",
           "--- summary q=15 d=dec ---",
           "0.00h (+0m) hey",
           "",
@@ -273,6 +304,8 @@ return function(t)
         start_index = 4,
         end_index = 15,
         lines = {
+          "",
+          "",
           "--- summary q=15 d=dec ---",
           "0.50h (-3m) hey2",
           "0.25h (+8m) hey",
@@ -307,9 +340,11 @@ return function(t)
       warnings = {},
       edits = {
         {
-          start_index = 4,
+          start_index = 3,
           end_index = 9,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan",
             "",
@@ -338,9 +373,11 @@ return function(t)
       warnings = {},
       edits = {
         {
-          start_index = 4,
+          start_index = 3,
           end_index = 9,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan",
             "",
@@ -353,10 +390,12 @@ return function(t)
   end)
 
   t.test("refresh is a no-op when the summary is already current", function()
+    -- Already canonical: two blank lines separate the body from the summary.
     local result = refresh_summaries.run({
       "--- blots ---",
       "08:00 plan",
       "09:00 done",
+      "",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",
@@ -368,7 +407,9 @@ return function(t)
     t.eq(result, { edits = {}, warnings = {} })
   end)
 
-  t.test("refresh updates only the changed blotter among several", function()
+  t.test("refresh rewrites each blotter to the canonical 2-blank layout", function()
+    -- Both blotters' summaries are stale against the canonical layout (the second's
+    -- total also drifted), so both are blasted, highest-row-first.
     local result = refresh_summaries.run({
       "--- blots ---",
       "08:00 a",
@@ -395,14 +436,29 @@ return function(t)
       warnings = {},
       edits = {
         {
-          start_index = 14,
+          start_index = 13,
           end_index = 19,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "1.50h (+0m) b",
             "",
             "--- totals ---",
             "1.50h (+0m) workday",
+          },
+        },
+        {
+          start_index = 3,
+          end_index = 10,
+          lines = {
+            "",
+            "",
+            "--- summary q=15 d=dec ---",
+            "1.00h (+0m) a",
+            "",
+            "--- totals ---",
+            "1.00h (+0m) workday",
           },
         },
       },
@@ -426,9 +482,11 @@ return function(t)
       warnings = {},
       edits = {
         {
-          start_index = 4,
+          start_index = 3,
           end_index = 9,
           lines = {
+            "",
+            "",
             "--- summary q=30 d=dec ---",
             "0.50h (+4m) plan",
             "",
@@ -447,8 +505,8 @@ return function(t)
       "09:00 done",
     })
 
-    -- The summary is inserted after the last blot; re-running on the result is a
-    -- no-op (covered by "refresh is a no-op when the summary is already current").
+    -- The summary is inserted after the last blot with the canonical 2-blank
+    -- separator; re-running on the result is a no-op.
     t.eq(result, {
       warnings = {},
       edits = {
@@ -456,6 +514,7 @@ return function(t)
           start_index = 3,
           end_index = 3,
           lines = {
+            "",
             "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan",
@@ -485,16 +544,30 @@ return function(t)
       "1.00h (+0m) workday",
     })
 
-    -- The first blotter's summary lands after its last blot (row 3); the blank
-    -- before the second blotter stays as the separator. The second blotter's
-    -- summary is already current, so it is left untouched.
+    -- The first blotter's summary is created after its last blot (row 3), blasting up
+    -- to the second blotter header. The second blotter's summary, stale against the
+    -- canonical 2-blank layout, is also rewritten -- edits apply highest-row-first.
     t.eq(result, {
       warnings = {},
       edits = {
         {
-          start_index = 3,
-          end_index = 3,
+          start_index = 7,
+          end_index = 13,
           lines = {
+            "",
+            "",
+            "--- summary q=15 d=dec ---",
+            "1.00h (+0m) b",
+            "",
+            "--- totals ---",
+            "1.00h (+0m) workday",
+          },
+        },
+        {
+          start_index = 3,
+          end_index = 4,
+          lines = {
+            "",
             "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) a",

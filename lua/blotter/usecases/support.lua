@@ -188,6 +188,13 @@ function M.locate_summary(analysis, block)
   return region, computed, rendered
 end
 
+-- The blotter's summary zone bounds (tail_start, stop_row): the window past the last
+-- blot, up to the next blotter / EOF. The create path blasts to `stop_row` so a fresh
+-- summary replaces any stray trailing blanks instead of stacking below them.
+function M.summary_zone_bounds(analysis, block)
+  return summary_block.tail_bounds(analysis, block)
+end
+
 function M.parse_clock_minutes(time)
   local parsed, err = blot.parse(time)
 

@@ -9,8 +9,8 @@ return function(t)
     return analyze.analyze(document.parse(lines))
   end
 
-  -- The expected summary `find` aligns against: exactly what the plugin renders for a
-  -- block (no leading blank, matching an in-buffer summary).
+  -- The expected summary `find` is given (kept for the caller's signature; the blast
+  -- design does not align against it). Content-only, matching an in-buffer summary.
   local function expected_for(block)
     return render.summary_lines(summary.summarize_block(block), block.duration_format, {
       leading_blank = false,
@@ -24,83 +24,33 @@ return function(t)
     return summary_block.find(analysis, block, expected_for(block))
   end
 
-  -- Direct tests of the Needleman-Wunsch fitting alignment that find() is built on.
-  local fit_align = summary_block.fit_align
+  -- Direct tests of the character-level edit distance the mangled-banner search uses.
+  local edit_distance = summary_block.edit_distance
 
-  t.test("fit_align matches a contiguous span with free leading/trailing gaps", function()
-    t.eq(
-      fit_align({ "a", "b", "c" }, { "x", "a", "b", "c", "y" }),
-      { start = 2, stop = 4, matches = 3 }
-    )
+  t.test("edit_distance is zero for identical strings", function()
+    t.eq(edit_distance("--- summary q=15 d=dec ---", "--- summary q=15 d=dec ---"), 0)
   end)
 
-  t.test("fit_align folds a substituted line into the span", function()
-    t.eq(fit_align({ "a", "b", "c" }, { "a", "X", "c" }), { start = 1, stop = 3, matches = 2 })
+  t.test("edit_distance counts a single substitution", function()
+    t.eq(edit_distance("dec", "dex"), 1)
   end)
 
-  t.test("fit_align prefers substitution over deletion at the leading boundary", function()
-    -- A mangled first line (X vs A) is kept inside the span as a substitution, so the
-    -- span starts at A rather than dropping it into the free prefix.
-    t.eq(fit_align({ "X", "b", "c" }, { "A", "b", "c" }), { start = 1, stop = 3, matches = 2 })
+  t.test("edit_distance counts a deletion and an insertion", function()
+    t.eq(edit_distance("summary", "sumary"), 1) -- one deleted char
+    t.eq(edit_distance("dec", "decX"), 1) -- one inserted char
   end)
 
-  t.test("fit_align spans across a deleted expected line", function()
-    t.eq(fit_align({ "a", "b", "c" }, { "a", "c" }), { start = 1, stop = 2, matches = 2 })
+  t.test("edit_distance handles an empty operand", function()
+    t.eq(edit_distance("", "abc"), 3)
+    t.eq(edit_distance("abc", ""), 3)
+    t.eq(edit_distance("", ""), 0)
   end)
 
-  t.test("fit_align keeps an inserted actual line inside the span", function()
-    t.eq(fit_align({ "a", "b" }, { "a", "X", "b" }), { start = 1, stop = 3, matches = 2 })
-  end)
+  -- The summary zone is the banner-delimited blast: [banner .. next blotter/EOF).
+  -- `find` returns that whole zone so a refresh regenerates it wholesale; trailing
+  -- prose and stale/duplicate sections inside it are deliberately swept in.
 
-  t.test("fit_align keeps a stale trailing line inside the span", function()
-    -- The last expected line (Z) substitutes a stale W rather than being deleted, so W
-    -- is inside the span and gets rewritten instead of orphaned.
-    t.eq(fit_align({ "a", "b", "Z" }, { "a", "b", "W" }), { start = 1, stop = 3, matches = 2 })
-  end)
-
-  t.test("fit_align does not count blank-line matches", function()
-    t.eq(fit_align({ "a", "", "b" }, { "a", "", "b" }), { start = 1, stop = 3, matches = 2 })
-  end)
-
-  t.test("fit_align reports zero matches for unrelated content", function()
-    t.eq(fit_align({ "a", "b" }, { "x", "y" }).matches, 0)
-  end)
-
-  t.test("fit_align returns nil for empty expected or empty actual", function()
-    t.eq(fit_align({}, { "a" }), nil)
-    t.eq(fit_align({ "a" }, {}), nil)
-  end)
-
-  t.test("fit_align does not let blank matches pull the span over the blotter body", function()
-    -- Regression: a fresh blotter's small summary growing after a same-time insert. An
-    -- blot-swallowing span must not tie the real summary by matching extra blank lines,
-    -- so the span starts at the old summary header (4), not the blot (1).
-    local expected = {
-      "--- summary q=15 d=dec ---",
-      "0.00h (+0m) hey",
-      "",
-      "--- tags ---",
-      "0.00h (+0m) #sometag",
-      "",
-      "--- locations ---",
-      "0.00h (+0m) @location",
-      "",
-      "--- totals ---",
-      "0.00h (+0m) workday",
-    }
-    local actual = {
-      "08:00 hey",
-      "08:00 ",
-      "",
-      "--- summary q=15 d=dec ---",
-      "",
-      "--- totals ---",
-      "0.00h (+0m) workday",
-    }
-    t.eq(fit_align(expected, actual), { start = 4, stop = 7, matches = 3 })
-  end)
-
-  t.test("summary_block locates an intact summary", function()
+  t.test("summary_block spans an intact summary to EOF", function()
     t.eq(
       locate({
         "--- blots ---",
@@ -117,7 +67,7 @@ return function(t)
     )
   end)
 
-  t.test("summary_block locates a quantized summary", function()
+  t.test("summary_block spans a quantized summary", function()
     t.eq(
       locate({
         "--- blots q=30 ---",
@@ -134,9 +84,28 @@ return function(t)
     )
   end)
 
-  t.test("summary_block locates a summary whose header was edited", function()
-    -- A mangled header is folded into the matched span (a substitution), so a refresh
-    -- rewrites it rather than orphaning it.
+  t.test("summary_block reclaims a banner with edited parameters", function()
+    -- A banner whose q=/d= drifted from the header is still the banner (matched by
+    -- shape), so the zone anchors on it and a refresh rewrites it.
+    t.eq(
+      locate({
+        "--- blots ---",
+        "08:00 plan",
+        "09:00 done",
+        "",
+        "--- summary q=99 d=hm ---",
+        "1.00h (+0m) plan",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      }),
+      { start_row = 5, end_row = 10 }
+    )
+  end)
+
+  t.test("summary_block reclaims a mangled banner by edit distance", function()
+    -- A typo'd / annotated banner is the nearest tail line to the canonical banner,
+    -- so the zone anchors on it rather than treating it as a body note.
     t.eq(
       locate({
         "--- blots ---",
@@ -151,11 +120,25 @@ return function(t)
       }),
       { start_row = 5, end_row = 10 }
     )
+    t.eq(
+      locate({
+        "--- blots ---",
+        "08:00 plan",
+        "09:00 done",
+        "",
+        "--- sumary q=15 d=dec ---",
+        "1.00h (+0m) plan",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      }),
+      { start_row = 5, end_row = 10 }
+    )
   end)
 
-  t.test("summary_block locates a summary whose header was deleted", function()
-    -- `dd` on the "--- summary ... ---" line: the rows leak into the body, but the
-    -- alignment still finds them; the leading separator blank stays outside the span.
+  t.test("summary_block recovers a deleted banner from the surviving rows", function()
+    -- `dd` on the banner: no banner survives, so the shape fallback anchors on the
+    -- first surviving generated row and the zone runs to EOF.
     t.eq(
       locate({
         "--- blots ---",
@@ -172,9 +155,9 @@ return function(t)
   end)
 
   t.test("summary_block keeps a blot flush against a header-less summary", function()
-    -- The summary header was deleted AND there is no separator blank, so the rows sit
-    -- directly under the final blot (21:00 done). The window starts after the last
-    -- blot, so that blot can never be drawn into the span and rewritten away.
+    -- The banner was deleted AND there is no separator blank, so the rows sit directly
+    -- under the final blot. The zone starts after the last blot (its first generated
+    -- row), so that blot can never be drawn into the zone.
     t.eq(
       locate({
         "--- blots #sometag @location q=15 d=dec ---",
@@ -197,29 +180,9 @@ return function(t)
     )
   end)
 
-  t.test("summary_block recognizes a legacy exact/quantized summary", function()
-    -- Older files (kind-word headers) still resolve: the rows align and the headers
-    -- are substitutions, so a refresh can rewrite them to the current form.
-    t.eq(
-      locate({
-        "--- blots ---",
-        "08:00 plan",
-        "09:00 done",
-        "",
-        "--- summary quantized ---",
-        "1.00h (+0m) plan",
-        "",
-        "--- totals quantized ---",
-        "1.00h (+0m) workday",
-      }),
-      { start_row = 5, end_row = 10 }
-    )
-  end)
-
-  t.test("summary_block locates a summary when the blotter has no completed interval", function()
-    -- One blot -> no intervals -> an empty fresh summary that alignment cannot
-    -- anchor; structural recognition still locates the stale summary to rewrite, so
-    -- a refresh replaces it instead of stacking a second summary below it.
+  t.test("summary_block spans an empty summary (no completed interval)", function()
+    -- One blot -> no intervals -> the banner still survives and anchors the zone, so a
+    -- refresh rewrites it instead of stacking a second summary below.
     t.eq(
       locate({
         "--- blots ---",
@@ -236,8 +199,8 @@ return function(t)
   end)
 
   t.test("summary_block spans a jumble of duplicated generated summaries", function()
-    -- Two stacked generated summaries (an earlier bad regeneration) are located as
-    -- one region, so a refresh collapses them.
+    -- Two stacked generated summaries (an earlier bad regeneration) are one zone, from
+    -- the first banner to EOF, so a refresh collapses them.
     t.eq(
       locate({
         "--- blots ---",
@@ -258,8 +221,9 @@ return function(t)
     )
   end)
 
-  t.test("summary_block leaves a trailing note outside the located region", function()
-    -- A note written below the summary is not swallowed into the region.
+  t.test("summary_block sweeps a trailing note into the zone", function()
+    -- The summary is edit-free: a note written below it is inside the zone and is
+    -- regenerated away, so the zone runs to EOF.
     t.eq(
       locate({
         "--- blots ---",
@@ -274,61 +238,7 @@ return function(t)
         "",
         "a note after the summary",
       }),
-      { start_row = 5, end_row = 10 }
-    )
-  end)
-
-  t.test("summary_block leaves a summary-shaped note below the summary outside it", function()
-    -- A note that merely starts like a summary row (a duration and a (+Nm) marker)
-    -- but sits after the summary's blank, with no section header of its own, is a
-    -- note -- it must not extend the region, or a refresh would delete it.
-    t.eq(
-      locate({
-        "--- blots #A ---",
-        "08:00 a",
-        "09:00 done",
-        "",
-        "--- summary q=15 d=dec ---",
-        "1.00h (+0m) a",
-        "",
-        "--- tags ---",
-        "1.00h (+0m) #A",
-        "",
-        "--- totals ---",
-        "1.00h (+0m) workday",
-        "",
-        "3.00h (+0m) billed to client X",
-      }),
-      { start_row = 5, end_row = 13 }
-    )
-  end)
-
-  t.test("summary_block includes junk left inside a generated section", function()
-    -- A summary-shaped line with no blank above it sits *inside* the totals section,
-    -- so it is part of the region and a refresh regenerates it away -- unlike the
-    -- after-a-blank note above, which is left outside.
-    t.eq(
-      locate({
-        "--- blots #ClientA @office ---",
-        "05:40 plan",
-        "10:00 build",
-        "11:00 review",
-        "",
-        "--- summary q=15 d=dec ---",
-        "4.25h (+5m) plan",
-        "1.00h (+0m) build",
-        "",
-        "--- tags ---",
-        "5.25h (+5m) #ClientA",
-        "",
-        "--- locations ---",
-        "5.25h (+5m) @office",
-        "",
-        "--- totals ---",
-        "5.25h (+5m) workday",
-        "3.55h junk",
-      }),
-      { start_row = 6, end_row = 19 }
+      { start_row = 5, end_row = 12 }
     )
   end)
 
@@ -337,7 +247,7 @@ return function(t)
   end)
 
   t.test("summary_block returns nil for unrelated tail content", function()
-    -- A stray note that is not the summary must not be grabbed as one.
+    -- A stray note that is not the banner and is not generated-shaped is not a summary.
     t.eq(
       locate({
         "--- blots ---",
@@ -351,7 +261,7 @@ return function(t)
     )
   end)
 
-  t.test("summary_block bounds a region to its blotter and ignores others", function()
+  t.test("summary_block bounds the zone to the next blotter", function()
     local analysis = analyze_lines({
       "--- blots ---",
       "08:00 plan",
@@ -368,7 +278,8 @@ return function(t)
       "11:00 done",
     })
     local first, second = analysis.blotter_blocks[1], analysis.blotter_blocks[2]
-    t.eq(summary_block.find(analysis, first, expected_for(first)), { start_row = 5, end_row = 10 })
+    -- The first blotter's zone stops at the second blotter's header (row 11).
+    t.eq(summary_block.find(analysis, first, expected_for(first)), { start_row = 5, end_row = 11 })
     t.eq(summary_block.find(analysis, second, expected_for(second)), nil)
   end)
 end

@@ -57,6 +57,7 @@ return function(t)
         "--- blots #ClientA @office q=30 d=hm ---",
         "08:45 ",
         "",
+        "",
         "--- summary q=30 d=hm ---",
         "",
         "--- totals ---",
@@ -126,6 +127,7 @@ return function(t)
       t.eq(t.get_lines(), {
         "--- blots ---",
         "08:45 ",
+        "",
         "",
         "--- summary q=15 d=dec ---",
         "",
@@ -326,6 +328,7 @@ return function(t)
       t.eq(t.get_lines(), {
         "--- blots ---",
         "08:45 ",
+        "",
         "",
         "--- summary q=15 d=dec ---",
         "",
@@ -853,6 +856,7 @@ return function(t)
       -- A header (with defaults) and an empty summary, but no timestamped blot.
       t.eq(t.get_lines(), {
         "--- blots #ClientA q=30 d=hm ---",
+        "",
         "",
         "--- summary q=30 d=hm ---",
         "",
@@ -1908,6 +1912,7 @@ return function(t)
         "22:30 writing report",
         "24:00",
         "",
+        "",
         "--- summary q=15 d=dec ---",
         "1.50h (+0m) writing report",
         "",
@@ -1950,6 +1955,7 @@ return function(t)
       t.eq(t.get_lines(), {
         "--- blots #ClientA @office ---",
         "10:00 deep work",
+        "",
         "",
         "--- summary q=15 d=dec ---",
         "",
@@ -2132,6 +2138,7 @@ return function(t)
         "20:00 standup",
         "22:30 writing report",
         "24:00",
+        "",
         "",
         "--- summary q=15 d=dec ---",
         "2.50h (+0m) standup",

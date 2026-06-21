@@ -25,6 +25,7 @@ return function(t)
       "08:00 plan",
       "10:00 done",
       "",
+      "",
       "--- summary q=15 d=dec ---",
       "2.00h (+0m) plan",
       "",
@@ -34,7 +35,7 @@ return function(t)
 
     -- Running again leaves the now-current summary untouched.
     vim.cmd("BlotterRefresh")
-    t.eq(t.get_lines()[6], "2.00h (+0m) plan")
+    t.eq(t.get_lines()[7], "2.00h (+0m) plan")
   end)
 
   local function has_unordered_diagnostic()
@@ -168,6 +169,7 @@ return function(t)
       "note tea",
       "12:00",
       "",
+      "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) tea",
       "",
@@ -207,6 +209,7 @@ return function(t)
       "11:00 tea",
       "12:00",
       "",
+      "",
       "--- summary q=30 d=dec ---",
       "1.00h (+0m) tea",
       "",
@@ -240,6 +243,7 @@ return function(t)
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
+      "",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) break",
@@ -281,6 +285,7 @@ return function(t)
       "09:00 client #ClientA @home",
       "10:00 reset #- @-",
       "11:00 done",
+      "",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",

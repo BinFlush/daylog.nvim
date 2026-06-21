@@ -102,15 +102,23 @@ contributing source blots `!L` and rebuilds it. Annotations belong on blots
 (canonical, surviving copy/order), not in the summary.
 
 Keeping authored content out of the summary is what makes regeneration safe. The
-`refresh_summaries` usecase exploits this: it ensures *every* valid blotter has a
-current summary — updating a stale one, creating a missing one, never removing one —
-not just the active one, skipping invalid blotters and emitting no edit where a
-summary is already current. To update rather than duplicate, it must reliably find
-the existing summary even when the fresh one is tiny (a blotter with no completed
-interval renders an almost-empty summary) — so `summary_block` locates the region
-by the union of content alignment and structural recognition (see its module
-comment), which also lets a refresh collapse a jumble of stale or duplicated
-generated sections back into one summary. Alongside the edits it
+`refresh_summaries` usecase exploits this fully: the summary is an *entirely
+generated, edit-free zone*, so a refresh **blasts the whole zone** — from the
+body/summary boundary down to the next blotter / EOF — and rewrites it canonically
+(the body, then exactly two blank separator lines, then the content-only summary
+render). Anything found in that zone — mid-summary prose, a stranded summary row, a
+jumble of duplicated/stale sections, trailing junk — is discarded; only the body
+above the boundary and the blots are protected. It ensures *every* valid blotter has
+a current summary — updating a stale one, creating a missing one, never removing one
+— not just the active one, skipping invalid blotters and emitting no edit where a
+zone is already canonical. The whole problem reduces to finding the top boundary:
+`summary_block` finds the summary banner (`--- summary q=N d=fmt ---`) in the tail —
+an exact match first, else the nearest line by character-level edit distance to
+reclaim a *mangled* banner, guarded to stay below the last blot and require real
+similarity so a body note is never mistaken for it — and falls back to the surviving
+generated shape (anchored on a summary section header) when a border edit deleted the
+banner outright. This collapses a jumble of stale or duplicated generated sections
+back into one summary. Alongside the edits it
 returns `warnings` (each `{ row, message }`) for every problem the analyzer can
 see — a broken or absent header, out-of-order timestamps, an invalid blot —
 whether or not the blotter has a summary, and even for a structurally broken

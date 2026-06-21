@@ -146,6 +146,15 @@ function M.is_infile_summary_header(raw)
     and M.SUMMARY_SECTION_WORDS[content] == true
 end
 
+-- Whether a line has the shape of a generated summary duration row -- a duration
+-- token followed by a `(±Nm)` rounding-error marker (`3.00h (+0m) workday`,
+-- `9:54 (-13m) design2 !L`). The shape backstop used when no banner survives at
+-- all: the surviving generated rows are recognized by this so their span can be
+-- located and blasted.
+function M.is_summary_row(raw)
+  return raw:match("^%S+ %([%+%-]?%d+m%)") ~= nil
+end
+
 -- UTC-offset markers: a third sticky dimension alongside #tag / @location.
 --
 -- A keyword token `utc±H[:MM]` records the absolute UTC offset of a stretch of
