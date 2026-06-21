@@ -1,6 +1,58 @@
 return function(t)
   local refresh_summaries = require("blotter.usecases.refresh_summaries")
 
+  -- Apply refresh's edit script to a line list (the pure mirror of the buffer apply),
+  -- for tests that assert the resulting document rather than the raw edits.
+  local function regen(lines)
+    local out = {}
+    for i, line in ipairs(lines) do
+      out[i] = line
+    end
+    for _, edit in ipairs(refresh_summaries.run(lines).edits) do
+      local next_out = {}
+      for i = 1, edit.start_index do
+        next_out[#next_out + 1] = out[i]
+      end
+      for _, line in ipairs(edit.lines) do
+        next_out[#next_out + 1] = line
+      end
+      for i = edit.end_index + 1, #out do
+        next_out[#next_out + 1] = out[i]
+      end
+      out = next_out
+    end
+    return out
+  end
+  local function has(lines, want)
+    for _, line in ipairs(lines) do
+      if line == want then
+        return true
+      end
+    end
+    return false
+  end
+  local function count(lines, pattern)
+    local n = 0
+    for _, line in ipairs(lines) do
+      if line:match(pattern) then
+        n = n + 1
+      end
+    end
+    return n
+  end
+  -- Corrupt the keyword of the Nth `--- blots ... ---` header (blots -> blts).
+  local function corrupt_nth_header(lines, nth)
+    local out, seen = {}, 0
+    for _, line in ipairs(lines) do
+      if line:match("^%-%-%- blots") then
+        seen = seen + 1
+      end
+      out[#out + 1] = (seen == nth and line:match("^%-%-%- blots")) and (line:gsub("blots", "blts"))
+        or line
+    end
+    return out
+  end
+
   t.test("refresh regenerates a hand-edited summary header from the blotter params", function()
     -- The blotter header is the single source of truth; the summary banner is
     -- read-only display, so an edited q=/d= is overwritten on the next refresh.
@@ -678,4 +730,76 @@ return function(t)
       },
     })
   end)
+
+  t.test("refresh recovers a one-character-corrupted blotter header and summarizes it", function()
+    -- A later blotter's `--- blots ---` keyword loses a character, so it no longer parses
+    -- as a blotter. Refresh repairs the keyword in place and summarizes the recovered
+    -- blotter -- and never lets the previous blotter's blast wipe it.
+    local materialized = regen({
+      "--- blots q=15 ---",
+      "09:00 a",
+      "10:00 done",
+      "",
+      "--- blots q=15 ---",
+      "13:00 b",
+      "14:00 done",
+    })
+    local result = regen(corrupt_nth_header(materialized, 2))
+
+    t.ok(count(result, "^%-%-%- blts q=15 %-%-%-$") == 0, "the corrupted keyword is repaired")
+    t.ok(count(result, "^%-%-%- blots q=15 %-%-%-$") == 2, "both blotters have a proper header")
+    t.ok(
+      has(result, "13:00 b") and has(result, "14:00 done"),
+      "the corrupted blotter's blots survive"
+    )
+    t.ok(
+      count(result, "^%-%-%- summary q=15 d=dec %-%-%-$") == 2,
+      "the recovered blotter is summarized"
+    )
+    t.ok(#refresh_summaries.run(result).edits == 0, "the recovery is idempotent")
+  end)
+
+  t.test("refresh recovers a corrupted header preserving its options verbatim", function()
+    local materialized = regen({
+      "--- blots q=15 ---",
+      "09:00 a",
+      "10:00 done",
+      "",
+      "--- blots #proj @site q=30 d=hm ---",
+      "13:00 b",
+      "14:00 done",
+    })
+    local result = regen(corrupt_nth_header(materialized, 2))
+
+    t.ok(
+      has(result, "--- blots #proj @site q=30 d=hm ---"),
+      "options are kept verbatim on recovery"
+    )
+    t.ok(has(result, "13:00 b") and has(result, "14:00 done"), "the blots survive")
+  end)
+
+  t.test(
+    "refresh leaves a non-blots block that contains blots alone (no false recovery)",
+    function()
+      -- A `--- notes ---` whose body happens to hold blot-shaped lines is far from "blots"
+      -- in edit distance, so it is never mistaken for a corrupted blotter header.
+      local result = regen({
+        "--- blots q=15 ---",
+        "09:00 a",
+        "10:00 done",
+        "",
+        "",
+        "--- notes ---",
+        "13:00 b",
+        "14:00 done",
+      })
+
+      t.ok(has(result, "--- notes ---"), "the notes header is left intact")
+      t.ok(count(result, "^%-%-%- blots") == 1, "no spurious blotter header is created")
+      t.ok(
+        has(result, "13:00 b") and has(result, "14:00 done"),
+        "its blot-shaped lines are preserved"
+      )
+    end
+  )
 end

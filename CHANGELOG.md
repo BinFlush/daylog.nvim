@@ -38,6 +38,16 @@ happen, but they are called out clearly in this changelog.
   two-blank gap between one blotter's summary and the next blotter's header (trimmed
   to none at end of file), instead of collapsing it.
 
+### Fixed
+
+- A lightly-corrupted blotter header no longer costs you the blotter. Previously, if a
+  later blotter's `--- blots ---` header lost a character (so it no longer parsed as a
+  blotter), the preceding blotter's summary refresh ran straight through it and **wiped
+  that blotter — its blots included**. Now a summary's regeneration can never cross into
+  another blotter's blots, and a header whose keyword was lightly damaged
+  (e.g. `--- blts q=15 d=dec ---`) is **repaired in place** — its options kept verbatim —
+  so the blotter is recognized and summarized again.
+
 ## 0.8.0 - 2026-06-20
 
 ### Changed
