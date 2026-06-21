@@ -842,4 +842,65 @@ return function(t)
       })
     end
   )
+
+  t.test(
+    "refresh recovery applies through the real shell path in order (insert before summary)",
+    function()
+      -- A deleted blotter header leaves the second blotter headerless. Recovery synthesizes
+      -- a header (an INSERT, in the original coordinates) while the summary edits are in the
+      -- post-insert coordinates, so buffer.apply_result must apply the list in order. If it
+      -- sorted/reordered, the insert and summary edits would collide and corrupt the buffer.
+      t.reset({
+        "--- blots ---",
+        "09:00 a",
+        "10:00 done",
+        "",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) a",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+        "",
+        "",
+        "13:00 b",
+        "14:00 done",
+        "",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) b",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      })
+      t.set_cursor(1, 0)
+
+      require("blotter.buffer").apply_refresh(false)
+
+      t.eq(t.get_lines(), {
+        "--- blots ---",
+        "09:00 a",
+        "10:00 done",
+        "",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) a",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+        "",
+        "",
+        "--- blots ---",
+        "13:00 b",
+        "14:00 done",
+        "",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) b",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      })
+    end
+  )
 end

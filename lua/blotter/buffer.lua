@@ -104,6 +104,11 @@ local function refresh_diagnostics()
 end
 
 local function apply_result(result)
+  -- Apply edits in the order given -- never reorder or sort them. refresh_summaries.run
+  -- composes header-recovery edits (in the original coordinates) ahead of summary edits
+  -- (in the post-recovery coordinates) as two ordered phases; a recovery that inserts a
+  -- synthesized blotter header shifts rows, so reordering these together would corrupt the
+  -- result. (Guarded by a core_commands test that drives an insert-based recovery here.)
   for _, edit in ipairs(result.edits or {}) do
     vim.api.nvim_buf_set_lines(0, edit.start_index, edit.end_index, false, edit.lines)
   end
