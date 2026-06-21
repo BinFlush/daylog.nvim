@@ -40,13 +40,16 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
-- A lightly-corrupted blotter header no longer costs you the blotter. Previously, if a
-  later blotter's `--- blots ---` header lost a character (so it no longer parsed as a
-  blotter), the preceding blotter's summary refresh ran straight through it and **wiped
-  that blotter — its blots included**. Now a summary's regeneration can never cross into
-  another blotter's blots, and a header whose keyword was lightly damaged
-  (e.g. `--- blts q=15 d=dec ---`) is **repaired in place** — its options kept verbatim —
-  so the blotter is recognized and summarized again.
+- A corrupted or missing blotter header no longer costs you the blotter. Previously, if a
+  later blotter's `--- blots ---` header was damaged so it no longer parsed — a mistyped
+  keyword (`--- blts …`), a dropped dash (`-- blots …`), an obliterated or deleted line —
+  the preceding blotter's summary refresh ran straight through it and **wiped that blotter,
+  its blots included**. Now a summary's regeneration can never cross into another blotter's
+  blots, and the damaged header is **reconstructed**: its surviving parameters (`q=`, `d=`,
+  `#tag`, `@location`, `utc±H`) are read back when present, otherwise a header is
+  synthesized from the previous blotter's metadata — so the blotter is recognized and
+  summarized again. A deliberate `--- notes ---`-style section that merely contains
+  blot-shaped lines is left untouched.
 
 ## 0.8.0 - 2026-06-20
 

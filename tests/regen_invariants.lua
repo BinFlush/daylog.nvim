@@ -481,10 +481,14 @@ return function(t)
       }, -- nil drops the line
     }
 
+    -- A real blot starts HH:MM and carries no `(±Nm)` rounding marker -- that marker is
+    -- exclusive to generated summary rows, which in hm format also start HH:MM
+    -- (`18:40 (-53m) ...`) and legitimately change when a recovered blotter is
+    -- re-summarized, so they must not be counted as blots here.
     local function blot_counts(lines)
       local counts = {}
       for _, line in ipairs(lines) do
-        if line:match("^%d%d:%d%d") then
+        if line:match("^%d%d:%d%d") and not line:match("%([%+%-]?%d+m%)") then
           counts[line] = (counts[line] or 0) + 1
         end
       end

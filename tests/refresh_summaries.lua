@@ -52,6 +52,26 @@ return function(t)
     end
     return out
   end
+  -- Apply fn to the Nth `--- blots ... ---` header; fn returns the new line, or nil to
+  -- delete it.
+  local function mutate_nth_header(lines, nth, fn)
+    local out, seen = {}, 0
+    for _, line in ipairs(lines) do
+      local is_header = line:match("^%-%-%- blots") ~= nil
+      if is_header then
+        seen = seen + 1
+      end
+      if is_header and seen == nth then
+        local replaced = fn(line)
+        if replaced ~= nil then
+          out[#out + 1] = replaced
+        end
+      else
+        out[#out + 1] = line
+      end
+    end
+    return out
+  end
 
   t.test("refresh regenerates a hand-edited summary header from the blotter params", function()
     -- The blotter header is the single source of truth; the summary banner is
@@ -802,4 +822,70 @@ return function(t)
       )
     end
   )
+
+  t.test("refresh recovers a header with a dropped dash, reading its parameters back", function()
+    local materialized = regen({
+      "--- blots q=15 ---",
+      "09:00 a",
+      "10:00 done",
+      "",
+      "--- blots q=45 d=hm ---",
+      "13:00 b",
+      "14:00 done",
+    })
+    -- Drop a leading dash from the second header (`--- blots …` -> `-- blots …`).
+    local result = regen(mutate_nth_header(materialized, 2, function(line)
+      return (line:gsub("^%-%-%-", "--"))
+    end))
+
+    t.ok(has(result, "--- blots q=45 d=hm ---"), "the dashes are repaired and q=/d= are read back")
+    t.ok(has(result, "13:00 b") and has(result, "14:00 done"), "the blots survive")
+  end)
+
+  t.test("refresh synthesizes an obliterated header from the previous blotter", function()
+    -- The obliterated header has no parameters to read, so the synthesized one inherits
+    -- the previous blotter's distinctive metadata (#team q=20), not the second's own.
+    local materialized = regen({
+      "--- blots #team q=20 ---",
+      "09:00 a",
+      "10:00 done",
+      "",
+      "--- blots q=45 ---",
+      "13:00 b",
+      "14:00 done",
+    })
+    local result = regen(mutate_nth_header(materialized, 2, function()
+      return "rewrite me later"
+    end))
+
+    t.ok(
+      has(result, "--- blots #team q=20 ---"),
+      "the header inherits the previous blotter's metadata"
+    )
+    t.ok(not has(result, "rewrite me later"), "the obliterating prose is replaced")
+    t.ok(has(result, "13:00 b") and has(result, "14:00 done"), "the blots survive")
+  end)
+
+  t.test("refresh synthesizes a deleted header line from the previous blotter", function()
+    local materialized = regen({
+      "--- blots #team q=20 ---",
+      "09:00 a",
+      "10:00 done",
+      "",
+      "--- blots q=45 ---",
+      "13:00 b",
+      "14:00 done",
+    })
+    -- Delete the second header line entirely (its blots are left headerless).
+    local result = regen(mutate_nth_header(materialized, 2, function()
+      return nil
+    end))
+
+    t.ok(
+      has(result, "--- blots #team q=20 ---"),
+      "a header is synthesized from the previous blotter"
+    )
+    t.ok(count(result, "^%-%-%- blots") == 2, "the headerless blots regain a header")
+    t.ok(has(result, "13:00 b") and has(result, "14:00 done"), "the blots survive")
+  end)
 end

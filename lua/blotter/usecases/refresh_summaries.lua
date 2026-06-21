@@ -2,6 +2,7 @@ local analyze = require("blotter.analyze")
 local body = require("blotter.body")
 local diagnostics = require("blotter.diagnostics")
 local document = require("blotter.document")
+local render = require("blotter.render")
 local summary_block = require("blotter.summary_block")
 local support = require("blotter.usecases.support")
 local syntax = require("blotter.syntax")
@@ -125,44 +126,164 @@ local function apply_edits(lines, edits)
   return out
 end
 
--- Recover a one-character-corrupted blotter header. A `--- blots ... ---` whose keyword
--- was lightly damaged (e.g. `--- blts q=15 d=dec ---`) no longer parses as a blotter --
--- it becomes a generic `--- ... ---` block, and without recovery its blots go
--- un-summarized. When such a generic block CONTAINS blots and its keyword is within edit
--- distance of "blots" (so a real `--- notes ---` is never mistaken for one), it is a
--- corrupted blotter header: fix just the keyword, preserving the header's options
--- verbatim, so the blotter is recognized and summarized again. Returns 0-based replace
--- edits (one per recovered header); the options/dashes are otherwise untouched.
-local function recover_header_edits(lines, analysis)
-  local edits = {}
-  for _, block in ipairs(analysis.blocks) do
-    if block.kind == syntax.BLOCK_KIND.GENERIC then
-      local has_blot = false
-      for _, node in ipairs(block.body_nodes or {}) do
-        if node.kind == syntax.NODE_KIND.BLOT then
-          has_blot = true
-          break
-        end
-      end
-
-      local raw = lines[block.start_row] or ""
-      local content = has_blot and raw:match("^%-%-%- (.+) %-%-%-$")
-      local keyword = content and content:match("^(%S+)")
-      if keyword and keyword ~= "blots" then
-        local dist = summary_block.edit_distance(keyword, "blots")
-        if dist and dist <= 2 then
-          local fixed = "--- blots" .. content:sub(#keyword + 1) .. " ---"
-          if fixed ~= raw then
-            edits[#edits + 1] = {
-              start_index = block.start_row - 1,
-              end_index = block.start_row,
-              lines = { fixed },
-            }
-          end
-        end
+-- Read blotter-header parameters from a (possibly corrupted) header line: q=, d=,
+-- #tag, @location, utc±H -- in any order, ignoring damaged dashes/keyword and junk
+-- tokens. Returns the parsed fields and whether the line looked like a header at all
+-- (it carried at least one real parameter, or the "blots" keyword fuzzily).
+local function read_header_params(raw)
+  local fields = {}
+  local header_ish = false
+  for token in raw:gmatch("%S+") do
+    local q = token:match("^q=(%d+)$")
+    local d = token:match("^d=(%a+)$")
+    local tag = token:match("^#([%w_%-]+)$")
+    local location = token:match("^@([%w_%-]+)$")
+    local offset = syntax.parse_utc_offset(token)
+    if q then
+      fields.quantize, header_ish = tonumber(q), true
+    elseif d and syntax.DURATION_FORMATS[d] then
+      fields.duration, header_ish = d, true
+    elseif tag then
+      fields.tag, header_ish = tag, true
+    elseif location then
+      fields.location, header_ish = location, true
+    elseif offset then
+      fields.offset, header_ish = offset, true
+    else
+      local dist = summary_block.edit_distance(token, "blots")
+      if dist and dist <= 2 then
+        header_ish = true
       end
     end
   end
+  return fields, header_ish
+end
+
+-- The canonical header for a recovered blotter: from the corrupted line's own readable
+-- parameters when it still looked like a header, else (obliterated / missing) from the
+-- previous blotter's metadata, else a bare header.
+local function rebuilt_header(raw, prev)
+  local fields, header_ish = {}, false
+  if raw then
+    fields, header_ish = read_header_params(raw)
+  end
+  if header_ish then
+    return render.blotter_header_line(
+      fields.tag,
+      fields.location,
+      fields.offset,
+      fields.quantize,
+      fields.duration
+    )
+  end
+  if prev then
+    return render.blotter_header_line(
+      prev.header_tag,
+      prev.header_location,
+      prev.header_offset,
+      prev.header_quantize_minutes,
+      prev.header_duration_format
+    )
+  end
+  return "--- blots ---"
+end
+
+-- Recover a corrupted or missing blotter header. A blotter header damaged so it no
+-- longer parses (a mistyped keyword, a dropped dash, an obliterated line) leaves its
+-- blots "orphaned" -- not part of any recognized blotter. For each orphan blot run
+-- (always below some summary, in the edit-free zone), reconstruct the next blotter's
+-- header: replace a damaged header line just above the blots (reading back its
+-- parameters), or -- when no header line remains -- synthesize one from the previous
+-- blotter's metadata, inserted directly above the blots. Returns 0-based edits (replaces
+-- and inserts); the blots themselves are never touched.
+local function recover_header_edits(analysis)
+  local nodes = analysis.document.nodes
+  local total = analysis.document.row_count
+
+  -- Rows of blots that belong to a recognized blotter (these are already fine).
+  local owned = {}
+  for _, block in ipairs(analysis.blotter_blocks) do
+    for _, node in ipairs(block.body_nodes or {}) do
+      if node.kind == syntax.NODE_KIND.BLOT then
+        owned[node.row] = true
+      end
+    end
+  end
+
+  local function previous_blotter(before_row)
+    local best
+    for _, block in ipairs(analysis.blotter_blocks) do
+      if block.start_row < before_row and (not best or block.start_row > best.start_row) then
+        best = block
+      end
+    end
+    return best
+  end
+
+  local edits = {}
+  local row = 1
+  while row <= total do
+    local node = nodes[row]
+    if node and node.kind == syntax.NODE_KIND.BLOT and not owned[row] then
+      -- An orphan blot run starts here. Find the line just above it (skipping blanks).
+      local hdr = row - 1
+      while hdr >= 1 and nodes[hdr] and nodes[hdr].kind == syntax.NODE_KIND.BLANK_LINE do
+        hdr = hdr - 1
+      end
+      local hdr_raw = (hdr >= 1 and nodes[hdr] and nodes[hdr].raw) or nil
+      local hdr_is_summary = hdr_raw ~= nil
+        and (syntax.is_infile_summary_header(hdr_raw) or syntax.is_summary_row(hdr_raw))
+      local hdr_is_blot = hdr >= 1 and nodes[hdr] and nodes[hdr].kind == syntax.NODE_KIND.BLOT
+      local hdr_is_block = hdr_raw ~= nil and hdr_raw:match("^%-%-%- .* %-%-%-$") ~= nil
+      local hdr_header_ish = false
+      if hdr_raw then
+        local _, header_ish = read_header_params(hdr_raw)
+        hdr_header_ish = header_ish
+      end
+
+      -- Only recover when there is a preceding valid blotter to anchor on (and to
+      -- supply metadata). A document that is all orphan blots -- no blotter at all -- is
+      -- a "no blotter found" problem the user must fix, not something to fabricate a
+      -- header for. A corrupted FIRST header is a structural error and never reaches here.
+      -- A deliberate foreign section (e.g. `--- notes ---`) that merely happens to contain
+      -- blot-shaped lines is NOT a corrupted blots header -- a `--- ... ---` line with
+      -- neither a fuzzy "blots" keyword nor any blots parameter -- so it is left alone.
+      local foreign_section = hdr_is_block and not hdr_header_ish
+
+      local prev = previous_blotter(row)
+      if prev and not foreign_section then
+        if hdr_raw == nil or hdr_is_summary or hdr_is_blot then
+          -- No header line remains (deleted, or only a summary/blot sits above): synthesize
+          -- one from the previous blotter and insert it directly above the blots.
+          edits[#edits + 1] = {
+            start_index = row - 1,
+            end_index = row - 1,
+            lines = { rebuilt_header(nil, prev) },
+          }
+        else
+          -- A corrupted (or obliterated-to-prose) header line above the blots: replace it,
+          -- reading back whatever parameters survive (else the previous blotter's).
+          edits[#edits + 1] = {
+            start_index = hdr - 1,
+            end_index = hdr,
+            lines = { rebuilt_header(hdr_raw, prev) },
+          }
+        end
+      end
+
+      -- Skip to the end of this run -- the next `--- ... ---` header (its own summary
+      -- banner) or EOF -- so it is reconstructed once.
+      row = row + 1
+      while
+        row <= total and not ((nodes[row] and nodes[row].raw or ""):match("^%-%-%- .* %-%-%-$"))
+      do
+        row = row + 1
+      end
+    else
+      row = row + 1
+    end
+  end
+
   return edits
 end
 
@@ -175,11 +296,15 @@ function M.run(lines)
     return { edits = {}, warnings = diagnostics.collect(analysis) }
   end
 
-  -- Recover lightly-corrupted blotter headers first, on a working copy, then re-analyze
+  -- Recover corrupted/missing blotter headers first, on a working copy, then re-analyze
   -- so the recovered blotters are summarized in this same pass (keeping refresh
-  -- idempotent). The recovery edits are single-line replacements (no row shift), so the
-  -- summary edits below stay valid in the original coordinates.
-  local recover_edits = recover_header_edits(lines, analysis)
+  -- idempotent). Recovery edits are applied highest-row-first; a synthesized header is an
+  -- insertion, so the summary edits are computed in the WORKING copy's coordinates and
+  -- emitted after all recovery edits (the shell applies the list in order).
+  local recover_edits = recover_header_edits(analysis)
+  table.sort(recover_edits, function(a, b)
+    return a.start_index > b.start_index
+  end)
   local work, work_analysis = lines, analysis
   if #recover_edits > 0 then
     work = apply_edits(lines, recover_edits)
@@ -187,7 +312,7 @@ function M.run(lines)
   end
 
   local warnings = diagnostics.collect(work_analysis)
-  local edits = {}
+  local summary_edits = {}
 
   for _, block in ipairs(work_analysis.blotter_blocks) do
     -- For a valid blotter: blast-regenerate its whole summary zone, or create one when
@@ -218,21 +343,25 @@ function M.run(lines)
       local trailing = zone_end <= #work
       local edit, already_canonical = canonical_edit(work, body_end, zone_end, content, trailing)
       if not already_canonical then
-        table.insert(edits, edit)
+        table.insert(summary_edits, edit)
       end
     end
   end
 
-  for _, edit in ipairs(recover_edits) do
-    table.insert(edits, edit)
-  end
-
-  -- Apply highest-row-first so multiple region replacements do not shift each other's
-  -- indices. Recovery edits are row-preserving replacements, so they compose with the
-  -- summary edits in these original coordinates.
-  table.sort(edits, function(a, b)
+  table.sort(summary_edits, function(a, b)
     return a.start_index > b.start_index
   end)
+
+  -- Recovery edits transform `lines` -> `work`; the summary edits are in `work`
+  -- coordinates. The shell applies the list in order, so every recovery (which may insert
+  -- a line) runs before any summary edit, keeping both coordinate systems valid.
+  local edits = {}
+  for _, edit in ipairs(recover_edits) do
+    edits[#edits + 1] = edit
+  end
+  for _, edit in ipairs(summary_edits) do
+    edits[#edits + 1] = edit
+  end
 
   return { edits = edits, warnings = warnings }
 end
