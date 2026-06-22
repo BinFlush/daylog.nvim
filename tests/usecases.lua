@@ -180,6 +180,42 @@ return function(t)
     })
   end)
 
+  t.test("append_copy includes a stray --- notes --- section as part of the log body", function()
+    -- A header-shaped body note (`--- notes ---`) is demoted to a note line, so it belongs
+    -- to the log; the copy includes it rather than splitting the log at it.
+    local result = append_copy.run({
+      "--- log ---",
+      "08:00 plan",
+      "10:00 done",
+      "--- notes ---",
+      "free text",
+    })
+
+    t.eq(result, {
+      edits = {
+        {
+          start_index = 5,
+          end_index = 5,
+          lines = {
+            "",
+            "--- log ---",
+            "08:00 plan",
+            "10:00 done",
+            "--- notes ---",
+            "free text",
+            "",
+            "",
+            "--- summary q=15 d=dec ---",
+            "2.00h (+0m) plan",
+            "",
+            "--- totals ---",
+            "2.00h (+0m) workday",
+          },
+        },
+      },
+    })
+  end)
+
   t.test("append_copy preserves !L and canonicalizes it after metadata", function()
     local result = append_copy.run({
       "--- log #ClientA @office ---",

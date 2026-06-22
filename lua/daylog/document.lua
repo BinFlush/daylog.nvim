@@ -199,7 +199,7 @@ end
 local function parse_header(line, row)
   -- "log" must be its own word: followed by whitespace (before any options)
   -- or by the closing dashes directly. This rejects "--- logx ---" and
-  -- "--- log#sales ---" (they fall through to a generic block header).
+  -- "--- log#sales ---" (they are not log headers).
   local options_text = line:match("^%-%-%- log%s+(.-)%s*%-%-%-$")
   if options_text == nil and line:match("^%-%-%- log%-%-%-$") then
     options_text = ""
@@ -218,8 +218,15 @@ local function parse_header(line, row)
     }
   end
 
+  -- Only a recognized header is a structural boundary: a log header (matched above)
+  -- or a generated summary/report section header. An unrecognized `--- x ---` (a
+  -- stray `--- notes ---`, or a corrupted header) is NOT a boundary -- it falls
+  -- through to a NOTE_LINE, so it can never silently fragment a log. A daylog holds
+  -- only logs and their generated summaries; everything else is prose. Recovery of a
+  -- corrupted log header still works: it keys off orphan entries + the raw line text,
+  -- not on this node kind (see usecases/refresh_summaries.lua).
   local text = line:match("^%-%-%- (.+) %-%-%-$")
-  if text then
+  if text and syntax.is_summary_section_header(line) then
     return {
       kind = syntax.NODE_KIND.BLOCK_HEADER,
       row = row,

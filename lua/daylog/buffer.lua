@@ -46,8 +46,15 @@ local function ensure_highlight_groups()
     return
   end
 
-  for group, link in pairs(highlight.GROUPS) do
-    vim.api.nvim_set_hl(0, group, { link = link, default = true })
+  for group, spec in pairs(highlight.GROUPS) do
+    -- A string spec is a link target; a table is an explicit attribute set (the headers
+    -- use { bold = true } so they read as structure in any theme, not only where a linked
+    -- group happens to differ from Comment). default = true keeps theme/user overrides winning.
+    if type(spec) == "string" then
+      vim.api.nvim_set_hl(0, group, { link = spec, default = true })
+    else
+      vim.api.nvim_set_hl(0, group, vim.tbl_extend("keep", spec, { default = true }))
+    end
   end
 
   highlight_groups_defined = true
