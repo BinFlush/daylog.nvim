@@ -1,5 +1,5 @@
-local journal = require("blotter.journal")
-local blotter = require("blotter")
+local daybook = require("daylog.daybook")
+local daylog = require("daylog")
 
 local M = {}
 
@@ -52,11 +52,11 @@ function M.with_mocked_confirm(choice, fn)
   end
 end
 
-function M.with_blotter_setup(options, fn)
-  blotter.setup(options)
+function M.with_daylog_setup(options, fn)
+  daylog.setup(options)
 
   local ok, err = xpcall(fn, debug.traceback)
-  blotter.setup()
+  daylog.setup()
 
   if not ok then
     error(err, 0)
@@ -100,8 +100,8 @@ function M.with_captured_notify(fn)
   end
 end
 
-function M.write_journal_file(root, directory, now, lines)
-  local path = journal.path_for_date({
+function M.write_daybook_file(root, directory, now, lines)
+  local path = daybook.path_for_date({
     root = root,
     directory = directory,
   }, now)
@@ -128,8 +128,8 @@ function M.with_temp_home_root(fn)
   end
 end
 
-function M.setup_blotter()
-  blotter.setup()
+function M.setup_daylog()
+  daylog.setup()
 end
 
 return M

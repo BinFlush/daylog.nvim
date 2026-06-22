@@ -1,6 +1,6 @@
 return function(t)
-  local health = require("blotter.health")
-  local blotter = require("blotter")
+  local health = require("daylog.health")
+  local daylog = require("daylog")
 
   local function capture_reports(methods, fn)
     local reports = {
@@ -80,14 +80,14 @@ return function(t)
   end
 
   t.test("setup can run more than once", function()
-    blotter.setup()
+    daylog.setup()
 
-    local ok, err = pcall(blotter.setup)
+    local ok, err = pcall(daylog.setup)
     t.ok(ok, err)
   end)
 
   t.test("health check reports core integration", function()
-    blotter.setup()
+    daylog.setup()
 
     local reports = capture_reports(modern_methods, function()
       health.check()
@@ -95,27 +95,27 @@ return function(t)
 
     t.eq(#reports.error, 0)
     t.eq(#reports.warn, 0)
-    t.ok(includes(reports.start, "blotter.nvim"))
-    t.ok(includes(reports.ok, 'require("blotter") succeeded'))
-    t.ok(includes(reports.ok, "blotter.setup is available"))
-    t.ok(includes(reports.ok, ":BlotInsert is available"))
-    t.ok(includes(reports.ok, ":BlotterToday is available"))
-    t.ok(includes(reports.ok, ":BlotterInit is available"))
-    t.ok(includes(reports.ok, ":BlotterNextDay is available"))
-    t.ok(includes(reports.ok, ":BlotterPrevDay is available"))
-    t.ok(includes(reports.ok, ":BlotterDays is available"))
-    t.ok(includes(reports.ok, ":BlotterWeek is available"))
-    t.ok(includes(reports.ok, ":BlotRepeat is available"))
-    t.ok(includes(reports.ok, ":BlotterCopy is available"))
-    t.ok(includes(reports.ok, ":BlotterOrder is available"))
-    t.ok(includes(reports.ok, ":BlotLog is available"))
-    t.ok(includes(reports.ok, ":BlotterRefresh is available"))
-    t.ok(includes(reports.ok, "example.blot detects as blotter"))
-    t.ok(includes(reports.ok, ":help blotter.nvim is available"))
+    t.ok(includes(reports.start, "daylog.nvim"))
+    t.ok(includes(reports.ok, 'require("daylog") succeeded'))
+    t.ok(includes(reports.ok, "daylog.setup is available"))
+    t.ok(includes(reports.ok, ":DaylogInsert is available"))
+    t.ok(includes(reports.ok, ":DaylogToday is available"))
+    t.ok(includes(reports.ok, ":DaylogInit is available"))
+    t.ok(includes(reports.ok, ":DaylogNextDay is available"))
+    t.ok(includes(reports.ok, ":DaylogPrevDay is available"))
+    t.ok(includes(reports.ok, ":DaylogDays is available"))
+    t.ok(includes(reports.ok, ":DaylogWeek is available"))
+    t.ok(includes(reports.ok, ":DaylogRepeat is available"))
+    t.ok(includes(reports.ok, ":DaylogCopy is available"))
+    t.ok(includes(reports.ok, ":DaylogOrder is available"))
+    t.ok(includes(reports.ok, ":DaylogLog is available"))
+    t.ok(includes(reports.ok, ":DaylogRefresh is available"))
+    t.ok(includes(reports.ok, "example.day detects as daylog"))
+    t.ok(includes(reports.ok, ":help daylog.nvim is available"))
   end)
 
   t.test("health check supports legacy health api", function()
-    blotter.setup()
+    daylog.setup()
 
     local reports = capture_reports(legacy_methods, function()
       health.check()
@@ -123,15 +123,15 @@ return function(t)
 
     t.eq(#reports.error, 0)
     t.eq(#reports.warn, 0)
-    t.ok(includes(reports.start, "blotter.nvim"))
-    t.ok(includes(reports.ok, 'require("blotter") succeeded'))
-    t.ok(includes(reports.ok, ":BlotInsert is available"))
+    t.ok(includes(reports.start, "daylog.nvim"))
+    t.ok(includes(reports.ok, 'require("daylog") succeeded'))
+    t.ok(includes(reports.ok, ":DaylogInsert is available"))
   end)
 
   t.test("health check does not reset the user's configuration", function()
-    local config = require("blotter.config")
-    blotter.setup({
-      journal = { root = "/tmp/hc", directory = "%Y" },
+    local config = require("daylog.config")
+    daylog.setup({
+      daybook = { root = "/tmp/hc", directory = "%Y" },
       auto_summary = "idle",
     })
 
@@ -139,14 +139,14 @@ return function(t)
       health.check()
     end)
 
-    t.eq(config.get().journal.root, "/tmp/hc")
+    t.eq(config.get().daybook.root, "/tmp/hc")
     t.eq(config.get().auto_summary, "idle")
 
-    blotter.setup()
+    daylog.setup()
   end)
 
   t.test("health reports configured sources and a missing cache", function()
-    blotter.setup({
+    daylog.setup({
       sources = {
         ADO = {
           type = "azure_devops",
@@ -177,7 +177,7 @@ return function(t)
 
     t.ok(includes(reports.start, "Sources"))
     t.ok(includes(reports.ok, "source ADO (azure_devops) is configured"))
-    t.ok(includes(reports.ok, ":BlotterSync is available"))
+    t.ok(includes(reports.ok, ":DaylogSync is available"))
 
     local warned = false
     for _, item in ipairs(reports.warn) do
@@ -187,12 +187,12 @@ return function(t)
     end
     t.ok(warned, "expected a 'no cache yet' warning for ADO")
 
-    blotter.setup()
+    daylog.setup()
   end)
 
   t.test("health reports a registered custom source", function()
-    local registry = require("blotter.sources.registry")
-    blotter.setup() -- clears the registry; no config sources declared
+    local registry = require("daylog.sources.registry")
+    daylog.setup() -- clears the registry; no config sources declared
 
     registry.register("Jira", {
       fetch = function(cb)
@@ -201,7 +201,7 @@ return function(t)
       format_item = function(item)
         return item.id
       end,
-      to_blot_text = function(item)
+      to_entry_text = function(item)
         return item.id
       end,
     })
@@ -223,6 +223,6 @@ return function(t)
     t.ok(includes(reports.start, "Sources"))
     t.ok(includes(reports.ok, "source Jira (registered) is configured"))
 
-    blotter.setup() -- clear the registry again
+    daylog.setup() -- clear the registry again
   end)
 end

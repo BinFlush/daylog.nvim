@@ -1,1 +1,0 @@
-require("blotter.filetype").register()

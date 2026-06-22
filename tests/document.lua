@@ -1,10 +1,10 @@
 return function(t)
-  local document = require("blotter.document")
-  local syntax = require("blotter.syntax")
+  local document = require("daylog.document")
+  local syntax = require("daylog.syntax")
 
   t.test("document parse preserves line kinds and rows", function()
     local doc = document.parse({
-      "--- blots #ProjectOrion @office q=30 ---",
+      "--- log #ProjectOrion @office q=30 ---",
       "08:00 plan",
       "note about planning",
       "",
@@ -15,9 +15,9 @@ return function(t)
     t.eq(doc.row_count, 5)
     t.eq(doc.nodes, {
       {
-        kind = "blotter_header",
+        kind = "log_header",
         row = 1,
-        raw = "--- blots #ProjectOrion @office q=30 ---",
+        raw = "--- log #ProjectOrion @office q=30 ---",
         metadata_tokens = {
           {
             kind = "tag",
@@ -40,7 +40,7 @@ return function(t)
         invalid_tokens = {},
       },
       {
-        kind = "blot",
+        kind = "entry",
         row = 2,
         raw = "08:00 plan",
         minutes = 480,
@@ -68,18 +68,18 @@ return function(t)
     })
   end)
 
-  t.test("document parse requires blotter to be its own word in a header", function()
-    t.eq(document.parse_line("--- blots ---").kind, "blotter_header")
-    t.eq(document.parse_line("--- blots #ClientA ---").kind, "blotter_header")
-    t.eq(document.parse_line("--- blots---").kind, "blotter_header")
-    t.eq(document.parse_line("--- blotss ---").kind, "block_header")
-    t.eq(document.parse_line("--- blots#sales ---").kind, "block_header")
-    t.eq(document.parse_line("--- blotss to review ---").kind, "block_header")
+  t.test("document parse requires log to be its own word in a header", function()
+    t.eq(document.parse_line("--- log ---").kind, "log_header")
+    t.eq(document.parse_line("--- log #ClientA ---").kind, "log_header")
+    t.eq(document.parse_line("--- log---").kind, "log_header")
+    t.eq(document.parse_line("--- logs ---").kind, "block_header")
+    t.eq(document.parse_line("--- log#sales ---").kind, "block_header")
+    t.eq(document.parse_line("--- logs to review ---").kind, "block_header")
   end)
 
   t.test("document parse_line parses a single line directly", function()
     t.eq(document.parse_line("08:21 negotiate with goose #sales @client"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "08:21 negotiate with goose #sales @client",
       minutes = 501,
@@ -91,7 +91,7 @@ return function(t)
 
   t.test("document parse recognizes trailing !L in flexible metadata order", function()
     t.eq(document.parse_line("08:21 negotiate with goose !L #sales @client"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "08:21 negotiate with goose !L #sales @client",
       minutes = 501,
@@ -102,7 +102,7 @@ return function(t)
     })
 
     t.eq(document.parse_line("08:21 negotiate with goose @client !L #sales"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "08:21 negotiate with goose @client !L #sales",
       minutes = 501,
@@ -113,11 +113,11 @@ return function(t)
     })
   end)
 
-  t.test("document parse keeps blotter header metadata and options", function()
-    t.eq(document.parse_line("--- blots #ProjectOrion @office q=30 nope ---"), {
-      kind = "blotter_header",
+  t.test("document parse keeps log header metadata and options", function()
+    t.eq(document.parse_line("--- log #ProjectOrion @office q=30 nope ---"), {
+      kind = "log_header",
       row = 1,
-      raw = "--- blots #ProjectOrion @office q=30 nope ---",
+      raw = "--- log #ProjectOrion @office q=30 nope ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -140,10 +140,10 @@ return function(t)
       invalid_tokens = { "nope" },
     })
 
-    t.eq(document.parse_line("--- blots q=foo unknown=bar #internal @home ---"), {
-      kind = "blotter_header",
+    t.eq(document.parse_line("--- log q=foo unknown=bar #internal @home ---"), {
+      kind = "log_header",
       row = 1,
-      raw = "--- blots q=foo unknown=bar #internal @home ---",
+      raw = "--- log q=foo unknown=bar #internal @home ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -172,16 +172,16 @@ return function(t)
     })
   end)
 
-  t.test("document parse keeps explicit blot metadata only", function()
+  t.test("document parse keeps explicit entry metadata only", function()
     local doc = document.parse({
-      "--- blots ---",
+      "--- log ---",
       "08:21 negotiate with goose #sales",
       "08:52 coffee with ghost #ooo @home",
       "09:00 done",
     })
 
     t.eq(doc.nodes[2], {
-      kind = "blot",
+      kind = "entry",
       row = 2,
       raw = "08:21 negotiate with goose #sales",
       minutes = 501,
@@ -190,7 +190,7 @@ return function(t)
       explicit_location = nil,
     })
     t.eq(doc.nodes[3], {
-      kind = "blot",
+      kind = "entry",
       row = 3,
       raw = "08:52 coffee with ghost #ooo @home",
       minutes = 532,
@@ -199,7 +199,7 @@ return function(t)
       explicit_location = "home",
     })
     t.eq(doc.nodes[4], {
-      kind = "blot",
+      kind = "entry",
       row = 4,
       raw = "09:00 done",
       minutes = 540,
@@ -211,7 +211,7 @@ return function(t)
 
   t.test("document parse keeps inline hashtags in text", function()
     t.eq(document.parse_line("08:04 fix #123 issue #sales @office"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "08:04 fix #123 issue #sales @office",
       minutes = 484,
@@ -223,7 +223,7 @@ return function(t)
 
   t.test("document parse keeps inline !L in text unless it is trailing metadata", function()
     t.eq(document.parse_line("08:04 discuss !L marker syntax"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "08:04 discuss !L marker syntax",
       minutes = 484,
@@ -233,11 +233,11 @@ return function(t)
     })
   end)
 
-  t.test("document parse recognizes clear tokens in headers and blots", function()
-    t.eq(document.parse_line("--- blots #- @- q=30 ---"), {
-      kind = "blotter_header",
+  t.test("document parse recognizes clear tokens in headers and entries", function()
+    t.eq(document.parse_line("--- log #- @- q=30 ---"), {
+      kind = "log_header",
       row = 1,
-      raw = "--- blots #- @- q=30 ---",
+      raw = "--- log #- @- q=30 ---",
       metadata_tokens = {
         {
           kind = "tag",
@@ -263,7 +263,7 @@ return function(t)
     })
 
     t.eq(document.parse_line("08:04 reset #- @-"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "08:04 reset #- @-",
       minutes = 484,
@@ -277,23 +277,23 @@ return function(t)
 
   t.test("document parse rejects duplicate trailing !L and keeps !L invalid in headers", function()
     t.eq(document.parse_line("08:04 plan !L #sales !L"), {
-      kind = "invalid_blot",
+      kind = "invalid_entry",
       row = 1,
       raw = "08:04 plan !L #sales !L",
       message = "duplicate trailing !L markers are not allowed",
     })
 
-    t.eq(document.parse_line("--- blots !L ---"), {
-      kind = "blotter_header",
+    t.eq(document.parse_line("--- log !L ---"), {
+      kind = "log_header",
       row = 1,
-      raw = "--- blots !L ---",
+      raw = "--- log !L ---",
       metadata_tokens = {},
       option_tokens = {},
       invalid_tokens = { "!L" },
     })
   end)
 
-  t.test("document parse marks malformed time-like lines as invalid blots", function()
+  t.test("document parse marks malformed time-like lines as invalid entries", function()
     local doc = document.parse({
       "08:00 plan #sales #meeting",
       "08:00 plan @office @home",
@@ -303,25 +303,25 @@ return function(t)
 
     t.eq(doc.nodes, {
       {
-        kind = "invalid_blot",
+        kind = "invalid_entry",
         row = 1,
         raw = "08:00 plan #sales #meeting",
         message = "multiple trailing tags are not allowed",
       },
       {
-        kind = "invalid_blot",
+        kind = "invalid_entry",
         row = 2,
         raw = "08:00 plan @office @home",
         message = "multiple trailing locations are not allowed",
       },
       {
-        kind = "invalid_blot",
+        kind = "invalid_entry",
         row = 3,
         raw = "24:30 no",
         message = "invalid time",
       },
       {
-        kind = "invalid_blot",
+        kind = "invalid_entry",
         row = 4,
         raw = "08:00x",
         message = "expected whitespace after the time",
@@ -331,7 +331,7 @@ return function(t)
 
   t.test("document parse accepts 24:00 as an end-of-day boundary", function()
     t.eq(document.parse_line("24:00"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "24:00",
       minutes = 1440,
@@ -343,27 +343,27 @@ return function(t)
 
   t.test("document parse rejects times past 24:00", function()
     t.eq(document.parse_line("24:01"), {
-      kind = "invalid_blot",
+      kind = "invalid_entry",
       row = 1,
       raw = "24:01",
       message = "invalid time",
     })
 
     t.eq(document.parse_line("25:00"), {
-      kind = "invalid_blot",
+      kind = "invalid_entry",
       row = 1,
       raw = "25:00",
       message = "invalid time",
     })
   end)
 
-  t.test("document parses a summary-shaped timestamp row as a note, not a blot", function()
-    -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte a blot timestamp
+  t.test("document parses a summary-shaped timestamp row as a note, not an entry", function()
+    -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp
     -- plus a (+Nm) marker; the marker makes it a note so it can never be miscounted as
-    -- a blot if it leaks into a blotter body.
+    -- an entry if it leaks into a log body.
     local doc = document.parse({ "16:00 (+0m) workday", "16:00 standup" })
     t.eq(doc.nodes[1].kind, "note_line")
-    t.eq(doc.nodes[2].kind, "blot")
+    t.eq(doc.nodes[2].kind, "entry")
   end)
 
   t.test("syntax parses utc offsets to signed minutes and round-trips them", function()
@@ -391,7 +391,7 @@ return function(t)
 
   t.test("document parses a trailing utc offset and peels a preceding tag", function()
     t.eq(document.parse_line("11:00 resume #sales utc-4"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "11:00 resume #sales utc-4",
       minutes = 660,
@@ -414,7 +414,7 @@ return function(t)
       "08:00 talk utc+99",
     }) do
       local node = document.parse_line(line)
-      t.eq(node.kind, "blot")
+      t.eq(node.kind, "entry")
       t.eq(node.explicit_offset, nil)
       t.eq(node.text, line:match("^%d%d:%d%d%s+(.+)$"))
     end
@@ -422,7 +422,7 @@ return function(t)
 
   t.test("document rejects a duplicate trailing utc offset", function()
     t.eq(document.parse_line("08:00 plan utc+2 utc-4"), {
-      kind = "invalid_blot",
+      kind = "invalid_entry",
       row = 1,
       raw = "08:00 plan utc+2 utc-4",
       message = "multiple trailing utc offsets are not allowed",
@@ -430,10 +430,10 @@ return function(t)
   end)
 
   t.test("document routes a header utc offset into metadata tokens", function()
-    t.eq(document.parse_line("--- blots @office utc+2 q=30 ---"), {
-      kind = "blotter_header",
+    t.eq(document.parse_line("--- log @office utc+2 q=30 ---"), {
+      kind = "log_header",
       row = 1,
-      raw = "--- blots @office utc+2 q=30 ---",
+      raw = "--- log @office utc+2 q=30 ---",
       metadata_tokens = {
         { kind = "location", value = "office", raw = "@office" },
         { kind = "offset", value = 120, raw = "utc+2" },
@@ -445,7 +445,7 @@ return function(t)
     })
 
     -- A malformed header offset stays an invalid token, so the header is demoted.
-    t.eq(document.parse_line("--- blots utc+99 ---").invalid_tokens, { "utc+99" })
+    t.eq(document.parse_line("--- log utc+99 ---").invalid_tokens, { "utc+99" })
   end)
 
   t.test("syntax parses and renders round nudges (sign required)", function()
@@ -462,7 +462,7 @@ return function(t)
 
   t.test("document parses a trailing round nudge and peels a preceding tag", function()
     t.eq(document.parse_line("08:00 plan #sales round+1"), {
-      kind = "blot",
+      kind = "entry",
       row = 1,
       raw = "08:00 plan #sales round+1",
       minutes = 480,
@@ -478,12 +478,12 @@ return function(t)
 
   t.test("document leaves a non-nudge round token as text and rejects duplicates", function()
     local node = document.parse_line("08:00 take another round")
-    t.eq(node.kind, "blot")
+    t.eq(node.kind, "entry")
     t.eq(node.nudge, nil)
     t.eq(node.text, "take another round")
 
     t.eq(document.parse_line("08:00 plan round+1 round-1"), {
-      kind = "invalid_blot",
+      kind = "invalid_entry",
       row = 1,
       raw = "08:00 plan round+1 round-1",
       message = "multiple trailing round markers are not allowed",
@@ -491,7 +491,7 @@ return function(t)
   end)
 
   t.test("document does not treat a header round token as metadata", function()
-    -- round±N is blot-only (non-sticky); in a header it is just an invalid token.
-    t.eq(document.parse_line("--- blots round+1 ---").invalid_tokens, { "round+1" })
+    -- round±N is entry-only (non-sticky); in a header it is just an invalid token.
+    t.eq(document.parse_line("--- log round+1 ---").invalid_tokens, { "round+1" })
   end)
 end

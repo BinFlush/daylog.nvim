@@ -1,9 +1,9 @@
 return function(t)
-  local filetype = require("blotter.filetype")
+  local filetype = require("daylog.filetype")
 
   filetype.register()
 
-  t.test("blot files map to the blotter filetype", function()
-    t.eq(vim.filetype.match({ filename = "today.blot" }), "blotter")
+  t.test("entry files map to the daylog filetype", function()
+    t.eq(vim.filetype.match({ filename = "today.day" }), "daylog")
   end)
 end

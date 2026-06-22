@@ -1,5 +1,5 @@
 return function(t)
-  local config = require("blotter.config")
+  local config = require("daylog.config")
 
   t.test("config setup normalizes defaults and resets cleanly", function()
     config.setup({
@@ -9,7 +9,7 @@ return function(t)
         quantize_minutes = 30,
         duration_format = "hm",
       },
-      journal = {
+      daybook = {
         root = "~/timereg",
         directory = "%Y/%V",
       },
@@ -22,7 +22,7 @@ return function(t)
         quantize_minutes = 30,
         duration_format = "hm",
       },
-      journal = {
+      daybook = {
         root = "~/timereg",
         directory = "%Y/%V",
       },
@@ -85,38 +85,38 @@ return function(t)
     config.setup()
   end)
 
-  t.test("config setup validates journal settings", function()
+  t.test("config setup validates daybook settings", function()
     local ok, err = pcall(config.setup, {
-      journal = "bad",
+      daybook = "bad",
     })
     t.ok(not ok)
-    t.ok(tostring(err):match("setup journal must be a table") ~= nil)
+    t.ok(tostring(err):match("setup daybook must be a table") ~= nil)
 
     ok, err = pcall(config.setup, {
-      journal = {
+      daybook = {
         root = "",
       },
     })
     t.ok(not ok)
-    t.ok(tostring(err):match("journal.root must be a non%-empty string") ~= nil)
+    t.ok(tostring(err):match("daybook.root must be a non%-empty string") ~= nil)
 
     ok, err = pcall(config.setup, {
-      journal = {
+      daybook = {
         root = "~/timereg",
         directory = 15,
       },
     })
     t.ok(not ok)
-    t.ok(tostring(err):match("journal.directory must be a string") ~= nil)
+    t.ok(tostring(err):match("daybook.directory must be a string") ~= nil)
 
     config.setup({
-      journal = {
+      daybook = {
         root = "~/timereg",
       },
     })
     t.eq(config.get(), {
       defaults = {},
-      journal = {
+      daybook = {
         root = "~/timereg",
         directory = "",
       },

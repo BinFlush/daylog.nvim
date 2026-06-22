@@ -1,5 +1,5 @@
 return function(t)
-  local render = require("blotter.render")
+  local render = require("daylog.render")
 
   local function find_layout_row(layout, predicate)
     for _, row in ipairs(layout) do
@@ -956,7 +956,7 @@ return function(t)
           unrounded_duration = 60,
           workday_excluded = false,
           logged = true,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
         {
           text = "implementation",
@@ -964,7 +964,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
       },
       tag_totals = {
@@ -1015,7 +1015,7 @@ return function(t)
       unrounded_duration = 60,
       workday_excluded = false,
       logged = true,
-      source_blot_rows = { 2 },
+      source_entry_rows = { 2 },
     }
     local second_item = {
       text = "implementation",
@@ -1023,7 +1023,7 @@ return function(t)
       duration = 60,
       unrounded_duration = 60,
       workday_excluded = false,
-      source_blot_rows = { 3 },
+      source_entry_rows = { 3 },
     }
 
     local layout = render.summary_layout({
@@ -1056,7 +1056,7 @@ return function(t)
           unrounded_duration = 60,
           workday_excluded = false,
           logged = true,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
       },
       tag_totals = {
@@ -1100,7 +1100,7 @@ return function(t)
       unrounded_duration = 20,
       error_minutes = -10,
       workday_excluded = false,
-      source_blot_rows = { 2 },
+      source_entry_rows = { 2 },
     }
 
     local layout = render.summary_layout({

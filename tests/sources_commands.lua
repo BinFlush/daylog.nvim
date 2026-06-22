@@ -2,10 +2,10 @@ return function(t)
   local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
   local with_mocked_date = helpers.with_mocked_date
   local with_captured_notify = helpers.with_captured_notify
-  local registry = require("blotter.sources.registry")
-  local sync = require("blotter.sources.sync")
+  local registry = require("daylog.sources.registry")
+  local sync = require("daylog.sources.sync")
 
-  helpers.setup_blotter()
+  helpers.setup_daylog()
 
   local FAKE_ITEMS = {
     { id = "1", title = "Item one", type = "Bug", state = "Active" },
@@ -20,7 +20,7 @@ return function(t)
       format_item = function(item)
         return item.id .. " " .. item.title
       end,
-      to_blot_text = function(item)
+      to_entry_text = function(item)
         return item.id .. " " .. item.title
       end,
     })
@@ -50,10 +50,10 @@ return function(t)
     end
   end
 
-  t.test("BlotInsert <source> inserts the picked item at the current time", function()
+  t.test("DaylogInsert <source> inserts the picked item at the current time", function()
     register_fake()
     t.reset({
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
     })
@@ -61,22 +61,22 @@ return function(t)
 
     with_stubbed_picker(true, function()
       with_mocked_date("11:30", function()
-        vim.cmd("BlotInsert FAKE")
+        vim.cmd("DaylogInsert FAKE")
       end)
     end)
 
     t.eq(t.get_lines(), {
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
       "11:30 1 Item one",
     })
   end)
 
-  t.test("BlotInsert <source> falls back to a bare timestamp on cancel", function()
+  t.test("DaylogInsert <source> falls back to a bare timestamp on cancel", function()
     register_fake()
     t.reset({
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
     })
@@ -84,32 +84,32 @@ return function(t)
 
     with_stubbed_picker(false, function()
       with_mocked_date("11:30", function()
-        vim.cmd("BlotInsert FAKE")
+        vim.cmd("DaylogInsert FAKE")
       end)
     end)
 
     t.eq(t.get_lines(), {
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
       "11:30 ",
     })
   end)
 
-  t.test("BlotInsert <source> errors without opening the picker outside a blotter", function()
+  t.test("DaylogInsert <source> errors without opening the picker outside a log", function()
     register_fake()
     t.reset({
-      "--- blots #ProjectOrion @office ---",
+      "--- log #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h first",
     })
-    t.set_cursor(5, 0) -- on the summary header, outside the blotter block
+    t.set_cursor(5, 0) -- on the summary header, outside the log block
 
     -- Detect whether the (stubbed) picker is ever reached. The fix must bail
-    -- before this, just like a bare :BlotInsert outside a blotter.
+    -- before this, just like a bare :DaylogInsert outside a log.
     local picker_opened = false
     local old_ensure = sync.ensure_fresh
     sync.ensure_fresh = function()
@@ -119,7 +119,7 @@ return function(t)
     local captured
     local ok, err = xpcall(function()
       with_captured_notify(function(messages)
-        vim.cmd("BlotInsert FAKE")
+        vim.cmd("DaylogInsert FAKE")
         captured = messages
       end)
     end, debug.traceback)
@@ -129,15 +129,15 @@ return function(t)
       error(err, 0)
     end
 
-    t.ok(not picker_opened, "picker must not open when the cursor is outside a blotter")
+    t.ok(not picker_opened, "picker must not open when the cursor is outside a log")
     t.eq(captured, {
       {
-        message = "blotter: current line is not inside a blotter block",
+        message = "daylog: current line is not inside a log block",
         level = vim.log.levels.WARN,
       },
     })
     t.eq(t.get_lines(), {
-      "--- blots #ProjectOrion @office ---",
+      "--- log #ProjectOrion @office ---",
       "08:00 first",
       "09:00 done",
       "",
@@ -146,53 +146,53 @@ return function(t)
     })
   end)
 
-  t.test("BlotInsert with an unknown source warns and inserts nothing", function()
+  t.test("DaylogInsert with an unknown source warns and inserts nothing", function()
     t.reset({
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
     })
     t.set_cursor(2, 0)
 
     with_captured_notify(function(messages)
-      vim.cmd("BlotInsert NOPE")
+      vim.cmd("DaylogInsert NOPE")
       t.eq(messages, {
-        { message = "blotter: unknown source 'NOPE'", level = vim.log.levels.WARN },
+        { message = "daylog: unknown source 'NOPE'", level = vim.log.levels.WARN },
       })
     end)
 
     t.eq(t.get_lines(), {
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
     })
   end)
 
-  t.test("BlotInsert with no argument keeps the plain bare-timestamp behavior", function()
+  t.test("DaylogInsert with no argument keeps the plain bare-timestamp behavior", function()
     t.reset({
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
     })
     t.set_cursor(2, 0)
 
     with_mocked_date("11:30", function()
-      vim.cmd("BlotInsert")
+      vim.cmd("DaylogInsert")
     end)
 
     t.eq(t.get_lines(), {
-      "--- blots ---",
+      "--- log ---",
       "08:00 first",
       "09:00 done",
       "11:30 ",
     })
   end)
 
-  -- Put the cursor on the active blotter's "review" main summary row (its line ends
-  -- with ") review"; the blot "08:00 review" does not), after a refresh.
+  -- Put the cursor on the active log's "review" main summary row (its line ends
+  -- with ") review"; the entry "08:00 review" does not), after a refresh.
   local function on_review_summary_row()
-    t.reset({ "--- blots ---", "08:00 review", "09:00 done" })
-    vim.cmd("BlotterRefresh")
+    t.reset({ "--- log ---", "08:00 review", "09:00 done" })
+    vim.cmd("DaylogRefresh")
     for i, line in ipairs(t.get_lines()) do
       if line:find("%) review$") then
         vim.api.nvim_win_set_cursor(0, { i, 0 })
@@ -202,7 +202,7 @@ return function(t)
     error("review summary row not found")
   end
 
-  t.test("BlotRename replaces an activity with a source item (single source)", function()
+  t.test("DaylogRename replaces an activity with a source item (single source)", function()
     registry.clear()
     register_fake()
     on_review_summary_row()
@@ -210,7 +210,7 @@ return function(t)
     -- One activity, so it has no merge candidates; the first picker choice is the
     -- source item, which the stub selects.
     with_stubbed_picker(true, function()
-      vim.cmd("BlotRename")
+      vim.cmd("DaylogRename")
     end)
 
     t.eq(t.get_lines()[2], "08:00 1 Item one")
@@ -223,31 +223,31 @@ return function(t)
     t.ok(renamed, "the summary row should be rebuilt to the work item")
   end)
 
-  t.test("BlotRename arg names a source, otherwise renames directly", function()
+  t.test("DaylogRename arg names a source, otherwise renames directly", function()
     registry.clear()
     register_fake()
 
     -- A non-source argument renames the activity to that literal text.
     on_review_summary_row()
-    vim.cmd("BlotRename ship the release")
+    vim.cmd("DaylogRename ship the release")
     t.eq(t.get_lines()[2], "08:00 ship the release")
 
     -- A source-name argument opens that source's picker instead.
     on_review_summary_row()
     with_stubbed_picker(true, function()
-      vim.cmd("BlotRename FAKE")
+      vim.cmd("DaylogRename FAKE")
     end)
     t.eq(t.get_lines()[2], "08:00 1 Item one")
   end)
 
-  t.test("BlotRename refuses a source on a non-activity row", function()
+  t.test("DaylogRename refuses a source on a non-activity row", function()
     registry.clear()
     register_fake()
     -- Two tags so the #ClientA tag-total row has a merge candidate: after the source
     -- is refused, the normal merge picker opens (and the stub cancels it) rather than
     -- falling through to a blocking input prompt.
-    t.reset({ "--- blots ---", "08:00 a #ClientA", "09:00 b #other", "10:00 done" })
-    vim.cmd("BlotterRefresh")
+    t.reset({ "--- log ---", "08:00 a #ClientA", "09:00 b #other", "10:00 done" })
+    vim.cmd("DaylogRefresh")
     for i, line in ipairs(t.get_lines()) do
       if line:find("%) #ClientA$") then
         vim.api.nvim_win_set_cursor(0, { i, 0 })
@@ -256,7 +256,7 @@ return function(t)
 
     with_captured_notify(function(messages)
       with_stubbed_picker(false, function() -- cancel, so nothing is mutated
-        vim.cmd("BlotRename FAKE")
+        vim.cmd("DaylogRename FAKE")
       end)
       local refused = false
       for _, message in ipairs(messages) do

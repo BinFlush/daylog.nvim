@@ -1,16 +1,16 @@
 return function(t)
-  local analyze = require("blotter.analyze")
-  local document = require("blotter.document")
-  local summary = require("blotter.summary")
+  local analyze = require("daylog.analyze")
+  local document = require("daylog.document")
+  local summary = require("daylog.summary")
 
   local function block_from_lines(lines)
     local analysis = analyze.analyze(document.parse(lines))
-    return analysis.blotter_blocks[1]
+    return analysis.log_blocks[1]
   end
 
   local function block_at(lines, index)
     local analysis = analyze.analyze(document.parse(lines))
-    return analysis.blotter_blocks[index]
+    return analysis.log_blocks[index]
   end
 
   local function total_duration(items)
@@ -49,17 +49,17 @@ return function(t)
     return result
   end
 
-  local function summarize_exact_entries(blots)
-    return strip_errors(summary.summarize_entries(blots, 1))
+  local function summarize_exact_entries(entries)
+    return strip_errors(summary.summarize_entries(entries, 1))
   end
 
   local function summarize_exact(block)
-    return summarize_exact_entries(block.blots)
+    return summarize_exact_entries(block.entries)
   end
 
-  t.test("summary summarizes semantic blotter blocks directly", function()
+  t.test("summary summarizes semantic log blocks directly", function()
     local block = block_from_lines({
-      "--- blots #ProjectOrion @office ---",
+      "--- log #ProjectOrion @office ---",
       "08:00 plan",
       "08:30 call #sales @client",
       "09:00 break #ooo",
@@ -74,7 +74,7 @@ return function(t)
           duration = 30,
           unrounded_duration = 30,
           workday_excluded = false,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
         {
           text = "call",
@@ -82,7 +82,7 @@ return function(t)
           duration = 30,
           unrounded_duration = 30,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
         {
           text = "break",
@@ -90,7 +90,7 @@ return function(t)
           duration = 15,
           unrounded_duration = 15,
           workday_excluded = true,
-          source_blot_rows = { 4 },
+          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -129,7 +129,7 @@ return function(t)
 
   t.test("summary treats cleared metadata as untagged and no location", function()
     local block = block_from_lines({
-      "--- blots ---",
+      "--- log ---",
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
@@ -143,7 +143,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = true,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
         {
           text = "resume",
@@ -151,7 +151,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
       },
       tag_totals = {
@@ -187,7 +187,7 @@ return function(t)
     "summary splits logged main rows and counts logged totals from workday intervals",
     function()
       local block = block_from_lines({
-        "--- blots #ClientA @office ---",
+        "--- log #ClientA @office ---",
         "08:00 implementation !L",
         "09:00 implementation",
         "10:00 break #ooo !L",
@@ -203,7 +203,7 @@ return function(t)
             unrounded_duration = 60,
             workday_excluded = false,
             logged = true,
-            source_blot_rows = { 2 },
+            source_entry_rows = { 2 },
           },
           {
             text = "implementation",
@@ -211,7 +211,7 @@ return function(t)
             duration = 60,
             unrounded_duration = 60,
             workday_excluded = false,
-            source_blot_rows = { 3 },
+            source_entry_rows = { 3 },
           },
           {
             text = "break",
@@ -220,7 +220,7 @@ return function(t)
             unrounded_duration = 30,
             workday_excluded = true,
             logged = true,
-            source_blot_rows = { 4 },
+            source_entry_rows = { 4 },
           },
         },
         tag_totals = {
@@ -260,9 +260,9 @@ return function(t)
     end
   )
 
-  t.test("quantized summary summarizes semantic blotter blocks directly", function()
+  t.test("quantized summary summarizes semantic log blocks directly", function()
     local block = block_from_lines({
-      "--- blots @office q=30 ---",
+      "--- log @office q=30 ---",
       "08:00 plan",
       "08:12 call #sales @client",
       "08:30 done",
@@ -277,7 +277,7 @@ return function(t)
           unrounded_duration = 18,
           error_minutes = -12,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
         {
           text = "plan",
@@ -286,7 +286,7 @@ return function(t)
           unrounded_duration = 12,
           error_minutes = 12,
           workday_excluded = false,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
       },
       tag_totals = {
@@ -326,7 +326,7 @@ return function(t)
 
   t.test("quantized summary supports 60 minute rounding", function()
     local block = block_from_lines({
-      "--- blots @office q=60 ---",
+      "--- log @office q=60 ---",
       "08:00 plan",
       "08:20 call #sales @client",
       "09:00 done",
@@ -341,7 +341,7 @@ return function(t)
           unrounded_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
         {
           text = "plan",
@@ -350,7 +350,7 @@ return function(t)
           unrounded_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
       },
       tag_totals = {
@@ -390,7 +390,7 @@ return function(t)
 
   t.test("quantized summary splits logged rows without splitting tag or location totals", function()
     local block = block_from_lines({
-      "--- blots #ClientA @office q=30 ---",
+      "--- log #ClientA @office q=30 ---",
       "08:00 implementation !L",
       "08:20 implementation",
       "08:40 break #ooo !L",
@@ -407,7 +407,7 @@ return function(t)
           error_minutes = -10,
           workday_excluded = false,
           logged = true,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
         {
           text = "implementation",
@@ -416,7 +416,7 @@ return function(t)
           unrounded_duration = 20,
           error_minutes = -10,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
         {
           text = "break",
@@ -426,7 +426,7 @@ return function(t)
           error_minutes = 20,
           workday_excluded = true,
           logged = true,
-          source_blot_rows = { 4 },
+          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -476,7 +476,7 @@ return function(t)
     "quantized logged totals follow visible main summary rows instead of independent bucket rounding",
     function()
       local block = block_from_lines({
-        "--- blots #ClientA q=30 ---",
+        "--- log #ClientA q=30 ---",
         "08:00 implementation !L",
         "08:20 implementation",
         "08:40 done",
@@ -492,7 +492,7 @@ return function(t)
             error_minutes = -10,
             workday_excluded = false,
             logged = true,
-            source_blot_rows = { 2 },
+            source_entry_rows = { 2 },
           },
           {
             text = "implementation",
@@ -501,7 +501,7 @@ return function(t)
             unrounded_duration = 20,
             error_minutes = 20,
             workday_excluded = false,
-            source_blot_rows = { 3 },
+            source_entry_rows = { 3 },
           },
         },
         tag_totals = {
@@ -546,7 +546,7 @@ return function(t)
     "logged totals render logged before unlogged even when unlogged duration is larger",
     function()
       local block = block_from_lines({
-        "--- blots #ClientA q=30 ---",
+        "--- log #ClientA q=30 ---",
         "08:00 implementation !L",
         "08:10 implementation",
         "09:00 done",
@@ -562,18 +562,18 @@ return function(t)
       t.eq(result.logged_totals[2].logged, false)
       t.ok(
         result.logged_totals[2].duration >= result.logged_totals[1].duration,
-        "unlogged duration should be >= logged duration in this blotter"
+        "unlogged duration should be >= logged duration in this log"
       )
     end
   )
 
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
-      "--- blots @office q=30 ---",
+      "--- log @office q=30 ---",
       "08:00 plan",
       "08:12 call #sales @client",
       "08:30 done",
-      "--- blots @office q=60 ---",
+      "--- log @office q=60 ---",
       "09:00 plan",
       "09:20 call #sales @client",
       "10:00 done",
@@ -588,7 +588,7 @@ return function(t)
           unrounded_duration = 40,
           error_minutes = -20,
           workday_excluded = false,
-          source_blot_rows = { 7 },
+          source_entry_rows = { 7 },
         },
         {
           text = "plan",
@@ -597,7 +597,7 @@ return function(t)
           unrounded_duration = 20,
           error_minutes = 20,
           workday_excluded = false,
-          source_blot_rows = { 6 },
+          source_entry_rows = { 6 },
         },
       },
       tag_totals = {
@@ -637,7 +637,7 @@ return function(t)
 
   t.test("quantized summary derives item tag and location totals from one shared base", function()
     local block = block_from_lines({
-      "--- blots q=30 ---",
+      "--- log q=30 ---",
       "08:00 alpha #A @x",
       "08:17 beta #B @y",
       "08:34 gamma #C @x",
@@ -655,7 +655,7 @@ return function(t)
           unrounded_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
         {
           text = "beta",
@@ -664,7 +664,7 @@ return function(t)
           unrounded_duration = 17,
           error_minutes = -13,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
         {
           text = "gamma",
@@ -673,7 +673,7 @@ return function(t)
           unrounded_duration = 17,
           error_minutes = 17,
           workday_excluded = false,
-          source_blot_rows = { 4 },
+          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -721,7 +721,7 @@ return function(t)
 
   t.test("quantized summary folds same text and tag across locations", function()
     local block = block_from_lines({
-      "--- blots #ClientA q=30 ---",
+      "--- log #ClientA q=30 ---",
       "08:00 planning @office",
       "08:17 planning @home",
       "08:34 done",
@@ -736,7 +736,7 @@ return function(t)
           unrounded_duration = 34,
           error_minutes = 4,
           workday_excluded = false,
-          source_blot_rows = { 2, 3 },
+          source_entry_rows = { 2, 3 },
         },
       },
       tag_totals = {
@@ -1214,7 +1214,7 @@ return function(t)
 
   t.test("summary ignores location for main item identity and keeps totals unchanged", function()
     local block = block_from_lines({
-      "--- blots #ClientA @office ---",
+      "--- log #ClientA @office ---",
       "08:00 planning",
       "10:00 implementation @home",
       "11:00 planning",
@@ -1231,7 +1231,7 @@ return function(t)
           duration = 240,
           unrounded_duration = 240,
           workday_excluded = false,
-          source_blot_rows = { 2, 4 },
+          source_entry_rows = { 2, 4 },
         },
         {
           text = "client followup",
@@ -1239,7 +1239,7 @@ return function(t)
           duration = 180,
           unrounded_duration = 180,
           workday_excluded = false,
-          source_blot_rows = { 6 },
+          source_entry_rows = { 6 },
         },
         {
           text = "implementation",
@@ -1247,7 +1247,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
         {
           text = "internal meeting",
@@ -1255,7 +1255,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_blot_rows = { 5 },
+          source_entry_rows = { 5 },
         },
       },
       tag_totals = {
@@ -1296,7 +1296,7 @@ return function(t)
     "summary keeps same-text different-tag rows adjacent and sorts by combined duration",
     function()
       local block = block_from_lines({
-        "--- blots ---",
+        "--- log ---",
         "08:00 meeting #ClientA",
         "09:00 implementation #ClientA",
         "12:00 meeting #internal",
@@ -1310,7 +1310,7 @@ return function(t)
           duration = 120,
           unrounded_duration = 120,
           workday_excluded = false,
-          source_blot_rows = { 4 },
+          source_entry_rows = { 4 },
         },
         {
           text = "meeting",
@@ -1318,7 +1318,7 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           workday_excluded = false,
-          source_blot_rows = { 2 },
+          source_entry_rows = { 2 },
         },
         {
           text = "implementation",
@@ -1326,7 +1326,7 @@ return function(t)
           duration = 180,
           unrounded_duration = 180,
           workday_excluded = false,
-          source_blot_rows = { 3 },
+          source_entry_rows = { 3 },
         },
       })
     end
@@ -1334,7 +1334,7 @@ return function(t)
 
   t.test("summary preserves stable order when text groups tie completely", function()
     local block = block_from_lines({
-      "--- blots ---",
+      "--- log ---",
       "08:00 alpha",
       "09:00 beta",
       "10:00 done",
@@ -1347,7 +1347,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_blot_rows = { 2 },
+        source_entry_rows = { 2 },
       },
       {
         text = "beta",
@@ -1355,14 +1355,14 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_blot_rows = { 3 },
+        source_entry_rows = { 3 },
       },
     })
   end)
 
   t.test("summary preserves stable order within same-text tag ties", function()
     local block = block_from_lines({
-      "--- blots ---",
+      "--- log ---",
       "08:00 meeting #ClientA",
       "09:00 other",
       "10:00 meeting #internal",
@@ -1376,7 +1376,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_blot_rows = { 2 },
+        source_entry_rows = { 2 },
       },
       {
         text = "meeting",
@@ -1384,7 +1384,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_blot_rows = { 4 },
+        source_entry_rows = { 4 },
       },
       {
         text = "other",
@@ -1392,14 +1392,14 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_blot_rows = { 3 },
+        source_entry_rows = { 3 },
       },
     })
   end)
 
   t.test("summary keeps activity text containing pipes separate", function()
     local block = block_from_lines({
-      "--- blots ---",
+      "--- log ---",
       "08:00 alpha|beta",
       "09:00 alpha #beta",
       "10:00 done",
@@ -1412,7 +1412,7 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_blot_rows = { 2 },
+        source_entry_rows = { 2 },
       },
       {
         text = "alpha",
@@ -1420,14 +1420,14 @@ return function(t)
         duration = 60,
         unrounded_duration = 60,
         workday_excluded = false,
-        source_blot_rows = { 3 },
+        source_entry_rows = { 3 },
       },
     })
   end)
 
-  t.test("summary provenance points back to the blot rows that fed each item", function()
+  t.test("summary provenance points back to the entry rows that fed each item", function()
     local block = block_from_lines({
-      "--- blots ---",
+      "--- log ---",
       "08:00 implementation",
       "09:00 meeting",
       "10:00 implementation",
@@ -1437,14 +1437,14 @@ return function(t)
     local items = summarize_exact(block).summary_items
 
     t.eq(items[1].text, "implementation")
-    t.eq(items[1].source_blot_rows, { 2, 4 })
+    t.eq(items[1].source_entry_rows, { 2, 4 })
     t.eq(items[2].text, "meeting")
-    t.eq(items[2].source_blot_rows, { 3 })
+    t.eq(items[2].source_entry_rows, { 3 })
   end)
 
   t.test("summary provenance keeps logged and unlogged source rows separate", function()
     local block = block_from_lines({
-      "--- blots #ClientA ---",
+      "--- log #ClientA ---",
       "08:00 implementation !L",
       "09:00 implementation",
       "10:00 implementation !L",
@@ -1454,14 +1454,14 @@ return function(t)
     local items = summarize_exact(block).summary_items
 
     t.eq(items[1].logged, true)
-    t.eq(items[1].source_blot_rows, { 2, 4 })
+    t.eq(items[1].source_entry_rows, { 2, 4 })
     t.eq(items[2].logged, nil)
-    t.eq(items[2].source_blot_rows, { 3 })
+    t.eq(items[2].source_entry_rows, { 3 })
   end)
 
   t.test("summary provenance records #ooo source rows on workday-excluded items", function()
     local block = block_from_lines({
-      "--- blots ---",
+      "--- log ---",
       "08:00 break #ooo",
       "09:00 plan",
       "10:00 break #ooo",
@@ -1478,12 +1478,12 @@ return function(t)
     end
 
     t.eq(break_item.workday_excluded, true)
-    t.eq(break_item.source_blot_rows, { 2, 4 })
+    t.eq(break_item.source_entry_rows, { 2, 4 })
   end)
 
-  t.test("quantized summary preserves source_blot_rows on visible main rows", function()
+  t.test("quantized summary preserves source_entry_rows on visible main rows", function()
     local block = block_from_lines({
-      "--- blots #ClientA q=30 ---",
+      "--- log #ClientA q=30 ---",
       "08:00 planning @office",
       "08:17 planning @home",
       "08:34 done",
@@ -1493,7 +1493,7 @@ return function(t)
 
     t.eq(#items, 1)
     t.eq(items[1].text, "planning")
-    t.eq(items[1].source_blot_rows, { 2, 3 })
+    t.eq(items[1].source_entry_rows, { 2, 3 })
   end)
 
   local function durations_by_text(items)
@@ -1509,7 +1509,7 @@ return function(t)
     -- 12:00Z->15:00Z = 3h and "resume" 15:00Z->21:00Z = 6h, where the raw local
     -- delta for "leave" would be a nonsensical -3h.
     local block = block_from_lines({
-      "--- blots utc+2 ---",
+      "--- log utc+2 ---",
       "14:00 leave",
       "11:00 resume utc-4",
       "17:00 done",
@@ -1526,7 +1526,7 @@ return function(t)
     -- Fall back: 02:45@+2 = 00:45Z, then 02:15@+1 = 01:15Z. The local clock appears
     -- to step backward (02:45 -> 02:15) but the real interval is 30 minutes.
     local block = block_from_lines({
-      "--- blots utc+2 ---",
+      "--- log utc+2 ---",
       "02:45 wind down",
       "02:15 still up utc+1",
       "03:00 sleep",
@@ -1539,19 +1539,19 @@ return function(t)
 
   t.test("a uniform header offset summarizes identically to no offset", function()
     -- The zero-overhead invariant: within one zone the base offset cancels in every
-    -- delta, so declaring utc+2 throughout matches a blotter with no offset at all.
-    local blots = { "08:00 plan", "08:30 call #sales", "09:15 done" }
+    -- delta, so declaring utc+2 throughout matches a log with no offset at all.
+    local entries = { "08:00 plan", "08:30 call #sales", "09:15 done" }
     local plain = block_from_lines({
-      "--- blots #ClientA @office ---",
-      blots[1],
-      blots[2],
-      blots[3],
+      "--- log #ClientA @office ---",
+      entries[1],
+      entries[2],
+      entries[3],
     })
     local zoned = block_from_lines({
-      "--- blots #ClientA @office utc+2 ---",
-      blots[1],
-      blots[2],
-      blots[3],
+      "--- log #ClientA @office utc+2 ---",
+      entries[1],
+      entries[2],
+      entries[3],
     })
 
     t.eq(summarize_exact(zoned), summarize_exact(plain))
@@ -1560,7 +1560,7 @@ return function(t)
   t.test("a manual round nudge shifts a row and its totals by one q-step", function()
     -- A 50-min task floors to 0.75h (+5m) at q=15; round+1 forces it up one bucket.
     local block = block_from_lines({
-      "--- blots #ClientA @office q=15 ---",
+      "--- log #ClientA @office q=15 ---",
       "08:00 task round+1",
       "08:50 done",
     })
@@ -1575,9 +1575,9 @@ return function(t)
     t.eq(s.location_totals[1].nudge, 1)
   end)
 
-  t.test("a no-nudge blotter summarizes with no nudge fields (zero overhead)", function()
+  t.test("a no-nudge log summarizes with no nudge fields (zero overhead)", function()
     local block = block_from_lines({
-      "--- blots #ClientA @office q=15 ---",
+      "--- log #ClientA @office q=15 ---",
       "08:00 task",
       "08:50 done",
     })
@@ -1590,7 +1590,7 @@ return function(t)
 
   t.test("a manual nudge keeps each section a partition that sums to its total", function()
     local block = block_from_lines({
-      "--- blots #ClientA @office q=15 ---",
+      "--- log #ClientA @office q=15 ---",
       "08:00 plan",
       "08:50 review round+1",
       "09:35 done",
@@ -1608,9 +1608,9 @@ return function(t)
     local function day(lines)
       return summary.summarize_block(block_from_lines(lines))
     end
-    local mon = day({ "--- blots #ClientA q=15 ---", "08:00 plan", "08:50 done" })
-    local tue = day({ "--- blots #ClientA q=15 ---", "08:00 review", "08:50 done" })
-    local fri = day({ "--- blots #ClientA q=15 ---", "08:00 wrapup round+1", "08:50 done" })
+    local mon = day({ "--- log #ClientA q=15 ---", "08:00 plan", "08:50 done" })
+    local tue = day({ "--- log #ClientA q=15 ---", "08:00 review", "08:50 done" })
+    local fri = day({ "--- log #ClientA q=15 ---", "08:00 wrapup round+1", "08:50 done" })
 
     local week = summary.combine_summaries({ mon, tue, fri })
     t.eq(week.workday_total, 150) -- 45 + 45 + 60 = 2.50h
