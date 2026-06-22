@@ -72,9 +72,15 @@ return function(t)
     t.eq(document.parse_line("--- log ---").kind, "log_header")
     t.eq(document.parse_line("--- log #ClientA ---").kind, "log_header")
     t.eq(document.parse_line("--- log---").kind, "log_header")
-    t.eq(document.parse_line("--- logs ---").kind, "block_header")
-    t.eq(document.parse_line("--- log#sales ---").kind, "block_header")
-    t.eq(document.parse_line("--- logs to review ---").kind, "block_header")
+    -- Not log headers, and not summary-section headers either, so they are not
+    -- structural boundaries: an unrecognized `--- x ---` parses as a note line.
+    t.eq(document.parse_line("--- logs ---").kind, "note_line")
+    t.eq(document.parse_line("--- log#sales ---").kind, "note_line")
+    t.eq(document.parse_line("--- logs to review ---").kind, "note_line")
+    t.eq(document.parse_line("--- notes ---").kind, "note_line")
+    -- A generated summary-section header IS recognized and stays a boundary.
+    t.eq(document.parse_line("--- tags ---").kind, "block_header")
+    t.eq(document.parse_line("--- summary q=15 d=dec ---").kind, "block_header")
   end)
 
   t.test("document parse_line parses a single line directly", function()

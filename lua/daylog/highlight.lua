@@ -26,12 +26,15 @@ local M = {}
 -- Inline metadata tokens link to bright, mutually distinct standard groups (not
 -- Comment): a #tag is cyan-ish (Identifier), an @location blue-ish (Function), a
 -- utc±H offset green-ish (Type), a round±N nudge red/orange-ish (Constant), and !L
--- orange-ish (Special). Only genuinely secondary text -- the (+Nm) rounding residual,
--- free notes, and block headers -- stays muted. All are default links, so a user's
--- own `:highlight` overrides still win.
+-- orange-ish (Special). Headers (the log header and the summary/report section dividers)
+-- are bold, so they read as structure and separate cleanly from a note in ANY theme -- a
+-- linked color was too theme-dependent (some themes render it identically to Comment).
+-- Only the (+Nm) rounding residual and free notes stay muted (Comment). A value is either a
+-- link string or an attribute table; both are registered with default = true, so a theme or
+-- a user's own `:highlight` still wins.
 M.GROUPS = {
-  DaylogHeader = "Title",
-  DaylogBlockHeader = "NonText",
+  DaylogHeader = { bold = true },
+  DaylogBlockHeader = { bold = true },
   DaylogTimestamp = "Statement",
   DaylogTag = "Identifier",
   DaylogOoo = "WarningMsg",

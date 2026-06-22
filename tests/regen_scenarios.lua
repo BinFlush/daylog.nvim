@@ -1121,6 +1121,35 @@ return function(t)
     end
   )
 
+  -- The contrast to the recovery case above: a `--- notes ---` with NO orphan entries
+  -- below it is prose, not a damaged header. It is demoted to a note line, kept in the
+  -- log body, and never fragments the log -- so the summary still regenerates after it.
+  t.test("scenario: a stray --- notes --- section in a log body is kept as prose", function()
+    t.eq(
+      regen({
+        "--- log ---",
+        "08:00 plan",
+        "10:00 done",
+        "--- notes ---", -- a header-shaped body note: not a section boundary
+        "free text",
+      }),
+      {
+        "--- log ---",
+        "08:00 plan",
+        "10:00 done",
+        "--- notes ---",
+        "free text",
+        "",
+        "",
+        "--- summary q=15 d=dec ---",
+        "2.00h (+0m) plan",
+        "",
+        "--- totals ---",
+        "2.00h (+0m) workday",
+      }
+    )
+  end)
+
   -- ===================== left untouched / no-ops =====================
 
   t.test("scenario: a corrupted FIRST header is a structural no-op", function()

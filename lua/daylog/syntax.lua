@@ -30,8 +30,10 @@ M.NODE_KIND = {
   ANALYSIS = "analysis",
 }
 
--- Block kinds produced by analyze.lua. A log block carries timestamped
--- entries; a generic block is any other header-delimited section.
+-- Block kinds produced by analyze.lua. A log block carries timestamped entries; a
+-- generic block is a generated summary/report section header -- the only non-log
+-- headers there are, since an unrecognized `--- x ---` is demoted to a note line
+-- (document.lua), never a block.
 M.BLOCK_KIND = {
   LOG = "log_block",
   GENERIC = "generic_block",
