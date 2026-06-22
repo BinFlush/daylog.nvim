@@ -729,6 +729,7 @@ Configure `daylog.nvim` with:
       directory = '%Y/%V',
     },
     auto_summary = 'idle',
+    active_indicator = true,
   })
 <
 
@@ -811,6 +812,22 @@ rebuilding in place as their source days change.
 When a log is invalid (for example its timestamps are out of order), it is
 not refreshed and the problem is reported as a buffer diagnostic that clears once
 you fix it.
+
+                                                    *daylog-active-indicator*
+`active_indicator` toggles a soft-green bar in the sign column marking the
+active log -- its entries and its generated summary. It is optional and
+defaults to `true`.
+
+- The active log is the latest one in the file, the block the commands act on.
+- The bar appears only once a file holds two or more logs, where pointing out
+  the active block helps; a single-log file shows nothing.
+- It is driven by the `DaylogActiveSign` highlight group (a soft green by
+  default); override it with your own `:highlight` to recolor the bar.
+- Set `active_indicator = false` to turn the bar off.
+
+>
+  require('daylog').setup({ active_indicator = false })
+<
 
 ==============================================================================
 SUMMARIES                                                  *daylog-summaries*

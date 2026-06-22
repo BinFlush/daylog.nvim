@@ -5,6 +5,7 @@ local M = {}
 local current = {
   defaults = {},
   auto_summary = "change",
+  active_indicator = true,
 }
 
 local AUTO_SUMMARY_MODES = {
@@ -129,6 +130,20 @@ local function normalize_auto_summary(value)
 
   if type(value) ~= "string" or not AUTO_SUMMARY_MODES[value] then
     error("daylog: auto_summary must be one of off, change, idle, save")
+  end
+
+  return value
+end
+
+-- The soft-green sign-column bar marking the active log + summary. On by default;
+-- an unset value stays on, so the marker appears whenever a file has 2+ logs.
+local function normalize_active_indicator(value)
+  if value == nil then
+    return true
+  end
+
+  if type(value) ~= "boolean" then
+    error("daylog: active_indicator must be a boolean")
   end
 
   return value
@@ -315,6 +330,7 @@ local function normalize_config(options)
     return {
       defaults = {},
       auto_summary = "change",
+      active_indicator = true,
     }
   end
 
@@ -325,6 +341,7 @@ local function normalize_config(options)
   local result = {
     defaults = normalize_defaults(options.defaults),
     auto_summary = normalize_auto_summary(options.auto_summary),
+    active_indicator = normalize_active_indicator(options.active_indicator),
   }
 
   local daybook = normalize_daybook(options.daybook)

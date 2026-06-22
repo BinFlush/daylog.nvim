@@ -22,6 +22,13 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- A soft-green sign-column bar marks the active log and its summary once a file
+  holds two or more logs, making the block the commands act on obvious at a
+  glance. Toggle it with the `active_indicator` option (on by default) and
+  recolor it via the `DaylogActiveSign` highlight group.
+
 ### Changed
 
 - **Renamed the plugin to Daylog** (breaking). A timestamped entry is now an

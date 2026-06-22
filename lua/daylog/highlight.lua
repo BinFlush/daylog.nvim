@@ -46,6 +46,9 @@ M.GROUPS = {
   DaylogOffset = "Type",
   DaylogNudge = "Constant",
   DaylogNote = "Comment",
+  -- The active-log bar is a fixed soft green (a deliberate accent, not a syntax-role
+  -- link); default = true still lets a theme/user override win.
+  DaylogActiveSign = { fg = "#83c092", ctermfg = 108 },
 }
 
 local BASE_PRIORITY = 100
@@ -233,6 +236,18 @@ function M.spans(lines)
   end
 
   return spans
+end
+
+-- Pure: the active log's line span (body + summary), for the margin indicator. The
+-- active log is the last one (analyze.get_active_log); being last, it runs to EOF.
+-- Returns nil when there's no log. log_count gates the indicator to >= 2 logs.
+function M.active_region(lines)
+  local analysis = analyze.analyze(document.parse(lines))
+  local active = analyze.get_active_log(analysis)
+  if not active then
+    return nil
+  end
+  return { start_row = active.start_row, end_row = #lines, log_count = #analysis.log_blocks }
 end
 
 return M

@@ -27,12 +27,14 @@ return function(t)
         directory = "%Y/%V",
       },
       auto_summary = "change",
+      active_indicator = true,
     })
 
     config.setup()
     t.eq(config.get(), {
       defaults = {},
       auto_summary = "change",
+      active_indicator = true,
     })
   end)
 
@@ -121,6 +123,7 @@ return function(t)
         directory = "",
       },
       auto_summary = "change",
+      active_indicator = true,
     })
 
     config.setup()
@@ -139,6 +142,26 @@ return function(t)
     local ok, err = pcall(config.setup, { auto_summary = "live" })
     t.ok(not ok)
     t.ok(tostring(err):match("auto_summary must be one of off, change, idle, save") ~= nil)
+
+    config.setup()
+  end)
+
+  t.test("config setup normalizes and validates active_indicator", function()
+    -- On by default, and an explicit toggle is preserved.
+    t.eq(config.get().active_indicator, true)
+
+    config.setup({ active_indicator = false })
+    t.eq(config.get().active_indicator, false)
+
+    config.setup({ active_indicator = true })
+    t.eq(config.get().active_indicator, true)
+
+    config.setup()
+    t.eq(config.get().active_indicator, true)
+
+    local ok, err = pcall(config.setup, { active_indicator = "yes" })
+    t.ok(not ok)
+    t.ok(tostring(err):match("active_indicator must be a boolean") ~= nil)
 
     config.setup()
   end)

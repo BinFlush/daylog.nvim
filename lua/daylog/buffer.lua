@@ -1,3 +1,4 @@
+local config = require("daylog.config")
 local highlight = require("daylog.highlight")
 local refresh_summaries = require("daylog.usecases.refresh_summaries")
 local text = require("daylog.text")
@@ -38,6 +39,17 @@ local diagnostic_namespace = vim.api.nvim_create_namespace("daylog")
 local highlight_namespace = vim.api.nvim_create_namespace("daylog-highlight")
 local highlight_groups_defined = false
 
+-- The active-log sign def is registered lazily on first use (mirroring the
+-- highlight groups), so it works whether or not setup() ran.
+local active_sign_defined = false
+local function ensure_active_sign()
+  if active_sign_defined then
+    return
+  end
+  vim.fn.sign_define("DaylogActive", { text = "▎", texthl = "DaylogActiveSign" })
+  active_sign_defined = true
+end
+
 -- Register the daylog highlight groups as default links (so a user's own
 -- highlight overrides win). Done lazily on first highlight so it works whether or
 -- not setup() ran.
@@ -66,8 +78,33 @@ end
 -- refreshes it after programmatic edits (which do not fire change autocmds). The
 -- narrower token spans carry a higher priority than the whole-line base ones, so
 -- a tag inside a header wins at its cells.
+-- Mark the active log (its body + summary) with a soft-green sign-column bar, so
+-- the block the commands act on is obvious at a glance once a file holds several
+-- logs. Cleared and re-placed on every highlight pass (signs survive buffer edits,
+-- so a stale span would otherwise linger). Gated off when the option is disabled or
+-- the file has fewer than two logs -- a single-log file needs no disambiguation.
+local function render_active_indicator(buf, lines)
+  vim.fn.sign_unplace("daylog_active", { buffer = buf })
+  if not config.get().active_indicator then
+    return
+  end
+  local region = highlight.active_region(lines)
+  if not region or region.log_count < 2 then
+    return
+  end
+  ensure_active_sign()
+  for row = region.start_row, region.end_row do
+    vim.fn.sign_place(0, "daylog_active", "DaylogActive", buf, { lnum = row, priority = 5 })
+  end
+end
+
 local function highlight_buffer(buf)
+  -- Resolve to a concrete buffer number: the sign_* functions render_active_indicator
+  -- uses reject the 0 = current-buffer shorthand the nvim_buf_* API accepts (E158).
   buf = buf or 0
+  if buf == 0 then
+    buf = vim.api.nvim_get_current_buf()
+  end
   if not vim.api.nvim_buf_is_valid(buf) then
     return
   end
@@ -83,6 +120,8 @@ local function highlight_buffer(buf)
       priority = span.priority,
     })
   end
+
+  render_active_indicator(buf, lines)
 end
 
 -- Publish the log's problems (e.g. out-of-order timestamps) as buffer
