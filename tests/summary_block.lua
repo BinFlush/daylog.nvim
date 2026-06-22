@@ -1,9 +1,9 @@
 return function(t)
-  local analyze = require("blotter.analyze")
-  local document = require("blotter.document")
-  local render = require("blotter.render")
-  local summary = require("blotter.summary")
-  local summary_block = require("blotter.summary_block")
+  local analyze = require("daylog.analyze")
+  local document = require("daylog.document")
+  local render = require("daylog.render")
+  local summary = require("daylog.summary")
+  local summary_block = require("daylog.summary_block")
 
   local function analyze_lines(lines)
     return analyze.analyze(document.parse(lines))
@@ -20,7 +20,7 @@ return function(t)
 
   local function locate(lines)
     local analysis = analyze_lines(lines)
-    local block = analyze.get_active_blotter(analysis)
+    local block = analyze.get_active_log(analysis)
     return summary_block.find(analysis, block, expected_for(block))
   end
 
@@ -46,14 +46,14 @@ return function(t)
     t.eq(edit_distance("", ""), 0)
   end)
 
-  -- The summary zone is the banner-delimited blast: [banner .. next blotter/EOF).
+  -- The summary zone is the banner-delimited blast: [banner .. next log/EOF).
   -- `find` returns that whole zone so a refresh regenerates it wholesale; trailing
   -- prose and stale/duplicate sections inside it are deliberately swept in.
 
   t.test("summary_block spans an intact summary to EOF", function()
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -70,7 +70,7 @@ return function(t)
   t.test("summary_block spans a quantized summary", function()
     t.eq(
       locate({
-        "--- blots q=30 ---",
+        "--- log q=30 ---",
         "08:00 plan",
         "08:34 done",
         "",
@@ -89,7 +89,7 @@ return function(t)
     -- shape), so the zone anchors on it and a refresh rewrites it.
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -108,7 +108,7 @@ return function(t)
     -- so the zone anchors on it rather than treating it as a body note.
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -122,7 +122,7 @@ return function(t)
     )
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -141,7 +141,7 @@ return function(t)
     -- first surviving generated row and the zone runs to EOF.
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -154,13 +154,13 @@ return function(t)
     )
   end)
 
-  t.test("summary_block keeps a blot flush against a header-less summary", function()
+  t.test("summary_block keeps an entry flush against a header-less summary", function()
     -- The banner was deleted AND there is no separator blank, so the rows sit directly
-    -- under the final blot. The zone starts after the last blot (its first generated
-    -- row), so that blot can never be drawn into the zone.
+    -- under the final entry. The zone starts after the last entry (its first generated
+    -- row), so that entry can never be drawn into the zone.
     t.eq(
       locate({
-        "--- blots #sometag @location q=15 d=dec ---",
+        "--- log #sometag @location q=15 d=dec ---",
         "20:10 hey",
         "20:33 hey2",
         "21:00 done",
@@ -181,11 +181,11 @@ return function(t)
   end)
 
   t.test("summary_block spans an empty summary (no completed interval)", function()
-    -- One blot -> no intervals -> the banner still survives and anchors the zone, so a
+    -- One entry -> no intervals -> the banner still survives and anchors the zone, so a
     -- refresh rewrites it instead of stacking a second summary below.
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "",
         "--- summary q=15 d=dec ---",
@@ -203,7 +203,7 @@ return function(t)
     -- the first banner to EOF, so a refresh collapses them.
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "",
         "--- summary q=15 d=dec ---",
@@ -226,7 +226,7 @@ return function(t)
     -- regenerated away, so the zone runs to EOF.
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -243,14 +243,14 @@ return function(t)
   end)
 
   t.test("summary_block returns nil when there is no summary", function()
-    t.eq(locate({ "--- blots ---", "08:00 plan", "09:00 done" }), nil)
+    t.eq(locate({ "--- log ---", "08:00 plan", "09:00 done" }), nil)
   end)
 
   t.test("summary_block returns nil for unrelated tail content", function()
     -- A stray note that is not the banner and is not generated-shaped is not a summary.
     t.eq(
       locate({
-        "--- blots ---",
+        "--- log ---",
         "08:00 plan",
         "09:00 done",
         "",
@@ -261,9 +261,9 @@ return function(t)
     )
   end)
 
-  t.test("summary_block bounds the zone to the next blotter", function()
+  t.test("summary_block bounds the zone to the next log", function()
     local analysis = analyze_lines({
-      "--- blots ---",
+      "--- log ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -273,12 +273,12 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
       "",
-      "--- blots ---",
+      "--- log ---",
       "10:00 tea",
       "11:00 done",
     })
-    local first, second = analysis.blotter_blocks[1], analysis.blotter_blocks[2]
-    -- The first blotter's zone stops at the second blotter's header (row 11).
+    local first, second = analysis.log_blocks[1], analysis.log_blocks[2]
+    -- The first log's zone stops at the second log's header (row 11).
     t.eq(summary_block.find(analysis, first, expected_for(first)), { start_row = 5, end_row = 11 })
     t.eq(summary_block.find(analysis, second, expected_for(second)), nil)
   end)

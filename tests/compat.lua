@@ -1,9 +1,9 @@
 return function(t)
-  local append_copy = require("blotter.usecases.append_copy")
-  local order_blotters = require("blotter.usecases.order_blotters")
-  local refresh_summaries = require("blotter.usecases.refresh_summaries")
+  local append_copy = require("daylog.usecases.append_copy")
+  local order_logs = require("daylog.usecases.order_logs")
+  local refresh_summaries = require("daylog.usecases.refresh_summaries")
 
-  -- The summary refresh creates a summary for a blotter that lacks one, so it
+  -- The summary refresh creates a summary for a log that lacks one, so it
   -- produces the canonical summary for a v0.1.0 fixture.
   local function summarize(lines)
     return refresh_summaries.run(lines)
@@ -49,7 +49,7 @@ return function(t)
     },
     {
       name = "order_notes_and_clears",
-      run = order_blotters.run,
+      run = order_logs.run,
       expected_suffix = ".output",
     },
   }
@@ -98,7 +98,7 @@ return function(t)
 
   for _, fixture in ipairs(fixtures) do
     t.test("compat " .. fixture.name .. " matches v0.1.0 baseline", function()
-      local input = vim.fn.readfile(base_dir .. "/" .. fixture.name .. ".blot")
+      local input = vim.fn.readfile(base_dir .. "/" .. fixture.name .. ".day")
       local expected = vim.fn.readfile(base_dir .. "/" .. fixture.name .. fixture.expected_suffix)
       local result, err = fixture.run(input)
 

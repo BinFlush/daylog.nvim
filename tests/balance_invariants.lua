@@ -2,8 +2,8 @@ return function(t)
   -- Property test encoding the rounding-balance soundness theorems (see
   -- docs/architecture.md / the plan): footing and its corollaries are structural
   -- partition-sum identities, so they must hold for ANY per-cell nudge. This throws
-  -- adversarial per-blot nudge vectors (wide range, mixed signs, forcing clamps) at
-  -- synthesized blotters -- on top of the offsets/tags/locations/ooo/!L the synth
+  -- adversarial per-entry nudge vectors (wide range, mixed signs, forcing clamps) at
+  -- synthesized logs -- on top of the offsets/tags/locations/ooo/!L the synth
   -- already varies -- and asserts, for the day summary AND a combined week:
   --   T1  every section's rows sum to its own total;
   --   T2  activity = Σtags = Σlocations, workday = Σlogged, activity - workday = Σooo;
@@ -12,12 +12,12 @@ return function(t)
   -- The always-on footing fuzz only emits small random nudges; this is the strong,
   -- theorem-shaped guard.
   local cwd = vim.fn.getcwd()
-  local analyze = require("blotter.analyze")
-  local document = require("blotter.document")
-  local summary = require("blotter.summary")
-  local render = require("blotter.render")
+  local analyze = require("daylog.analyze")
+  local document = require("daylog.document")
+  local summary = require("daylog.summary")
+  local render = require("daylog.render")
   local Rng = dofile(cwd .. "/tests/rng.lua")
-  local synth = dofile(cwd .. "/tests/blotter_synth.lua")
+  local synth = dofile(cwd .. "/tests/log_synth.lua")
 
   local function eq(a, b, ctx)
     if a ~= b then
@@ -133,21 +133,21 @@ return function(t)
     end
   end
 
-  -- A day summary with an adversarial per-blot nudge vector laid over the synth's
+  -- A day summary with an adversarial per-entry nudge vector laid over the synth's
   -- own structure (wide range with mixed signs and zeros, forcing clamps).
   local function adversarial_day(seed, mode)
     local wl = synth.generate(Rng.new(seed), mode)
-    local block = analyze.get_active_blotter(analyze.analyze(document.parse(wl.lines)))
+    local block = analyze.get_active_log(analyze.analyze(document.parse(wl.lines)))
     if not block then
       return nil
     end
 
     local nudge_rng = Rng.new(seed * 7 + 3)
-    for _, semantic_entry in ipairs(block.blots) do
+    for _, semantic_entry in ipairs(block.entries) do
       semantic_entry.nudge = nudge_rng:int(-6, 6)
     end
 
-    return summary.summarize_entries(block.blots, block.quantize_minutes)
+    return summary.summarize_entries(block.entries, block.quantize_minutes)
   end
 
   t.test("balance invariants hold under adversarial per-cell nudges (day and week)", function()

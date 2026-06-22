@@ -7,18 +7,51 @@ All notable user-facing changes to this project are documented here.
 `main` is the active development branch and may receive ongoing changes.
 
 Tagged releases are the compatibility points for users who need reproducible
-`.blot` parsing, summaries, and rendering.
+`.day` parsing, summaries, and rendering.
 
-`blotter.nvim` is pre-1.0, so breaking syntax or semantic changes may still
+`daylog.nvim` is pre-1.0, so breaking syntax or semantic changes may still
 happen, but they are called out clearly in this changelog.
 
-- The project aims to preserve existing valid `.blot` files where practical.
+- The project aims to preserve existing valid `.day` files where practical.
 - Unknown or unsupported header options are reported as diagnostics, not
   silently ignored.
 - Patch releases may change derived results when they fix miscomputed
   behavior; those changes are documented here.
-- Compatibility applies to blotter blocks and their semantics. Generated
+- Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
+
+## Unreleased
+
+### Changed
+
+- **Renamed the plugin to Daylog** (breaking). A timestamped entry is now an
+  *entry* (was a *blot*); a `--- log ... ---` block is now a *log* (was a
+  *blotter*); a day's file is a *daylog*. Files use the `.day` extension (was
+  `.blot`) with `--- log ... ---` block headers (was `--- blots ... ---`), and the
+  filetype is `daylog` (was `blotter`). All commands are unified under one
+  `:Daylog` prefix — `:DaylogToday`, `:DaylogInit`, `:DaylogNextDay`,
+  `:DaylogPrevDay`, `:DaylogWeek`, `:DaylogDays`, `:DaylogInsert`, `:DaylogRepeat`,
+  `:DaylogRename`, `:DaylogLog`, `:DaylogBalance`, `:DaylogCopy`, `:DaylogOrder`,
+  `:DaylogRefresh`, `:DaylogSync` (was the split `:Blot*` / `:Blotter*` prefixes).
+  The Lua module is `require("daylog")`, health is `:checkhealth daylog`, help is
+  `:help daylog.nvim`, highlight groups use the `Daylog*` prefix (was `Blotter*`),
+  and messages are prefixed `daylog:`. Update your config: change
+  `require("blotter").setup(...)` to `require("daylog").setup(...)`, rename the
+  `journal` option to `daybook` (see below), and remap any `:Blot*` / `:Blotter*`
+  keymaps to `:Daylog*`.
+- **Config: `journal` → `daybook`** (breaking). The dated tree of day files is now
+  your *daybook* (daybook ⊃ daylogs ⊃ logs ⊃ entries). Rename the config key:
+  `setup({ journal = { … } })` → `setup({ daybook = { … } })`.
+- **Clean break for existing files** (breaking). The new version reads only the new
+  vocabulary; legacy `.blot` / `.wkl` files and their `--- blots ---` / `--- worklog ---`
+  headers are no longer parsed. Convert an existing daybook once with
+  `scripts/migrate-to-daylog.sh` (dry-run by default, `--apply` to perform it): it
+  migrates `*.wkl` (worklog) or `*.blot` (blotter) straight to `*.day`, rewriting each
+  block header to `--- log ... ---` (pick the source with `--from=wkl|blot`, or it
+  auto-detects / asks). Per-source caches re-sync on first use (the cache moved from
+  `…/blotter/` to `…/daylog/`).
+- The `v0.1.0` compatibility fixtures were migrated to the new keyword and
+  extension; they continue to guard summary-derivation stability.
 
 ## 0.9.0 - 2026-06-21
 

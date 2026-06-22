@@ -1,22 +1,22 @@
 return function(t)
-  local week = require("blotter.week")
+  local week = require("daylog.week")
 
   t.test("week report combines daily quantized summaries without re-quantizing", function()
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.blot",
+        path = "/tmp/2026-05-18.day",
         lines = {
-          "--- blots #ClientA q=30 ---",
+          "--- log #ClientA q=30 ---",
           "08:00 plan",
           "08:20 done",
         },
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.blot",
+        path = "/tmp/2026-05-19.day",
         lines = {
-          "--- blots #ClientA q=60 ---",
+          "--- log #ClientA q=60 ---",
           "08:00 plan",
           "08:20 done",
         },
@@ -27,7 +27,7 @@ return function(t)
       days = {
         {
           date_label = "2026-05-18",
-          path = "/tmp/2026-05-18.blot",
+          path = "/tmp/2026-05-18.day",
           quantize_minutes = 30,
           summary = {
             summary_items = {
@@ -38,7 +38,7 @@ return function(t)
                 unrounded_duration = 20,
                 error_minutes = -10,
                 workday_excluded = false,
-                source_blot_rows = { 2 },
+                source_entry_rows = { 2 },
               },
             },
             tag_totals = {
@@ -65,7 +65,7 @@ return function(t)
         },
         {
           date_label = "2026-05-19",
-          path = "/tmp/2026-05-19.blot",
+          path = "/tmp/2026-05-19.day",
           quantize_minutes = 60,
           summary = {
             summary_items = {
@@ -76,7 +76,7 @@ return function(t)
                 unrounded_duration = 20,
                 error_minutes = 20,
                 workday_excluded = false,
-                source_blot_rows = { 2 },
+                source_entry_rows = { 2 },
               },
             },
             tag_totals = {
@@ -141,9 +141,9 @@ return function(t)
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.blot",
+        path = "/tmp/2026-05-18.day",
         lines = {
-          "--- blots #ClientA q=30 ---",
+          "--- log #ClientA q=30 ---",
           "08:00 plan !L",
           "08:20 plan",
           "08:40 done",
@@ -151,9 +151,9 @@ return function(t)
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.blot",
+        path = "/tmp/2026-05-19.day",
         lines = {
-          "--- blots #ClientA q=30 ---",
+          "--- log #ClientA q=30 ---",
           "08:00 plan !L",
           "08:20 done",
         },
@@ -221,19 +221,19 @@ return function(t)
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.blot",
+        path = "/tmp/2026-05-18.day",
         lines = nil,
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.blot",
+        path = "/tmp/2026-05-19.day",
         lines = { "" },
       },
       {
         date_label = "2026-05-20",
-        path = "/tmp/2026-05-20.blot",
+        path = "/tmp/2026-05-20.day",
         lines = {
-          "--- blots ---",
+          "--- log ---",
           "08:00 plan",
           "09:00 done",
         },
@@ -250,9 +250,9 @@ return function(t)
     local report, err = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.blot",
+        path = "/tmp/2026-05-18.day",
         lines = {
-          "--- blots ---",
+          "--- log ---",
           "09:00 done",
           "08:00 plan",
         },
@@ -262,22 +262,22 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "blotter: /tmp/2026-05-18.blot: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder"
+      "daylog: /tmp/2026-05-18.day: unordered timestamps near lines 2 and 3; fix manually or run :DaylogOrder"
     )
   end)
 
-  t.test("build_report skips a prose-only day with no blotter", function()
+  t.test("build_report skips a prose-only day with no log", function()
     local report = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.blot",
+        path = "/tmp/2026-05-18.day",
         lines = { "Holiday - no work" },
       },
       {
         date_label = "2026-05-19",
-        path = "/tmp/2026-05-19.blot",
+        path = "/tmp/2026-05-19.day",
         lines = {
-          "--- blots ---",
+          "--- log ---",
           "08:00 plan",
           "09:00 done",
         },
@@ -289,11 +289,11 @@ return function(t)
     t.eq(report.summary.workday_total, 60)
   end)
 
-  t.test("build_report aborts on timestamped blots with no blotter header", function()
+  t.test("build_report aborts on timestamped entries with no log header", function()
     local report, err = week.build_report({
       {
         date_label = "2026-05-18",
-        path = "/tmp/2026-05-18.blot",
+        path = "/tmp/2026-05-18.day",
         lines = {
           "08:00 plan",
           "09:00 done",
@@ -304,8 +304,8 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "blotter: /tmp/2026-05-18.blot: no blotter block found; first line must be a "
-        .. "blotter header such as --- blots --- or --- blots #ClientA @office q=30 ---"
+      "daylog: /tmp/2026-05-18.day: no log block found; first line must be a "
+        .. "log header such as --- log --- or --- log #ClientA @office q=30 ---"
     )
   end)
 
@@ -313,10 +313,10 @@ return function(t)
     local report, err = week.build_report({})
 
     t.eq(report, nil)
-    t.eq(err, "blotter: no journal blotters found")
+    t.eq(err, "daylog: no daybook logs found")
   end)
 
-  t.test("build_week_report derives monday to sunday journal paths and label", function()
+  t.test("build_week_report derives monday to sunday daybook paths and label", function()
     local seen_paths = {}
     local now = os.time({
       year = 2026,
@@ -336,9 +336,9 @@ return function(t)
       function(path)
         table.insert(seen_paths, path)
 
-        if path == "/tmp/timereg/2026/21/2026-05-18.blot" then
+        if path == "/tmp/timereg/2026/21/2026-05-18.day" then
           return {
-            "--- blots ---",
+            "--- log ---",
             "08:00 plan",
             "09:00 done",
           }
@@ -349,20 +349,20 @@ return function(t)
     )
 
     t.eq(seen_paths, {
-      "/tmp/timereg/2026/21/2026-05-18.blot",
-      "/tmp/timereg/2026/21/2026-05-19.blot",
-      "/tmp/timereg/2026/21/2026-05-20.blot",
-      "/tmp/timereg/2026/21/2026-05-21.blot",
-      "/tmp/timereg/2026/21/2026-05-22.blot",
-      "/tmp/timereg/2026/21/2026-05-23.blot",
-      "/tmp/timereg/2026/21/2026-05-24.blot",
+      "/tmp/timereg/2026/21/2026-05-18.day",
+      "/tmp/timereg/2026/21/2026-05-19.day",
+      "/tmp/timereg/2026/21/2026-05-20.day",
+      "/tmp/timereg/2026/21/2026-05-21.day",
+      "/tmp/timereg/2026/21/2026-05-22.day",
+      "/tmp/timereg/2026/21/2026-05-23.day",
+      "/tmp/timereg/2026/21/2026-05-24.day",
     })
     t.eq(report.period_label, "2026-W21")
     t.eq(#report.days, 1)
     t.eq(report.days[1].date_label, "2026-05-18")
   end)
 
-  t.test("days report derives trailing journal paths through one helper", function()
+  t.test("days report derives trailing daybook paths through one helper", function()
     local seen_paths = {}
     local now = os.time({
       year = 2026,
@@ -383,9 +383,9 @@ return function(t)
       function(path)
         table.insert(seen_paths, path)
 
-        if path == "/tmp/timereg/2026/21/2026-05-22.blot" then
+        if path == "/tmp/timereg/2026/21/2026-05-22.day" then
           return {
-            "--- blots ---",
+            "--- log ---",
             "08:00 plan",
             "09:00 done",
           }
@@ -396,9 +396,9 @@ return function(t)
     )
 
     t.eq(seen_paths, {
-      "/tmp/timereg/2026/21/2026-05-20.blot",
-      "/tmp/timereg/2026/21/2026-05-21.blot",
-      "/tmp/timereg/2026/21/2026-05-22.blot",
+      "/tmp/timereg/2026/21/2026-05-20.day",
+      "/tmp/timereg/2026/21/2026-05-21.day",
+      "/tmp/timereg/2026/21/2026-05-22.day",
     })
     t.eq(report.period_label, "2026-05-20..2026-05-22")
     t.eq(#report.days, 1)

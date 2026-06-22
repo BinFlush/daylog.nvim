@@ -1,11 +1,11 @@
 return function(t)
-  local refresh_summaries = require("blotter.usecases.refresh_summaries")
+  local refresh_summaries = require("daylog.usecases.refresh_summaries")
 
-  t.test("refresh regenerates a hand-edited summary header from the blotter params", function()
-    -- The blotter header is the single source of truth; the summary banner is
+  t.test("refresh regenerates a hand-edited summary header from the log params", function()
+    -- The log header is the single source of truth; the summary banner is
     -- read-only display, so an edited q=/d= is overwritten on the next refresh.
     local result = refresh_summaries.run({
-      "--- blots q=30 ---",
+      "--- log q=30 ---",
       "08:00 plan",
       "08:34 done",
       "",
@@ -25,7 +25,7 @@ return function(t)
     -- banner the shape fallback anchors on the surviving rows, and the blast rewrites
     -- the whole zone (separator included) in place, with no second summary.
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 plan",
       "10:00 done",
       "",
@@ -52,12 +52,12 @@ return function(t)
     })
   end)
 
-  t.test("refresh collapses a stale summary when the blotter shrinks to empty", function()
-    -- Removing the only completed interval leaves one blot (no intervals), so the
+  t.test("refresh collapses a stale summary when the log shrinks to empty", function()
+    -- Removing the only completed interval leaves one entry (no intervals), so the
     -- fresh summary is empty. The large stale summary is still located
     -- (structurally) and replaced in place, instead of a second summary being added.
     local result = refresh_summaries.run({
-      "--- blots #ClientA @office ---",
+      "--- log #ClientA @office ---",
       "08:40 standup",
       "",
       "--- summary q=15 d=dec ---",
@@ -94,7 +94,7 @@ return function(t)
     -- summaries) is recognized as one summary region and rewritten to a single
     -- summary, removing the junk.
     local result = refresh_summaries.run({
-      "--- blots #ClientA @office ---",
+      "--- log #ClientA @office ---",
       "08:40 standup",
       "",
       "--- summary q=15 d=dec ---",
@@ -136,7 +136,7 @@ return function(t)
     -- of the summary and the regeneration removes it -- the summary is a pure
     -- projection, so non-generated content inside a section cannot survive a refresh.
     local result = refresh_summaries.run({
-      "--- blots #ClientA @office ---",
+      "--- log #ClientA @office ---",
       "05:40 plan",
       "10:00 build",
       "11:00 review",
@@ -158,7 +158,7 @@ return function(t)
 
     t.eq(#result.edits, 1)
     local edit = result.edits[1]
-    -- The zone runs from the body end (after the last blot) through the junk line at
+    -- The zone runs from the body end (after the last entry) through the junk line at
     -- EOF; the blast rewrites separator + summary and discards everything below.
     t.eq(edit.start_index, 4)
     t.eq(edit.end_index, 18)
@@ -172,9 +172,9 @@ return function(t)
   t.test("refresh regenerates a summary-shaped note written below the summary", function()
     -- The summary is an edit-free, entirely-generated zone: a summary-shaped line
     -- written below it ("3.00h (+0m) billed ...") sits inside the zone, so the blast
-    -- discards it. (Annotations belong on a blot, never in the summary.)
+    -- discards it. (Annotations belong on an entry, never in the summary.)
     local result = refresh_summaries.run({
-      "--- blots #A ---",
+      "--- log #A ---",
       "08:00 a",
       "09:00 done",
       "",
@@ -212,7 +212,7 @@ return function(t)
 
   t.test("refresh restores an edited section header (no orphan)", function()
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 plan",
       "10:00 done",
       "",
@@ -240,12 +240,12 @@ return function(t)
     })
   end)
 
-  t.test("refresh of a grown summary keeps the blots", function()
-    -- A fresh blotter's empty summary, after a same-time :BlotInsert added a second
-    -- blot, must be replaced in place -- not swallow the blots above it. The blast
-    -- starts at the body end (after the second blot), leaving the two blots untouched.
+  t.test("refresh of a grown summary keeps the entries", function()
+    -- A fresh log's empty summary, after a same-time :DaylogInsert added a second
+    -- entry, must be replaced in place -- not swallow the entries above it. The blast
+    -- starts at the body end (after the second entry), leaving the two entries untouched.
     local result = refresh_summaries.run({
-      "--- blots #sometag @location q=15 d=dec ---",
+      "--- log #sometag @location q=15 d=dec ---",
       "08:00 hey",
       "08:00 ",
       "",
@@ -278,11 +278,11 @@ return function(t)
     })
   end)
 
-  t.test("refresh restores a deleted summary row without eating a blot", function()
-    -- Deleting a summary row is undone in place; the blotter's blots (here the final
+  t.test("refresh restores a deleted summary row without eating an entry", function()
+    -- Deleting a summary row is undone in place; the log's entries (here the final
     -- 21:00 close) are never drawn into the rewrite -- the window starts after them.
     local result = refresh_summaries.run({
-      "--- blots #sometag @location q=15 d=dec ---",
+      "--- log #sometag @location q=15 d=dec ---",
       "20:10 hey",
       "20:33 hey2",
       "21:00 done",
@@ -325,7 +325,7 @@ return function(t)
 
   t.test("refresh rewrites a stale summary in place", function()
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -358,7 +358,7 @@ return function(t)
 
   t.test("refresh migrates a legacy quantized-header summary to the kind-less form", function()
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -392,7 +392,7 @@ return function(t)
   t.test("refresh is a no-op when the summary is already current", function()
     -- Already canonical: two blank lines separate the body from the summary.
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 plan",
       "09:00 done",
       "",
@@ -407,11 +407,11 @@ return function(t)
     t.eq(result, { edits = {}, warnings = {} })
   end)
 
-  t.test("refresh rewrites each blotter to the canonical 2-blank layout", function()
-    -- Both blotters' summaries are stale against the canonical layout (the second's
+  t.test("refresh rewrites each log to the canonical 2-blank layout", function()
+    -- Both logs' summaries are stale against the canonical layout (the second's
     -- total also drifted), so both are blasted, highest-row-first.
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 a",
       "09:00 done",
       "",
@@ -421,7 +421,7 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
       "",
-      "--- blots ---",
+      "--- log ---",
       "10:00 b",
       "11:30 done",
       "",
@@ -469,7 +469,7 @@ return function(t)
 
   t.test("refresh preserves the summary kind", function()
     local result = refresh_summaries.run({
-      "--- blots q=30 ---",
+      "--- log q=30 ---",
       "08:00 plan",
       "08:34 done",
       "",
@@ -500,14 +500,14 @@ return function(t)
     })
   end)
 
-  t.test("refresh creates a summary for a blotter that has none", function()
+  t.test("refresh creates a summary for a log that has none", function()
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 plan",
       "09:00 done",
     })
 
-    -- The summary is inserted after the last blot with the canonical 2-blank
+    -- The summary is inserted after the last entry with the canonical 2-blank
     -- separator; re-running on the result is a no-op.
     t.eq(result, {
       warnings = {},
@@ -529,13 +529,13 @@ return function(t)
     })
   end)
 
-  t.test("refresh creates a summary for a non-last blotter in the right place", function()
+  t.test("refresh creates a summary for a non-last log in the right place", function()
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "08:00 a",
       "09:00 done",
       "",
-      "--- blots ---",
+      "--- log ---",
       "10:00 b",
       "11:00 done",
       "",
@@ -546,8 +546,8 @@ return function(t)
       "1.00h (+0m) workday",
     })
 
-    -- The first blotter's summary is created after its last blot (row 3), blasting up
-    -- to the second blotter header. The second blotter's summary, stale against the
+    -- The first log's summary is created after its last entry (row 3), blasting up
+    -- to the second log header. The second log's summary, stale against the
     -- canonical 2-blank layout, is also rewritten -- edits apply highest-row-first.
     t.eq(result, {
       warnings = {},
@@ -584,9 +584,9 @@ return function(t)
     })
   end)
 
-  t.test("refresh warns instead of churning an invalid blotter with a summary", function()
+  t.test("refresh warns instead of churning an invalid log with a summary", function()
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "09:00 later",
       "08:00 earlier",
       "10:00 done",
@@ -603,15 +603,15 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "blotter: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
+          message = "daylog: unordered timestamps near lines 2 and 3; fix manually or run :DaylogOrder",
         },
       },
     })
   end)
 
-  t.test("refresh warns about an invalid blotter even with no summary", function()
+  t.test("refresh warns about an invalid log even with no summary", function()
     local result = refresh_summaries.run({
-      "--- blots ---",
+      "--- log ---",
       "09:00 later",
       "08:00 earlier",
       "10:00 done",
@@ -622,13 +622,13 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "blotter: unordered timestamps near lines 2 and 3; fix manually or run :BlotterOrder",
+          message = "daylog: unordered timestamps near lines 2 and 3; fix manually or run :DaylogOrder",
         },
       },
     })
   end)
 
-  t.test("refresh warns about timestamps with no blotter header at all", function()
+  t.test("refresh warns about timestamps with no log header at all", function()
     local result = refresh_summaries.run({
       "08:00 a",
       "07:00 b",
@@ -639,8 +639,8 @@ return function(t)
       warnings = {
         {
           row = 1,
-          message = "blotter: no blotter block found; first line must be a blotter header "
-            .. "such as --- blots --- or --- blots #ClientA @office q=30 ---",
+          message = "daylog: no log block found; first line must be a log header "
+            .. "such as --- log --- or --- log #ClientA @office q=30 ---",
         },
       },
     })
@@ -654,11 +654,11 @@ return function(t)
 
   t.test("refresh warns but does not edit a structurally broken document", function()
     -- A blank first line pushes the header off row 1: the document is structurally
-    -- broken, so nothing is rewritten, but the out-of-order blots below still
+    -- broken, so nothing is rewritten, but the out-of-order entries below still
     -- warn rather than going silent.
     local result = refresh_summaries.run({
       "",
-      "--- blots ---",
+      "--- log ---",
       "09:00 later",
       "08:00 earlier",
     })
@@ -668,12 +668,12 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "blotter: first line must be a blotter header such as --- blots --- or "
-            .. "--- blots #ClientA @office q=30 ---",
+          message = "daylog: first line must be a log header such as --- log --- or "
+            .. "--- log #ClientA @office q=30 ---",
         },
         {
           row = 3,
-          message = "blotter: unordered timestamps near lines 3 and 4; fix manually or run :BlotterOrder",
+          message = "daylog: unordered timestamps near lines 3 and 4; fix manually or run :DaylogOrder",
         },
       },
     })

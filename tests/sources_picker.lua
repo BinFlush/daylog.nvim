@@ -1,5 +1,5 @@
 return function(t)
-  local picker = require("blotter.sources.picker")
+  local picker = require("daylog.sources.picker")
 
   t.test("merge unions cached and server items, cached first", function()
     local initial = { { id = "1", title = "A" }, { id = "2", title = "B" } }

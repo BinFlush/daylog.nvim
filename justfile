@@ -23,13 +23,13 @@ test:
 # Property-fuzz sweep of the summary footing invariant; the always-on `test`
 # runs a fast fixed-seed sample of the same fuzz. Args (all optional):
 #   mode    a synth mode (maximal|workday|billing) or "all"   [all]
-#   rounds  blotters per mode                                  [5000]
+#   rounds  logs per mode                                  [5000]
 #   seed    master RNG seed, or "random" to roll one (printed) [1234567]
 # e.g. `just fuzz`, `just fuzz workday`, `just fuzz billing 20000 random`.
 fuzz mode="all" rounds="5000" seed="1234567":
-    BLOTTER_FUZZ_MODE={{mode}} \
-      BLOTTER_FUZZ_ROUNDS={{rounds}} \
-      BLOTTER_FUZZ_SEED={{seed}} \
+    DAYLOG_FUZZ_MODE={{mode}} \
+      DAYLOG_FUZZ_ROUNDS={{rounds}} \
+      DAYLOG_FUZZ_SEED={{seed}} \
       nvim --headless -i NONE -u NONE \
         "+set rtp+=." \
         "+luafile tests/fuzz.lua"
@@ -37,7 +37,7 @@ fuzz mode="all" rounds="5000" seed="1234567":
 health:
     nvim --headless -u NONE \
       "+set rtp+=." \
-      "+checkhealth blotter" \
+      "+checkhealth daylog" \
       +qa
 
 helptags:

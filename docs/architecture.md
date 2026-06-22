@@ -1,27 +1,27 @@
-# blotter.nvim architecture
+# daylog.nvim architecture
 
-`blotter.nvim` is a Neovim plugin for structured plain-text blotters.
+`daylog.nvim` is a Neovim plugin for structured plain-text logs.
 
 The core pipeline is:
 
 ```text
-source lines -> syntax nodes -> semantic blotter -> edit scripts
+source lines -> syntax nodes -> semantic log -> edit scripts
 ```
 
 Design goals:
 
-- keep blotters human-readable
-- preserve the blotter as the source of truth
+- keep logs human-readable
+- preserve the log as the source of truth
 - derive reproducible summaries
 - keep Neovim API usage out of the semantic core
 - prefer explicit syntax over silent semantic changes
 
 ## Core model
 
-A blotter is a sequence of timestamped blots inside a blotter block.
+A log is a sequence of timestamped entries inside a log block.
 
 ```text
---- blots #ClientA @office q=30 ---
+--- log #ClientA @office q=30 ---
 08:00 planning
 10:00 implementation @home
 13:00 internal meeting #internal
@@ -29,9 +29,9 @@ A blotter is a sequence of timestamped blots inside a blotter block.
 17:00 done
 ```
 
-A timestamped blot starts an interval that ends at the next timestamped blot;
-the final blot only closes the interval before it. Metadata belongs to the
-interval that starts at the blot.
+A timestamped entry starts an interval that ends at the next timestamped entry;
+the final entry only closes the interval before it. Metadata belongs to the
+interval that starts at the entry.
 
 ```text
 08:00-10:00  planning          #ClientA   @office
@@ -40,7 +40,7 @@ interval that starts at the blot.
 14:00-17:00  client followup   #ClientA   @client
 ```
 
-`#tag` and `@location` are sticky: if a blot omits one, it inherits the current
+`#tag` and `@location` are sticky: if an entry omits one, it inherits the current
 value. `#-` clears the active tag and `@-` the active location. `#ooo` marks
 out-of-office time — it contributes to `activity` but not `workday`.
 
@@ -69,18 +69,18 @@ workday total    = sum(intervals where workday_excluded = false)
 syntax.lua        -> shared vocabulary: node/token/block kinds, diagnostic codes, codecs
 document.lua      -> syntax-preserving parser
 analyze.lua       -> semantic analyzer
-context.lua       -> blotter block selection (active / at cursor row)
+context.lua       -> log block selection (active / at cursor row)
 diagnostics.lua   -> shared diagnostic messages
 config.lua        -> setup option validation and merge
-journal.lua       -> pure journal date/path helpers
-blot.lua         -> single-blot parser/formatter
+daybook.lua       -> pure daybook date/path helpers
+entry.lua         -> single-entry parser/formatter
 body.lua          -> body reconstruction
 summary.lua       -> reporting domain (intervals, sections, sorting, logged totals)
 projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
-summary_block.lua -> locate a blotter's single generated summary region
+summary_block.lua -> locate a log's single generated summary region
 render.lua        -> output rendering
-week.lua          -> journal week/days report assembly (reuses the reporting core)
+week.lua          -> daybook week/days report assembly (reuses the reporting core)
 highlight.lua     -> parser-driven highlight spans (pure)
 text.lua          -> small shared text predicates (e.g. is_empty)
 usecases/         -> pure command operations (incl. insert_entry)
@@ -89,59 +89,59 @@ telescope.lua     -> shell: optional Telescope live-search picker (insert + rena
 filetype.lua      -> filetype registration
 init.lua          -> Neovim shell
 health.lua        -> shell: the :checkhealth probe
-ftplugin/blotter.lua -> shell: attach the highlighter to blotter buffers
+ftplugin/daylog.lua -> shell: attach the highlighter to daylog buffers
 ```
 
 ## Summary model
 
-A blotter has at most one summary. The summary is a **pure projection** of the
-blotter's blots: it stores no authored content and is always safe to rebuild
-from source. It is created with the blotter (`:BlotterToday` and `:BlotterCopy`
-append one) and kept current by the refresh below; `:BlotLog` marks the
-contributing source blots `!L` and rebuilds it. Annotations belong on blots
+A log has at most one summary. The summary is a **pure projection** of the
+log's entries: it stores no authored content and is always safe to rebuild
+from source. It is created with the log (`:DaylogToday` and `:DaylogCopy`
+append one) and kept current by the refresh below; `:DaylogLog` marks the
+contributing source entries `!L` and rebuilds it. Annotations belong on entries
 (canonical, surviving copy/order), not in the summary.
 
 Keeping authored content out of the summary is what makes regeneration safe. The
 `refresh_summaries` usecase exploits this fully: the summary is an *entirely
 generated, edit-free zone*, so a refresh **blasts the whole zone** — from the
-body/summary boundary down to the next blotter / EOF — and rewrites it canonically
+body/summary boundary down to the next log / EOF — and rewrites it canonically
 (the body, then exactly two blank separator lines, then the content-only summary
 render). Anything found in that zone — mid-summary prose, a stranded summary row, a
 jumble of duplicated/stale sections, trailing junk — is discarded; only the body
-above the boundary and the blots are protected. It ensures *every* valid blotter has
+above the boundary and the entries are protected. It ensures *every* valid log has
 a current summary — updating a stale one, creating a missing one, never removing one
-— not just the active one, skipping invalid blotters and emitting no edit where a
+— not just the active one, skipping invalid logs and emitting no edit where a
 zone is already canonical. The whole problem reduces to finding the top boundary:
 `summary_block` finds the summary banner (`--- summary q=N d=fmt ---`) in the tail —
 an exact match first, else the nearest line by character-level edit distance to
-reclaim a *mangled* banner, guarded to stay below the last blot and require real
+reclaim a *mangled* banner, guarded to stay below the last entry and require real
 similarity so a body note is never mistaken for it — and falls back to the surviving
 generated shape (anchored on a summary section header) when a border edit deleted the
 banner outright. This collapses a jumble of stale or duplicated generated sections
 back into one summary. Alongside the edits it
 returns `warnings` (each `{ row, message }`) for every problem the analyzer can
-see — a broken or absent header, out-of-order timestamps, an invalid blot —
-whether or not the blotter has a summary, and even for a structurally broken
+see — a broken or absent header, out-of-order timestamps, an invalid entry —
+whether or not the log has a summary, and even for a structurally broken
 document (which produces no edits).
 
-`:BlotterRefresh` and the optional `auto_summary` autocmds in `init.lua` are thin
+`:DaylogRefresh` and the optional `auto_summary` autocmds in `init.lua` are thin
 shells over it — the trigger (`off` / `change` / `idle` / `save`) is configurable,
 and the shell adds only undo-join, a re-entrancy guard, and cursor preservation.
 The warnings are published as buffer diagnostics (a `vim.diagnostic` namespace),
 which is what makes them clear when fixed however the fix happened: each refresh
-replaces the namespace's diagnostics, so a now-valid blotter publishes an empty
+replaces the namespace's diagnostics, so a now-valid log publishes an empty
 set. Because programmatic edits do not fire the change autocmds, the
-buffer-editing commands republish diagnostics after applying (so `:BlotterOrder`
+buffer-editing commands republish diagnostics after applying (so `:DaylogOrder`
 clears its own warning). Diagnostics also render inline in any mode, so there is
 no insert-mode timing to manage. The reporting core (`summary.lua`, `render.lua`)
-stays pure so the journal reports (`:BlotterWeek` / `:BlotterDays`) share it
+stays pure so the daybook reports (`:DaylogWeek` / `:DaylogDays`) share it
 unchanged; an open report re-derives on the same `auto_summary` autocmds,
 rebuilding from a spec stored on its buffer so it tracks its source days the way
-an in-file summary tracks its blots. Each day section in a report labels its
+an in-file summary tracks its entries. Each day section in a report labels its
 header with that day's own `q=` bucket (`week.lua` carries `quantize_minutes`
 per day; the aggregate header stays bare).
 
-The report is read-only but is now an actionable surface: `:BlotRename` on it
+The report is read-only but is now an actionable surface: `:DaylogRename` on it
 renames an item across days. `render.*_report_layout` exposes the report as a flat
 layout (one row per rendered line, tagged with its section scope), so
 `usecases/report_cursor` maps the cursor to a target and the file scope (an
@@ -157,12 +157,12 @@ the open reports.
 `document.lua` parses source lines into syntax nodes, preserving raw text, row
 numbers, line kinds, metadata tokens, header option tokens, and invalid time-like
 lines. It recognizes `#tag`, `#-`, `@location`, `@-`, `key=value`, `HH:MM`, and
-`--- blots ... ---`, but assigns no business meaning — it parses `#ooo` as a
+`--- log ... ---`, but assigns no business meaning — it parses `#ooo` as a
 tag, and `analyze.lua` decides it is excluded from workday.
 
-`analyze.lua` turns syntax into meaning: blotter block discovery, sticky
+`analyze.lua` turns syntax into meaning: log block discovery, sticky
 tag/location state, clear-token semantics, `#ooo` exclusion, block-local
-`quantize` and `duration` interpretation, and diagnostics. A semantic blot
+`quantize` and `duration` interpretation, and diagnostics. A semantic entry
 carries both explicit and effective metadata:
 
 ```lua
@@ -181,17 +181,17 @@ Quantization and duration formatting are block-local; consumers read
 
 ## Entry and body
 
-`blot.lua` parses and formats one timestamped blot, relative to the current
+`entry.lua` parses and formats one timestamped entry, relative to the current
 sticky state, emitting only the metadata needed to preserve meaning. If the
 current tag is `ClientA`, returning to untagged work renders as `10:00 resume #-`.
 
-`body.lua` rebuilds blotter block bodies: normalized and sorted body lines,
+`body.lua` rebuilds log block bodies: normalized and sorted body lines,
 insertion indexes, sticky state before insertion, and canonical emission of `#-`
 and `@-`. Because clear tokens exist, a reordering rewrite can preserve meaning
 explicitly:
 
 ```text
---- blots ---
+--- log ---
 09:00 done
 08:00 plan #sales @client
 ```
@@ -199,21 +199,21 @@ explicitly:
 can become:
 
 ```text
---- blots ---
+--- log ---
 08:00 plan #sales @client
 09:00 done #- @-
 ```
 
 ## Reporting: summaries and quantization
 
-`summary.lua` builds intervals from adjacent semantic blots (`blot[i] ->
-blot[i + 1]`); the final blot closes the previous interval and produces none of
-its own. There is one summary type, always quantized to the blotter's
+`summary.lua` builds intervals from adjacent semantic entries (`entry[i] ->
+entry[i + 1]`); the final entry closes the previous interval and produces none of
+its own. There is one summary type, always quantized to the log's
 `q=<minutes>` bucket (default 15); `q=1` reproduces exact, unrounded
 durations. Durations render as decimal hours or `hh:mm`, each with its `(+Nm)`
-rounding error (`(+0m)` when exact). The summary header echoes the blotter's
+rounding error (`(+0m)` when exact). The summary header echoes the log's
 `q=`/`d=` as a read-only banner (`--- summary q=<n> d=<fmt> ---`) built by
-`syntax.summary_header` and regenerated on refresh, so the blotter header stays the
+`syntax.summary_header` and regenerated on refresh, so the log header stays the
 single source of truth.
 
 Quantization rounds full-grain rows. The full grain is `activity text + tag +
@@ -245,9 +245,9 @@ totals.
 ### Manual rounding balance (`round±N`)
 
 Largest-remainder rounding can leave an aggregate (a day, hence a week) a step or
-two off a clean total. `:BlotBalance` lets the cursor on a summary row — or a
-blot — shift the rounding by `±N` `q`-steps, recorded as a **non-sticky**
-per-blot `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round_nudge`).
+two off a clean total. `:DaylogBalance` lets the cursor on a summary row — or a
+entry — shift the rounding by `±N` `q`-steps, recorded as a **non-sticky**
+per-entry `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round_nudge`).
 
 The model is a single vector and a guarantee:
 
@@ -310,18 +310,18 @@ shapes come from `document` (`document.tokens`, `document.classify_control_token
 `document.is_option_token` -- the only place these patterns live); header validity
 and the rows inside a summary section come from `analyze`; the generated
 section-header predicate is `syntax.is_summary_section_header` (shared with the
-summary locator). Blotter headers, blots, and trailing metadata are classified
+summary locator). Daylog headers, entries, and trailing metadata are classified
 straight from the parse. Summary rows -- derived output, not source -- are
 recognized by the shapes `render.lua` emits (a leading duration, `(+Nm)` markers,
 trailing metadata); a summary section runs from a generated section header to the
 blank line that ends it, and the same predicate matches the labeled multi-day
-report headers (`--- day summary <date> q=N ---`), so the `:BlotterWeek` /
-`:BlotterDays` reports highlight too. Whole-line "base" spans (a header, a note)
+report headers (`--- day summary <date> q=N ---`), so the `:DaylogWeek` /
+`:DaylogDays` reports highlight too. Whole-line "base" spans (a header, a note)
 sit at a lower priority than the narrower token spans layered over them, so a
 `#tag` inside a header wins at its own cells.
 
 The shell applies the spans as extmarks in a dedicated namespace:
-`ftplugin/blotter.lua` attaches the highlighter to any blotter buffer (so it works
+`ftplugin/daylog.lua` attaches the highlighter to any daylog buffer (so it works
 without `setup()`) and refreshes it on change, the report buffers highlight
 themselves on build/refresh, and the edit-applying path re-highlights after the
 programmatic edits that do not fire change autocmds. `init.lua` registers the
@@ -336,7 +336,7 @@ message — never the Neovim API.
 ```lua
 local result, err = append_summary.run(lines)
 -- success: { edits = { { start_index = 4, end_index = 4, lines = { ... } } } }
--- failure: nil, "blotter: ..."
+-- failure: nil, "daylog: ..."
 ```
 
 An edit script is the project's core data structure:
@@ -349,20 +349,20 @@ An edit script is the project's core data structure:
 lines)`. Indexes are zero-based to match the Neovim buffer API.
 
 `init.lua` is the Neovim shell: it registers filetype support and user commands,
-reads buffer lines, cursor row, and current time, expands configured journal
-paths before calling pure journal helpers, calls usecases, applies edit scripts,
-applies highlight spans as extmarks, and shows warnings. It contains no blotter
+reads buffer lines, cursor row, and current time, expands configured daybook
+paths before calling pure daybook helpers, calls usecases, applies edit scripts,
+applies highlight spans as extmarks, and shows warnings. It contains no log
 semantics.
 
 The shell is a thin *layer*, not a single file. Alongside `init.lua`, the only
 code that touches Neovim, IO, or UI is `health.lua` (the `:checkhealth` probe),
-`ftplugin/blotter.lua` (attaches the highlighter), and the sources shell modules
+`ftplugin/daylog.lua` (attaches the highlighter), and the sources shell modules
 (`sources/http`, `sources/sync`, and the top-level `telescope`). The semantic core -- and
 even the source providers and the highlighter -- stay pure; see below.
 
 ## Sources
 
-External work-item sources (e.g. Azure DevOps) let `:BlotInsert <source>` pick a
+External work-item sources (e.g. Azure DevOps) let `:DaylogInsert <source>` pick a
 tracker item and insert it, while keeping the same pure-core discipline: the
 provider logic is pure and only IO/UI is shell.
 
@@ -372,13 +372,13 @@ A source is a plain table implementing a small contract:
 fetch(cb)            -- async: cb(items|nil, err); the default item set
 format_item(item)    -- item -> picker display line
 format_items(items)  -- optional: aligned display lines for the whole list
-to_blot_text(item)  -- item -> inserted activity text
+to_entry_text(item)  -- item -> inserted activity text
 search(query, cb)    -- optional: async live search (cb(items|nil, err))
 ```
 
 An item is `{ id, title, type?, state?, url? }` (`id`/`title` required). Built-in
 source types are declared in `setup{ sources = { ... } }`; custom sources register
-directly via `require("blotter.sources.registry").register(name, source)`, which
+directly via `require("daylog.sources.registry").register(name, source)`, which
 validates the contract.
 
 Layering:
@@ -389,8 +389,8 @@ sources/cache.lua         pure   cache envelope codec + TTL staleness
 sources/picker.lua        pure   live-search helpers (align / merge / display / should_query)
 sources/azure_devops.lua  pure   the ADO provider (pure via injected deps)
 sources/http.lua          shell  the only networked file: curl via jobstart
-sources/sync.lua          shell  on-disk cache + lazy-TTL / :BlotterSync refresh
-telescope.lua             shell  optional live picker (top-level; :BlotInsert + :BlotRename)
+sources/sync.lua          shell  on-disk cache + lazy-TTL / :DaylogSync refresh
+telescope.lua             shell  optional live picker (top-level; :DaylogInsert + :DaylogRename)
 ```
 
 The ADO provider stays pure through **dependency injection**: `init.lua` hands it
@@ -398,17 +398,17 @@ The ADO provider stays pure through **dependency injection**: `init.lua` hands i
 injected deps and the provider is unit-tested offline with a fake transport.
 
 Pick-time is offline and synchronous: read the per-source JSON cache
-(`stdpath('cache')/blotter/sources/<name>.json`) and open the picker. The cache is
+(`stdpath('cache')/daylog/sources/<name>.json`) and open the picker. The cache is
 refreshed only by the occasional sync (in the background when stale, or via
-`:BlotterSync`), never in the hot path. The PAT is resolved lazily by
+`:DaylogSync`), never in the hot path. The PAT is resolved lazily by
 `token_resolver` and never written to the cache.
 
 Insertion still flows through the pure `usecases/insert_entry` + an edit script, and
-`insert_entry` runs the text through `blot.sanitize_text` so a work-item title can
+`insert_entry` runs the text through `entry.sanitize_text` so a work-item title can
 never inject trailing `#tag` / `@location` / `!L` metadata -- no source has to
 remember to do it.
 
-Telescope is optional. `:BlotInsert <source>` uses `vim.ui.select` (which any
+Telescope is optional. `:DaylogInsert <source>` uses `vim.ui.select` (which any
 ui-select provider upgrades) by default; when Telescope is installed and the source
 implements `search`, it opens the live picker that searches the whole tracker as you
 type. Live whole-project search is the only Telescope-exclusive capability --

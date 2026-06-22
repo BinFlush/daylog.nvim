@@ -1,11 +1,11 @@
 return function(t)
   -- Property test for the load-bearing summary-regeneration invariant: regen is a
-  -- pure projection over the blots, so it must NEVER edit the source. Whatever state
+  -- pure projection over the entries, so it must NEVER edit the source. Whatever state
   -- the summary is in -- current, drifted, half-deleted, gone -- rebuilding it leaves
-  -- the blots (header + timestamped lines + notes) byte-for-byte unchanged.
+  -- the entries (header + timestamped lines + notes) byte-for-byte unchanged.
   --
   -- A ladder of guarantees, each a property test over the synth + rng harness:
-  --   Rung 1 -- regen never edits the blots (rules out the scariest bug: silent loss).
+  --   Rung 1 -- regen never edits the entries (rules out the scariest bug: silent loss).
   --   Rung 2 -- regen is idempotent (the auto-refresh autocmd relies on a fixed point).
   --   Rung 3 -- regen never eats a body note (the "never corrupt authored content" rule),
   --             even a blank-separated one, even when the summary banner is destroyed.
@@ -19,12 +19,12 @@ return function(t)
   -- Soundness of the top-K check: refresh only ever replaces the located summary
   -- region or inserts at the block's last content row, both at row >= K (the summary
   -- is always appended below the K source lines). So it structurally cannot write
-  -- above line K; comparing the top K lines is exactly "the blots are unchanged", and
+  -- above line K; comparing the top K lines is exactly "the entries are unchanged", and
   -- a bug that wrote into the source would fail it loudly.
   local cwd = vim.fn.getcwd()
-  local refresh_summaries = require("blotter.usecases.refresh_summaries")
+  local refresh_summaries = require("daylog.usecases.refresh_summaries")
   local Rng = dofile(cwd .. "/tests/rng.lua")
-  local synth = dofile(cwd .. "/tests/blotter_synth.lua")
+  local synth = dofile(cwd .. "/tests/log_synth.lua")
 
   -- Apply an edit script ({ start_index, end_index, lines }, 0-based, pre-sorted
   -- highest-start-first by the use case) to a plain line list -- the pure mirror of
@@ -65,7 +65,7 @@ return function(t)
     return out
   end
 
-  -- Summary-flavoured junk that can never be read as a blot (no leading HH:MM), so a
+  -- Summary-flavoured junk that can never be read as an entry (no leading HH:MM), so a
   -- mutation fiddles with the summary without smuggling in a new timestamped entry.
   local JUNK = { "garbage", "1.5h orphan", "xxxx yyyy", "--- stray", "total: maybe", "(+9m) drift" }
 
@@ -187,7 +187,7 @@ return function(t)
     },
   }
 
-  t.test("regen never edits the blots (random summary mutation, all synth modes)", function()
+  t.test("regen never edits the entries (random summary mutation, all synth modes)", function()
     local master = Rng.new(20260620)
     local materialized_rounds = 0
 
@@ -199,7 +199,7 @@ return function(t)
         local source = synth.generate(rng, mode).lines
         local k = #source
 
-        -- Materialize: one regen appends the canonical summary below the blots.
+        -- Materialize: one regen appends the canonical summary below the entries.
         local materialized = regen(source)
         if #materialized > k then
           materialized_rounds = materialized_rounds + 1
@@ -212,7 +212,7 @@ return function(t)
             if result[i] ~= source[i] then
               error(
                 string.format(
-                  "%s seed=%d mutator=%s: blot row %d changed after regen:\n  was: %s\n  now: %s",
+                  "%s seed=%d mutator=%s: entry row %d changed after regen:\n  was: %s\n  now: %s",
                   mode,
                   seed,
                   mutator[1],
@@ -228,7 +228,7 @@ return function(t)
       end
     end
 
-    -- Guard the guard: the synth always yields a valid blotter, so every round must
+    -- Guard the guard: the synth always yields a valid log, so every round must
     -- have actually materialized a summary (else the assertion above is vacuous).
     t.ok(materialized_rounds == 3 * 300, "every round materialized a summary to mutate")
   end)
@@ -282,7 +282,7 @@ return function(t)
     end
   )
 
-  -- Rung 3: a body note is NEVER eaten -- not even one separated from its blot by a
+  -- Rung 3: a body note is NEVER eaten -- not even one separated from its entry by a
   -- blank line, and not even when the summary banner is destroyed. This is the load-
   -- bearing "never corrupt authored content" guarantee. The realistic-generator bake-off
   -- found a recognizer that aligned across the separator blank and swept such a note into
@@ -447,18 +447,18 @@ return function(t)
     end
   end)
 
-  -- Cardinal multi-blotter guarantee: a refresh NEVER loses a blot from any blotter,
-  -- even when a (non-first) blotter's header is corrupted so it no longer parses as a
-  -- blotter -- a one-char typo, a dropped dash, an obliterated header, or a deleted
+  -- Cardinal multi-log guarantee: a refresh NEVER loses an entry from any log,
+  -- even when a (non-first) log's header is corrupted so it no longer parses as a
+  -- log -- a one-char typo, a dropped dash, an obliterated header, or a deleted
   -- header line. A previous summary's blast must not run through the damaged header into
-  -- the next blotter's blots (the data-loss bug this round fixes).
-  t.test("regen never loses a blot when a stacked blotter's header is corrupted", function()
+  -- the next log's entries (the data-loss bug this round fixes).
+  t.test("regen never loses an entry when a stacked log's header is corrupted", function()
     local master = Rng.new(20260624)
     local CORRUPT = {
       {
-        "drop a char from 'blots'",
+        "drop a char from 'entries'",
         function(h)
-          return (h:gsub("blots", "blts", 1))
+          return (h:gsub("entries", "blts", 1))
         end,
       },
       {
@@ -481,11 +481,11 @@ return function(t)
       }, -- nil drops the line
     }
 
-    -- A real blot starts HH:MM and carries no `(±Nm)` rounding marker -- that marker is
+    -- A real entry starts HH:MM and carries no `(±Nm)` rounding marker -- that marker is
     -- exclusive to generated summary rows, which in hm format also start HH:MM
-    -- (`18:40 (-53m) ...`) and legitimately change when a recovered blotter is
-    -- re-summarized, so they must not be counted as blots here.
-    local function blot_counts(lines)
+    -- (`18:40 (-53m) ...`) and legitimately change when a recovered log is
+    -- re-summarized, so they must not be counted as entries here.
+    local function entry_counts(lines)
       local counts = {}
       for _, line in ipairs(lines) do
         if line:match("^%d%d:%d%d") and not line:match("%([%+%-]?%d+m%)") then
@@ -500,7 +500,7 @@ return function(t)
         local seed = master:int(1, 2147483646)
         local rng = Rng.new(seed)
 
-        -- Stack 2-3 synth blotters into one document, then materialize it.
+        -- Stack 2-3 synth logs into one document, then materialize it.
         local source = {}
         for b = 1, rng:int(2, 3) do
           if b > 1 then
@@ -512,12 +512,12 @@ return function(t)
           end
         end
         local materialized = regen(source)
-        local before = blot_counts(materialized)
+        local before = entry_counts(materialized)
 
-        -- Corrupt a random NON-FIRST blotter header.
+        -- Corrupt a random NON-FIRST log header.
         local header_rows = {}
         for row, line in ipairs(materialized) do
-          if line:match("^%-%-%- blots") then
+          if line:match("^%-%-%- log") then
             header_rows[#header_rows + 1] = row
           end
         end
@@ -536,12 +536,12 @@ return function(t)
             end
           end
 
-          local after = blot_counts(regen(mutated))
+          local after = entry_counts(regen(mutated))
           for line, n in pairs(before) do
             if (after[line] or 0) < n then
               error(
                 string.format(
-                  "%s seed=%d corruption=%s: blot %q lost (had %d, now %d) after refresh",
+                  "%s seed=%d corruption=%s: entry %q lost (had %d, now %d) after refresh",
                   mode,
                   seed,
                   corrupt[1],

@@ -2,10 +2,10 @@ return function(t)
   -- Example-based regeneration scenarios, each asserting the WHOLE regenerated document
   -- exactly (input -> output); trailing comments mark the line(s) each scenario turns on.
   -- The behavioural counterpart to refresh_summaries.lua (the edit-script contract) and
-  -- regen_invariants.lua (the fuzzed properties). Ordered from the simplest single-blotter
-  -- cases through summary-zone repair, banner reclaim, multi-blotter, and
+  -- regen_invariants.lua (the fuzzed properties). Ordered from the simplest single-log
+  -- cases through summary-zone repair, banner reclaim, multi-log, and
   -- corrupted/missing-header recovery.
-  local refresh_summaries = require("blotter.usecases.refresh_summaries")
+  local refresh_summaries = require("daylog.usecases.refresh_summaries")
 
   -- Apply refresh's edit script to a line list (the pure mirror of the buffer apply), in
   -- the order returned, so a test can compare the regenerated document to an exact expected.
@@ -30,22 +30,22 @@ return function(t)
     return out
   end
 
-  -- ===================== single-blotter basics =====================
+  -- ===================== single-log basics =====================
 
-  t.test("scenario: a fresh blotter gains a summary", function()
+  t.test("scenario: a fresh log gains a summary", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
         "",
-        "--- summary q=15 d=dec ---", -- summary created from the blots
+        "--- summary q=15 d=dec ---", -- summary created from the entries
         "1.00h (+0m) a",
         "",
         "--- totals ---",
@@ -54,14 +54,14 @@ return function(t)
     )
   end)
 
-  t.test("scenario: a single blot with no completed interval yields an empty summary", function()
+  t.test("scenario: a single entry with no completed interval yields an empty summary", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "",
         "",
@@ -73,10 +73,10 @@ return function(t)
     )
   end)
 
-  t.test("scenario: an already-current blotter regenerates to itself", function()
+  t.test("scenario: an already-current log regenerates to itself", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -88,7 +88,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -105,13 +105,13 @@ return function(t)
   t.test("scenario: a flush body note is preserved", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "a flush note", -- flush body note
         "10:00 done",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "a flush note", -- kept in the body
         "10:00 done",
@@ -129,14 +129,14 @@ return function(t)
   t.test("scenario: a blank-separated body note is preserved", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
         "a separated note", -- blank-separated body note
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -157,7 +157,7 @@ return function(t)
   t.test("scenario: a stale summary total is corrected", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -169,13 +169,13 @@ return function(t)
         "9.99h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
         "",
         "--- summary q=15 d=dec ---",
-        "1.00h (+0m) a", -- recomputed from the blots
+        "1.00h (+0m) a", -- recomputed from the entries
         "",
         "--- totals ---",
         "1.00h (+0m) workday",
@@ -186,7 +186,7 @@ return function(t)
   t.test("scenario: a one-blank separator is normalized to two", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -197,7 +197,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -214,7 +214,7 @@ return function(t)
   t.test("scenario: a three-blank separator is normalized to two", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -227,7 +227,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -244,7 +244,7 @@ return function(t)
   t.test("scenario: a non-generated line inside the summary is regenerated away", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -257,7 +257,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -274,7 +274,7 @@ return function(t)
   t.test("scenario: trailing prose below the summary is regenerated away", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -288,7 +288,7 @@ return function(t)
         "leftover thought", -- prose below the summary -> swept
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -305,7 +305,7 @@ return function(t)
   t.test("scenario: a duplicated summary is collapsed to one", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -324,7 +324,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -343,7 +343,7 @@ return function(t)
   t.test("scenario: a deleted summary banner is restored", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -354,7 +354,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -371,7 +371,7 @@ return function(t)
   t.test("scenario: a misspelled banner is reclaimed in place", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -383,7 +383,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -400,7 +400,7 @@ return function(t)
   t.test("scenario: a banner with appended junk is reclaimed", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -412,7 +412,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -429,7 +429,7 @@ return function(t)
   t.test("scenario: a drifted banner q=/d= is rewritten to the header's", function()
     t.eq(
       regen({
-        "--- blots q=15 ---",
+        "--- log q=15 ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -441,7 +441,7 @@ return function(t)
         "1:00 (+0m) workday",
       }),
       {
-        "--- blots q=15 ---",
+        "--- log q=15 ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -455,21 +455,21 @@ return function(t)
     )
   end)
 
-  -- ===================== multi-blotter (valid) =====================
+  -- ===================== multi-log (valid) =====================
 
-  t.test("scenario: two stacked blotters, each summarized with a two-blank gap", function()
+  t.test("scenario: two stacked logs, each summarized with a two-blank gap", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
-        "--- blots ---",
-        "13:00 b", -- second blotter (no summary yet)
+        "--- log ---",
+        "13:00 b", -- second log (no summary yet)
         "14:00 done",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -481,8 +481,8 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
-        "13:00 b", -- second blotter, summarized below
+        "--- log ---",
+        "13:00 b", -- second log, summarized below
         "14:00 done",
         "",
         "",
@@ -495,23 +495,23 @@ return function(t)
     )
   end)
 
-  t.test("scenario: three stacked blotters are each summarized", function()
+  t.test("scenario: three stacked logs are each summarized", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
-        "--- blots ---",
-        "12:00 b", -- second blotter
+        "--- log ---",
+        "12:00 b", -- second log
         "13:00 done",
         "",
-        "--- blots ---",
-        "18:00 c", -- third blotter
+        "--- log ---",
+        "18:00 c", -- third log
         "19:00 done",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -523,7 +523,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "12:00 b",
         "13:00 done",
         "",
@@ -535,7 +535,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "18:00 c",
         "19:00 done",
         "",
@@ -549,10 +549,10 @@ return function(t)
     )
   end)
 
-  t.test("scenario: a middle blotter with no summary gains one, neighbours untouched", function()
+  t.test("scenario: a middle log with no summary gains one, neighbours untouched", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -564,12 +564,12 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
-        "12:00 b", -- middle blotter has no summary
+        "--- log ---",
+        "12:00 b", -- middle log has no summary
         "13:00 done",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "18:00 c",
         "19:00 done",
         "",
@@ -581,7 +581,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -593,7 +593,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "12:00 b",
         "13:00 done",
         "",
@@ -605,7 +605,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "18:00 c",
         "19:00 done",
         "",
@@ -624,7 +624,7 @@ return function(t)
   t.test("scenario: a corrupted keyword on the second header is recovered", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -648,7 +648,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -660,8 +660,8 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
-        "13:00 b", -- second blotter recovered + summarized
+        "--- log ---",
+        "13:00 b", -- second log recovered + summarized
         "14:00 done",
         "",
         "",
@@ -677,7 +677,7 @@ return function(t)
   t.test("scenario: a dropped dash on the second header is recovered, params read back", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -689,7 +689,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "-- blots q=45 d=hm ---", -- second header: a dropped dash
+        "-- entries q=45 d=hm ---", -- second header: a dropped dash
         "13:00 b",
         "14:00 done",
         "",
@@ -701,7 +701,7 @@ return function(t)
         "0:45 (+15m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -713,7 +713,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots q=45 d=hm ---", -- repaired; q=/d= read back
+        "--- log q=45 d=hm ---", -- repaired; q=/d= read back
         "13:00 b",
         "14:00 done",
         "",
@@ -727,10 +727,10 @@ return function(t)
     )
   end)
 
-  t.test("scenario: an obliterated header inherits the previous blotter's metadata", function()
+  t.test("scenario: an obliterated header inherits the previous log's metadata", function()
     t.eq(
       regen({
-        "--- blots #proj q=20 ---",
+        "--- log #proj q=20 ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -757,7 +757,7 @@ return function(t)
         "0.75h (+15m) workday",
       }),
       {
-        "--- blots #proj q=20 ---",
+        "--- log #proj q=20 ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -772,13 +772,13 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots #proj q=20 ---",
+        "--- log #proj q=20 ---",
         "13:00 b",
         "14:00 done",
         "",
         "",
         "--- summary q=20 d=dec ---",
-        "1.00h (+0m) b", -- recovered; q=20 inherited from blotter 1
+        "1.00h (+0m) b", -- recovered; q=20 inherited from log 1
         "",
         "--- tags ---",
         "1.00h (+0m) #proj",
@@ -789,10 +789,10 @@ return function(t)
     )
   end)
 
-  t.test("scenario: a deleted second header line is synthesized above its blots", function()
+  t.test("scenario: a deleted second header line is synthesized above its entries", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -804,7 +804,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "13:00 b", -- headerless blots (second header was deleted)
+        "13:00 b", -- headerless entries (second header was deleted)
         "14:00 done",
         "",
         "",
@@ -815,7 +815,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -827,7 +827,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "13:00 b",
         "14:00 done",
         "",
@@ -844,7 +844,7 @@ return function(t)
   t.test("scenario: a corrupted header keeps every option (#tag @loc utc d=hm)", function()
     t.eq(
       regen({
-        "--- blots #proj @site utc+2 q=30 d=hm ---",
+        "--- log #proj @site utc+2 q=30 d=hm ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -880,7 +880,7 @@ return function(t)
         "1:00 (+0m) workday",
       }),
       {
-        "--- blots #proj @site utc+2 q=30 d=hm ---",
+        "--- log #proj @site utc+2 q=30 d=hm ---",
         "09:00 a",
         "10:00 done",
         "",
@@ -898,7 +898,7 @@ return function(t)
         "1:00 (+0m) workday",
         "",
         "",
-        "--- blots #proj @site utc+2 q=30 d=hm ---",
+        "--- log #proj @site utc+2 q=30 d=hm ---",
         "13:00 b",
         "14:00 done",
         "",
@@ -918,10 +918,10 @@ return function(t)
     )
   end)
 
-  t.test("scenario: only the corrupted middle blotter of three is repaired", function()
+  t.test("scenario: only the corrupted middle log of three is repaired", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -945,7 +945,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "18:00 c",
         "19:00 done",
         "",
@@ -957,7 +957,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -969,7 +969,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "12:00 b", -- middle recovered; 1st and 3rd untouched
         "13:00 done",
         "",
@@ -981,7 +981,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "18:00 c",
         "19:00 done",
         "",
@@ -998,7 +998,7 @@ return function(t)
   t.test("scenario: two corrupted headers are recovered in one pass", function()
     t.eq(
       regen({
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -1022,7 +1022,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "18:00 c",
         "19:00 done",
         "",
@@ -1034,7 +1034,7 @@ return function(t)
         "1.00h (+0m) workday",
       }),
       {
-        "--- blots ---",
+        "--- log ---",
         "08:00 a",
         "09:00 done",
         "",
@@ -1046,7 +1046,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "12:00 b",
         "13:00 done",
         "",
@@ -1058,7 +1058,7 @@ return function(t)
         "1.00h (+0m) workday",
         "",
         "",
-        "--- blots ---",
+        "--- log ---",
         "18:00 c",
         "19:00 done",
         "",
@@ -1073,11 +1073,11 @@ return function(t)
   end)
 
   t.test(
-    "scenario: an unrelated --- foo --- header above blots is recovered into a blotter",
+    "scenario: an unrelated --- foo --- header above entries is recovered into a log",
     function()
       t.eq(
         regen({
-          "--- blots ---",
+          "--- log ---",
           "09:00 a",
           "10:00 done",
           "",
@@ -1089,12 +1089,12 @@ return function(t)
           "1.00h (+0m) workday",
           "",
           "",
-          "--- notes ---", -- unrelated header above an orphan blot run
+          "--- notes ---", -- unrelated header above an orphan entry run
           "13:00 b",
           "14:00 done",
         }),
         {
-          "--- blots ---",
+          "--- log ---",
           "09:00 a",
           "10:00 done",
           "",
@@ -1106,13 +1106,13 @@ return function(t)
           "1.00h (+0m) workday",
           "",
           "",
-          "--- blots ---",
+          "--- log ---",
           "13:00 b",
           "14:00 done",
           "",
           "",
           "--- summary q=15 d=dec ---",
-          "1.00h (+0m) b", -- recovered as a blotter and summarized
+          "1.00h (+0m) b", -- recovered as a log and summarized
           "",
           "--- totals ---",
           "1.00h (+0m) workday",
@@ -1138,10 +1138,10 @@ return function(t)
     )
   end)
 
-  t.test("scenario: a document of bare timestamps invents no blotter", function()
+  t.test("scenario: a document of bare timestamps invents no log", function()
     t.eq(
       regen({
-        "09:00 a", -- no blotter header at all -> left alone
+        "09:00 a", -- no log header at all -> left alone
         "10:00 done",
       }),
       {
