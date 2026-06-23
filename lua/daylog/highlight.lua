@@ -49,6 +49,8 @@ M.GROUPS = {
   -- The active-log bar is a fixed soft green (a deliberate accent, not a syntax-role
   -- link); default = true still lets a theme/user override win.
   DaylogActiveSign = { fg = "#83c092", ctermfg = 108 },
+  -- The stray-cursor bar is a fixed soft red (same idea as DaylogActiveSign), overridable.
+  DaylogStraySign = { fg = "#d28a8a", ctermfg = 167 },
 }
 
 local BASE_PRIORITY = 100

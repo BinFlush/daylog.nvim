@@ -39,8 +39,18 @@ local diagnostic_namespace = vim.api.nvim_create_namespace("daylog")
 local highlight_namespace = vim.api.nvim_create_namespace("daylog-highlight")
 local highlight_groups_defined = false
 
--- The active-log sign def is registered lazily on first use (mirroring the
--- highlight groups), so it works whether or not setup() ran.
+-- Resolve to a concrete buffer number: the sign_* API rejects the 0 = current-buffer
+-- shorthand the nvim_buf_* API accepts (E158).
+local function resolve_buf(buf)
+  buf = buf or 0
+  if buf == 0 then
+    buf = vim.api.nvim_get_current_buf()
+  end
+  return buf
+end
+
+-- The active-log and stray sign defs are registered lazily on first use (mirroring the
+-- highlight groups), so they work whether or not setup() ran.
 local active_sign_defined = false
 local function ensure_active_sign()
   if active_sign_defined then
@@ -48,6 +58,15 @@ local function ensure_active_sign()
   end
   vim.fn.sign_define("DaylogActive", { text = "▎", texthl = "DaylogActiveSign" })
   active_sign_defined = true
+end
+
+local stray_sign_defined = false
+local function ensure_stray_sign()
+  if stray_sign_defined then
+    return
+  end
+  vim.fn.sign_define("DaylogStray", { text = "▎", texthl = "DaylogStraySign" })
+  stray_sign_defined = true
 end
 
 -- Register the daylog highlight groups as default links (so a user's own
@@ -72,39 +91,61 @@ local function ensure_highlight_groups()
   highlight_groups_defined = true
 end
 
--- Apply the parser-driven highlight spans to a buffer as extmarks, replacing the
--- previous set. This is the single highlighting path: daylog files attach it via
--- the ftplugin, the report buffers call it directly, and the edit-applying shell
--- refreshes it after programmatic edits (which do not fire change autocmds). The
--- narrower token spans carry a higher priority than the whole-line base ones, so
--- a tag inside a header wins at its cells.
--- Mark the active log (its body + summary) with a soft-green sign-column bar, so
--- the block the commands act on is obvious at a glance once a file holds several
--- logs. Cleared and re-placed on every highlight pass (signs survive buffer edits,
--- so a stale span would otherwise linger). Gated off when the option is disabled or
--- the file has fewer than two logs -- a single-log file needs no disambiguation.
-local function render_active_indicator(buf, lines)
-  vim.fn.sign_unplace("daylog_active", { buffer = buf })
-  if not config.get().active_indicator then
+-- The red "you've strayed off the active log" mark: a soft-red bar on the cursor's line whenever
+-- it sits above the active region (`vim.b.daylog_active_start`, cached by render_active_bar; nil
+-- when there is nothing to mark -- disabled, fewer than two logs, or the file is not clean).
+-- Always clears the group and re-places, so an edit that shifts the sign (an `O` above) or drops
+-- it (a summary regen replacing the line) can never leave it stale -- one sign op per cursor move,
+-- synchronous, so no flicker.
+local function render_stray(buf)
+  buf = resolve_buf(buf)
+  if not vim.api.nvim_buf_is_valid(buf) then
     return
   end
-  local region = highlight.active_region(lines)
-  if not region or region.log_count < 2 then
-    return
-  end
-  ensure_active_sign()
-  for row = region.start_row, region.end_row do
-    vim.fn.sign_place(0, "daylog_active", "DaylogActive", buf, { lnum = row, priority = 5 })
+
+  vim.fn.sign_unplace("daylog_stray", { buffer = buf })
+
+  local active_start = vim.b[buf].daylog_active_start
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  if active_start and row < active_start then
+    ensure_stray_sign()
+    vim.fn.sign_place(0, "daylog_stray", "DaylogStray", buf, { lnum = row, priority = 6 })
   end
 end
 
-local function highlight_buffer(buf)
-  -- Resolve to a concrete buffer number: the sign_* functions render_active_indicator
-  -- uses reject the 0 = current-buffer shorthand the nvim_buf_* API accepts (E158).
-  buf = buf or 0
-  if buf == 0 then
-    buf = vim.api.nvim_get_current_buf()
+-- Place the soft-green active-log bar (its body + summary), gated on the cached `daylog_clean`
+-- flag so a diagnostic hides it without re-checking warnings here. This runs on the LIVE
+-- highlight pass (every keystroke), so the bar tracks the region as you type and is restored
+-- whenever an edit (e.g. the auto-refresh regenerating a summary) drops its signs. The clean
+-- flag itself is refreshed only on settle, by refresh_indicators.
+local function render_active_bar(buf, lines)
+  vim.fn.sign_unplace("daylog_active", { buffer = buf })
+
+  local active_start = nil
+  if config.get().active_indicator and vim.b[buf].daylog_clean then
+    local region = highlight.active_region(lines)
+    if region then
+      ensure_active_sign()
+      for row = region.start_row, region.end_row do
+        vim.fn.sign_place(0, "daylog_active", "DaylogActive", buf, { lnum = row, priority = 5 })
+      end
+      active_start = region.start_row
+    end
   end
+
+  vim.b[buf].daylog_active_start = active_start
+end
+
+-- Apply the parser-driven highlight spans to a buffer as extmarks (replacing the previous set)
+-- and re-place the active-log bar + stray mark from the current text/cursor. The single LIVE
+-- path: daylog files attach it via the ftplugin (every keystroke, including insert), report
+-- buffers call it directly, and the edit-applying shell refreshes it after programmatic edits
+-- (which fire no change autocmds). Narrower token spans carry a higher priority than the
+-- whole-line base ones, so a tag inside a header wins at its cells. The bars track live, but
+-- their clean/dirty gate is frozen here (cached `daylog_clean`); refresh_indicators updates the
+-- gate on settle, so the bars never flicker through a half-typed warning.
+local function highlight_buffer(buf)
+  buf = resolve_buf(buf)
   if not vim.api.nvim_buf_is_valid(buf) then
     return
   end
@@ -121,7 +162,23 @@ local function highlight_buffer(buf)
     })
   end
 
-  render_active_indicator(buf, lines)
+  render_active_bar(buf, lines)
+  render_stray(buf)
+end
+
+-- Refresh the clean/dirty gate (any diagnostic in any log hides the bars) and re-render. The
+-- SETTLE path -- normal-mode edits, leaving insert, command edits, load -- so the gate (and the
+-- heavier refresh_summaries it needs) holds steady through an insert session, matching when the
+-- diagnostics themselves refresh.
+local function refresh_indicators(buf)
+  buf = resolve_buf(buf)
+  if not vim.api.nvim_buf_is_valid(buf) then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  vim.b[buf].daylog_clean = #refresh_summaries.run(lines).warnings == 0
+  highlight_buffer(buf)
 end
 
 -- Publish the log's problems (e.g. out-of-order timestamps) as buffer
@@ -177,7 +234,13 @@ local function apply_result(result)
   -- Programmatic edits do not fire the change autocmds the ftplugin highlighter
   -- listens on, so refresh highlights from this single edit choke point too.
   if vim.bo.filetype == "daylog" then
-    highlight_buffer(0)
+    -- A command edit re-evaluates the gate; the auto-refresh path only re-renders (cached gate),
+    -- restoring any bar signs its summary edits dropped without a mid-insert gate change.
+    if not refreshing then
+      refresh_indicators(0)
+    else
+      highlight_buffer(0)
+    end
   end
 end
 
@@ -252,6 +315,8 @@ M.buffer_lines = buffer_lines
 M.buffer_is_empty = buffer_is_empty
 M.cursor_row = cursor_row
 M.highlight_buffer = highlight_buffer
+M.refresh_indicators = refresh_indicators
+M.render_stray = render_stray
 M.publish_diagnostics = publish_diagnostics
 M.apply_result = apply_result
 M.run_buffer_usecase = run_buffer_usecase

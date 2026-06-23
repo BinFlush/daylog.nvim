@@ -814,16 +814,21 @@ not refreshed and the problem is reported as a buffer diagnostic that clears onc
 you fix it.
 
                                                     *daylog-active-indicator*
-`active_indicator` toggles a soft-green bar in the sign column marking the
-active log -- its entries and its generated summary. It is optional and
-defaults to `true`.
+`active_indicator` toggles the active-log awareness markers in the sign column.
+It is optional and defaults to `true`. They show only while the daylog is clean --
+any diagnostic hides them so the warnings stand on their own.
 
-- The active log is the latest one in the file, the block the commands act on.
-- The bar appears only once a file holds two or more logs, where pointing out
-  the active block helps; a single-log file shows nothing.
-- It is driven by the `DaylogActiveSign` highlight group (a soft green by
-  default); override it with your own `:highlight` to recolor the bar.
-- Set `active_indicator = false` to turn the bar off.
+- A soft-green bar marks the active log (the latest one, the block the commands
+  act on) -- its entries and its generated summary -- on any clean daylog,
+  including a single-log file.
+- A soft-red bar follows the cursor when it sits above the active log, that is, in
+  an earlier, non-active log -- a gentle "you are not in the live log" cue. It only
+  appears once a file holds two or more logs (you cannot stray off a single log).
+- The markers settle like diagnostics (they update on leaving insert / a
+  normal-mode edit), so they never flicker mid-edit.
+- Colors come from the `DaylogActiveSign` (green) and `DaylogStraySign` (red)
+  highlight groups; override either with your own `:highlight`.
+- Set `active_indicator = false` to turn them off.
 
 >
   require('daylog').setup({ active_indicator = false })

@@ -24,10 +24,12 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
-- A soft-green sign-column bar marks the active log and its summary once a file
-  holds two or more logs, making the block the commands act on obvious at a
-  glance. Toggle it with the `active_indicator` option (on by default) and
-  recolor it via the `DaylogActiveSign` highlight group.
+- **Active-log awareness markers** (`active_indicator`, on by default). A soft-green
+  sign-column bar marks the active log (the block the commands act on) on any clean
+  daylog; on a file with two or more logs, a soft-red bar also follows the cursor when
+  it strays into an earlier, non-active log. Both hide whenever the daylog has a
+  diagnostic, so they never compete with a warning. Recolor via the `DaylogActiveSign`
+  / `DaylogStraySign` highlight groups.
 
 ### Changed
 

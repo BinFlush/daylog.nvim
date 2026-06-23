@@ -32,6 +32,8 @@ local buffer_changed = buffer.buffer_changed
 local apply_refresh = buffer.apply_refresh
 
 M.highlight_buffer = buffer.highlight_buffer
+M.refresh_indicators = buffer.refresh_indicators
+M.render_stray = buffer.render_stray
 M.rename_summary = rename.summary
 
 -- Day-file IO, rebound as locals.
