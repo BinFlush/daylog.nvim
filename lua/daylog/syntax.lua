@@ -254,4 +254,35 @@ function M.round_nudge_token(n)
   return "round" .. (n < 0 and "" or "+") .. n
 end
 
+-- The `!L` logged marker optionally carries a frozen committed value in minutes
+-- (`!L60`): the row is held at that exact duration and excluded from the
+-- largest-remainder pool, so an external commitment never moves when later entries
+-- are appended. Bare `!L` stays "logged but unfrozen" (current behavior); only
+-- :DaylogLog writes the number. The minutes ride on the marker itself rather than a
+-- separate token, so `round±N` remains the only free-standing rounding knob.
+
+-- Parse a `!L` / `!L<minutes>` marker. Returns (true, minutes) for a frozen marker,
+-- (true, nil) for a bare one, or false when the token is not a logged marker.
+function M.parse_logged_token(token)
+  local digits = token:match("^!L(%d*)$")
+  if not digits then
+    return false
+  end
+
+  if digits == "" then
+    return true, nil
+  end
+
+  return true, tonumber(digits)
+end
+
+-- Render a logged marker: bare `!L`, or `!L<minutes>` when a frozen value is present.
+function M.logged_token(minutes)
+  if minutes == nil then
+    return M.LOGGED_TOKEN
+  end
+
+  return M.LOGGED_TOKEN .. minutes
+end
+
 return M

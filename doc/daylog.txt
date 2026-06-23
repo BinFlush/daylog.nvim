@@ -52,7 +52,8 @@ Vocabulary (used throughout this help and the source):
             (`#-`). `#ooo` is the special out-of-office tag.
   location  `@location`, a sticky work location, cleared with `@-`.
   q= / d=   Per-log options: the quantize bucket and the duration format.
-  !L        Marks an interval as already logged to an external system.
+  !L        Marks an interval as already logged to an external system;
+            `!L<minutes>` also freezes its committed value.
 
 Run `:checkhealth daylog` to verify setup, command registration, help docs,
 and runtime plugin integration.
@@ -100,7 +101,7 @@ The header may set initial sticky metadata and options:
 An entry has this shape:
 
 >
-  HH:MM text [#tag|#-] [@location|@-] [utc±H] [round±N]
+  HH:MM text [#tag|#-] [@location|@-] [utc±H] [round±N] [!L[minutes]]
 <
 
 Example:
@@ -126,6 +127,9 @@ Rules:
 - Non-timestamped lines under an entry are notes.
 - Notes move with their timestamped entry when copied or ordered.
 - `!L` marks the interval started by that entry as already logged externally.
+  An optional minute count -- `!L<minutes>`, written by |:DaylogLog| -- freezes
+  that row at its committed value, so appending later entries can never restate
+  it (see below). Bare `!L` is logged but unfrozen.
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
   |daylog-sticky-metadata|. It is only needed when the clock moves (travel or
   DST) and is invisible otherwise.
@@ -140,9 +144,25 @@ Rules:
   `1.50h`.
 
 `!L` is preserved by source rewrites such as copy and order. Summaries and
-reports split main rows by logged state, render logged rows with trailing `!L`,
-and add a logged section for workday-eligible logged versus unlogged totals when
-logged work was marked. Tag and location totals stay grouped normally.
+reports split main rows by logged state, render logged rows with trailing `!L`
+(always bare -- the frozen minutes live only on the entry line), and add a
+logged section for workday-eligible logged versus unlogged totals when logged
+work was marked. Tag and location totals stay grouped normally.
+
+Quantization normally distributes each log's rounding by largest remainder
+across every row at once, so adding an entry can shift the rounded duration of
+an unrelated earlier row. A frozen `!L<minutes>` row is instead held at exactly
+that value and pulled out of that pool: the remaining rounding is shared only
+among the un-frozen rows, the displayed total stays the honest rounded total,
+and a committed value never moves. If a frozen value later stops reconciling
+with its log -- the bucket `q=` changed, an edit altered the logged interval, or
+activity was deleted -- |:DaylogRefresh| warns so you can re-run |:DaylogLog| to
+recommit.
+
+When one activity has several logged intervals, they share a single committed
+value -- |:DaylogLog| writes the same `!L<minutes>` onto every contributing entry.
+If a hand edit leaves them disagreeing, only the first would otherwise count, so
+|:DaylogRefresh| warns instead; re-run |:DaylogLog| on that row to make them agree.
 
 ==============================================================================
 STICKY METADATA                                      *daylog-sticky-metadata*
@@ -473,8 +493,9 @@ Toggle the logged state of the main summary row under the cursor.
 - The active log summary is recomputed from source; the rendered row acts
   only as a selector.
 - The logged state is toggled: an unlogged row's source intervals gain a
-  trailing `!L`, and an already logged row's source intervals lose it. The
-  summary section is regenerated afterwards.
+  trailing `!L<minutes>` -- freezing the row at its currently displayed
+  duration -- and an already logged row's source intervals lose it. The summary
+  section is regenerated afterwards.
 - Tag, location, logged, and total rows are not eligible.
 - `#ooo` rows are refused, since out-of-office time cannot be logged.
 - Summary rows that no longer match the recomputed summary are refused; run
@@ -545,6 +566,10 @@ partition that foots to its total.
   still open while the earlier ones stay put.
 - The displayed times, durations elsewhere, and the rounding of other rows are
   untouched; only the nudged row's displayed duration and residual change.
+- Frozen logged rows (`!L<minutes>`) are fixed and never selected, so a balance
+  always lands on an un-frozen row. If the only candidates left are logged --
+  because a round-down drove every other row to zero, or because the scope is all
+  logged -- the command refuses rather than touch a committed value.
 - The cursor must be on the active log's summary or one of its entries.
 
                                                         *:DaylogRefresh*

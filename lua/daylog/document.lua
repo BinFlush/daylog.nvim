@@ -51,8 +51,9 @@ local function parse_entry_control_token(token)
     return kind, value, clear
   end
 
-  if token == syntax.LOGGED_TOKEN then
-    return syntax.TOKEN_KIND.LOGGED, true, false
+  local logged, logged_minutes = syntax.parse_logged_token(token)
+  if logged then
+    return syntax.TOKEN_KIND.LOGGED, logged_minutes, false
   end
 
   -- A `round±N` rounding-balance marker is per-entry and non-sticky (like !L), so it
@@ -116,6 +117,7 @@ local function parse_entry_metadata(text)
     explicit_offset = nil,
     nudge = nil,
     logged = nil,
+    logged_minutes = nil,
   }
   local has_tag = false
   local has_location = false
@@ -183,6 +185,7 @@ local function parse_entry_metadata(text)
 
       has_logged = true
       result.logged = true
+      result.logged_minutes = value
     end
   end
 
@@ -300,6 +303,7 @@ local function parse_entry(line, row)
     explicit_offset = metadata.explicit_offset,
     nudge = metadata.nudge,
     logged = metadata.logged,
+    logged_minutes = metadata.logged_minutes,
   }
 end
 

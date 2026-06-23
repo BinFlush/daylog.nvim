@@ -24,6 +24,26 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **Frozen logged values (`!L<minutes>`)**. `:DaylogLog` now records the committed
+  duration on the marked entry as `!L<minutes>` (e.g. `!L60`), and the quantizer holds
+  that row at exactly that value while excluding it from the largest-remainder pool.
+  Previously, appending a later entry could shift an already-logged row's rounded
+  duration (e.g. a logged `1.00h` silently becoming `1.25h`), disagreeing with what was
+  reported externally; a frozen row now never moves, the displayed total stays the
+  honest rounded total, and the remaining rounding is shared only among un-frozen rows.
+  Bare `!L` (logged but unfrozen) stays valid and unchanged. New on-disk token form;
+  the summary still renders a bare `!L` (no number). `:DaylogRefresh` warns when a
+  frozen value no longer reconciles with its log (a changed `q=`, an edit inside the
+  logged interval, or deleted activity) so you can re-run `:DaylogLog` to recommit.
+  `:DaylogBalance` now skips frozen logged rows when choosing where to apply a step
+  (a committed value is never nudged), and errors when the only remaining candidates
+  are logged — whether a round-down zeroed every other row or the scope is all logged.
+  When one activity has several logged intervals they share a single committed value;
+  if a hand edit leaves them disagreeing, `:DaylogRefresh` now warns (previously the
+  fold silently kept only the first value) so you can re-run `:DaylogLog` to recommit.
+  Logging an activity that already has a logged portion now merges the two and commits
+  their summed time onto every contributing entry (previously the newly logged part
+  kept its own value and the merged row collapsed to a single interval's duration).
 - **Active-log awareness markers** (`active_indicator`, on by default). A soft-green
   sign-column bar marks the active log (the block the commands act on) on any clean
   daylog; on a file with two or more logs, a soft-red bar also follows the cursor when

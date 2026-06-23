@@ -199,4 +199,46 @@ return function(t)
     t.eq(entry.sanitize_text("ship it round+1"), "ship it (round+1)")
     t.eq(entry.sanitize_text("another round of edits"), "another round of edits")
   end)
+
+  t.test("entry parse reads a frozen !L value; a bare !L has none", function()
+    local parsed = entry.parse("08:00 plan !L60", "ClientA", "office")
+    t.eq(parsed.logged, true)
+    t.eq(parsed.logged_minutes, 60)
+
+    parsed = entry.parse("08:00 plan !L", "ClientA", "office")
+    t.eq(parsed.logged, true)
+    t.eq(parsed.logged_minutes, nil)
+  end)
+
+  t.test("entry format emits a frozen !L value, bare when absent", function()
+    t.eq(
+      entry.format(
+        { minutes = 480, text = "plan", logged = true, logged_minutes = 60 },
+        nil,
+        nil,
+        nil
+      ),
+      "08:00 plan !L60"
+    )
+    t.eq(
+      entry.format({ minutes = 480, text = "plan", logged = true }, nil, nil, nil),
+      "08:00 plan !L"
+    )
+    -- The frozen value is dropped entirely when the entry is not logged.
+    t.eq(
+      entry.format(
+        { minutes = 480, text = "plan", logged = false, logged_minutes = 60 },
+        nil,
+        nil,
+        nil
+      ),
+      "08:00 plan"
+    )
+  end)
+
+  t.test("entry sanitize_text neutralizes a trailing frozen !L value", function()
+    t.eq(entry.sanitize_text("ship it !L45"), "ship it (!L45)")
+    -- A non-token word that merely starts with the letters is left alone.
+    t.eq(entry.sanitize_text("look at !Llamas"), "look at !Llamas")
+  end)
 end

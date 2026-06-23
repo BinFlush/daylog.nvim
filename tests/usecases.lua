@@ -698,7 +698,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L" },
+          lines = { "08:00 implementation !L60" },
         },
       },
     })
@@ -733,7 +733,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L" },
+          lines = { "08:00 implementation !L60" },
         },
       },
     })
@@ -773,12 +773,12 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L" },
+          lines = { "08:00 implementation !L120" },
         },
         {
           start_index = 3,
           end_index = 4,
-          lines = { "10:00 implementation !L" },
+          lines = { "10:00 implementation !L120" },
         },
       },
     })
@@ -814,7 +814,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L" },
+          lines = { "08:00 implementation !L60" },
         },
       },
     })
@@ -855,7 +855,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 plan #ClientA @office !L" },
+          lines = { "08:00 plan #ClientA @office !L60" },
         },
       },
     })
@@ -1148,7 +1148,7 @@ return function(t)
           {
             start_index = 1,
             end_index = 2,
-            lines = { "08:00 planning !L" },
+            lines = { "08:00 planning !L120" },
           },
         },
       })
@@ -1218,7 +1218,7 @@ return function(t)
           {
             start_index = 6,
             end_index = 7,
-            lines = { "10:17 Q1 features !L" },
+            lines = { "10:17 Q1 features !L45" },
           },
         },
       })
@@ -1250,7 +1250,7 @@ return function(t)
         "09:20 versions",
         "10:12 folksy",
         "    what is he talking about    ",
-        "10:17 Q1 features !L",
+        "10:17 Q1 features !L45",
         "11:01 versions",
         "",
         "--- summary q=15 d=dec ---",

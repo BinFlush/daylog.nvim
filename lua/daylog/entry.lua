@@ -50,8 +50,10 @@ function M.format(entry, current_tag, current_location, current_offset)
     table.insert(parts, syntax.round_nudge_token(entry.nudge))
   end
 
+  -- A frozen committed value (minutes) is emitted as `!L<n>`; a bare `!L` stays
+  -- "logged but unfrozen". The number only ever appears here, never in the summary.
   if entry.logged then
-    table.insert(parts, syntax.LOGGED_TOKEN)
+    table.insert(parts, syntax.logged_token(entry.logged_minutes))
   end
 
   return table.concat(parts, " ")

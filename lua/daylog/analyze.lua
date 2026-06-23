@@ -35,6 +35,7 @@ local function copy_fields(src)
     nudge = src.nudge,
     workday_excluded = src.workday_excluded,
     logged = src.logged,
+    logged_minutes = src.logged_minutes,
   }
 end
 
@@ -118,6 +119,9 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     nudge = node.nudge,
     workday_excluded = resolved.tag == syntax.OUT_OF_OFFICE_TAG,
     logged = node.logged == true,
+    -- A frozen committed value (minutes) rides on the !L marker; per-entry and
+    -- non-sticky like `logged` itself. Only present when the entry carries `!L<n>`.
+    logged_minutes = node.logged_minutes,
   }
 end
 

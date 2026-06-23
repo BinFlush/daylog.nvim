@@ -2,7 +2,9 @@ local analyze = require("daylog.analyze")
 local body = require("daylog.body")
 local diagnostics = require("daylog.diagnostics")
 local document = require("daylog.document")
+local quantize = require("daylog.quantize")
 local render = require("daylog.render")
+local summary = require("daylog.summary")
 local summary_block = require("daylog.summary_block")
 local support = require("daylog.usecases.support")
 local syntax = require("daylog.syntax")
@@ -277,6 +279,52 @@ local function recover_header_edits(analysis)
   return edits
 end
 
+-- A frozen `!L<minutes>` value records what was committed externally, and the
+-- quantizer holds the row there. That stays honest only while it still reconciles
+-- with the log: a value must be a non-negative multiple of the block's q (else it
+-- cannot foot a bucket), and the frozen values together cannot exceed the log's
+-- rounded activity total (else there is no budget left for the un-frozen rows). When
+-- either breaks -- a q change, an edit inside a logged interval, deleted activity --
+-- warn so the user re-runs :DaylogLog to recommit. The summary still renders (the
+-- quantizer re-foots honestly around the stale value); this only surfaces the drift.
+local function frozen_drift_warnings(block)
+  local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+
+  local warnings = {}
+  local frozen_total = 0
+  local activity_total = 0
+
+  for _, row in ipairs(rows) do
+    activity_total = activity_total + (row.unrounded_duration or 0)
+
+    if row.logged_minutes ~= nil then
+      frozen_total = frozen_total + row.logged_minutes
+
+      if row.logged_minutes < 0 or row.logged_minutes % bucket_minutes ~= 0 then
+        local at = row.source_entry_rows and row.source_entry_rows[1]
+        if at then
+          warnings[#warnings + 1] = {
+            row = at,
+            message = string.format(
+              "daylog: a frozen !L value no longer fits q=%d; re-run :DaylogLog to recommit",
+              bucket_minutes
+            ),
+          }
+        end
+      end
+    end
+  end
+
+  if frozen_total > quantize.round_to_nearest_bucket(activity_total, bucket_minutes) then
+    warnings[#warnings + 1] = {
+      row = block.start_row,
+      message = "daylog: frozen !L values exceed this log's rounded total; re-run :DaylogLog to recommit",
+    }
+  end
+
+  return warnings
+end
+
 function M.run(lines)
   local analysis = analyze.analyze(document.parse(lines))
 
@@ -310,6 +358,18 @@ function M.run(lines)
     -- wholesale and rewritten -- nothing inside it is authored -- while the body above
     -- the boundary is left untouched.
     if not analyze.find_block_diagnostic(work_analysis, block) then
+      for _, warning in ipairs(frozen_drift_warnings(block)) do
+        warnings[#warnings + 1] = warning
+      end
+
+      for _, conflict in ipairs(summary.logged_value_conflicts(block.entries)) do
+        warnings[#warnings + 1] = {
+          row = conflict.row,
+          message = "daylog: logged entries for this activity disagree on their "
+            .. "!L value; re-run :DaylogLog to recommit",
+        }
+      end
+
       local region, _, content = support.locate_summary(work_analysis, block)
 
       local body_end, zone_end

@@ -207,4 +207,63 @@ return function(t)
     local _, err = balance.run(lines, row_of(lines, "--- log"), 1)
     t.eq(err, balance.NOT_BALANCEABLE)
   end)
+
+  t.test("balance skips a frozen logged row and lands on an un-frozen one", function()
+    -- plan is logged (frozen at 45) and review is not. Rounding the workday total up
+    -- must leave the committed plan row untouched and mark review instead.
+    local out = run(
+      buffer_with_summary({
+        "--- log #ClientA @office q=15 ---",
+        "08:00 plan !L45",
+        "08:45 review",
+        "09:30 done",
+      }),
+      "workday",
+      1
+    )
+
+    t.eq(out[2], "08:00 plan !L45")
+    t.eq(out[3], "08:45 review round+1")
+    t.eq(out[row_of(out, "(-15m) review")], "1.00h (-15m) review round+1")
+    t.eq(out[row_of(out, "(+0m) plan")], "0.75h (+0m) plan !L")
+  end)
+
+  t.test("balance errors when a round-down leaves only logged items", function()
+    -- fixed is logged (frozen 30); work rounds to one bucket. -2 zeroes work on the
+    -- first step, then has only the frozen row left and refuses rather than touch it.
+    local lines = buffer_with_summary({
+      "--- log #ClientA q=15 ---",
+      "08:00 fixed !L30",
+      "08:30 work",
+      "08:45 done",
+    })
+
+    local _, err = balance.run(lines, row_of(lines, "workday"), -2)
+    t.eq(err, balance.ONLY_LOGGED)
+  end)
+
+  t.test("balance errors on a summary row whose only contributors are logged", function()
+    -- The plan main row is entirely logged, so there is nothing un-frozen to nudge.
+    local lines = buffer_with_summary({
+      "--- log #ClientA q=15 ---",
+      "08:00 plan !L45",
+      "08:45 review",
+      "09:30 done",
+    })
+
+    local _, err = balance.run(lines, row_of(lines, "(+0m) plan"), 1)
+    t.eq(err, balance.ONLY_LOGGED)
+  end)
+
+  t.test("balance refuses a frozen logged entry addressed directly", function()
+    local lines = buffer_with_summary({
+      "--- log #ClientA q=15 ---",
+      "08:00 plan !L45",
+      "08:45 review",
+      "09:30 done",
+    })
+
+    local _, err = balance.run(lines, row_of(lines, "08:00 plan"), 1)
+    t.eq(err, balance.ONLY_LOGGED)
+  end)
 end

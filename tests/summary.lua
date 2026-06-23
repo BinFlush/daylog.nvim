@@ -567,6 +567,80 @@ return function(t)
     end
   )
 
+  t.test("a frozen !L row holds its committed value when a later entry is appended", function()
+    -- The reported bug: logging "logged item" at 1.00h (60m), then appending a
+    -- 2-minute task, used to restate it to 1.25h. Pinning holds it at 60 and the new
+    -- bucket flows to "other task" while the total stays the honest rounded value.
+    local before = summary.summarize_block(block_from_lines({
+      "--- log ---",
+      "00:00 logged item !L60",
+      "01:07 other task",
+    }))
+    t.eq(before.summary_items[1].text, "logged item")
+    t.eq(before.summary_items[1].duration, 60)
+
+    local after = summary.summarize_block(block_from_lines({
+      "--- log ---",
+      "00:00 logged item !L60",
+      "01:07 other task",
+      "01:09 new task",
+    }))
+    -- logged item is unchanged; other task absorbs the leftover bucket.
+    t.eq(after.summary_items[1].text, "logged item")
+    t.eq(after.summary_items[1].duration, 60)
+    t.eq(after.summary_items[1].error_minutes, 7)
+    t.eq(after.summary_items[2].text, "other task")
+    t.eq(after.summary_items[2].duration, 15)
+    t.eq(after.summary_items[2].error_minutes, -13)
+    t.eq(after.activity_total, 75)
+  end)
+
+  t.test("logged_value_conflicts flags entries under one row that disagree on !L", function()
+    -- Two "build" intervals fold into one row; the fold keeps only the first value, so
+    -- disagreeing committed values are a conflict the shell must surface.
+    local block = block_from_lines({
+      "--- log ---",
+      "08:00 build !L60",
+      "09:00 build !L45",
+      "10:00 done",
+    })
+    local conflicts = summary.logged_value_conflicts(block.entries)
+    t.eq(#conflicts, 1)
+    t.eq(conflicts[1].row, 2)
+  end)
+
+  t.test("logged_value_conflicts is quiet when same-row entries agree", function()
+    local agree = block_from_lines({
+      "--- log ---",
+      "08:00 build !L60",
+      "09:00 build !L60",
+      "10:00 done",
+    })
+    t.eq(#summary.logged_value_conflicts(agree.entries), 0)
+
+    -- Different locations are different rows, so per-location values never conflict.
+    local split = block_from_lines({
+      "--- log ---",
+      "08:00 build @here !L60",
+      "09:00 build @there !L30",
+      "09:30 done",
+    })
+    t.eq(#summary.logged_value_conflicts(split.entries), 0)
+  end)
+
+  t.test("a frozen logged row's value sums across its locations", function()
+    -- One activity logged across two locations: each fine-grained row is frozen at
+    -- its own committed duration, and the main row is their sum.
+    local result = summary.summarize_block(block_from_lines({
+      "--- log ---",
+      "08:00 build @here !L60",
+      "09:00 build @there !L30",
+      "09:30 done",
+    }))
+    t.eq(result.summary_items[1].text, "build")
+    t.eq(result.summary_items[1].duration, 90)
+  end)
+
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
       "--- log @office q=30 ---",

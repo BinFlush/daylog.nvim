@@ -38,6 +38,12 @@ local function build_intervals(entries)
       -- The rounding nudge belongs to the entry that starts the interval; it sums
       -- up the fine-grained quantization row this interval folds into.
       nudge = current.nudge,
+      -- A frozen committed value (minutes) rides on the entry that starts the
+      -- interval. Every interval of one fine-grained row carries the same value (the
+      -- row's committed duration), so the fold copies it through, never sums it. Gated
+      -- on `logged` so a value left behind by an in-memory unmark can never freeze a
+      -- now-unlogged row: a frozen value exists only alongside an active !L.
+      logged_minutes = current.logged and current.logged_minutes or nil,
       source_entry_row = current.row,
     })
   end
@@ -54,7 +60,7 @@ local function build_fine_grained_rows(intervals)
   return projection.project_rows(
     intervals,
     { "text", "tag", "location", "workday_excluded", "logged" },
-    { "text", "tag", "location", "workday_excluded", "logged" },
+    { "text", "tag", "location", "workday_excluded", "logged", "logged_minutes" },
     true,
     -- All intervals of one fine-grained row carry that row's single nudge, so fold
     -- by value (max magnitude), not by sum: marking some or all of an activity's
@@ -337,6 +343,56 @@ function M.fine_grained_quantized(entries, quantize_minutes)
 
   local target_total = quantize.round_to_nearest_bucket(activity_total, bucket_minutes)
   return quantize.quantize_rows(unrounded_rows, bucket_minutes, target_total), bucket_minutes
+end
+
+-- Every logged interval that folds into one fine-grained row must carry the same
+-- frozen value: :DaylogLog writes the row's committed total onto each contributing
+-- entry. The fold (build_fine_grained_rows) keeps logged_minutes as a first-seen
+-- field, so disagreeing values -- from a hand edit or a partial operation -- would be
+-- silently collapsed to one. This finds every such row instead, keyed exactly like the
+-- fold (text, tag, location, workday_excluded) within the logged set, so it matches
+-- where the values actually collapse. Returns a list of { row } anchored at the
+-- earliest conflicting entry; the shell turns each into a diagnostic. A bare `!L`
+-- (unfrozen, no value) counts as its own value, so mixing `!L` and `!L60` also conflicts.
+function M.logged_value_conflicts(entries)
+  local groups = {}
+  local order = {}
+
+  for _, interval in ipairs(build_intervals(entries)) do
+    if interval.logged then
+      local key = table.concat({
+        interval.text or "",
+        interval.tag or "",
+        interval.location or "",
+        interval.workday_excluded and "1" or "0",
+      }, "\0")
+
+      local group = groups[key]
+      if not group then
+        group = { row = interval.source_entry_row, values = {}, distinct = 0 }
+        groups[key] = group
+        order[#order + 1] = group
+      end
+
+      local token = interval.logged_minutes == nil and "nil" or tostring(interval.logged_minutes)
+      if not group.values[token] then
+        group.values[token] = true
+        group.distinct = group.distinct + 1
+      end
+      if interval.source_entry_row < group.row then
+        group.row = interval.source_entry_row
+      end
+    end
+  end
+
+  local conflicts = {}
+  for _, group in ipairs(order) do
+    if group.distinct > 1 then
+      conflicts[#conflicts + 1] = { row = group.row }
+    end
+  end
+
+  return conflicts
 end
 
 function M.combine_summaries(summaries)

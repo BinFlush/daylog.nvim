@@ -706,7 +706,7 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- log ---",
-      "08:00 implementation !L",
+      "08:00 implementation !L60",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
@@ -735,7 +735,7 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- log q=30 ---",
-      "08:00 implementation !L",
+      "08:00 implementation !L60",
       "09:00 done",
       "",
       "--- summary q=30 d=dec ---",
@@ -752,7 +752,7 @@ return function(t)
   t.test("log log unmarks an already logged summary row", function()
     t.reset({
       "--- log ---",
-      "08:00 implementation !L",
+      "08:00 implementation !L60",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
@@ -773,6 +773,163 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
     })
+  end)
+
+  t.test("log log merges a newly logged row into an already logged one and sums", function()
+    -- build has one logged interval (frozen 60) and one unlogged (60). Logging the
+    -- unlogged one must combine them into a single 2.00h row, with BOTH entries
+    -- carrying the combined !L120 -- not each keeping its own 60.
+    t.reset({
+      "--- log ---",
+      "08:00 build !L60",
+      "09:00 build",
+      "10:00 done",
+    })
+    vim.cmd("DaylogRefresh")
+
+    local function find(pred)
+      local lines = t.get_lines()
+      for i, line in ipairs(lines) do
+        if pred(line) then
+          return i
+        end
+      end
+    end
+    -- The unlogged "build" summary row: a summary line (not an entry) mentioning build
+    -- without an !L marker.
+    local unlogged_row = find(function(line)
+      return line:find("build", 1, true)
+        and not line:find("!L", 1, true)
+        and not line:match("^%d%d:%d%d")
+    end)
+    t.ok(unlogged_row ~= nil, "expected a separate unlogged build summary row")
+
+    t.set_cursor(unlogged_row, 0)
+    vim.cmd("DaylogLog")
+
+    local out = t.get_lines()
+    t.eq(out[2], "08:00 build !L120")
+    t.eq(out[3], "09:00 build !L120")
+
+    local function has(needle)
+      for _, line in ipairs(out) do
+        if line == needle then
+          return true
+        end
+      end
+      return false
+    end
+    t.ok(has("2.00h (+0m) build !L"), "the merged row reads 2.00h")
+    t.ok(has("2.00h (+0m) logged"), "all of build is now logged")
+    -- No separate unlogged build row survives.
+    t.ok(find(function(line)
+      return line:find("build", 1, true)
+        and not line:find("!L", 1, true)
+        and not line:match("^%d%d:%d%d")
+    end) == nil, "the unlogged build row should be gone")
+  end)
+
+  t.test("log log unmark of a merged row returns the full unlogged time", function()
+    -- Both build intervals are logged at the merged total; unmarking the row clears
+    -- every entry and gives back the whole 2.00h as unlogged.
+    t.reset({
+      "--- log ---",
+      "08:00 build !L120",
+      "09:00 build !L120",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) build !L",
+    })
+    t.set_cursor(7, 0)
+
+    vim.cmd("DaylogLog")
+
+    local out = t.get_lines()
+    t.eq(out[2], "08:00 build")
+    t.eq(out[3], "09:00 build")
+    local function has(needle)
+      for _, line in ipairs(out) do
+        if line == needle then
+          return true
+        end
+      end
+      return false
+    end
+    t.ok(has("2.00h (+0m) build"), "the row is fully unlogged at 2.00h")
+  end)
+
+  t.test("log log freezes a row that survives a later appended entry", function()
+    t.reset({
+      "--- log ---",
+      "00:00 logged item",
+      "01:07 other task",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+7m) logged item",
+    })
+    t.set_cursor(6, 0)
+
+    vim.cmd("DaylogLog")
+    -- The source entry is frozen at its committed 60 minutes (1.00h).
+    t.eq(t.get_lines()[2], "00:00 logged item !L60")
+
+    -- Append a third entry and refresh: largest-remainder alone would restate the
+    -- logged row to 1.25h, but the frozen value holds and the new task absorbs the bucket.
+    local lines = t.get_lines()
+    table.insert(lines, 4, "01:09 new task")
+    t.set_lines(lines)
+    vim.cmd("DaylogRefresh")
+
+    local out = t.get_lines()
+    local function has(needle)
+      for _, l in ipairs(out) do
+        if l == needle then
+          return true
+        end
+      end
+      return false
+    end
+    t.ok(has("1.00h (+7m) logged item !L"), "logged row should still read 1.00h")
+    t.ok(has("0.25h (-13m) other task"), "other task should absorb the leftover bucket")
+    t.ok(has("1.25h (-6m) workday"), "the total stays the honest rounded value")
+  end)
+
+  t.test("DaylogRefresh warns when a frozen !L value no longer fits the bucket", function()
+    t.reset({
+      "--- log ---",
+      "08:00 plan !L7",
+      "09:00 done",
+    })
+
+    vim.cmd("DaylogRefresh")
+
+    local found = false
+    for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
+      if diagnostic.message:match("frozen !L value no longer fits") then
+        found = true
+      end
+    end
+    t.ok(found, "expected a frozen-drift diagnostic for a non-bucket !L value")
+  end)
+
+  t.test("DaylogRefresh warns when same-row logged entries disagree on their !L value", function()
+    t.reset({
+      "--- log ---",
+      "08:00 build !L60",
+      "09:00 build !L45",
+      "10:00 done",
+    })
+
+    vim.cmd("DaylogRefresh")
+
+    local found = false
+    for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
+      if diagnostic.message:match("disagree on their !L value") then
+        found = true
+      end
+    end
+    t.ok(found, "expected a divergent-!L diagnostic")
   end)
 
   t.test(
@@ -818,7 +975,7 @@ return function(t)
         "09:20 versions",
         "10:12 folksy",
         "    what is he talking about    ",
-        "10:17 Q1 features !L",
+        "10:17 Q1 features !L45",
         "11:01 versions",
         "",
         "--- summary q=15 d=dec ---",

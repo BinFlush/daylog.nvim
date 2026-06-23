@@ -21,13 +21,78 @@ local M = {}
 local REFUSE_OOO = "daylog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 
--- Recompute the summary with `logged` toggled on the target source rows, by copying
--- the block's semantic entries and flipping them in memory. This avoids re-parsing
--- the buffer and yields the post-mark summary directly.
-local function rebuilt_summary(block, target_rows, target_logged)
+-- Everything that decides which summary row an interval folds into, except `logged`,
+-- so an about-to-be-logged row can find the already-logged row it will merge with.
+local function activity_key(row)
+  return table.concat({
+    row.text or "",
+    row.tag or "",
+    row.location or "",
+    row.workday_excluded and "1" or "0",
+  }, "\0")
+end
+
+-- The frozen committed value to stamp on each source entry when marking !L. Marking a
+-- row logged merges it with any already-logged row of the same activity, so the new
+-- commitment is the SUM of the two rows' currently displayed durations -- and, because
+-- the value is replicated per row, it must be written onto EVERY entry in the merged
+-- row: the ones logged now AND the ones already logged (whose value grows to the new
+-- total). Computed from the pre-mark summary (rows still separate here), keyed by
+-- source entry row. Returns the map for the target rows and the rows they absorb.
+local function frozen_values(block, target_rows)
+  local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+
+  local logged_by_key = {}
+  for _, row in ipairs(rows) do
+    if row.logged then
+      logged_by_key[activity_key(row)] = row
+    end
+  end
+
+  local frozen = {}
+  for _, row in ipairs(rows) do
+    if not row.logged then
+      local is_target = false
+      for _, source_row in ipairs(row.source_entry_rows or {}) do
+        if target_rows[source_row] then
+          is_target = true
+          break
+        end
+      end
+
+      if is_target then
+        local existing = logged_by_key[activity_key(row)]
+        local combined = row.duration + (existing and existing.duration or 0)
+        for _, source_row in ipairs(row.source_entry_rows or {}) do
+          frozen[source_row] = combined
+        end
+        if existing then
+          for _, source_row in ipairs(existing.source_entry_rows or {}) do
+            frozen[source_row] = combined
+          end
+        end
+      end
+    end
+  end
+
+  return frozen
+end
+
+-- Recompute the summary with `logged` toggled, by copying the block's semantic entries
+-- and flipping them in memory. This avoids re-parsing the buffer and yields the
+-- post-mark summary directly. On mark, every entry the merge touches (in `frozen` --
+-- the newly logged rows and any already-logged row they absorb) takes the combined
+-- value; on unmark the target entries clear both fields so no stale value lingers.
+local function rebuilt_summary(block, target_rows, target_logged, frozen)
   local entries = support.modified_entries(block, function(copy)
-    if target_rows[copy.row] then
-      copy.logged = target_logged
+    if target_logged then
+      if frozen[copy.row] ~= nil then
+        copy.logged = true
+        copy.logged_minutes = frozen[copy.row]
+      end
+    elseif target_rows[copy.row] then
+      copy.logged = false
+      copy.logged_minutes = nil
     end
   end)
 
@@ -80,13 +145,21 @@ function M.run(lines, cursor_row)
     end
   end
 
+  local frozen = target_logged and frozen_values(block, target_rows) or {}
+
   local source_edits = support.rewrite_entry_lines(block, function(entry_item)
-    if target_rows[entry_item.start_row] then
-      return { logged = target_logged }
+    if target_logged then
+      -- `frozen` covers every entry in the merged row: the target entries and any
+      -- already-logged entries absorbed into it, all stamped with the combined total.
+      if frozen[entry_item.start_row] ~= nil then
+        return { logged = true, logged_minutes = frozen[entry_item.start_row] }
+      end
+    elseif target_rows[entry_item.start_row] then
+      return { logged = false }
     end
   end)
 
-  local rebuilt = rebuilt_summary(block, target_rows, target_logged)
+  local rebuilt = rebuilt_summary(block, target_rows, target_logged, frozen)
   local rendered =
     render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
 

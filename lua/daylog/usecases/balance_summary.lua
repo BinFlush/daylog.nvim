@@ -22,9 +22,17 @@ local M = {}
 --
 -- A delta of 0 clears the cursor target's nudge: on a summary row it removes every
 -- marker contributing to that row's scope; on an entry it removes that entry's marker.
+--
+-- Frozen logged rows (`!L<minutes>`) are held at their committed value and the
+-- quantizer ignores any nudge on them, so they are never selectable: a balance step
+-- only ever lands on an un-frozen row. When the only candidates left in scope are
+-- logged -- because every other row has been driven to zero by a round-down, or
+-- because the scope is all logged -- balancing errors rather than no-op, mirroring the
+-- round-down-past-empty refusal.
 
 M.NOT_BALANCEABLE = "daylog: put the cursor on a summary row or an entry to balance its rounding"
 M.CANNOT_DOWN = "daylog: cannot round down further here; the contributing items are already empty"
+M.ONLY_LOGGED = "daylog: cannot balance here; the remaining items are all logged"
 M.NOTHING = "daylog: nothing to balance on this line"
 
 -- The set of fine-grained rows a cursor line governs. A main row scopes its own
@@ -78,14 +86,23 @@ end
 -- has nowhere left to go (every scoped row is already empty).
 local function plan_steps(rows, scope, bucket_minutes, delta)
   local work = {}
+  local has_frozen_in_scope = false
   for i, row in ipairs(rows) do
     local base = math.floor(row.unrounded_duration / bucket_minutes) * bucket_minutes
+    local in_scope = scope(row) and row.source_entry_rows ~= nil and #row.source_entry_rows > 0
+    -- A frozen logged row is held at its committed value and the quantizer ignores a
+    -- nudge on it, so it can never absorb a step; drop it from the candidates but
+    -- remember it was here, so an exhausted balance can report *why* (logged, not empty).
+    if in_scope and row.logged_minutes ~= nil then
+      has_frozen_in_scope = true
+      in_scope = false
+    end
     work[i] = {
       base = base,
       remainder = row.unrounded_duration - base,
       blocks = (row.duration - base) / bucket_minutes,
       anchor = row.source_entry_rows and row.source_entry_rows[1] or nil,
-      in_scope = scope(row) and row.source_entry_rows ~= nil and #row.source_entry_rows > 0,
+      in_scope = in_scope,
     }
   end
 
@@ -114,6 +131,11 @@ local function plan_steps(rows, scope, bucket_minutes, delta)
     end
 
     if not best then
+      -- Nothing left to move. If logged rows are the reason (they were in scope but
+      -- excluded), say so; otherwise the un-frozen candidates are simply at zero.
+      if has_frozen_in_scope then
+        return nil, M.ONLY_LOGGED
+      end
       return nil, M.CANNOT_DOWN
     end
 
@@ -210,6 +232,11 @@ local function entry_direct_changes(block, cursor_row, delta)
   for _, row in ipairs(rows) do
     for _, source_row in ipairs(row.source_entry_rows or {}) do
       if source_row == cursor_row then
+        -- A frozen logged row is fixed; a nudge on it would be ignored by the
+        -- quantizer, so refuse rather than write a marker that does nothing.
+        if delta ~= 0 and row.logged_minutes ~= nil then
+          return nil, M.ONLY_LOGGED
+        end
         local new_nudge = delta == 0 and 0 or (row.nudge or 0) + delta
         local changes = {}
         for _, entry_row in ipairs(row.source_entry_rows) do
@@ -301,9 +328,9 @@ function M.run(lines, cursor_row, delta)
     return nil, ctx_err or M.NOT_BALANCEABLE
   end
 
-  local entry_changes = entry_direct_changes(ctx.block, cursor_row, delta)
+  local entry_changes, direct_err = entry_direct_changes(ctx.block, cursor_row, delta)
   if not entry_changes then
-    return nil, M.NOT_BALANCEABLE
+    return nil, direct_err or M.NOT_BALANCEABLE
   end
   if next(entry_changes) == nil then
     return nil, M.NOTHING

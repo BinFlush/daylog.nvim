@@ -297,6 +297,23 @@ return function(t)
       option_tokens = {},
       invalid_tokens = { "!L" },
     })
+
+    -- A bare and a frozen !L are still two markers; the duplicate guard rejects them.
+    t.eq(
+      document.parse_line("08:04 plan !L !L60").message,
+      "duplicate trailing !L markers are not allowed"
+    )
+  end)
+
+  t.test("document parses a frozen !L value and classifies it as a logged token", function()
+    local node = document.parse_line("08:04 plan !L60")
+    t.eq(node.kind, "entry")
+    t.eq(node.logged, true)
+    t.eq(node.logged_minutes, 60)
+
+    local kind = document.classify_control_token("!L60")
+    t.eq(kind, "logged")
+    t.eq(document.classify_control_token("!Llamas"), nil)
   end)
 
   t.test("document parse marks malformed time-like lines as invalid entries", function()
