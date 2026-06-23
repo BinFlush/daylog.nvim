@@ -10,6 +10,7 @@
 :DaylogRefresh	daylog.txt	/*:DaylogRefresh*
 :DaylogRename	daylog.txt	/*:DaylogRename*
 :DaylogRepeat	daylog.txt	/*:DaylogRepeat*
+:DaylogSplit	daylog.txt	/*:DaylogSplit*
 :DaylogSync	daylog.txt	/*:DaylogSync*
 :DaylogToday	daylog.txt	/*:DaylogToday*
 :DaylogWeek	daylog.txt	/*:DaylogWeek*

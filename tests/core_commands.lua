@@ -691,6 +691,63 @@ return function(t)
     })
   end)
 
+  t.test("DaylogSplit splits the activity under the cursor and rebuilds the summary", function()
+    t.reset({
+      "--- log q=1 d=hm ---",
+      "08:00 meeting",
+      "10:00 done",
+      "",
+      "--- summary q=1 d=hm ---",
+      "2:00 (+0m) meeting",
+      "",
+      "--- totals ---",
+      "2:00 (+0m) workday",
+    })
+    t.set_cursor(6, 0)
+
+    vim.cmd("DaylogSplit 3 1")
+
+    local out = t.get_lines()
+    t.eq(out[2], "08:00 meeting (1)")
+    t.eq(out[3], "09:30 meeting (2)")
+    t.eq(out[4], "10:00 done")
+    local function has(needle)
+      for _, l in ipairs(out) do
+        if l == needle then
+          return true
+        end
+      end
+      return false
+    end
+    t.ok(has("1:30 (+0m) meeting (1)"), "part 1 is 90 minutes")
+    t.ok(has("0:30 (+0m) meeting (2)"), "part 2 is 30 minutes")
+    t.ok(has("2:00 (+0m) workday"), "the workday total is preserved")
+  end)
+
+  t.test("DaylogSplit warns on a bad weight without editing", function()
+    t.reset({
+      "--- log q=1 d=hm ---",
+      "08:00 meeting",
+      "10:00 done",
+      "",
+      "--- summary q=1 d=hm ---",
+      "2:00 (+0m) meeting",
+      "",
+      "--- totals ---",
+      "2:00 (+0m) workday",
+    })
+    t.set_cursor(6, 0)
+    local before = t.get_lines()
+
+    with_captured_notify(function(messages)
+      vim.cmd("DaylogSplit 2 0")
+      t.eq(#messages, 1)
+      t.ok(messages[1].message:match("split weights must be positive"), "warns on the zero weight")
+    end)
+
+    t.eq(t.get_lines(), before)
+  end)
+
   t.test("log log marks the source entry behind an unrounded summary row", function()
     t.reset({
       "--- log ---",

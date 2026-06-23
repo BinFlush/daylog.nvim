@@ -172,6 +172,12 @@ function M.register(api)
     nargs = "?",
   })
 
+  ensure_user_command("DaylogSplit", function(args)
+    api.split(args.fargs)
+  end, {
+    nargs = "*",
+  })
+
   ensure_user_command("DaylogRefresh", function()
     api.refresh()
   end)

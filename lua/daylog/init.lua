@@ -16,6 +16,7 @@ local sources_http = require("daylog.sources.http")
 local sources_picker = require("daylog.sources.picker")
 local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
+local split_summary = require("daylog.usecases.split_summary")
 local support = require("daylog.usecases.support")
 local report_buffers = require("daylog.report")
 
@@ -237,6 +238,29 @@ function M.balance(arg)
   end
 
   run_buffer_usecase(balance_summary.run, cursor_row(), delta)
+end
+
+-- Split the activity under the cursor into weighted sub-activities. `fargs` is the
+-- raw command argument list: each is a positive weight, and their count is the number
+-- of parts (none means an even two-way split). The total time is preserved.
+function M.split(fargs)
+  local weights = {}
+
+  for _, arg in ipairs(fargs or {}) do
+    local w = tonumber(arg)
+    if w == nil or w <= 0 then
+      warn("daylog: split weights must be positive numbers, e.g. :DaylogSplit 2 1 1")
+      return
+    end
+    weights[#weights + 1] = w
+  end
+
+  if #weights == 1 then
+    warn("daylog: DaylogSplit needs at least two weights, or none for an even split")
+    return
+  end
+
+  run_buffer_usecase(split_summary.run, cursor_row(), weights)
 end
 
 -- Rebuild every existing summary in the current buffer to match its entries.

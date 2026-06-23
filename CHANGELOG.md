@@ -24,6 +24,15 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **`:DaylogSplit` command**. Split the activity on the summary row under the cursor into
+  several sub-activities — `foo (1)`, `foo (2)`, … — dividing its time by an optional
+  (unnormalized) weight vector whose length sets the number of parts (no args = even
+  two-way split). Each interval is cut into consecutive sub-intervals (the starting entry
+  renamed, the rest inserted, all inheriting the original's tag/location/utc offset), and
+  the total time is preserved exactly. An interval too short to give every part a whole
+  minute splits into fewer parts, with the shortfall compensated across the activity's
+  longer intervals so each sub-activity's total tracks its weighted share. Logged
+  activities cannot be split.
 - **Frozen logged values (`!L<minutes>`)**. `:DaylogLog` now records the committed
   duration on the marked entry as `!L<minutes>` (e.g. `!L60`), and the quantizer holds
   that row at exactly that value while excluding it from the largest-remainder pool.

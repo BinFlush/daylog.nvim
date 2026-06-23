@@ -572,6 +572,29 @@ partition that foots to its total.
   logged -- the command refuses rather than touch a committed value.
 - The cursor must be on the active log's summary or one of its entries.
 
+                                                        *:DaylogSplit*
+:DaylogSplit [w1 w2 ...]
+
+Split the activity on the summary row under the cursor into several
+sub-activities, named `foo (1)`, `foo (2)`, ..., dividing its time by an
+(unnormalized) weight vector. The arguments are the weights and their count is the
+number of parts; with no arguments the activity is split evenly in two. The
+original total time is preserved -- only the breakdown changes -- so the day still
+foots.
+
+- Each of the activity's intervals is cut into consecutive sub-intervals: the
+  starting entry is renamed `foo (1)` and the rest are inserted at interior times,
+  all inheriting its tag, location, and utc offset. The next entry closes the last
+  part.
+- Time is split by whole minutes. An interval too short to give every part a minute
+  splits into fewer parts; the unmet share is compensated in the activity's longer
+  intervals, so each sub-activity's total across the day stays as close as possible
+  to its weighted share. A part whose total share rounds to zero does not appear.
+- Logged activities cannot be split (their time is committed to an external
+  system); the command refuses. `#ooo` activities can be split.
+- The summary is rebuilt, showing the new sub-activities in place of the original.
+- The cursor must be on a main summary row of the active log.
+
                                                         *:DaylogRefresh*
 :DaylogRefresh
 
