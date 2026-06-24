@@ -6,6 +6,7 @@ return function(t)
     local reports = {
       start = {},
       ok = {},
+      info = {},
       warn = {},
       error = {},
     }
@@ -31,6 +32,9 @@ return function(t)
       ok = function(message)
         table.insert(reports.ok, message)
       end,
+      info = function(message)
+        table.insert(reports.info, message)
+      end,
       warn = function(message, advice)
         table.insert(reports.warn, {
           message = message,
@@ -53,6 +57,9 @@ return function(t)
       end,
       report_ok = function(message)
         table.insert(reports.ok, message)
+      end,
+      report_info = function(message)
+        table.insert(reports.info, message)
       end,
       report_warn = function(message, advice)
         table.insert(reports.warn, {
@@ -111,6 +118,15 @@ return function(t)
     t.ok(includes(reports.ok, ":DaylogRefresh is available"))
     t.ok(includes(reports.ok, "example.day detects as daylog"))
     t.ok(includes(reports.ok, ":help daylog.nvim is available"))
+    t.ok(includes(reports.start, "Pickers"))
+    -- Telescope is not on the test runtimepath, so the picker section takes the
+    -- fallback branch (an info note, never a warning or error).
+    t.ok(
+      includes(
+        reports.info,
+        "Telescope is not installed (using the vim.ui.select fallback -- fully functional)"
+      )
+    )
   end)
 
   t.test("health check supports legacy health api", function()

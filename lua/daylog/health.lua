@@ -20,6 +20,14 @@ local function ok(message)
   end
 end
 
+local function info(message)
+  if vim.health and vim.health.info then
+    vim.health.info(message)
+  else
+    vim.health.report_info(message)
+  end
+end
+
 local function warn(message, advice)
   if vim.health and vim.health.warn then
     vim.health.warn(message, advice)
@@ -115,6 +123,16 @@ function M.check()
     warn(":help daylog.nvim is unavailable", {
       "Run :helptags doc or just helptags.",
     })
+  end
+
+  -- Telescope is optional: it enables live whole-tracker search in the source,
+  -- rename, and map pickers. Without it the pickers fall back to vim.ui.select
+  -- (fzf-lua / snacks / mini.pick included) -- fully functional, just no live search.
+  start("Pickers")
+  if pcall(require, "telescope") then
+    ok("Telescope is installed (live whole-tracker search for sources, rename, and map)")
+  else
+    info("Telescope is not installed (using the vim.ui.select fallback -- fully functional)")
   end
 
   -- Report every registered source -- built-in (declared in config) and custom

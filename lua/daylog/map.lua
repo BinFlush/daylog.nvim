@@ -1,5 +1,6 @@
 local buffer = require("daylog.buffer")
 local config = require("daylog.config")
+local pick = require("daylog.pick")
 local map_summary = require("daylog.usecases.map_summary")
 local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
@@ -105,50 +106,24 @@ function M.summary(value, source_name)
     return
   end
 
+  -- The shared picker shell uses Telescope when installed and vim.ui.select
+  -- otherwise: pick a source work-item (map onto its entry text) or type a label.
   local function open_picker(items)
-    local function pick_item(item)
-      apply_map(source.to_entry_text(item))
-    end
-
-    if pcall(require, "telescope") then
-      require("daylog.telescope").rename_pick({
-        candidates = {},
-        prompt = "Daylog: map to source  (<CR> pick, <C-e> type a label)",
-        on_pick = apply_map,
-        on_create = apply_map,
-        source = source,
-        initial_items = items,
-        min_query = ((config.get().sources or {})[src_name] or {}).min_query,
-        on_pick_item = pick_item,
-      })
-      return
-    end
-
-    local TYPE_NEW = {}
-    local choices = {}
-    for _, item in ipairs(items or {}) do
-      choices[#choices + 1] = item
-    end
-    choices[#choices + 1] = TYPE_NEW
-
-    vim.ui.select(choices, {
-      prompt = "Daylog: map to source",
-      format_item = function(choice)
-        if choice == TYPE_NEW then
-          return "✎ Type a label…"
-        end
-        return source.format_item(choice)
+    pick.rename({
+      candidates = {},
+      source = source,
+      source_name = src_name,
+      initial_items = items,
+      prompt = "Daylog: map to source  (<CR> pick, <C-e> type a label)",
+      prompt_fallback = "Daylog: map to source",
+      type_new_label = "✎ Type a label…",
+      on_pick = apply_map,
+      on_create = apply_map,
+      on_pick_item = function(item)
+        apply_map(source.to_entry_text(item))
       end,
-    }, function(choice)
-      if not choice then
-        return
-      end
-      if choice == TYPE_NEW then
-        prompt()
-        return
-      end
-      apply_map(source.to_entry_text(choice))
-    end)
+      on_type_new = prompt,
+    })
   end
 
   local ttl = ((config.get().sources or {})[src_name] or {}).ttl or 1800

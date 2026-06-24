@@ -13,8 +13,8 @@ local refresh_summaries = require("daylog.usecases.refresh_summaries")
 local map = require("daylog.map")
 local rename = require("daylog.rename")
 local repeat_current = require("daylog.usecases.repeat_current")
+local pick = require("daylog.pick")
 local sources_http = require("daylog.sources.http")
-local sources_picker = require("daylog.sources.picker")
 local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
 local split_summary = require("daylog.usecases.split_summary")
@@ -123,41 +123,21 @@ function M.insert_from_source(name)
     apply_insert_entry(time, source.to_entry_text(item))
   end
 
-  local has_telescope = pcall(require, "telescope")
-
   sources_sync.ensure_fresh(name, ttl, function(items)
     -- With Telescope and a searchable source, type-as-you-search across the whole
-    -- tracker (cached items show at an empty prompt). Otherwise the offline cache
-    -- via vim.ui.select. Both insert through insert_choice; cancelling leaves a
-    -- bare timestamp, like a plain :DaylogInsert.
-    if has_telescope and source.search then
-      require("daylog.telescope").live_pick(source, {
-        initial_items = items,
-        prompt = "Daylog: " .. name,
-        min_query = sources[name] and sources[name].min_query,
-        on_pick = insert_choice,
-        on_cancel = function()
-          apply_insert_time(time)
-        end,
-      })
-      return
-    end
-
-    -- Resolve each item's display through the shared source display contract
-    -- (aligned columns when the source supports it, else per-item formatting).
-    local display = sources_picker.display_for(source, items)
-
-    vim.ui.select(items, {
-      prompt = "Daylog: pick " .. name .. " item",
-      format_item = display,
-    }, function(choice)
-      if not choice then
+    -- tracker (cached items show at an empty prompt); otherwise the offline cache via
+    -- vim.ui.select. Both insert through insert_choice; cancelling leaves a bare
+    -- timestamp, like a plain :DaylogInsert.
+    pick.item(source, {
+      source_name = name,
+      initial_items = items,
+      prompt = "Daylog: " .. name,
+      prompt_fallback = "Daylog: pick " .. name .. " item",
+      on_pick = insert_choice,
+      on_cancel = function()
         apply_insert_time(time)
-        return
-      end
-
-      insert_choice(choice)
-    end)
+      end,
+    })
   end)
 end
 

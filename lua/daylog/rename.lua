@@ -1,5 +1,6 @@
 local buffer = require("daylog.buffer")
 local config = require("daylog.config")
+local pick = require("daylog.pick")
 local daybook_io = require("daylog.daybook_io")
 local render = require("daylog.render")
 local report_buffers = require("daylog.report")
@@ -123,77 +124,32 @@ function M.summary(new_value, source_name)
 
   local picker_prompt = string.format("Daylog: rename/merge %s", label)
 
-  -- Open the picker over the merge candidates plus any source items; both a
-  -- Telescope picker and the vim.ui.select fallback let you pick a candidate (a
-  -- merge), a source item (replace with its entry text), or type a fresh name.
+  -- Open the picker over the merge candidates plus any source items; the shared
+  -- picker shell uses Telescope when installed and vim.ui.select otherwise, letting
+  -- you pick a candidate (a merge), a source item (replace with its entry text), or
+  -- type a fresh name.
   local function open_picker(items)
-    local function pick_item(item)
-      apply_rename(source.to_entry_text(item))
-    end
-
-    if pcall(require, "telescope") then
-      local min_query
-      if source then
-        min_query = ((config.get().sources or {})[src_name] or {}).min_query
-      end
-
-      require("daylog.telescope").rename_pick({
-        candidates = target.candidates,
-        prompt = picker_prompt
-          .. (source and "/source  (<CR> pick, <C-e> new name)" or "  (<CR> merge, <C-e> new name)"),
-        on_pick = apply_rename,
-        on_create = apply_rename,
-        source = source,
-        initial_items = items,
-        min_query = min_query,
-        on_pick_item = source and pick_item or nil,
-      })
-      return
-    end
-
-    local TYPE_NEW = {}
-    local choices = {}
-    for _, value in ipairs(target.candidates) do
-      choices[#choices + 1] = value
-    end
-    if source and items then
-      for _, item in ipairs(items) do
-        choices[#choices + 1] = item
+    local on_pick_item
+    if source then
+      on_pick_item = function(item)
+        apply_rename(source.to_entry_text(item))
       end
     end
-    choices[#choices + 1] = TYPE_NEW
 
-    -- Nothing to choose but "type a new name": just prompt.
-    if #choices == 1 then
-      prompt_for_name()
-      return
-    end
-
-    vim.ui.select(choices, {
-      prompt = picker_prompt,
-      format_item = function(choice)
-        if choice == TYPE_NEW then
-          return "✎ Type a new name…"
-        end
-        if type(choice) == "table" then
-          return source.format_item(choice)
-        end
-        return choice
-      end,
-    }, function(choice)
-      if not choice then
-        return
-      end
-      if choice == TYPE_NEW then
-        prompt_for_name()
-        return
-      end
-      if type(choice) == "table" then
-        apply_rename(source.to_entry_text(choice))
-        return
-      end
-      apply_rename(choice)
-    end)
+    pick.rename({
+      candidates = target.candidates,
+      source = source,
+      source_name = src_name,
+      initial_items = items,
+      prompt = picker_prompt
+        .. (source and "/source  (<CR> pick, <C-e> new name)" or "  (<CR> merge, <C-e> new name)"),
+      prompt_fallback = picker_prompt,
+      type_new_label = "✎ Type a new name…",
+      on_pick = apply_rename,
+      on_create = apply_rename,
+      on_pick_item = on_pick_item,
+      on_type_new = prompt_for_name,
+    })
   end
 
   -- With no merge targets and no source, the plain rename prompt.
