@@ -762,8 +762,20 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
       matches before any local cap -- so the picker can flag a truncated set.
       Omit search to filter only the cached items.
 
-An `item` is a table: `id` and `title` are required; `type`, `state`, `project`,
-and `url` are optional (shown in the default picker line).
+An `item` is a table. `id` and `title` are required; `type`, `state`, `active`,
+`updated`, and `url` are optional. `id` is both the cache key and the ranking
+key; `active` (a normalized open / not-done flag) and `updated` (an ISO-8601
+timestamp) feed item ordering, so populate them when cheap. `type`, `state`, and
+`url` are for display, and a source may carry extra fields of its own (the
+built-in Azure DevOps source adds `project`).
+
+A good `fetch` returns your relevant work: the broadest reasonable "involves me"
+-- assigned, created, mentioned, or watching, as the tracker allows -- that is
+active and recently updated, not tied to a single project/repo where the API can
+query wider. Let users override the scope with whatever their tracker speaks (a
+raw query, a saved query, a filter); there is intentionally no generic
+cross-source query knob, because query languages differ. The design rationale
+and a per-tracker comparison (Jira, GitHub, Linear) live in docs/integrations.md.
 
 A registered source gets the same cache, background refresh, live search, picker,
 completion, and |:checkhealth| listing as a built-in, and |:DaylogSync| {name}

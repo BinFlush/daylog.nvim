@@ -12,7 +12,8 @@ local M = {}
 
 -- Comma-separated field list and id list are passed literally (safe constants /
 -- digits); only opaque path segments are percent-encoded.
-local WORKITEM_FIELDS = "System.Id,System.Title,System.WorkItemType,System.State,System.TeamProject"
+local WORKITEM_FIELDS =
+  "System.Id,System.Title,System.WorkItemType,System.State,System.TeamProject,System.ChangedDate"
 local MAX_ITEMS = 200
 
 local function encode_segment(segment)
@@ -124,6 +125,8 @@ function M.new(_name, cfg, deps)
             title = fields["System.Title"] or "",
             type = fields["System.WorkItemType"],
             state = fields["System.State"],
+            -- A recency signal for the (cross-source) ranker; ADO returns ISO-8601.
+            updated = fields["System.ChangedDate"],
             project = fields["System.TeamProject"],
             url = work_item.url,
           })

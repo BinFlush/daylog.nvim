@@ -8,12 +8,29 @@ local M = {}
 -- injects an async transport, a JSON codec, and a token resolver; the resulting
 -- source objects (which hold functions) are registered here for lookup by name.
 -- Custom (third-party) sources are registered directly via M.register.
+--
+-- Conventions (documented, not enforced -- see docs/integrations.md for the why):
+--   * fetch returns YOUR RELEVANT WORK -- the broadest reasonable "involves me"
+--     (assigned/created/mentioned/watching, as the API allows) that is active and
+--     recently updated, container-optional (org-wide where supported, so a project/team
+--     restructure cannot silently drop work), ordered newest-first and capped.
+--   * Scope overrides are the source's OWN config (a WIQL/JQL string, a saved-query id,
+--     a search string, a GraphQL filter) -- there is intentionally no generic cross-source
+--     "query" or "saved_query" knob, because query languages and saved queries are not
+--     universal (Linear/GraphQL has no string DSL; GitHub/Linear expose no saved-query id).
+--   * search is optional: the offline cache + client-side fuzzy is the primary picker.
 
+-- The core only consumes id (cache/rank), active, and updated (rank); type/state/url are
+-- for display, and a source may carry its own extra domain fields (e.g. azure_devops adds
+-- `project`) for its format_item/template.
 ---@class DaylogItem
----@field id string|number Stable work-item id (required).
+---@field id string|number Stable work-item id (required). Cache-dedup key and worklog-ranking key.
 ---@field title string Work-item title (required).
 ---@field type? string e.g. "Bug"/"Task" (optional; shown in the picker).
----@field state? string e.g. "Active"/"Closed" (optional; shown in the picker).
+---@field state? string Raw status name (optional; shown in the picker).
+---@field active? boolean Normalized "open/working" -- NOT done/closed/cancelled (optional). Derive
+---  it from the tracker's status *category* so ranking/filtering ignores custom workflow names.
+---@field updated? string ISO-8601 last-updated timestamp (optional). Generic recency signal; lexically orderable.
 ---@field url? string Link to the item in the tracker (optional).
 
 ---@class DaylogSource

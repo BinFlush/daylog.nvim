@@ -57,6 +57,7 @@ return function(t)
                 ["System.Title"] = "Fix login",
                 ["System.WorkItemType"] = "Bug",
                 ["System.State"] = "Active",
+                ["System.ChangedDate"] = "2026-06-20T08:00:00Z",
               },
             },
             {
@@ -65,6 +66,7 @@ return function(t)
                 ["System.Title"] = "Docs",
                 ["System.WorkItemType"] = "Task",
                 ["System.State"] = "New",
+                ["System.ChangedDate"] = "2026-06-19T10:00:00Z",
               },
             },
           },
@@ -80,8 +82,15 @@ return function(t)
 
     t.eq(result.err, nil)
     t.eq(result.items, {
-      { id = "1234", title = "Fix login", type = "Bug", state = "Active" },
-      { id = "42", title = "Docs", type = "Task", state = "New" },
+      -- `updated` (System.ChangedDate, ISO-8601) is carried for the cross-source ranker.
+      {
+        id = "1234",
+        title = "Fix login",
+        type = "Bug",
+        state = "Active",
+        updated = "2026-06-20T08:00:00Z",
+      },
+      { id = "42", title = "Docs", type = "Task", state = "New", updated = "2026-06-19T10:00:00Z" },
     })
 
     -- The PAT only ever appears in the request credentials, never in an item.
