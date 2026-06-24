@@ -70,6 +70,21 @@ function M.display_for(source, items)
   end
 end
 
+-- The byte range of the trailing metadata in a picker display line -- everything after the leading
+-- rendered name (`text`, what gets inserted) -- as `start, finish` (0-based, end-exclusive, ready
+-- for a Telescope highlight / nvim_buf_add_highlight). Returns nil when there is nothing to dim: an
+-- activity row (display == text) or a source whose display does not lead with the rendered name.
+-- PURE.
+function M.meta_range(display, text)
+  if not text or text == "" then
+    return nil
+  end
+  if #display <= #text or display:sub(1, #text) ~= text then
+    return nil
+  end
+  return #text, #display
+end
+
 -- Whether a prompt change should trigger a fresh server search: at least min_len
 -- characters and different from the last query we issued. min_len gates the
 -- network so short, broad prompts only filter the cached pool client-side; it

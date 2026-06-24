@@ -17,6 +17,27 @@ local M = {}
 
 local DEBOUNCE_MS = 250
 
+-- The picker dims the trailing item metadata (everything after the rendered name) so the name pops
+-- and items read distinctly from the plain activity rows. The group links to Comment by default;
+-- override it with `:hi DaylogPickerMeta ...`. Re-set on each open so it survives a colourscheme
+-- change without clobbering a user override (default = true).
+local function ensure_meta_hl()
+  vim.api.nvim_set_hl(0, "DaylogPickerMeta", { link = "Comment", default = true })
+end
+
+-- A Telescope entry display for one picker line: a plain string, or -- when the line leads with the
+-- rendered `text` and carries trailing metadata -- a function that dims that metadata range. The
+-- ordinal stays the full line, so fuzzy match still searches the metadata.
+local function display_fn(display, text)
+  local s, e = picker_helpers.meta_range(display, text)
+  if not s then
+    return display
+  end
+  return function()
+    return display, { { { s, e }, "DaylogPickerMeta" } }
+  end
+end
+
 -- Shared debounced live-search controller for the source-backed pickers.
 --
 -- Telescope's input hook fires on every prompt change; this drives a debounced
@@ -85,6 +106,7 @@ end
 --         prompt = string|nil, theme = table|nil, min_query = number|nil }
 function M.live_pick(source, opts)
   opts = opts or {}
+  ensure_meta_hl()
 
   local pickers = require("telescope.pickers")
   local finders = require("telescope.finders")
@@ -112,7 +134,11 @@ function M.live_pick(source, opts)
       results = items,
       entry_maker = function(item)
         local line = display(item)
-        return { value = item, display = line, ordinal = line }
+        return {
+          value = item,
+          display = display_fn(line, source.to_entry_text(item)),
+          ordinal = line,
+        }
       end,
     })
   end
@@ -180,6 +206,8 @@ end
 -- opts: { on_choose = fn(text), on_create = fn(typed), on_cancel = fn()|nil, prompt = string|nil,
 --         theme = table|nil }
 function M.choose(rows, opts)
+  ensure_meta_hl()
+
   local pickers = require("telescope.pickers")
   local finders = require("telescope.finders")
   local conf = require("telescope.config").values
@@ -191,7 +219,7 @@ function M.choose(rows, opts)
     finder = finders.new_table({
       results = rows,
       entry_maker = function(row)
-        return { value = row, display = row.display, ordinal = row.display }
+        return { value = row, display = display_fn(row.display, row.text), ordinal = row.display }
       end,
     }),
     sorter = conf.generic_sorter({}),

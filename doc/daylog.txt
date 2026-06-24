@@ -739,6 +739,11 @@ your cached items with client-side fuzzy filtering; without it, the offline
 `vim.ui.select` cache picker (so fzf-lua / snacks / mini.pick work too). Either
 way picking is offline.
 
+In the Telescope picker each item shows the inserted text (`{id} {title}`) first,
+then its `[type/state]` and project trailing, dimmed via the `DaylogPickerMeta`
+highlight group (linked to `Comment` by default; override with
+`:hi DaylogPickerMeta ...`). Fuzzy matching still searches the dimmed metadata.
+
 Live as-you-type tracker search is opt-in -- set `search = true` on the source. It
 then queries the tracker on each keystroke (debounced, once the prompt reaches
 `min_query` characters) and merges matches into your cached items. The Azure DevOps
