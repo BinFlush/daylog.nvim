@@ -525,10 +525,14 @@ Toggle the logged state of the main summary row under the cursor.
                                                         *:DaylogRename*
 :DaylogRename [name|source]
 
-Rename what the summary row under the cursor stands for, propagating into the
-attached log and rebuilding its summary.
+Rename what the row -- or the single entry -- under the cursor stands for,
+propagating into the attached log and rebuilding its summary.
 
 - On a main summary row, the activity text of its source entries is renamed.
+- On an entry line, only that one entry's activity text is renamed -- its
+  same-named siblings are left alone -- through the same picker / prompt as a
+  main row (seeded with that entry's text, offering the other activities and any
+  source items).
 - On a tag-total row, that `#tag` is renamed everywhere it is effective -- the
   log header and the explicit tokens that named it. Entries that only
   inherited the tag are left untouched and follow the rename automatically.

@@ -25,7 +25,8 @@ local M = {}
 -- the new one from the same (rewritten) source -- so unrelated lines are left
 -- untouched. Only lines whose canonical rendering actually changes are edited.
 
-M.NOT_A_ROW = "daylog: put the cursor on a summary item, tag, or location row to rename it"
+M.NOT_A_ROW =
+  "daylog: put the cursor on an entry, or a summary item, tag, or location row, to rename it"
 M.CANNOT_TOTALS = "daylog: a totals row cannot be renamed"
 M.CANNOT_UNTAGGED = "daylog: the (untagged) group cannot be renamed; tag the entries first"
 M.CANNOT_NO_LOCATION =
@@ -65,8 +66,7 @@ end
 -- other tag/location totals; an activity offers the other activity texts under the
 -- same tag (so picking one actually merges -- the rename keeps the tag). The current
 -- value and the placeholder buckets (nil tag/location) are excluded.
-local function merge_candidates(result, kind, current)
-  local recomputed = result.recomputed
+local function merge_candidates(recomputed, kind, current, current_tag)
   local seen = {}
   local candidates = {}
 
@@ -86,7 +86,6 @@ local function merge_candidates(result, kind, current)
       add(item.location)
     end
   else
-    local current_tag = result.layout_row.item.tag
     for _, item in ipairs(recomputed.summary_items or {}) do
       if item.tag == current_tag then
         add(item.text)
@@ -97,17 +96,18 @@ local function merge_candidates(result, kind, current)
   return candidates
 end
 
--- The shared description behind an activity row's source entries, or nil when they
--- disagree. An aliased row is labeled by its alias (` => label`), but rename edits the
--- description, so the prompt should default to that description rather than the alias.
-local function source_description(result)
+-- The shared description behind a set of source entries, or nil when they disagree. An
+-- aliased row is labeled by its alias (` => label`), but rename edits the description, so
+-- the prompt should default to that description rather than the alias. For a single entry
+-- this is just that entry's text.
+local function source_description(block, source_entry_rows)
   local rows = {}
-  for _, row in ipairs(result.layout_row.item.source_entry_rows or {}) do
+  for _, row in ipairs(source_entry_rows or {}) do
     rows[row] = true
   end
 
   local text
-  for _, semantic_entry in ipairs(result.ctx.block.entries) do
+  for _, semantic_entry in ipairs(block.entries) do
     if rows[semantic_entry.row] then
       if text == nil then
         text = semantic_entry.text
@@ -120,30 +120,78 @@ local function source_description(result)
   return text
 end
 
+-- Resolve the cursor to a rename context: a summary row (item / tag / location total) or,
+-- when the cursor sits on an entry in the active log, that single entry as an item rename
+-- scoped to just it. Returns { ctx, region, recomputed, item, target } or nil, err. `item`
+-- carries `source_entry_rows`; `target` is { kind, current, tag? }.
+local function resolve_context(lines, cursor_row)
+  local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
+  if result then
+    local target, classify_err = M.classify(result.layout_row)
+    if not target then
+      return nil, classify_err
+    end
+    return {
+      ctx = result.ctx,
+      region = result.region,
+      recomputed = result.recomputed,
+      item = result.layout_row.item,
+      target = target,
+    }
+  end
+
+  -- In the summary region but not on a selectable row -- surface that, don't reinterpret
+  -- the cursor as an entry.
+  if resolve_err then
+    return nil, resolve_err
+  end
+
+  local ctx, ctx_err = support.get_validated_active(lines)
+  if not ctx then
+    return nil, ctx_err or M.NOT_A_ROW
+  end
+
+  for _, entry_item in ipairs(ctx.block.entry_items) do
+    if entry_item.start_row == cursor_row then
+      local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
+      return {
+        ctx = ctx,
+        region = region,
+        recomputed = recomputed,
+        item = {
+          text = entry_item.text,
+          tag = entry_item.tag,
+          source_entry_rows = { cursor_row },
+        },
+        target = { kind = "item", current = entry_item.text or "", tag = entry_item.tag },
+      }
+    end
+  end
+
+  return nil, M.NOT_A_ROW
+end
+
 -- Resolve the cursor to a rename target for the shell to prompt with: { kind,
 -- current, candidates }. `candidates` are the other same-kind values to merge into.
 -- Unlike the raw summary_cursor.resolve, every failure carries a user-facing message.
 function M.resolve(lines, cursor_row)
-  local result, err = summary_cursor.resolve(lines, cursor_row)
-  if not result then
-    return nil, err or M.NOT_A_ROW
+  local context, err = resolve_context(lines, cursor_row)
+  if not context then
+    return nil, err
   end
 
-  local target, classify_err = M.classify(result.layout_row)
-  if not target then
-    return nil, classify_err
-  end
+  local target = context.target
 
   -- Prompt with the entries' own description (rename edits `a`, the description), not the
   -- alias the row is labeled by; fall back to the label when the descriptions disagree.
   if target.kind == "item" then
-    local description = source_description(result)
+    local description = source_description(context.ctx.block, context.item.source_entry_rows)
     if description ~= nil then
       target.current = description
     end
   end
 
-  target.candidates = merge_candidates(result, target.kind, target.current)
+  target.candidates = merge_candidates(context.recomputed, target.kind, target.current, target.tag)
   return target
 end
 
@@ -319,15 +367,19 @@ local function build_rename(block, region, item, target, new_value)
     end
   end
 
-  -- Rebuild the one summary from the renamed entries and replace it in place.
-  local rebuilt = summary.summarize_entries(renamed_entrys, block.quantize_minutes)
-  local rendered =
-    render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
-  table.insert(edits, {
-    start_index = region.start_row - 1,
-    end_index = region.end_row - 1,
-    lines = rendered,
-  })
+  -- Rebuild the one summary from the renamed entries and replace it in place. A renamed
+  -- single entry can sit in a log with no summary block yet; then there is nothing to
+  -- rebuild (a later refresh creates it) and only the source edit applies.
+  if region then
+    local rebuilt = summary.summarize_entries(renamed_entrys, block.quantize_minutes)
+    local rendered =
+      render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
+    table.insert(edits, {
+      start_index = region.start_row - 1,
+      end_index = region.end_row - 1,
+      lines = rendered,
+    })
+  end
 
   -- The summary rebuild targets higher rows than the source edits, so apply
   -- highest-first to avoid index drift when the summary changes size.
@@ -366,17 +418,12 @@ local function find_target_item(recomputed, target)
 end
 
 function M.run(lines, cursor_row, new_value)
-  local result, err = summary_cursor.resolve(lines, cursor_row)
-  if not result then
-    return nil, err or M.NOT_A_ROW
+  local context, err = resolve_context(lines, cursor_row)
+  if not context then
+    return nil, err
   end
 
-  local target, classify_err = M.classify(result.layout_row)
-  if not target then
-    return nil, classify_err
-  end
-
-  return build_rename(result.ctx.block, result.region, result.layout_row.item, target, new_value)
+  return build_rename(context.ctx.block, context.region, context.item, context.target, new_value)
 end
 
 -- Rename by value rather than by cursor: act on the active log's summary item

@@ -35,6 +35,15 @@ return function(t)
     return apply(lines, result)
   end
 
+  local function has(lines, line)
+    for _, l in ipairs(lines) do
+      if l == line then
+        return true
+      end
+    end
+    return false
+  end
+
   t.test("rename an activity row rewrites its source entries and the summary", function()
     local out = rename({
       "--- log ---",
@@ -386,7 +395,8 @@ return function(t)
     t.eq(err, "daylog: the new name matches the current name")
   end)
 
-  t.test("rename refuses when the cursor is not on a summary row", function()
+  t.test("rename refuses when the cursor is not on an entry or a summary row", function()
+    -- Row 1 is the log header: neither a summary row nor an entry.
     local _, err = rename_summary.run({
       "--- log ---",
       "08:00 plan",
@@ -394,9 +404,83 @@ return function(t)
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",
-    }, 2, "whatever")
+    }, 1, "whatever")
 
-    t.eq(err, "daylog: put the cursor on a summary item, tag, or location row to rename it")
+    t.eq(err, rename_summary.NOT_A_ROW)
+  end)
+
+  t.test("rename on an entry renames only that entry, not its same-named siblings", function()
+    local out = rename({
+      "--- log ---",
+      "08:00 alpha",
+      "09:00 alpha",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) alpha",
+    }, 2, "beta") -- cursor on the first "alpha" entry
+
+    -- Only the cursor's entry changes; its sibling keeps the old text.
+    t.eq(out[2], "08:00 beta")
+    t.eq(out[3], "09:00 alpha")
+    -- The summary splits into the two one-hour groups.
+    t.ok(has(out, "1.00h (+0m) beta"), "the renamed entry is its own group")
+    t.ok(has(out, "1.00h (+0m) alpha"), "the sibling stays under alpha")
+    t.ok(not has(out, "2.00h (+0m) alpha"), "they no longer share a row")
+  end)
+
+  t.test(
+    "rename on an entry resolves to its own text with the other activities as candidates",
+    function()
+      local target = rename_summary.resolve({
+        "--- log ---",
+        "08:00 alpha",
+        "09:00 gamma",
+        "10:00 done",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) alpha",
+        "1.00h (+0m) gamma",
+      }, 2) -- cursor on the "alpha" entry
+
+      t.eq(target.kind, "item")
+      t.eq(target.current, "alpha")
+      t.eq(target.candidates, { "gamma" })
+    end
+  )
+
+  t.test("rename on an entry can merge just that entry into an existing activity", function()
+    local out = rename({
+      "--- log ---",
+      "08:00 alpha",
+      "09:00 alpha",
+      "10:00 gamma",
+      "11:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) alpha",
+      "1.00h (+0m) gamma",
+    }, 2, "gamma") -- merge the first alpha into gamma
+
+    t.eq(out[2], "08:00 gamma")
+    t.eq(out[3], "09:00 alpha")
+    t.eq(out[4], "10:00 gamma")
+    t.ok(has(out, "1.00h (+0m) alpha"), "the other alpha entry stays")
+    t.ok(has(out, "2.00h (+0m) gamma"), "the renamed entry merged into gamma")
+  end)
+
+  t.test("rename on an aliased entry edits the description and keeps the alias", function()
+    local out = rename({
+      "--- log ---",
+      "08:00 fix login => BUG-1",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) BUG-1",
+    }, 2, "investigate timeout")
+
+    t.eq(out[2], "08:00 investigate timeout => BUG-1")
+    t.eq(out[6], "1.00h (+0m) BUG-1")
   end)
 
   local function rename_by_value(lines, target, new_value)

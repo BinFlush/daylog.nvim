@@ -537,6 +537,28 @@ return function(t)
     t.eq(t.get_lines()[6], "1.00h (+0m) fix the build")
   end)
 
+  t.test("rename from an entry line renames only that entry", function()
+    t.reset({
+      "--- log ---",
+      "08:00 alpha",
+      "09:00 alpha",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) alpha",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    })
+    t.set_cursor(2, 0) -- the first "alpha" entry, not a summary row
+
+    vim.cmd("DaylogRename beta")
+
+    -- Only the cursor's entry is renamed; its sibling is untouched.
+    t.eq(t.get_lines()[2], "08:00 beta")
+    t.eq(t.get_lines()[3], "09:00 alpha")
+  end)
+
   t.test("insert orders into explicit log block after equal timestamps", function()
     t.reset({
       "--- log #ProjectOrion @office ---",
