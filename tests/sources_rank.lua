@@ -156,6 +156,9 @@ return function(t)
         display_for = function(item)
           return "#" .. item.id .. " " .. item.title
         end,
+        text_of = function(item)
+          return item.id .. " " .. item.title
+        end,
       },
     }
     local usage = {
@@ -167,10 +170,10 @@ return function(t)
 
     -- One (item, 250) > standup (activity, 90) > Two (item, 0); "1 One" appears once.
     t.eq(#rows, 3)
-    t.eq({ rows[1].kind, rows[1].key }, { "item", "1 One" })
+    t.eq({ rows[1].kind, rows[1].key, rows[1].text }, { "item", "1 One", "1 One" })
     t.eq(rows[1].display, "#1 One")
     t.eq({ rows[2].kind, rows[2].text }, { "activity", "standup" })
-    t.eq({ rows[3].kind, rows[3].key }, { "item", "2 Two" })
+    t.eq({ rows[3].kind, rows[3].key, rows[3].text }, { "item", "2 Two", "2 Two" })
   end)
 
   t.test("build_insert_pool keeps the first source on a cross-source key clash", function()
@@ -183,6 +186,9 @@ return function(t)
         end,
         display_for = function(item)
           return name .. ":" .. item.id
+        end,
+        text_of = function(item)
+          return item.id
         end,
       }
     end
@@ -202,6 +208,9 @@ return function(t)
           return item.id
         end,
         display_for = function(item)
+          return item.id
+        end,
+        text_of = function(item)
           return item.id
         end,
       },

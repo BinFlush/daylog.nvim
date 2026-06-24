@@ -1,8 +1,6 @@
 local buffer = require("daylog.buffer")
-local config = require("daylog.config")
 local pick = require("daylog.pick")
 local map_summary = require("daylog.usecases.map_summary")
-local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
 
 local M = {}
@@ -49,10 +47,11 @@ function M.clear()
   apply(cursor_row(), vim.api.nvim_get_current_buf(), "")
 end
 
--- Set the alias: a direct `value`, a `source_name` picker (map onto a work item), the
--- sole configured source's picker, or a plain prompt. An empty/cancelled prompt is a
--- no-op -- clearing is the explicit `:DaylogMap!`.
-function M.summary(value, source_name)
+-- Set the alias: a direct `value`, or the unified picker (map onto a work item or recent
+-- activity), or a plain prompt when there is nothing to pick. An empty/cancelled prompt is a
+-- no-op -- clearing is the explicit `:DaylogMap!`. A source-name arg no longer scopes (the pool
+-- is all sources), so it is accepted but unused.
+function M.summary(value, _source_name)
   if in_report() then
     warn("daylog: :DaylogMap is not available in a report; map in the day file")
     return
@@ -78,22 +77,6 @@ function M.summary(value, source_name)
     return
   end
 
-  local source, src_name
-  if source_name then
-    source = sources_registry.get(source_name)
-    if not source then
-      warn("daylog: unknown source '" .. source_name .. "'")
-      return
-    end
-    src_name = source_name
-  else
-    local names = sources_registry.names()
-    if #names == 1 then
-      src_name = names[1]
-      source = sources_registry.get(src_name)
-    end
-  end
-
   local function prompt()
     apply_map(vim.fn.input({
       prompt = "daylog: map to: ",
@@ -101,35 +84,18 @@ function M.summary(value, source_name)
     }))
   end
 
-  if not source then
-    prompt()
-    return
-  end
-
-  -- The shared picker shell uses Telescope when installed and vim.ui.select
-  -- otherwise: pick a source work-item (map onto its entry text) or type a label.
-  local function open_picker(items)
-    pick.rename({
-      candidates = {},
-      source = source,
-      source_name = src_name,
-      initial_items = items,
-      prompt = "Daylog: map to source  (<CR> pick, <C-e> type a label)",
-      prompt_fallback = "Daylog: map to source",
-      type_new_label = "✎ Type a label…",
-      on_pick = apply_map,
-      on_create = apply_map,
-      on_pick_item = function(item)
-        apply_map(source.to_entry_text(item))
-      end,
-      on_type_new = prompt,
-    })
-  end
-
-  local ttl = ((config.get().sources or {})[src_name] or {}).ttl or 1800
-  sources_sync.ensure_fresh(src_name, ttl, function(items)
-    open_picker(items)
-  end)
+  -- Map onto the same unified pool as :DaylogInsert! -- recent activities across days plus every
+  -- source's items, ranked and deduped. type-a-label and the empty-pool fallback go through the
+  -- plain input prompt.
+  pick.unified(sources_sync.read_specs(), {
+    on_choose = apply_map,
+    on_create = apply_map,
+    on_type_new = prompt,
+    on_empty = prompt,
+    prompt = "Daylog: map to  (<CR> pick, <C-e> type a label)",
+    prompt_fallback = "Daylog: map to",
+    type_new_label = "✎ Type a label…",
+  })
 end
 
 return M

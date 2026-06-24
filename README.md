@@ -143,7 +143,7 @@ the `!L` marker, the `d=hm` duration format) is in `:help daylog-format`.
 | `:DaylogRepeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
 | `:DaylogDays[!] {range}` | Open a multi-day report — a count, a date range, or named tokens like `monday..` (`!` for totals only) |
 | `:DaylogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
-| `:DaylogRename [name\|source]` | Rename (or merge) the activity, tag, or location of the summary row under the cursor; for an activity, name a [source](#sources) to replace it with a tracked work item |
+| `:DaylogRename [name\|source]` | Rename (or merge) the activity, tag, or location of the summary row under the cursor; an activity opens the same unified picker as `:DaylogInsert!` (recent activities + [source](#sources) work items) to rename into |
 | `:DaylogCopy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |
 | `:DaylogOrder` | Rewrite the log in chronological order |
 | `:DaylogRefresh` | Rebuild every summary to match its entries |

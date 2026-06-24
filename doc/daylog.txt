@@ -523,8 +523,7 @@ propagating into the attached log and rebuilding its summary.
 - On a main summary row, the activity text of its source entries is renamed.
 - On an entry line, only that one entry's activity text is renamed -- its
   same-named siblings are left alone -- through the same picker / prompt as a
-  main row (seeded with that entry's text, offering the other activities and any
-  source items).
+  main row (seeded with that entry's text).
 - On a tag-total row, that `#tag` is renamed everywhere it is effective -- the
   log header and the explicit tokens that named it. Entries that only
   inherited the tag are left untouched and follow the rename automatically.
@@ -534,19 +533,18 @@ propagating into the attached log and rebuilding its summary.
 - Renaming to a name that already exists merges the two: the row's intervals fold
   into the existing tag, location, or activity (renaming and merging are the same
   operation). For an activity, this merges with another activity under the same tag.
-- With no `[name]` argument you get a picker of the other same-kind values to merge
-  into -- the other tags, the other locations, or (for an activity) the other
-  activities under the same tag. With Telescope, type to filter; `<CR>` merges into
-  the highlighted value and `<C-e>` renames to the text you typed. Without Telescope
-  it is a |vim.ui.select| list plus a "type a new name" entry. When there is nothing
-  to merge into, it falls back to a plain prompt seeded with the current value.
-- Replacing an activity with a tracked work item: when renaming an activity (not a
-  tag or location) and a |daylog-sources| source is configured, the picker also
-  lists -- and live-searches -- that source's work items; picking one renames the
-  activity to the item's entry text (`{id} {title}`), exactly like |:DaylogInsert|.
-  With one source it is offered automatically; with several, name it as the argument
-  (`:DaylogRename {source}`, tab-completed). A `[name]` argument that is not a
-  source name renames directly to that text.
+- For an activity, the picker is the same unified pool as |:DaylogInsert!|: your
+  recent logged activities (across days) plus every configured source's work items,
+  ranked by worklog frecency (see |daylog-picker|) and de-duplicated. Picking one
+  renames the activity to it -- a work item to its entry text (`{id} {title}`),
+  exactly like |:DaylogInsert|. With Telescope, type to filter; `<CR>` picks the
+  highlighted row and `<C-e>` renames to the text you typed. Without Telescope it is
+  a |vim.ui.select| list plus a "type a new name" entry. With nothing to pick it
+  falls back to a plain prompt seeded with the current value.
+- For a tag or location the picker offers the other tags / locations to merge into
+  (there is no work-item pool for those). A `[name]` argument that is not a source
+  name renames directly to that text; a source name just opens the picker (it no
+  longer scopes to a single source).
 - A tag or location name must be letters, digits, underscores, or hyphens; activity
   text is sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active log's summary; a row that no longer
@@ -573,10 +571,11 @@ own journal while the summary reads in canonical terms.
 - With the cursor on a main summary row, every entry feeding it is mapped.
 - `:DaylogMap {label}` sets the alias to that (possibly multi-word) label. The
   trailing metadata (`#tag`, `!L`, ...) stays on the entry and follows the alias.
-- With no argument you get a prompt seeded with the current alias; if a
-  |daylog-sources| source is configured, a picker of its work items instead
-  (mapping onto `{id} {title}`), exactly like |:DaylogInsert| / |:DaylogRename|.
-  With several sources, name one as the argument (tab-completed).
+- With no argument the same unified pool as |:DaylogInsert!| / |:DaylogRename|
+  opens -- your recent activities and every source's work items -- and the chosen
+  value becomes the alias (a work item maps onto `{id} {title}`); with nothing to
+  pick, a prompt seeded with the current alias. A source-name argument just opens
+  the picker (it no longer scopes to a single source).
 - `:DaylogMap!` (bang) clears the mapping on the cursor's target.
 - A logged entry (`!L`) is refused: its committed value is tied to its current
   identity. Unlog it, map it, then log again.
@@ -758,7 +757,10 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
       cb(items, nil) on success, cb(nil, "message") on failure.
 
   source.format_item(item) -> string
-      The line shown for one item in the picker.
+      The line shown for one item in the picker. Leading with the to_entry_text
+      (what gets inserted) lets it line up at the left edge with the plain activity
+      rows in the unified picker, with any metadata trailing as aligned columns --
+      the built-in Azure DevOps source does this.
 
   source.format_items(items) -> string[]   (optional)
       Display lines for the whole list at once, one per item in order. Use it to

@@ -207,16 +207,16 @@ return function(t)
     t.eq(source.to_entry_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
   end)
 
-  t.test("format_item defaults include id, type, state and title", function()
-    -- The variable-width title is last so a list of items aligns into columns.
+  t.test("format_item leads with the rendered name, then the metadata", function()
+    -- The rendered name (to_entry_text) is first so it lines up with plain activity rows.
     local source = new_source(base_cfg(), fake_transport(function() end))
     t.eq(
       source.format_item({ id = "5", title = "Fix", type = "Bug", state = "Active" }),
-      "#5  [Bug/Active]  Fix"
+      "5 Fix  [Bug/Active]"
     )
   end)
 
-  t.test("format_items aligns the leading columns and the titles", function()
+  t.test("format_items pads the rendered-name column so the metadata lines up", function()
     local source = new_source(base_cfg(), fake_transport(function() end))
     t.eq(
       source.format_items({
@@ -224,8 +224,8 @@ return function(t)
         { id = "1234", title = "Refactor", type = "Task", state = "New" },
       }),
       {
-        "#5     [Bug/Active]  Fix login",
-        "#1234  [Task/New]    Refactor",
+        "5 Fix login    [Bug/Active]",
+        "1234 Refactor  [Task/New]",
       }
     )
   end)
@@ -407,8 +407,8 @@ return function(t)
     local body = vim.json.decode(transport.seen[1].body)
     t.ok(body.query:match("%[System%.TeamProject%] IN %('Platform', 'Data'%)") ~= nil, body.query)
 
-    -- format_item labels the project when several are configured (title last).
-    t.eq(source.format_item(result.items[1]), "#7  [Bug/Active]  Data  Cross-project")
+    -- format_item labels the project when several are configured (rendered name first).
+    t.eq(source.format_item(result.items[1]), "7 Cross-project  [Bug/Active]  Data")
   end)
 
   t.test("a project name with a single quote is escaped in the WIQL", function()

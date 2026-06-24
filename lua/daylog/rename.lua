@@ -6,7 +6,6 @@ local render = require("daylog.render")
 local report_buffers = require("daylog.report")
 local rename_summary = require("daylog.usecases.rename_summary")
 local report_cursor = require("daylog.usecases.report_cursor")
-local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
 
 local M = {}
@@ -90,29 +89,6 @@ function M.summary(new_value, source_name)
     return
   end
 
-  -- A source can replace an activity (item) only: the named source, or the sole
-  -- configured one. Naming a source while on a tag/location row is reported.
-  local source, src_name
-  if source_name then
-    source = sources_registry.get(source_name)
-    if not source then
-      warn("daylog: unknown source '" .. source_name .. "'")
-      return
-    end
-    if target.kind ~= "item" then
-      warn("daylog: a source can only replace an activity, not a " .. target.kind)
-      source = nil
-    else
-      src_name = source_name
-    end
-  elseif target.kind == "item" then
-    local names = sources_registry.names()
-    if #names == 1 then
-      src_name = names[1]
-      source = sources_registry.get(src_name)
-    end
-  end
-
   local label = RENAME_PROMPT_LABEL[target.kind]
 
   local function prompt_for_name()
@@ -122,57 +98,33 @@ function M.summary(new_value, source_name)
     }))
   end
 
-  local picker_prompt = string.format("Daylog: rename/merge %s", label)
+  -- Pick the new value, then rename into it (renaming to a value that already exists merges the
+  -- two). type-a-fresh-name and the empty-pool fallback both go through the plain input prompt;
+  -- the current value is excluded so "X -> X" is never offered.
+  local choose_opts = {
+    on_choose = apply_rename,
+    on_create = apply_rename,
+    on_type_new = prompt_for_name,
+    on_empty = prompt_for_name,
+    exclude = target.current,
+    prompt = string.format("Daylog: rename/merge %s  (<CR> pick, <C-e> new name)", label),
+    prompt_fallback = string.format("Daylog: rename/merge %s", label),
+    type_new_label = "✎ Type a new name…",
+  }
 
-  -- Open the picker over the merge candidates plus any source items; the shared
-  -- picker shell uses Telescope when installed and vim.ui.select otherwise, letting
-  -- you pick a candidate (a merge), a source item (replace with its entry text), or
-  -- type a fresh name.
-  local function open_picker(items)
-    local on_pick_item
-    if source then
-      on_pick_item = function(item)
-        apply_rename(source.to_entry_text(item))
-      end
-    end
-
-    pick.rename({
-      candidates = target.candidates,
-      source = source,
-      source_name = src_name,
-      initial_items = items,
-      prompt = picker_prompt
-        .. (source and "/source  (<CR> pick, <C-e> new name)" or "  (<CR> merge, <C-e> new name)"),
-      prompt_fallback = picker_prompt,
-      type_new_label = "✎ Type a new name…",
-      on_pick = apply_rename,
-      on_create = apply_rename,
-      on_pick_item = on_pick_item,
-      on_type_new = prompt_for_name,
-    })
-  end
-
-  -- With no merge targets and no source, the plain rename prompt.
-  if #target.candidates == 0 and not source then
-    prompt_for_name()
+  -- An activity renames into the same unified pool as :DaylogInsert! -- recent logged activities
+  -- across days plus every source's items, ranked and deduped. A tag/location has no pool, so it
+  -- offers the other same-kind totals (the in-summary merge targets).
+  if target.kind == "item" then
+    pick.unified(sources_sync.read_specs(), choose_opts)
     return
   end
 
-  -- Source items load from the (offline) cache before opening, refreshing in the
-  -- background when stale -- the same offline-first path as :DaylogInsert.
-  if source then
-    local ttl = ((config.get().sources or {})[src_name] or {}).ttl or 1800
-    sources_sync.ensure_fresh(src_name, ttl, function(items)
-      open_picker(items)
-    end, function()
-      -- The source is unreachable (e.g. token acquisition failed) and there was no
-      -- cache; still open the picker so the current file's merge candidates are usable.
-      open_picker(nil)
-    end)
-    return
+  local rows = {}
+  for _, candidate in ipairs(target.candidates) do
+    rows[#rows + 1] = { display = candidate, text = candidate }
   end
-
-  open_picker(nil)
+  pick.choose(rows, choose_opts)
 end
 
 -- Apply an edit script (0-based, sorted highest-start-first by the usecase) to a

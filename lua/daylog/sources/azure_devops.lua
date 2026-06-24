@@ -232,13 +232,14 @@ function M.new(_name, cfg, deps)
     source.search = run_search
   end
 
-  -- The fixed-width leading cells for one item: id, then [type/state], then the
-  -- project when several are configured. The free-flowing title is appended last by
-  -- the callers, so format_items can pad these into aligned columns while the title
-  -- (the one variable-width field) needs no padding.
-  local function lead_cells(item)
+  -- One item's picker cells: the rendered name (`to_entry_text` -- exactly what gets inserted)
+  -- leads, so it shows on the far left lined up with the plain activity rows; [type/state], then
+  -- the project when several are configured, trail as metadata. The id already lives inside the
+  -- rendered name, so it is not repeated. format_items pads the leading name into a column so the
+  -- trailing metadata lines up under it.
+  local function item_cells(item)
     local cells = {
-      "#" .. tostring(item.id),
+      source.to_entry_text(item),
       string.format("[%s/%s]", item.type or "?", item.state or "?"),
     }
     if cfg.projects then
@@ -252,15 +253,12 @@ function M.new(_name, cfg, deps)
       return cfg.format_item(item)
     end
 
-    local cells = lead_cells(item)
-    cells[#cells + 1] = item.title or ""
-    return (table.concat(cells, "  "):gsub("%s+$", ""))
+    return (table.concat(item_cells(item), "  "):gsub("%s+$", ""))
   end
 
-  -- The whole item list as aligned picker lines: the id, [type/state], and project
-  -- columns line up, and the titles all start at the same column, so a list of items
-  -- of differing lengths reads as neat columns instead of a ragged trailing field. A
-  -- user-supplied cfg.format_item is per-item, so it is mapped without alignment.
+  -- The whole item list as aligned picker lines: the rendered-name column pads to the widest so
+  -- the [type/state] and project columns line up under each other, instead of a ragged trailing
+  -- field. A user-supplied cfg.format_item is per-item, so it is mapped without alignment.
   function source.format_items(items)
     if cfg.format_item then
       local lines = {}
@@ -272,9 +270,7 @@ function M.new(_name, cfg, deps)
 
     local rows = {}
     for index, item in ipairs(items) do
-      local cells = lead_cells(item)
-      cells[#cells + 1] = item.title or ""
-      rows[index] = cells
+      rows[index] = item_cells(item)
     end
     return picker.align(rows)
   end

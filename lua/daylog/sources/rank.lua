@@ -138,13 +138,14 @@ end
 -- Build one ranked, deduped pool of insertable rows from several sources' items plus the
 -- leftover recent activities (the worklog texts that are not a source item). PURE.
 --
--- `sources` is a list of { name, items, key_of=fn(item)->string, display_for=fn(item)->string };
+-- `sources` is a list of { name, items, key_of, display_for, text_of } (each fn(item)->string);
 -- `ctx = { usage, base }`. Each item becomes a row keyed on its entry text; a usage key that no
 -- item claims becomes an `activity` row -- so an activity that matches a tracker item appears
--- once (as the item). Rows sort by the worklog score (desc), then item-before-activity, then
--- their build order (stable). Returns rows:
---   { kind = "item", source = name, item, key, display, score }
---   { kind = "activity", text = key, key, display, score }
+-- once (as the item). Every row carries `.text` -- what gets inserted/renamed-to when chosen (an
+-- item's entry text, an activity's logged text). Rows sort by the worklog score (desc), then
+-- item-before-activity, then their build order (stable). Returns rows:
+--   { kind = "item", source = name, item, key, display, text, score }
+--   { kind = "activity", key, display, text, score }
 function M.build_insert_pool(sources, ctx)
   local usage = ctx.usage or {}
   local base = ctx.base
@@ -166,6 +167,7 @@ function M.build_insert_pool(sources, ctx)
           item = item,
           key = key,
           display = source.display_for(item),
+          text = source.text_of(item),
           score = score_for(usage[key], base),
           order = #rows + 1,
         }

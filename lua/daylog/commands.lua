@@ -161,9 +161,9 @@ function M.register(api)
     api.repeat_current()
   end)
 
-  -- A lone argument that names a configured source opens the picker against that
-  -- source (to replace an activity with a work item); any other argument is the new
-  -- value to rename to directly; no argument opens the picker.
+  -- A lone argument that names a configured source opens the unified picker (recent activities +
+  -- every source's items) to rename into; any other argument is the new value to rename to
+  -- directly; no argument opens the picker.
   ensure_user_command("DaylogRename", function(args)
     local arg = args.args
     if arg ~= "" and sources_registry.get(arg) then
@@ -179,7 +179,7 @@ function M.register(api)
   })
 
   -- Map the cursor's entry (or every entry of a summary row) to a label it resolves to
-  -- in the summary. A lone argument that names a configured source opens its picker; any
+  -- in the summary. A lone argument that names a configured source opens the unified picker; any
   -- other argument is the label to map to directly; no argument opens the picker/prompt.
   -- The bang (`:DaylogMap!`) clears the mapping instead.
   ensure_user_command("DaylogMap", function(args)

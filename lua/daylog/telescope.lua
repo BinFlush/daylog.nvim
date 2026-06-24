@@ -172,113 +172,14 @@ function M.live_pick(source, opts)
   controller.picker:find()
 end
 
--- A picker for :DaylogRename's merge UX, optionally augmented with a source's
--- work-items so an activity can be replaced with a tracked item (see init.lua).
--- Type to filter the existing same-kind values (tags / locations / activities) and,
--- when `source` is given, its work-items too; <CR> renames into the highlighted one
--- -- a merge for a local candidate, or the item's entry text for a source item --
--- and <C-e> renames to the typed text (a fresh name). With a searchable source a
--- debounced server query augments the pool, exactly like live_pick (the shared
--- live_search controller). The actual rename is the same pure usecase regardless of
--- where the value came from.
+-- The general mixed-row picker (shared by :DaylogInsert!, :DaylogRename, :DaylogMap): pre-ranked,
+-- display-ready rows each carrying a `.text` (what gets chosen). Offline -- no live search. <CR>
+-- chooses the highlighted row's text; <C-e> (or <CR> with nothing selected) yields what you typed;
+-- closing without a pick calls on_cancel.
 --
--- opts: { candidates = string[], prompt = string|nil, on_pick = fn(value),
---         on_create = fn(text), theme = table|nil,
---         source = table|nil, initial_items = table|nil, min_query = number|nil,
---         on_pick_item = fn(item)|nil }
-function M.rename_pick(opts)
-  local pickers = require("telescope.pickers")
-  local finders = require("telescope.finders")
-  local conf = require("telescope.config").values
-  local actions = require("telescope.actions")
-  local action_state = require("telescope.actions.state")
-
-  local source = opts.source
-  local candidates = opts.candidates or {}
-  local initial = opts.initial_items or {}
-
-  -- Local merge candidates first, then the source's work-items (aligned into
-  -- columns when the source supports it). Each entry remembers its kind so the
-  -- select action knows whether to merge a name or replace with an item's text.
-  local function entries_for(items)
-    local entries = {}
-    for _, candidate in ipairs(candidates) do
-      entries[#entries + 1] = { kind = "candidate", text = candidate, display = candidate }
-    end
-    if source and items and #items > 0 then
-      local display = picker_helpers.display_for(source, items)
-      for _, item in ipairs(items) do
-        entries[#entries + 1] = { kind = "item", item = item, display = display(item) }
-      end
-    end
-    return entries
-  end
-
-  local function finder_for(items)
-    return finders.new_table({
-      results = entries_for(items),
-      entry_maker = function(entry)
-        return { value = entry, display = entry.display, ordinal = entry.display }
-      end,
-    })
-  end
-
-  local controller = live_search(source, {
-    min_query = opts.min_query,
-    initial = initial,
-    finder_for = finder_for,
-  })
-
-  controller.picker = pickers.new(opts.theme or {}, {
-    prompt_title = opts.prompt or "Daylog: rename / merge  (<CR> pick, <C-e> new name)",
-    finder = finder_for(initial),
-    sorter = conf.generic_sorter({}),
-    on_input_filter_cb = (source and source.search) and controller.on_input_filter_cb or nil,
-    attach_mappings = function(prompt_bufnr, map)
-      -- A late search response must stop refreshing once the prompt closes.
-      vim.api.nvim_create_autocmd("BufWipeout", {
-        buffer = prompt_bufnr,
-        once = true,
-        callback = controller.mark_closed,
-      })
-
-      actions.select_default:replace(function()
-        local entry = action_state.get_selected_entry()
-        local typed = action_state.get_current_line()
-        actions.close(prompt_bufnr)
-        if entry and entry.value then
-          local value = entry.value
-          if value.kind == "item" and opts.on_pick_item then
-            opts.on_pick_item(value.item)
-          else
-            opts.on_pick(value.text)
-          end
-        else
-          opts.on_create(typed)
-        end
-      end)
-
-      map({ "i", "n" }, "<C-e>", function()
-        local typed = action_state.get_current_line()
-        actions.close(prompt_bufnr)
-        opts.on_create(typed)
-      end)
-
-      return true
-    end,
-  })
-
-  controller.picker:find()
-end
-
--- A picker for :DaylogInsert!'s unified pool: pre-ranked, display-ready rows (source work-items
--- and recent activities) that you fuzzy-filter. Offline -- no live search. <CR> inserts the
--- highlighted row; <C-e> (or <CR> with nothing selected) inserts what you typed; closing without
--- a pick leaves a bare timestamp via on_cancel.
---
--- opts: { on_pick = fn(row), on_create = fn(text), on_cancel = fn()|nil, prompt = string|nil,
+-- opts: { on_choose = fn(text), on_create = fn(typed), on_cancel = fn()|nil, prompt = string|nil,
 --         theme = table|nil }
-function M.insert_pick(rows, opts)
+function M.choose(rows, opts)
   local pickers = require("telescope.pickers")
   local finders = require("telescope.finders")
   local conf = require("telescope.config").values
@@ -286,7 +187,7 @@ function M.insert_pick(rows, opts)
   local action_state = require("telescope.actions.state")
 
   local picker = pickers.new(opts.theme or {}, {
-    prompt_title = opts.prompt or "Daylog: insert  (<CR> pick, <C-e> type)",
+    prompt_title = opts.prompt or "Daylog  (<CR> pick, <C-e> type)",
     finder = finders.new_table({
       results = rows,
       entry_maker = function(row)
@@ -313,7 +214,7 @@ function M.insert_pick(rows, opts)
         local typed = action_state.get_current_line()
         actions.close(prompt_bufnr)
         if entry and entry.value then
-          opts.on_pick(entry.value)
+          opts.on_choose(entry.value.text)
         else
           opts.on_create(typed)
         end

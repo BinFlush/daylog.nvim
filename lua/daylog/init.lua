@@ -157,29 +157,32 @@ function M.insert_unified()
     return
   end
 
-  local sources_cfg = config.get().sources or {}
   local time = os.date("%H:%M")
   local target_buf = vim.api.nvim_get_current_buf()
 
-  -- Read each source's cache synchronously (offline, instant) and kick a background refresh when
-  -- stale; a brand-new source with no cache contributes activities only this time.
-  local specs = {}
-  for _, name in ipairs(sources_registry.names()) do
-    local ttl = sources_cfg[name] and sources_cfg[name].ttl or 1800
-    sources_sync.refresh_if_stale(name, ttl)
-    specs[#specs + 1] = {
-      name = name,
-      source = sources_registry.get(name),
-      items = sources_sync.read_items(name),
-    }
+  -- Insert the chosen/typed activity, or a bare timestamp for an empty value -- guarded against
+  -- the buffer moving under the async picker.
+  local function insert(text)
+    if buffer_changed(target_buf, "insert") then
+      return
+    end
+    if text == nil or text == "" then
+      apply_insert_time(time)
+    else
+      apply_insert_entry(time, text)
+    end
   end
 
-  pick.insert_unified(specs, {
-    on_insert = function(text)
-      if buffer_changed(target_buf, "insert") then
-        return
-      end
-      apply_insert_entry(time, text)
+  -- read_specs reads each source's cache synchronously (offline, instant) and refreshes stale
+  -- ones in the background; an empty pool (no sources, empty daybook) leaves a bare timestamp.
+  pick.unified(sources_sync.read_specs(), {
+    prompt = "Daylog: insert",
+    prompt_fallback = "Daylog: insert",
+    type_new_label = "✎ Type a new activity…",
+    on_choose = insert,
+    on_create = insert,
+    on_type_new = function()
+      insert(vim.fn.input({ prompt = "daylog: log: " }))
     end,
     on_cancel = function()
       apply_insert_time(time)
