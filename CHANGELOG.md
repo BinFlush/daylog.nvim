@@ -20,7 +20,7 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
-## Unreleased
+## 0.11.0 - 2026-06-25
 
 ### Added
 
