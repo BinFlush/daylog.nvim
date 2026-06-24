@@ -117,8 +117,10 @@ end
 
 -- The picker data path: hand the current cached items to on_ready immediately
 -- (offline, instant), then refresh in the background when stale. The first-ever
--- use with no cache fetches once before opening.
-function M.ensure_fresh(name, ttl, on_ready)
+-- use with no cache fetches once before opening. `on_unavailable` (optional) is called
+-- when there is no cache and that initial fetch fails -- callers that have a local
+-- fallback (e.g. :DaylogRename's merge candidates) use it to open anyway.
+function M.ensure_fresh(name, ttl, on_ready, on_unavailable)
   local decoded = M.read_cache(name)
 
   if decoded then
@@ -131,11 +133,13 @@ function M.ensure_fresh(name, ttl, on_ready)
 
   notify("daylog: syncing " .. name .. "…")
   M.sync(name, { silent = true }, function(ok)
-    -- Only open the picker when the initial fetch succeeded; on failure sync has
-    -- already warned, so don't surface an empty picker. A successful empty result
-    -- still opens.
+    -- Hand over the items when the initial fetch succeeded (a successful empty result
+    -- still opens). On failure sync has already warned, so the source items are simply
+    -- absent; let a caller with a local fallback open without them.
     if ok then
       on_ready(M.read_items(name))
+    elseif on_unavailable then
+      on_unavailable()
     end
   end)
 end

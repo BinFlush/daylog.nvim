@@ -267,4 +267,44 @@ return function(t)
       t.ok(refused, "naming a source on a tag row should be refused")
     end)
   end)
+
+  t.test("DaylogRename still opens the merge picker when the source is unavailable", function()
+    registry.clear()
+    register_fake()
+    -- Two activities, so the renamed row has a current-file merge candidate.
+    t.reset({ "--- log ---", "08:00 alpha", "09:00 beta", "10:00 done" })
+    vim.cmd("DaylogRefresh")
+    for i, line in ipairs(t.get_lines()) do
+      if line:find("%) alpha$") then
+        vim.api.nvim_win_set_cursor(0, { i, 0 })
+      end
+    end
+
+    -- Model a no-cache fetch that fails (e.g. token acquisition): ensure_fresh invokes
+    -- its on_unavailable rather than on_ready.
+    local old_ensure = sync.ensure_fresh
+    local old_select = vim.ui.select
+    local offered
+    sync.ensure_fresh = function(_name, _ttl, _on_ready, on_unavailable)
+      on_unavailable()
+    end
+    vim.ui.select = function(items, _, on_choice)
+      offered = items
+      on_choice(items[1]) -- pick the first current-file candidate
+    end
+
+    local ok, err = xpcall(function()
+      vim.cmd("DaylogRename FAKE")
+    end, debug.traceback)
+
+    sync.ensure_fresh = old_ensure
+    vim.ui.select = old_select
+    if not ok then
+      error(err, 0)
+    end
+
+    -- The picker opened with the current file's candidate, and picking it merged.
+    t.ok(offered ~= nil, "the picker opens despite the unreachable source")
+    t.eq(t.get_lines()[2], "08:00 beta")
+  end)
 end

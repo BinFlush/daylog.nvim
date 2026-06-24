@@ -208,6 +208,10 @@ function M.summary(new_value, source_name)
     local ttl = ((config.get().sources or {})[src_name] or {}).ttl or 1800
     sources_sync.ensure_fresh(src_name, ttl, function(items)
       open_picker(items)
+    end, function()
+      -- The source is unreachable (e.g. token acquisition failed) and there was no
+      -- cache; still open the picker so the current file's merge candidates are usable.
+      open_picker(nil)
     end)
     return
   end
