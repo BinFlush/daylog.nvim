@@ -100,6 +100,9 @@ return function(t)
 
     local result, err = split_summary.run(buffer, cursor, weights)
     if not result then
+      if err == split_summary.REFUSE_OFFSET then
+        return nil -- an interval crossing a UTC offset change is correctly refused
+      end
       return string.format(
         "split refused (%s) on seed=%d mode=%s\n%s",
         err,

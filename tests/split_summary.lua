@@ -185,6 +185,80 @@ return function(t)
     t.eq(err, split_summary.REFUSE_LOGGED)
   end)
 
+  t.test("split apportions real time across an offset change", function()
+    -- stand is 2.5h of real time though its local window is only 30 min (the clock jumps
+    -- to utc-2 at the next entry). An even split gives each part 1:15 of real time, placed
+    -- with no new utc token; stand (2) lands at 10:25, and the next entry is in a new time
+    -- zone (utc-2) so its earlier 09:40 reading is fine -- real time keeps increasing.
+    local out = run(
+      buffer_with_summary({
+        "--- log q=1 d=hm ---",
+        "09:10 stand",
+        "09:40 test utc-2",
+      }),
+      "(+0m) stand",
+      { 1, 1 }
+    )
+
+    t.eq(out[2], "09:10 stand (1)")
+    t.eq(out[3], "10:25 stand (2)")
+    t.eq(out[4], "09:40 test utc-2")
+    t.ok(has(out, "1:15 (+0m) stand (1)"), "part 1 is 1h15m of real time")
+    t.ok(has(out, "1:15 (+0m) stand (2)"), "part 2 is 1h15m of real time")
+  end)
+
+  t.test("split works when a later entry is written in a new time zone", function()
+    -- A at 10:00 then B at 09:00 utc-2: B is written in a new zone (we moved utc-2), so its
+    -- wall clock reads an hour earlier though real time advanced an hour (UTC 10:00 ->
+    -- 11:00). Splitting A evenly yields two 30-min parts.
+    local out = run(
+      buffer_with_summary({
+        "--- log q=1 d=hm ---",
+        "10:00 A",
+        "09:00 B utc-2",
+      }),
+      "(+0m) A",
+      { 1, 1 }
+    )
+
+    t.eq(out[2], "10:00 A (1)")
+    t.eq(out[3], "10:30 A (2)")
+    t.eq(out[4], "09:00 B utc-2")
+    t.ok(has(out, "0:30 (+0m) A (1)"), "part 1 is 30 minutes")
+    t.ok(has(out, "0:30 (+0m) A (2)"), "part 2 is 30 minutes")
+  end)
+
+  t.test("split refuses when an offset change pushes a cut past the end of the day", function()
+    -- late is 2h of real time starting at 23:00; an even split would place the second part
+    -- at 24:00 on the local clock, with another entry after it -- not a writable time.
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "23:00 late",
+      "23:00 done utc-2",
+    })
+    local _, err = split_summary.run(lines, row_of(lines, "(+0m) late"), { 1, 1 })
+    t.eq(err, split_summary.REFUSE_OFFSET)
+  end)
+
+  t.test("split works with a constant offset across the interval", function()
+    -- The whole log is utc-2, so the interval does not cross a change: raw == effective
+    -- and the split proceeds normally.
+    local out = run(
+      buffer_with_summary({
+        "--- log utc-2 q=1 d=hm ---",
+        "09:10 stand",
+        "09:40 done",
+      }),
+      "(+0m) stand",
+      { 1, 1 }
+    )
+
+    t.eq(out[2], "09:10 stand (1)")
+    t.eq(out[3], "09:25 stand (2)")
+    t.ok(has(out, "0:15 (+0m) stand (1)"), "part 1 is 15 minutes")
+    t.ok(has(out, "0:15 (+0m) stand (2)"), "part 2 is 15 minutes")
+  end)
+
   t.test("split refuses a non-main summary row", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",

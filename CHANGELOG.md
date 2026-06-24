@@ -20,6 +20,20 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Fixed
+
+- **`:DaylogSplit` across a UTC offset change.** Split now apportions an activity's
+  *effective* (real-world) time rather than its raw local span, so an interval that
+  crosses an offset change is divided by the real elapsed time the summary shows. The
+  cuts are placed at the interval's own offset with no new `utc` token, and the result
+  stays in real-time order even when a later entry, written in a new time zone, reads
+  earlier on the wall clock — so a log like `10:00 A` / `09:00 B utc-2` now splits
+  correctly instead of erroring. The only refusal is the rare case where a
+  westward jump would push a cut to or past 24:00, which can't be written without a new
+  offset.
+
 ## 0.10.0 - 2026-06-24
 
 ### Added

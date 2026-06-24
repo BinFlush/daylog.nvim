@@ -4,6 +4,7 @@ local split = require("daylog.split")
 local summary = require("daylog.summary")
 local summary_cursor = require("daylog.usecases.summary_cursor")
 local support = require("daylog.usecases.support")
+local syntax = require("daylog.syntax")
 
 local M = {}
 
@@ -19,6 +20,8 @@ local M = {}
 -- :DaylogLog. A logged activity is frozen against an external system and cannot be split.
 
 M.REFUSE_LOGGED = "daylog: refusing to split a logged activity"
+M.REFUSE_OFFSET =
+  "daylog: split does not fit; a UTC offset change pushes a cut past the end of the day"
 M.NEED_TWO = "daylog: split needs at least two parts"
 M.BAD_WEIGHT = "daylog: split weights must be positive numbers"
 M.NOTHING = "daylog: nothing to split on this row"
@@ -52,22 +55,31 @@ local function validate_weights(weights)
   return weights
 end
 
--- The activity's intervals in chronological order: each source entry starts an
--- interval whose raw span ends at the next entry. Returns the ordered spans and a map
--- from source entry row to its index in that list (so the allocation row can be found).
+-- The activity's intervals in chronological order. Each record carries the source
+-- entry row, its local start minute, and the effective duration -- the real elapsed
+-- time, which differs from the local span across a UTC offset change (and is what the
+-- summary shows). The split apportions the effective duration; sub-entries are placed at
+-- `start + cumulative effective` and carry the interval's own offset (no new utc token),
+-- so the log stays real-time-ordered even when a later entry, written in a new time
+-- zone, reads earlier on the wall clock.
 local function target_intervals(block, source_set)
-  local spans = {}
+  local records = {}
   local index_by_row = {}
 
   for k = 1, #block.entries - 1 do
     local current = block.entries[k]
     if source_set[current.row] then
-      spans[#spans + 1] = block.entries[k + 1].minutes - current.minutes
-      index_by_row[current.row] = #spans
+      local next = block.entries[k + 1]
+      records[#records + 1] = {
+        row = current.row,
+        start = current.minutes,
+        effective = (next.minutes - (next.offset or 0)) - (current.minutes - (current.offset or 0)),
+      }
+      index_by_row[current.row] = #records
     end
   end
 
-  return spans, index_by_row
+  return records, index_by_row
 end
 
 function M.run(lines, cursor_row, weights)
@@ -102,17 +114,30 @@ function M.run(lines, cursor_row, weights)
     source_set[row] = true
   end
 
-  local spans, index_by_row = target_intervals(block, source_set)
-  if #spans == 0 then
+  local records, index_by_row = target_intervals(block, source_set)
+  if #records == 0 then
     return nil, M.NOTHING
   end
 
-  local matrix = split.allocate(spans, weights)
+  local effective = {}
+  for i, record in ipairs(records) do
+    effective[i] = record.effective
+  end
 
-  -- The present sub-activity parts for each split entry, keyed by its row.
+  local matrix = split.allocate(effective, weights)
+
+  -- The present sub-activity parts for each split entry, keyed by its row. A part begins
+  -- at the interval start plus its cumulative EFFECTIVE offset, on the interval's own
+  -- local clock. Effective ordering always holds, so the only thing that can't be written
+  -- without a new offset token is a cut that a westward jump pushes to or past 24:00 --
+  -- refuse those. Without an offset change the cuts stay inside the day, so this is inert.
   local parts_by_row = {}
-  for row, span_index in pairs(index_by_row) do
-    parts_by_row[row] = split.parts(matrix[span_index])
+  for _, record in ipairs(records) do
+    local parts = split.parts(matrix[index_by_row[record.row]])
+    if #parts > 0 and record.start + parts[#parts].offset >= syntax.END_OF_DAY_MINUTES then
+      return nil, M.REFUSE_OFFSET
+    end
+    parts_by_row[record.row] = parts
   end
 
   -- Source edits: rewrite each split entry line into its present parts. Walk the
