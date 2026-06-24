@@ -93,7 +93,7 @@ require("daylog").setup({
     ADO = {
       type = "azure_devops",
       organization = "contoso",        -- dev.azure.com/<organization>
-      project = "Platform",            -- .../<project>
+      project = "Platform",            -- .../<project>  (optional; omit for org-wide)
       token = function()
         local pat = vim.fn.system({ "pass", "show", "daylog/ado-pat" })
         if vim.v.shell_error ~= 0 then
@@ -106,6 +106,7 @@ require("daylog").setup({
       --   query     = "<raw WIQL>",          -- or your own WIQL
       --   template  = "{id} {title}",        -- inserted activity text
       --   ttl       = 1800,                  -- cache lifetime, seconds
+      --   search    = false,                 -- opt in to live tracker search
       --   min_query = 3,                     -- chars before live search runs
     },
   },
@@ -114,9 +115,12 @@ require("daylog").setup({
 vim.keymap.set("n", "<leader>wa", "<cmd>DaylogInsert ADO<cr>", { desc = "Daylog insert ADO item" })
 ```
 
-By default the source lists work items **assigned to you, active, and recently
-changed**. Point it at a saved query with `query_id`, or supply raw WIQL with
-`query` (the two are mutually exclusive).
+By default the source lists work items that **involve you** — assigned to or created
+by you — that are active and recently changed, **across your whole organization**. Set
+`project` (above) to scope it to one project, or `projects` to a subset (see below). For a different scope, point
+it at a saved query with `query_id` (which needs a `project`) or supply raw WIQL with
+`query`. Live as-you-type search of the tracker is opt-in (`search = true`) and uses
+the same scope, so it never surfaces another team's items.
 
 ### Several projects
 

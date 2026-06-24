@@ -139,11 +139,11 @@ the `!L` marker, the `d=hm` duration format) is in `:help daylog-format`.
 | --- | --- |
 | `:DaylogToday [offset]` | Open today's daylog (creating it on first use); a nonzero offset only navigates |
 | `:DaylogNextDay` / `:DaylogPrevDay [count]` | Step between days |
-| `:DaylogInsert [source]` | Stamp the current time; with a source name, pick a work item to insert (see [Sources](#sources)) |
+| `:DaylogInsert[!] [source]` | Stamp the current time; with a source name, pick one of its work items; with `!`, a unified fuzzy picker of your recent activities + every source's items (see [Sources](#sources)) |
 | `:DaylogRepeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
 | `:DaylogDays[!] {range}` | Open a multi-day report — a count, a date range, or named tokens like `monday..` (`!` for totals only) |
 | `:DaylogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
-| `:DaylogRename [name\|source]` | Rename (or merge) the activity, tag, or location of the summary row under the cursor; for an activity, name a [source](#sources) to replace it with a tracked work item |
+| `:DaylogRename [name\|source]` | Rename (or merge) the activity, tag, or location under the cursor; an activity opens the unified picker (recent activities + all [source](#sources) items), or name a source to scope to its items with live search |
 | `:DaylogCopy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |
 | `:DaylogOrder` | Rewrite the log in chronological order |
 | `:DaylogRefresh` | Rebuild every summary to match its entries |
@@ -163,7 +163,9 @@ hand? Set `auto_summary = "off"` and use `:DaylogRefresh`. More in
 
 Pull work items straight from a tracker into an entry. **Azure DevOps** is built
 in: configure a named source, then `:DaylogInsert <name>` opens a picker and
-inserts the chosen item as `{id} {title}`.
+inserts the chosen item as `{id} {title}`. Or `:DaylogInsert!` opens one fuzzy
+list pooling every source's items together with your recent activities, ranked by
+what you actually work on.
 
 ```lua
 require("daylog").setup({
@@ -181,9 +183,10 @@ require("daylog").setup({
 ```
 
 Picking is offline and instant — it reads a local cache, and only `:DaylogSync`
-touches the network. With Telescope installed you can search the whole tracker as
-you type; otherwise the picker is `vim.ui.select`, so fzf-lua / snacks / mini.pick
-work too.
+touches the network. With Telescope you get a fuzzy picker over the cache;
+otherwise `vim.ui.select`, so fzf-lua / snacks / mini.pick work too. Live
+as-you-type search of the whole tracker is opt-in — set `search = true` on the
+source. The picker also leads with the items you've recently logged time against.
 
 - **Set up the token:** [docs/azure-devops.md](docs/azure-devops.md) covers creating
   the PAT, where to keep it, and troubleshooting.

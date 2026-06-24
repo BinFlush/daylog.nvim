@@ -50,6 +50,32 @@ return function(t)
     end
   end
 
+  -- Stub the unified picker's synchronous reads + vim.ui.select. `pick` selects the top pool
+  -- row; otherwise it cancels. Shared by :DaylogInsert! / :DaylogRename / :DaylogMap.
+  local function with_stubbed_unified(pick, fn)
+    local old_read = sync.read_items
+    local old_refresh = sync.refresh_if_stale
+    local old_select = vim.ui.select
+
+    sync.read_items = function(name)
+      return name == "FAKE" and FAKE_ITEMS or {}
+    end
+    sync.refresh_if_stale = function() end
+    vim.ui.select = function(items, _, on_choice)
+      on_choice(pick and items[1] or nil)
+    end
+
+    local ok, err = xpcall(fn, debug.traceback)
+
+    sync.read_items = old_read
+    sync.refresh_if_stale = old_refresh
+    vim.ui.select = old_select
+
+    if not ok then
+      error(err, 0)
+    end
+  end
+
   t.test("DaylogInsert <source> inserts the picked item at the current time", function()
     register_fake()
     t.reset({
@@ -202,14 +228,14 @@ return function(t)
     error("review summary row not found")
   end
 
-  t.test("DaylogRename replaces an activity with a source item (single source)", function()
+  t.test("DaylogRename replaces an activity with a source item (unified pool)", function()
     registry.clear()
     register_fake()
     on_review_summary_row()
 
-    -- One activity, so it has no merge candidates; the first picker choice is the
-    -- source item, which the stub selects.
-    with_stubbed_picker(true, function()
+    -- The activity renames into the unified pool; the stub picks the first pool row (the
+    -- frecency-tie keeps the source item's input order, so it is the FAKE work item).
+    with_stubbed_unified(true, function()
       vim.cmd("DaylogRename")
     end)
 
@@ -232,7 +258,7 @@ return function(t)
     vim.cmd("DaylogRename ship the release")
     t.eq(t.get_lines()[2], "08:00 ship the release")
 
-    -- A source-name argument opens that source's picker instead.
+    -- A source-name argument opens that source's scoped (live-search-capable) picker.
     on_review_summary_row()
     with_stubbed_picker(true, function()
       vim.cmd("DaylogRename FAKE")
@@ -240,57 +266,129 @@ return function(t)
     t.eq(t.get_lines()[2], "08:00 1 Item one")
   end)
 
-  t.test("DaylogRename refuses a source on a non-activity row", function()
-    registry.clear()
-    register_fake()
-    -- Two tags so the #ClientA tag-total row has a merge candidate: after the source
-    -- is refused, the normal merge picker opens (and the stub cancels it) rather than
-    -- falling through to a blocking input prompt.
-    t.reset({ "--- log ---", "08:00 a #ClientA", "09:00 b #other", "10:00 done" })
-    vim.cmd("DaylogRefresh")
-    for i, line in ipairs(t.get_lines()) do
-      if line:find("%) #ClientA$") then
-        vim.api.nvim_win_set_cursor(0, { i, 0 })
-      end
-    end
-
-    with_captured_notify(function(messages)
-      with_stubbed_picker(false, function() -- cancel, so nothing is mutated
-        vim.cmd("DaylogRename FAKE")
-      end)
-      local refused = false
-      for _, message in ipairs(messages) do
-        if message.message:find("a source can only replace an activity") then
-          refused = true
+  t.test(
+    "DaylogRename refuses a source on a non-activity row, then opens the merge picker",
+    function()
+      registry.clear()
+      register_fake()
+      t.reset({ "--- log ---", "08:00 a #ClientA", "09:00 b #other", "10:00 done" })
+      vim.cmd("DaylogRefresh")
+      for i, line in ipairs(t.get_lines()) do
+        if line:find("%) #ClientA$") then
+          vim.api.nvim_win_set_cursor(0, { i, 0 })
         end
       end
-      t.ok(refused, "naming a source on a tag row should be refused")
-    end)
-  end)
 
-  t.test("DaylogRename still opens the merge picker when the source is unavailable", function()
+      -- A source can only replace an activity; on a tag row it is reported, then the normal
+      -- candidate (merge) picker opens -- here cancelled, so nothing is mutated.
+      local old_select = vim.ui.select
+      vim.ui.select = function(_, _, on_choice)
+        on_choice(nil)
+      end
+
+      with_captured_notify(function(messages)
+        local ok, err = xpcall(function()
+          vim.cmd("DaylogRename FAKE")
+        end, debug.traceback)
+        vim.ui.select = old_select
+        if not ok then
+          error(err, 0)
+        end
+        local refused = false
+        for _, message in ipairs(messages) do
+          if message.message:find("a source can only replace an activity") then
+            refused = true
+          end
+        end
+        t.ok(refused, "naming a source on a tag row should be refused")
+      end)
+
+      t.eq(t.get_lines()[2], "08:00 a #ClientA")
+    end
+  )
+
+  t.test("DaylogRename on an activity with an empty pool falls back to the input prompt", function()
     registry.clear()
     register_fake()
-    -- Two activities, so the renamed row has a current-file merge candidate.
-    t.reset({ "--- log ---", "08:00 alpha", "09:00 beta", "10:00 done" })
+    on_review_summary_row()
+
+    -- No cached items and (an unnamed test buffer) no daybook scan -> an empty pool, so the
+    -- plain rename input prompt opens instead.
+    local old_read = sync.read_items
+    local old_refresh = sync.refresh_if_stale
+    local old_input = vim.fn.input
+    sync.read_items = function()
+      return {}
+    end
+    sync.refresh_if_stale = function() end
+    vim.fn.input = function()
+      return "renamed via prompt"
+    end
+
+    local ok, err = xpcall(function()
+      vim.cmd("DaylogRename")
+    end, debug.traceback)
+
+    sync.read_items = old_read
+    sync.refresh_if_stale = old_refresh
+    vim.fn.input = old_input
+    if not ok then
+      error(err, 0)
+    end
+
+    t.eq(t.get_lines()[2], "08:00 renamed via prompt")
+  end)
+
+  t.test("DaylogMap maps the cursor entry onto a pool item", function()
+    registry.clear()
+    register_fake()
+    t.reset({ "--- log ---", "08:00 review", "09:00 done" })
+    t.set_cursor(2, 0)
+
+    with_stubbed_unified(true, function()
+      vim.cmd("DaylogMap")
+    end)
+
+    t.eq(t.get_lines()[2], "08:00 review => 1 Item one")
+  end)
+
+  t.test("DaylogMap <source> maps the cursor entry onto a scoped source item", function()
+    registry.clear()
+    register_fake()
+    t.reset({ "--- log ---", "08:00 review", "09:00 done" })
+    t.set_cursor(2, 0)
+
+    -- A named source scopes to that one tracker's items (live-search-capable), like Insert.
+    with_stubbed_picker(true, function()
+      vim.cmd("DaylogMap FAKE")
+    end)
+
+    t.eq(t.get_lines()[2], "08:00 review => 1 Item one")
+  end)
+
+  t.test("DaylogRename dedups a candidate that equals a source item", function()
+    registry.clear()
+    register_fake()
+    -- An activity named exactly like a FAKE work item, plus the one we rename.
+    t.reset({ "--- log ---", "08:00 review", "09:00 1 Item one", "10:00 done" })
     vim.cmd("DaylogRefresh")
     for i, line in ipairs(t.get_lines()) do
-      if line:find("%) alpha$") then
+      if line:find("%) review$") then
         vim.api.nvim_win_set_cursor(0, { i, 0 })
       end
     end
 
-    -- Model a no-cache fetch that fails (e.g. token acquisition): ensure_fresh invokes
-    -- its on_unavailable rather than on_ready.
+    local offered = {}
     local old_ensure = sync.ensure_fresh
     local old_select = vim.ui.select
-    local offered
-    sync.ensure_fresh = function(_name, _ttl, _on_ready, on_unavailable)
-      on_unavailable()
+    sync.ensure_fresh = function(_name, _ttl, on_ready)
+      on_ready(FAKE_ITEMS)
     end
-    vim.ui.select = function(items, _, on_choice)
-      offered = items
-      on_choice(items[1]) -- pick the first current-file candidate
+    vim.ui.select = function(items, opts, _)
+      for _, choice in ipairs(items) do
+        offered[#offered + 1] = opts.format_item(choice)
+      end
+      -- cancel: do not invoke on_choice
     end
 
     local ok, err = xpcall(function()
@@ -303,8 +401,48 @@ return function(t)
       error(err, 0)
     end
 
-    -- The picker opened with the current file's candidate, and picking it merged.
-    t.ok(offered ~= nil, "the picker opens despite the unreachable source")
-    t.eq(t.get_lines()[2], "08:00 beta")
+    -- "1 Item one" appears once (the work item), not also as a merge candidate.
+    local count = 0
+    for _, label in ipairs(offered) do
+      if label == "1 Item one" then
+        count = count + 1
+      end
+    end
+    t.eq(count, 1)
+  end)
+
+  t.test("DaylogInsert! pools sources and inserts the picked row", function()
+    registry.clear()
+    register_fake()
+    t.reset({ "--- log ---", "08:00 first", "09:00 done" })
+    t.set_cursor(2, 0)
+
+    with_stubbed_unified(true, function()
+      with_mocked_date("11:30", function()
+        vim.cmd("DaylogInsert!")
+      end)
+    end)
+
+    t.eq(t.get_lines(), {
+      "--- log ---",
+      "08:00 first",
+      "09:00 done",
+      "11:30 1 Item one",
+    })
+  end)
+
+  t.test("DaylogInsert! falls back to a bare timestamp on cancel", function()
+    registry.clear()
+    register_fake()
+    t.reset({ "--- log ---", "08:00 first", "09:00 done" })
+    t.set_cursor(2, 0)
+
+    with_stubbed_unified(false, function()
+      with_mocked_date("11:30", function()
+        vim.cmd("DaylogInsert!")
+      end)
+    end)
+
+    t.eq(t.get_lines()[4], "11:30 ")
   end)
 end

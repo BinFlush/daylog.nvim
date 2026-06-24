@@ -188,4 +188,26 @@ return function(t)
 
     config.setup()
   end)
+
+  t.test("config normalizes and validates picker", function()
+    config.setup({ picker = { frecency_days = 14, half_life_days = 3, base = 10 } })
+    local picker = config.get().picker
+    t.eq(picker.frecency_days, 14)
+    t.eq(picker.half_life_days, 3)
+    t.eq(picker.base, 10)
+
+    local function bad(p, pattern)
+      local ok, err = pcall(config.setup, { picker = p })
+      t.ok(not ok)
+      t.ok(tostring(err):match(pattern) ~= nil, tostring(err))
+    end
+
+    bad("x", "setup picker must be a table")
+    bad({ rank = 1 }, "picker%.rank must be a function")
+    bad({ frecency_days = 0 }, "frecency_days must be a positive integer")
+    bad({ half_life_days = -1 }, "half_life_days must be a positive integer")
+    bad({ base = 1.5 }, "base must be a positive integer")
+
+    config.setup()
+  end)
 end

@@ -104,9 +104,6 @@ function M.insert_from_source(name)
     return
   end
 
-  local sources = config.get().sources or {}
-  local ttl = sources[name] and sources[name].ttl or 1800
-
   -- The picker is async, so capture the moment and the target buffer up front: a
   -- late selection then stamps the time the command was issued and never edits a
   -- buffer we have since moved away from.
@@ -123,22 +120,66 @@ function M.insert_from_source(name)
     apply_insert_entry(time, source.to_entry_text(item))
   end
 
-  sources_sync.ensure_fresh(name, ttl, function(items)
-    -- With Telescope and a searchable source, type-as-you-search across the whole
-    -- tracker (cached items show at an empty prompt); otherwise the offline cache via
-    -- vim.ui.select. Both insert through insert_choice; cancelling leaves a bare
-    -- timestamp, like a plain :DaylogInsert.
-    pick.item(source, {
-      source_name = name,
-      initial_items = items,
-      prompt = "Daylog: " .. name,
-      prompt_fallback = "Daylog: pick " .. name .. " item",
-      on_pick = insert_choice,
-      on_cancel = function()
-        apply_insert_time(time)
-      end,
-    })
-  end)
+  -- The scoped source picker: type-as-you-search across the whole tracker when the source
+  -- supports it (cached items show at an empty prompt), else the offline cache. Cancelling
+  -- leaves a bare timestamp, like a plain :DaylogInsert.
+  pick.source(source, name, {
+    prompt = "Daylog: " .. name,
+    prompt_fallback = "Daylog: pick " .. name .. " item",
+    on_pick = insert_choice,
+    on_cancel = function()
+      apply_insert_time(time)
+    end,
+  })
+end
+
+-- The unified "what to log" picker (`:DaylogInsert!`): pool every configured source's cached
+-- items plus your recent logged activities into one ranked, deduped, offline fuzzy list. Picking
+-- a row inserts it at the current time; cancelling leaves a bare timestamp, like :DaylogInsert.
+function M.insert_unified()
+  if guard_current_time("insert") then
+    return
+  end
+
+  -- Refuse a cursor outside a log up front, before the async picker, exactly like the other
+  -- insert paths. insert_entry re-validates at apply time too.
+  local cursor_ctx, cursor_err = support.get_validated_at_row(buffer_lines(), cursor_row())
+  if not cursor_ctx then
+    warn(cursor_err)
+    return
+  end
+
+  local time = os.date("%H:%M")
+  local target_buf = vim.api.nvim_get_current_buf()
+
+  -- Insert the chosen/typed activity, or a bare timestamp for an empty value -- guarded against
+  -- the buffer moving under the async picker.
+  local function insert(text)
+    if buffer_changed(target_buf, "insert") then
+      return
+    end
+    if text == nil or text == "" then
+      apply_insert_time(time)
+    else
+      apply_insert_entry(time, text)
+    end
+  end
+
+  -- read_specs reads each source's cache synchronously (offline, instant) and refreshes stale
+  -- ones in the background; an empty pool (no sources, empty daybook) leaves a bare timestamp.
+  pick.unified(sources_sync.read_specs(), {
+    prompt = "Daylog: insert",
+    prompt_fallback = "Daylog: insert",
+    type_new_label = "✎ Type a new activity…",
+    on_choose = insert,
+    on_create = insert,
+    on_type_new = function()
+      insert(vim.fn.input({ prompt = "daylog: log: " }))
+    end,
+    on_cancel = function()
+      apply_insert_time(time)
+    end,
+  })
 end
 
 -- Refresh the on-disk cache for one source, or every configured source.

@@ -170,8 +170,9 @@ local function normalize_azure_devops(name, entry)
     organization = required_string("organization"),
   }
 
-  -- A source targets a single `project` (project-scoped requests) or a `projects`
-  -- list (organization-scoped, filtered to those team projects) -- exactly one.
+  -- Scope is optional: a single `project` (project-scoped requests), a `projects` list
+  -- (organization-scoped, filtered to those team projects), or neither -- the default,
+  -- organization-wide. `project` and `projects` are mutually exclusive.
   if entry.project ~= nil and entry.projects ~= nil then
     error("daylog: source '" .. name .. "' must not set both project and projects")
   elseif entry.projects ~= nil then
@@ -197,8 +198,6 @@ local function normalize_azure_devops(name, entry)
     result.projects = projects
   elseif entry.project ~= nil then
     result.project = required_string("project")
-  else
-    error("daylog: source '" .. name .. "' must set 'project' or 'projects'")
   end
 
   -- The PAT is a function so it is resolved lazily at fetch time and never stored
@@ -232,6 +231,12 @@ local function normalize_azure_devops(name, entry)
     error("daylog: source '" .. name .. "' cannot combine projects with query or query_id")
   end
 
+  -- A saved ADO query lives in a project, so query_id needs one (raw `query` may run
+  -- organization-wide, so it does not).
+  if result.query_id ~= nil and result.project == nil then
+    error("daylog: source '" .. name .. "'.query_id needs a project")
+  end
+
   if entry.api_version ~= nil then
     if type(entry.api_version) ~= "string" or entry.api_version == "" then
       error("daylog: source '" .. name .. "'.api_version must be a non-empty string")
@@ -246,6 +251,16 @@ local function normalize_azure_devops(name, entry)
       error("daylog: source '" .. name .. "'.format_item must be a function")
     end
     result.format_item = entry.format_item
+  end
+
+  -- Live as-you-type tracker search is off by default (the offline cache is the
+  -- picker); opt in per source. Picking stays offline either way -- only an enabled
+  -- search reaches the network on each keystroke.
+  if entry.search ~= nil then
+    if type(entry.search) ~= "boolean" then
+      error("daylog: source '" .. name .. "'.search must be a boolean")
+    end
+    result.search = entry.search
   end
 
   return result
@@ -325,6 +340,54 @@ local function normalize_sources(sources)
   return result
 end
 
+-- Cross-source picker behavior (not per-source): how a source's cached items are ranked in
+-- the picker. The built-in ranker scores each item by a time-decayed worklog frecency.
+-- `rank` overrides it wholesale (same signature, fn(items, ctx) -> items); `frecency_days` is
+-- the daybook look-back window scanned, `half_life_days` how fast a logged item's weight
+-- decays, and `base` how much one log counts versus a minute of tracked time. Defaults are
+-- applied at use time (pick.lua).
+local function normalize_picker(picker)
+  if picker == nil then
+    return nil
+  end
+
+  if type(picker) ~= "table" then
+    error("daylog: setup picker must be a table")
+  end
+
+  local result = {}
+
+  if picker.rank ~= nil then
+    if type(picker.rank) ~= "function" then
+      error("daylog: picker.rank must be a function")
+    end
+    result.rank = picker.rank
+  end
+
+  if picker.frecency_days ~= nil then
+    if not positive_integer(picker.frecency_days) then
+      error("daylog: picker.frecency_days must be a positive integer")
+    end
+    result.frecency_days = picker.frecency_days
+  end
+
+  if picker.half_life_days ~= nil then
+    if not positive_integer(picker.half_life_days) then
+      error("daylog: picker.half_life_days must be a positive integer")
+    end
+    result.half_life_days = picker.half_life_days
+  end
+
+  if picker.base ~= nil then
+    if not positive_integer(picker.base) then
+      error("daylog: picker.base must be a positive integer")
+    end
+    result.base = picker.base
+  end
+
+  return result
+end
+
 local function normalize_config(options)
   if options == nil then
     return {
@@ -352,6 +415,11 @@ local function normalize_config(options)
   local sources = normalize_sources(options.sources)
   if sources ~= nil then
     result.sources = sources
+  end
+
+  local picker = normalize_picker(options.picker)
+  if picker ~= nil then
+    result.picker = picker
   end
 
   return result

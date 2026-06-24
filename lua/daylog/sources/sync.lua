@@ -1,4 +1,5 @@
 local cache = require("daylog.sources.cache")
+local config = require("daylog.config")
 local registry = require("daylog.sources.registry")
 
 local M = {}
@@ -142,6 +143,33 @@ function M.ensure_fresh(name, ttl, on_ready, on_unavailable)
       on_unavailable()
     end
   end)
+end
+
+-- Kick a silent background refresh when a source's cache is stale or absent (and no sync is
+-- already running). The unified insert picker reads caches synchronously and refreshes out of
+-- band, rather than blocking on a fetch, so it stays instant across many sources.
+function M.refresh_if_stale(name, ttl)
+  if cache.is_stale(M.read_cache(name), os.time(), ttl) and not in_flight[name] then
+    M.sync(name, { silent = true })
+  end
+end
+
+-- Read every configured source's cached items (offline, instant), each refreshed in the
+-- background when stale -- the spec list the unified picker pools across :DaylogInsert! /
+-- :DaylogRename / :DaylogMap. Returns { { name, source, items }, ... }; empty with no sources.
+function M.read_specs()
+  local sources_cfg = config.get().sources or {}
+  local specs = {}
+  for _, name in ipairs(registry.names()) do
+    local ttl = sources_cfg[name] and sources_cfg[name].ttl or 1800
+    M.refresh_if_stale(name, ttl)
+    specs[#specs + 1] = {
+      name = name,
+      source = registry.get(name),
+      items = M.read_items(name),
+    }
+  end
+  return specs
 end
 
 return M

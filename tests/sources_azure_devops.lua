@@ -21,6 +21,9 @@ return function(t)
       project = "Platform",
       api_version = "7.0",
       template = "{id} {title}",
+      -- Live search is opt-in; enable it by default here so the search tests below
+      -- exercise it (the default-off behavior is covered by its own test).
+      search = true,
     }
     for key, value in pairs(overrides or {}) do
       cfg[key] = value
@@ -57,6 +60,7 @@ return function(t)
                 ["System.Title"] = "Fix login",
                 ["System.WorkItemType"] = "Bug",
                 ["System.State"] = "Active",
+                ["System.ChangedDate"] = "2026-06-20T08:00:00Z",
               },
             },
             {
@@ -65,6 +69,7 @@ return function(t)
                 ["System.Title"] = "Docs",
                 ["System.WorkItemType"] = "Task",
                 ["System.State"] = "New",
+                ["System.ChangedDate"] = "2026-06-19T10:00:00Z",
               },
             },
           },
@@ -80,8 +85,15 @@ return function(t)
 
     t.eq(result.err, nil)
     t.eq(result.items, {
-      { id = "1234", title = "Fix login", type = "Bug", state = "Active" },
-      { id = "42", title = "Docs", type = "Task", state = "New" },
+      -- `updated` (System.ChangedDate, ISO-8601) is carried for the cross-source ranker.
+      {
+        id = "1234",
+        title = "Fix login",
+        type = "Bug",
+        state = "Active",
+        updated = "2026-06-20T08:00:00Z",
+      },
+      { id = "42", title = "Docs", type = "Task", state = "New", updated = "2026-06-19T10:00:00Z" },
     })
 
     -- The PAT only ever appears in the request credentials, never in an item.
@@ -107,7 +119,36 @@ return function(t)
     t.eq(items, {})
     -- Only the WIQL request happens when there are no ids to hydrate.
     t.eq(#transport.seen, 1)
-    t.ok(vim.json.decode(transport.seen[1].body).query:match("@Me") ~= nil)
+    -- "Involves me" = assigned or created.
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("%[System%.AssignedTo%] = @Me") ~= nil, body.query)
+    t.ok(body.query:match("%[System%.CreatedBy%] = @Me") ~= nil, body.query)
+  end)
+
+  t.test("fetch with no project or projects runs organization-wide", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = {} }) }
+      end
+      return { status = 200, body = vim.json.encode({ value = {} }) }
+    end)
+
+    -- Neither project nor projects -> org-scoped URL, no team-project filter.
+    local source = new_source({
+      organization = "contoso",
+      api_version = "7.0",
+      template = "{id} {title}",
+    }, transport)
+    source.fetch(function() end)
+
+    t.ok(
+      transport.seen[1].url:match("dev%.azure%.com/contoso/_apis/wit/wiql") ~= nil,
+      transport.seen[1].url
+    )
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("%[System%.AssignedTo%] = @Me") ~= nil, body.query)
+    t.ok(body.query:match("%[System%.CreatedBy%] = @Me") ~= nil, body.query)
+    t.ok(body.query:match("TeamProject") == nil, body.query)
   end)
 
   t.test("fetch runs a saved query by id with GET", function()
@@ -166,27 +207,44 @@ return function(t)
     t.eq(source.to_entry_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
   end)
 
-  t.test("format_item defaults include id, type, state and title", function()
-    -- The variable-width title is last so a list of items aligns into columns.
+  t.test("format_item leads with the rendered name, the metadata trailing", function()
+    -- The rendered name (to_entry_text) is first so it lines up with plain activity rows; the
+    -- metadata trails it directly on each row.
     local source = new_source(base_cfg(), fake_transport(function() end))
     t.eq(
       source.format_item({ id = "5", title = "Fix", type = "Bug", state = "Active" }),
-      "#5  [Bug/Active]  Fix"
+      "5 Fix  [Bug/Active]"
+    )
+    -- A long title does not push the metadata away: there is no cross-item column padding
+    -- (no format_items), so it stays adjacent and visible in the picker.
+    t.eq(source.format_items, nil)
+    t.eq(
+      source.format_item({
+        id = "105210",
+        title = "Investigate auth timeout",
+        type = "Bug",
+        state = "Active",
+      }),
+      "105210 Investigate auth timeout  [Bug/Active]"
     )
   end)
 
-  t.test("format_items aligns the leading columns and the titles", function()
-    local source = new_source(base_cfg(), fake_transport(function() end))
-    t.eq(
-      source.format_items({
-        { id = "5", title = "Fix login", type = "Bug", state = "Active" },
-        { id = "1234", title = "Refactor", type = "Task", state = "New" },
-      }),
-      {
-        "#5     [Bug/Active]  Fix login",
-        "#1234  [Task/New]    Refactor",
-      }
-    )
+  t.test("search is omitted unless enabled (offline by default)", function()
+    local transport = fake_transport(function()
+      return { status = 200, body = "{}" }
+    end)
+
+    -- No `search` key (the real default after config normalization) -> no method,
+    -- so the picker stays cache-only.
+    local off = new_source({
+      organization = "contoso",
+      project = "Platform",
+      api_version = "7.0",
+      template = "{id} {title}",
+    }, transport)
+    t.eq(off.search, nil)
+
+    t.ok(type(new_source(base_cfg(), transport).search) == "function")
   end)
 
   t.test("search runs a WIQL CONTAINS WORDS query then hydrates", function()
@@ -223,6 +281,8 @@ return function(t)
     t.eq(transport.seen[1].method, "POST")
     local body = vim.json.decode(transport.seen[1].body)
     t.ok(body.query:match("CONTAINS WORDS 'login'") ~= nil, body.query)
+    -- Search is scoped to your items too, so it can't surface another team's.
+    t.ok(body.query:match("%[System%.CreatedBy%] = @Me") ~= nil, body.query)
   end)
 
   t.test("search escapes single quotes in the query", function()
@@ -320,6 +380,7 @@ return function(t)
       projects = { "Platform", "Data" },
       api_version = "7.0",
       template = "{id} {title}",
+      search = true,
     }
     local source = new_source(cfg, transport)
     local result
@@ -345,8 +406,8 @@ return function(t)
     local body = vim.json.decode(transport.seen[1].body)
     t.ok(body.query:match("%[System%.TeamProject%] IN %('Platform', 'Data'%)") ~= nil, body.query)
 
-    -- format_item labels the project when several are configured (title last).
-    t.eq(source.format_item(result.items[1]), "#7  [Bug/Active]  Data  Cross-project")
+    -- format_item labels the project when several are configured (rendered name first).
+    t.eq(source.format_item(result.items[1]), "7 Cross-project  [Bug/Active]  Data")
   end)
 
   t.test("a project name with a single quote is escaped in the WIQL", function()
@@ -357,8 +418,10 @@ return function(t)
       return { status = 200, body = vim.json.encode({ value = {} }) }
     end)
 
-    local source =
-      new_source({ organization = "contoso", projects = { "Pro'ject", "B" } }, transport)
+    local source = new_source(
+      { organization = "contoso", projects = { "Pro'ject", "B" }, search = true },
+      transport
+    )
     source.search("x", function() end)
 
     local body = vim.json.decode(transport.seen[1].body)

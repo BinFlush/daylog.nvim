@@ -71,4 +71,20 @@ return function(t)
     t.eq(picker.should_query("a", nil, 0), true)
     t.eq(picker.should_query("", nil, 0), false)
   end)
+
+  t.test("meta_range marks the metadata after the leading rendered name", function()
+    -- "5 Fix" is 5 bytes; the dimmed range runs to the end of the line.
+    local s, e = picker.meta_range("5 Fix  [Bug/Active]", "5 Fix")
+    t.eq({ s, e }, { 5, 19 })
+  end)
+
+  t.test("meta_range is nil when there is nothing to dim", function()
+    -- An activity row: the whole line is the text.
+    t.eq(picker.meta_range("standup", "standup"), nil)
+    -- A display that does not lead with the rendered name (a custom source layout).
+    t.eq(picker.meta_range("[Bug] 5 Fix", "5 Fix"), nil)
+    -- No rendered name to anchor on.
+    t.eq(picker.meta_range("5 Fix  [Bug/Active]", ""), nil)
+    t.eq(picker.meta_range("5 Fix  [Bug/Active]", nil), nil)
+  end)
 end

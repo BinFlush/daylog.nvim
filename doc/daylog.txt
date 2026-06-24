@@ -414,7 +414,7 @@ to the latest log even if that is days ahead, while `monday..today` stops at tod
   totals.
 
                                                          *:DaylogInsert*
-:DaylogInsert [source]
+:DaylogInsert[!] [source]
 
 Insert the current time into the log block under the cursor.
 
@@ -430,6 +430,14 @@ supports live search, this is a search-as-you-type Telescope picker (see
 |daylog-sources|). Otherwise it is `vim.ui.select`, which Telescope, fzf-lua,
 snacks, or mini.pick take over when installed. Cancelling the picker falls
 back to the plain bare timestamp.
+
+With a bang (`:DaylogInsert!`) it opens the unified "what to log" picker: one
+fuzzy, offline list pooling every configured source's cached work items together
+with your recent logged activities, ranked by the same worklog frecency as the
+source picker (see |daylog-picker|) and de-duplicated, so an activity that matches
+a tracked item appears once. Pick a row to insert it, type a fresh activity to
+insert that, or cancel for a bare timestamp. With no sources configured it is just
+your recent activities; with nothing to offer it falls back to a bare timestamp.
 
 When the buffer is a daybook file (see |daylog-config|) dated for a day other
 than today, inserting the current time is refused, since stamping "now" into
@@ -515,8 +523,7 @@ propagating into the attached log and rebuilding its summary.
 - On a main summary row, the activity text of its source entries is renamed.
 - On an entry line, only that one entry's activity text is renamed -- its
   same-named siblings are left alone -- through the same picker / prompt as a
-  main row (seeded with that entry's text, offering the other activities and any
-  source items).
+  main row (seeded with that entry's text).
 - On a tag-total row, that `#tag` is renamed everywhere it is effective -- the
   log header and the explicit tokens that named it. Entries that only
   inherited the tag are left untouched and follow the rename automatically.
@@ -526,19 +533,21 @@ propagating into the attached log and rebuilding its summary.
 - Renaming to a name that already exists merges the two: the row's intervals fold
   into the existing tag, location, or activity (renaming and merging are the same
   operation). For an activity, this merges with another activity under the same tag.
-- With no `[name]` argument you get a picker of the other same-kind values to merge
-  into -- the other tags, the other locations, or (for an activity) the other
-  activities under the same tag. With Telescope, type to filter; `<CR>` merges into
-  the highlighted value and `<C-e>` renames to the text you typed. Without Telescope
-  it is a |vim.ui.select| list plus a "type a new name" entry. When there is nothing
-  to merge into, it falls back to a plain prompt seeded with the current value.
-- Replacing an activity with a tracked work item: when renaming an activity (not a
-  tag or location) and a |daylog-sources| source is configured, the picker also
-  lists -- and live-searches -- that source's work items; picking one renames the
-  activity to the item's entry text (`{id} {title}`), exactly like |:DaylogInsert|.
-  With one source it is offered automatically; with several, name it as the argument
-  (`:DaylogRename {source}`, tab-completed). A `[name]` argument that is not a
-  source name renames directly to that text.
+- For an activity with no argument, the picker is the same unified pool as
+  |:DaylogInsert!|: your recent logged activities (across days) plus every configured
+  source's work items, ranked by worklog frecency (see |daylog-picker|) and
+  de-duplicated. Picking one renames the activity to it -- a work item to its entry
+  text (`{id} {title}`). With Telescope, type to filter; `<CR>` picks the highlighted
+  row and `<C-e>` renames to the text you typed. Without Telescope it is a
+  |vim.ui.select| list plus a "type a new name" entry. With nothing to pick it falls
+  back to a plain prompt seeded with the current value.
+- Naming a source (`:DaylogRename {source}`, tab-completed) scopes the picker to that
+  one tracker's work items, live-searched as you type when it has `search = true` --
+  exactly like |:DaylogInsert| {source}. Only an activity row accepts a source; on a
+  tag or location it is reported. A `[name]` argument that is not a source name
+  renames directly to that text.
+- For a tag or location the picker offers the other tags / locations to merge into
+  (there is no work-item pool for those).
 - A tag or location name must be letters, digits, underscores, or hyphens; activity
   text is sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active log's summary; a row that no longer
@@ -565,10 +574,12 @@ own journal while the summary reads in canonical terms.
 - With the cursor on a main summary row, every entry feeding it is mapped.
 - `:DaylogMap {label}` sets the alias to that (possibly multi-word) label. The
   trailing metadata (`#tag`, `!L`, ...) stays on the entry and follows the alias.
-- With no argument you get a prompt seeded with the current alias; if a
-  |daylog-sources| source is configured, a picker of its work items instead
-  (mapping onto `{id} {title}`), exactly like |:DaylogInsert| / |:DaylogRename|.
-  With several sources, name one as the argument (tab-completed).
+- With no argument the same unified pool as |:DaylogInsert!| / |:DaylogRename|
+  opens -- your recent activities and every source's work items -- and the chosen
+  value becomes the alias (a work item maps onto `{id} {title}`); with nothing to
+  pick, a prompt seeded with the current alias. Naming a source scopes the picker to
+  that one tracker (live-searched with `search = true`), exactly like |:DaylogInsert|
+  {source}.
 - `:DaylogMap!` (bang) clears the mapping on the cursor's target.
 - A logged entry (`!L`) is refused: its committed value is tied to its current
   identity. Unlog it, map it, then log again.
@@ -684,6 +695,7 @@ Configure sources in `setup{}`:
         -- query     = '<raw WIQL>',          -- or your own WIQL
         -- template  = '{id} {title}',        -- inserted activity text
         -- ttl       = 1800,                  -- cache lifetime, seconds
+        -- search    = false,                 -- opt in to live tracker search
         -- min_query = 3,                     -- chars before live search runs
       },
     },
@@ -696,19 +708,22 @@ Configure sources in `setup{}`:
 - `token` is a function returning a Personal Access Token. It is called only
   when syncing and is never written to the cache, so keep no secret in plain
   config -- read it from the environment or a password manager.
-- By default the cache holds work items assigned to you that are active and
-  recently changed. Override with a saved query (`query_id`) or raw WIQL
-  (`query`).
-- Set `projects = { 'A', 'B' }` instead of `project` to search a chosen subset
-  of the organization's projects at once; results are labelled by project. It is
-  mutually exclusive with `project`, `query`, and `query_id`.
+- By default the cache holds the work items that involve you -- assigned to or
+  created by you -- that are active and recently changed, across your whole
+  organization. Replace the scope with a saved query (`query_id`, which needs a
+  `project`) or raw WIQL (`query`).
+- `project` and `projects` are optional and mutually exclusive: a single `project`
+  scopes requests to it; `projects = { 'A', 'B' }` to that subset of the
+  organization (results labelled by project); omitting both spans the whole
+  organization. `projects` cannot combine with `query` or `query_id`.
 - The picked item is inserted as `template` (default `{id} {title}`) at the
   current time. The template fills `{id}`, `{title}`, `{type}`, `{state}`, and
   `{project}` from the work item; any other `{name}` placeholder is left
   unchanged. The title is sanitized so it can never form trailing metadata.
-- Live search waits until the prompt is `min_query` characters (default 3);
-  below that only the cached items are filtered, with no request. Set
-  `min_query = 1` to search from the first keystroke.
+- Live as-you-type tracker search is off by default -- the picker is your offline
+  cache. Set `search = true` to enable it; it then waits until the prompt is
+  `min_query` characters (default 3) before each request (`min_query = 1` searches
+  from the first keystroke).
 
 For a step-by-step Azure DevOps setup -- creating the PAT, where to store it, and
 troubleshooting -- see the guide at docs/azure-devops.md in the repository.
@@ -719,14 +734,23 @@ refreshes in the background when older than `ttl` (default 1800 seconds) and on
 |:DaylogSync|. Syncing requires the `curl` executable; pick-time needs no
 network.
 
-With Telescope installed and a source that supports search, |:DaylogInsert|
-{source} opens a Telescope picker that searches the tracker live as you type
-(debounced, once the prompt reaches `min_query` characters), with your cached
-items shown at an empty prompt. Without Telescope it uses the offline
-`vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
-across your configured project(s) and hydrates at most 200 matches; if more match,
-the picker notes "showing first N of M matches" so you can refine. A failed search
-reports a `daylog:` warning.
+With Telescope installed, |:DaylogInsert| {source} opens a Telescope picker over
+your cached items with client-side fuzzy filtering; without it, the offline
+`vim.ui.select` cache picker (so fzf-lua / snacks / mini.pick work too). Either
+way picking is offline.
+
+In the Telescope picker each item shows the inserted text (`{id} {title}`) first,
+then its `[type/state]` and project trailing, dimmed via the `DaylogPickerMeta`
+highlight group (linked to `Comment` by default; override with
+`:hi DaylogPickerMeta ...`). Fuzzy matching still searches the dimmed metadata.
+
+Live as-you-type tracker search is opt-in -- set `search = true` on the source. It
+then queries the tracker on each keystroke (debounced, once the prompt reaches
+`min_query` characters) and merges matches into your cached items. The Azure DevOps
+source searches work-item titles among the items that involve you (the same scope as
+the cache, so it never surfaces another team's work) and hydrates at most 200
+matches; if more match, the picker notes "showing first N of M matches" so you can
+refine. A failed search reports a `daylog:` warning.
 
                                                   *daylog-custom-source*
 You can register your own source (e.g. Jira, GitHub Issues) with:
@@ -742,7 +766,10 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
       cb(items, nil) on success, cb(nil, "message") on failure.
 
   source.format_item(item) -> string
-      The line shown for one item in the picker.
+      The line shown for one item in the picker. Leading with the to_entry_text
+      (what gets inserted) lets it line up at the left edge with the plain activity
+      rows in the unified picker, with any metadata trailing as aligned columns --
+      the built-in Azure DevOps source does this.
 
   source.format_items(items) -> string[]   (optional)
       Display lines for the whole list at once, one per item in order. Use it to
@@ -760,10 +787,22 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
       type in |:DaylogInsert| {source}, with the same cb(items, err) shape as
       fetch. cb may take an optional third argument -- the total number of
       matches before any local cap -- so the picker can flag a truncated set.
-      Omit search to filter only the cached items.
+      Omit search (the offline-first default) to filter only the cached items.
 
-An `item` is a table: `id` and `title` are required; `type`, `state`, `project`,
-and `url` are optional (shown in the default picker line).
+An `item` is a table. `id` and `title` are required; `type`, `state`, `active`,
+`updated`, and `url` are optional. `id` is both the cache key and the ranking
+key; `active` (a normalized open / not-done flag) and `updated` (an ISO-8601
+timestamp) feed item ordering, so populate them when cheap. `type`, `state`, and
+`url` are for display, and a source may carry extra fields of its own (the
+built-in Azure DevOps source adds `project`).
+
+A good `fetch` returns your relevant work: the broadest reasonable "involves me"
+-- assigned, created, mentioned, or watching, as the tracker allows -- that is
+active and recently updated, not tied to a single project/repo where the API can
+query wider. Let users override the scope with whatever their tracker speaks (a
+raw query, a saved query, a filter); there is intentionally no generic
+cross-source query knob, because query languages differ. The design rationale
+and a per-tracker comparison (Jira, GitHub, Linear) live in docs/integrations.md.
 
 A registered source gets the same cache, background refresh, live search, picker,
 completion, and |:checkhealth| listing as a built-in, and |:DaylogSync| {name}
@@ -817,6 +856,7 @@ Configure `daylog.nvim` with:
     },
     auto_summary = 'idle',
     active_indicator = true,
+    picker = { frecency_days = 30 },
   })
 <
 
@@ -918,6 +958,32 @@ any diagnostic hides them so the warnings stand on their own.
 >
   require('daylog').setup({ active_indicator = false })
 <
+
+                                                          *daylog-picker*
+`picker` tunes how a |daylog-sources| source's cached work items are ordered in
+the picker. It is optional. By default the items you actually work on lead:
+daylog scans your recent daylogs (the worklog is the signal; no hidden state is
+kept) and scores each item by a time-decayed "frecency" -- recent, frequent, and
+long-tracked activities rank highest -- then falls back to a source's own order
+(active items first, most recently updated next) for items you have never logged.
+
+The score sums, over each logged entry of an item, `base + minutes` (the time
+tracked on it) discounted by `0.5 ^ (age_days / half_life_days)`, so recency, how
+often, and how much time all contribute.
+
+- `frecency_days` -- how many days of daylogs to scan (positive integer, default
+  30).
+- `half_life_days` -- how fast a logged item's weight fades (positive integer,
+  default 7: a week-old log counts half as much as a fresh one).
+- `base` -- how much a single log is worth against a minute of tracked time
+  (positive integer, default 30).
+- `rank` -- an optional function `fn(items, ctx) -> items` that replaces the
+  built-in ranker entirely. `ctx` carries `usage` (an activity-text -> `{ freq,
+  time, count, latest }` map from the scan), `key_of(item)` (the text the item
+  would be logged as, for matching against `usage`), `base`, and `now`.
+
+This applies to every source, so a custom Jira or GitHub source is ranked the
+same way. See docs/integrations.md for the design.
 
 ==============================================================================
 SUMMARIES                                                  *daylog-summaries*

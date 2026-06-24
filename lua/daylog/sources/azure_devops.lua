@@ -1,5 +1,3 @@
-local picker = require("daylog.sources.picker")
-
 local M = {}
 
 -- Azure DevOps work-item source.
@@ -12,8 +10,14 @@ local M = {}
 
 -- Comma-separated field list and id list are passed literally (safe constants /
 -- digits); only opaque path segments are percent-encoded.
-local WORKITEM_FIELDS = "System.Id,System.Title,System.WorkItemType,System.State,System.TeamProject"
+local WORKITEM_FIELDS =
+  "System.Id,System.Title,System.WorkItemType,System.State,System.TeamProject,System.ChangedDate"
 local MAX_ITEMS = 200
+
+-- The broadest "this item involves me" predicate WIQL can express cleanly (mentions and
+-- watching are not queryable). Shared by the default fetch and the live search, so both
+-- stay scoped to your work.
+local INVOLVES_ME = "([System.AssignedTo] = @Me OR [System.CreatedBy] = @Me)"
 
 local function encode_segment(segment)
   return (
@@ -30,32 +34,34 @@ function M.new(_name, cfg, deps)
   local api_version = cfg.api_version or "7.0"
   local template = cfg.template or "{id} {title}"
 
-  -- A single `project` keeps the request project-scoped (URL segment). A `projects`
-  -- list goes organization-scoped and narrows the WIQL with a team-project filter
-  -- instead, so one query spans the chosen subset.
+  -- Scope: a single `project` keeps requests project-scoped (URL segment). Otherwise the
+  -- request is organization-scoped -- a `projects` list narrows the WIQL to that subset with a
+  -- team-project filter, and neither (the default) spans the whole org.
   local base
   local project_filter = ""
-  if cfg.projects then
-    base = string.format("https://dev.azure.com/%s/_apis/wit", encode_segment(cfg.organization))
-    local quoted = {}
-    for _, project in ipairs(cfg.projects) do
-      quoted[#quoted + 1] = "'" .. project:gsub("'", "''") .. "'"
-    end
-    project_filter = " AND [System.TeamProject] IN (" .. table.concat(quoted, ", ") .. ")"
-  else
+  if cfg.project then
     base = string.format(
       "https://dev.azure.com/%s/%s/_apis/wit",
       encode_segment(cfg.organization),
       encode_segment(cfg.project)
     )
+  else
+    base = string.format("https://dev.azure.com/%s/_apis/wit", encode_segment(cfg.organization))
+    if cfg.projects then
+      local quoted = {}
+      for _, project in ipairs(cfg.projects) do
+        quoted[#quoted + 1] = "'" .. project:gsub("'", "''") .. "'"
+      end
+      project_filter = " AND [System.TeamProject] IN (" .. table.concat(quoted, ", ") .. ")"
+    end
   end
 
-  -- Default set: assigned to me, active, recently changed -- plus the team-project
-  -- filter when organization-scoped. The filter sits in the WHERE clause, before the
-  -- trailing ORDER BY; it is "" for a single project.
+  -- Default set: items that involve you (assigned or created), active, recently changed --
+  -- plus the team-project filter when organization-scoped. The filter sits in the WHERE
+  -- clause, before the trailing ORDER BY; it is "" for a single project or org-wide.
   local default_wiql = table.concat({
     "SELECT [System.Id] FROM WorkItems",
-    "WHERE [System.AssignedTo] = @Me",
+    "WHERE " .. INVOLVES_ME,
     "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'",
     "AND [System.ChangedDate] >= @Today - 30" .. project_filter,
     -- Id is a tiebreaker so the 200-item cap is deterministic when several items
@@ -124,6 +130,8 @@ function M.new(_name, cfg, deps)
             title = fields["System.Title"] or "",
             type = fields["System.WorkItemType"],
             state = fields["System.State"],
+            -- A recency signal for the (cross-source) ranker; ADO returns ISO-8601.
+            updated = fields["System.ChangedDate"],
             project = fields["System.TeamProject"],
             url = work_item.url,
           })
@@ -190,14 +198,17 @@ function M.new(_name, cfg, deps)
     end)
   end
 
-  -- Live text search over work-item titles (used by the Telescope live picker),
-  -- scoped to the configured project(s) by the URL and/or the team-project filter.
-  function source.search(query, cb)
+  -- Optional live text search over work-item titles (the Telescope live picker),
+  -- scoped like fetch by the URL and/or the team-project filter. Off by default --
+  -- the offline cache is the picker -- and enabled per source with `search = true`.
+  local function run_search(query, cb)
     local escaped = (query or ""):gsub("'", "''")
     local wiql = string.format(
       "SELECT [System.Id] FROM WorkItems "
         .. "WHERE [System.Title] CONTAINS WORDS '%s' "
-        .. "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'"
+        .. "AND "
+        .. INVOLVES_ME
+        .. " AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'"
         .. "%s"
         .. " ORDER BY [System.ChangedDate] DESC, [System.Id] DESC",
       escaped,
@@ -215,51 +226,30 @@ function M.new(_name, cfg, deps)
     end)
   end
 
-  -- The fixed-width leading cells for one item: id, then [type/state], then the
-  -- project when several are configured. The free-flowing title is appended last by
-  -- the callers, so format_items can pad these into aligned columns while the title
-  -- (the one variable-width field) needs no padding.
-  local function lead_cells(item)
-    local cells = {
-      "#" .. tostring(item.id),
-      string.format("[%s/%s]", item.type or "?", item.state or "?"),
-    }
-    if cfg.projects then
-      cells[#cells + 1] = item.project or "?"
-    end
-    return cells
+  if cfg.search then
+    source.search = run_search
   end
 
+  -- One item's picker line: the rendered name (`to_entry_text` -- exactly what gets inserted)
+  -- leads, so it shows on the far left lined up with the plain activity rows; [type/state], then
+  -- the project when several are configured, trail as metadata right after it. The id already
+  -- lives inside the rendered name, so it is not repeated. The metadata is not column-aligned
+  -- across items on purpose: padding the variable-width name to the widest one would shove the
+  -- metadata off the right of the picker when titles vary, so it trails each name directly and
+  -- always stays visible. (No format_items, so the display contract falls back to this per item.)
   function source.format_item(item)
     if cfg.format_item then
       return cfg.format_item(item)
     end
 
-    local cells = lead_cells(item)
-    cells[#cells + 1] = item.title or ""
+    local cells = {
+      source.to_entry_text(item),
+      string.format("[%s/%s]", item.type or "?", item.state or "?"),
+    }
+    if cfg.projects then
+      cells[#cells + 1] = item.project or "?"
+    end
     return (table.concat(cells, "  "):gsub("%s+$", ""))
-  end
-
-  -- The whole item list as aligned picker lines: the id, [type/state], and project
-  -- columns line up, and the titles all start at the same column, so a list of items
-  -- of differing lengths reads as neat columns instead of a ragged trailing field. A
-  -- user-supplied cfg.format_item is per-item, so it is mapped without alignment.
-  function source.format_items(items)
-    if cfg.format_item then
-      local lines = {}
-      for index, item in ipairs(items) do
-        lines[index] = cfg.format_item(item)
-      end
-      return lines
-    end
-
-    local rows = {}
-    for index, item in ipairs(items) do
-      local cells = lead_cells(item)
-      cells[#cells + 1] = item.title or ""
-      rows[index] = cells
-    end
-    return picker.align(rows)
   end
 
   function source.to_entry_text(item)

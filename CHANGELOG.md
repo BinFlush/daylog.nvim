@@ -24,6 +24,11 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **`:DaylogInsert!` — the unified "what to log" picker.** One fuzzy, offline list that pools
+  every configured source's cached work items together with your recent logged activities
+  (across days), ranked by worklog frecency and de-duplicated so an activity matching a tracked
+  item appears once. Pick a row to insert it, type a fresh activity, or cancel for a bare
+  timestamp. Bare `:DaylogInsert` (stamp the time) and `:DaylogInsert <source>` are unchanged.
 - **Entry mapping (`=> alias`) and `:DaylogMap`.** An entry can carry `=> label`
   after its description: it keeps what you wrote but resolves to `label` in the
   summary — counting toward, and shown as, that target — so several entries (even
@@ -46,6 +51,31 @@ happen, but they are called out clearly in this changelog.
   date; missing days are skipped, and a reversed/unparseable range or an empty span is
   reported. The aggregate headers show the resolved span and a `(N found)` count, e.g.
   `--- range summary 2026-05-12..2026-05-18 (3 found) ---`.
+
+### Changed
+
+- **One picker for Insert!, Rename, and Map; the rendered name leads.** `:DaylogRename` and
+  `:DaylogMap` now open the same unified pool as `:DaylogInsert!` — your recent activities plus
+  every source's work items, frecency-ranked and de-duplicated — instead of a single source's
+  items; pick a row to rename/map onto it. Naming a source still scopes the picker to that one
+  tracker, with live search (`search = true`) — exactly like `:DaylogInsert <source>` — and
+  renaming a tag/location still offers the other tags/locations. Tracked items now display with
+  their inserted text (`{id} {title}`) on the far left, lined up with the plain activity rows, and
+  the `[type/state]`/project metadata trailing — dimmed in the Telescope picker via the overridable
+  `DaylogPickerMeta` highlight group so the name stands out.
+- **Source pickers lead with what you've been working on.** A source's cached work items
+  are now ordered by your worklog — a time-decayed frecency that weighs how recently, how
+  often, and how much *time* you've logged against each item, so the things you actually work
+  on rise to the top. Tunable via `picker.frecency_days` / `half_life_days` / `base`, or
+  replace the ordering entirely with `picker.rank`. Works for any source.
+- **Live tracker search is now opt-in** — set `search = true` on a source to enable the
+  per-keystroke network search. By default the picker reads the offline cache and filters
+  locally (instant, no network); with Telescope you still get a fuzzy picker over the cache.
+- **Azure DevOps default scope is now organization-wide and person-scoped.** The cache (and
+  live search) lists work items that **involve you** — assigned to *or* created by you — that
+  are active and recently changed, **organization-wide** by default. `project`/`projects` are
+  now optional (set one to narrow); search carries the same scope. Use `query`/`query_id` for
+  a custom scope (`query_id` needs a `project`).
 
 ### Removed
 
