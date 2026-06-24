@@ -1280,7 +1280,7 @@ return function(t)
     end)
   end)
 
-  t.test("days validates the requested count", function()
+  t.test("days rejects malformed arguments", function()
     with_daylog_setup({}, function()
       t.reset({ "scratch" })
 
@@ -1288,21 +1288,21 @@ return function(t)
       t.ok(not ok)
       t.ok(tostring(err):match("E471") ~= nil)
 
-      for _, command in ipairs({
-        "DaylogDays nope",
-        "DaylogDays 0",
-        "DaylogDays -1",
-        "DaylogDays 1.5",
+      local range_error = "daylog: expected a day count or a FROM..TO range "
+        .. "(e.g. 2026-05-10..2026-05-20)"
+      local count_error = "daylog: days count must be a positive integer"
+
+      for _, case in ipairs({
+        { "DaylogDays nope", range_error },
+        { "DaylogDays 0", count_error },
+        { "DaylogDays -1", range_error },
+        { "DaylogDays 1.5", range_error },
+        { "DaylogDays 2026-05-10", range_error },
       }) do
         with_captured_notify(function(messages)
-          vim.cmd(command)
+          vim.cmd(case[1])
 
-          t.eq(messages, {
-            {
-              message = "daylog: days count must be a positive integer",
-              level = vim.log.levels.WARN,
-            },
-          })
+          t.eq(messages, { { message = case[2], level = vim.log.levels.WARN } })
         end)
 
         t.eq(t.get_lines(), { "scratch" })
@@ -1411,24 +1411,120 @@ return function(t)
         "--- day totals 2026-05-22 ---",
         "1:00 (-20m) workday",
         "",
-        "--- range summary 2026-05-19..2026-05-22 ---",
+        "--- range summary 2026-05-20..2026-05-22 (2 found) ---",
         "1:00 (-20m) retro",
         "0:30 (+10m) implementation",
         "0:30 (-10m) plan",
         "",
-        "--- range tags 2026-05-19..2026-05-22 ---",
+        "--- range tags 2026-05-20..2026-05-22 (2 found) ---",
         "1:00 (+0m) #ClientA",
         "1:00 (-20m) #internal",
         "",
-        "--- range locations 2026-05-19..2026-05-22 ---",
+        "--- range locations 2026-05-20..2026-05-22 (2 found) ---",
         "1:30 (-10m) @home",
         "0:30 (-10m) @office",
         "",
-        "--- range totals 2026-05-19..2026-05-22 ---",
+        "--- range totals 2026-05-20..2026-05-22 (2 found) ---",
         "2:00 (-20m) workday",
       })
 
       vim.cmd("silent! only!")
+    end)
+  end)
+
+  -- A small daybook with logs on 2026-05-18 and 2026-05-20 (week 21), nothing on the
+  -- days between or after, used to exercise the range forms.
+  local function with_range_daybook(now, fn)
+    local root = vim.fn.tempname()
+    local function ts(day)
+      return os.time({ year = 2026, month = 5, day = day, hour = 12, min = 0, sec = 0 })
+    end
+
+    write_daybook_file(root, "%Y/%V", ts(18), {
+      "--- log #ClientA @office q=60 ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+    write_daybook_file(root, "%Y/%V", ts(20), {
+      "--- log #ClientA @office q=60 ---",
+      "10:00 review",
+      "11:00 done",
+    })
+
+    with_daylog_setup({
+      defaults = { duration_format = "hm" },
+      daybook = { root = root, directory = "%Y/%V" },
+    }, function()
+      vim.cmd("silent! only!")
+      t.reset({ "notes" })
+      with_mocked_time(now, fn)
+      vim.cmd("silent! only!")
+    end)
+  end
+
+  local function report_name()
+    return vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t")
+  end
+
+  t.test("days reports an explicit range and skips missing days", function()
+    -- 2026-05-17 (boundary) and 2026-05-19 (interior) have no file. The buffer name keeps
+    -- the requested range, while the aggregate headers resolve to the span of days found
+    -- (05-18..05-20) and carry a found-day count on every header.
+    with_range_daybook(os.time({ year = 2026, month = 5, day = 22, hour = 12 }), function()
+      vim.cmd("DaylogDays! 2026-05-17..2026-05-20")
+
+      t.eq(report_name(), "daylog-days-summary-2026-05-17..2026-05-20.day")
+      t.eq(t.get_lines(), {
+        "--- range summary 2026-05-18..2026-05-20 (2 found) ---",
+        "1:00 (+0m) plan",
+        "1:00 (+0m) review",
+        "",
+        "--- range tags 2026-05-18..2026-05-20 (2 found) ---",
+        "2:00 (+0m) #ClientA",
+        "",
+        "--- range locations 2026-05-18..2026-05-20 (2 found) ---",
+        "2:00 (+0m) @office",
+        "",
+        "--- range totals 2026-05-18..2026-05-20 (2 found) ---",
+        "2:00 (+0m) workday",
+      })
+    end)
+  end)
+
+  t.test("days resolves open-ended ranges against today and the daybook", function()
+    with_range_daybook(os.time({ year = 2026, month = 5, day = 22, hour = 12 }), function()
+      -- FROM.. runs through today.
+      vim.cmd("DaylogDays! 2026-05-20..")
+      t.eq(report_name(), "daylog-days-summary-2026-05-20..2026-05-22.day")
+
+      -- ..TO starts at the earliest logged day on file.
+      vim.cmd("enew")
+      vim.cmd("DaylogDays! ..2026-05-19")
+      t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-19.day")
+
+      -- .. is everything on file (earliest through today).
+      vim.cmd("enew")
+      vim.cmd("DaylogDays! ..")
+      t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-22.day")
+    end)
+  end)
+
+  t.test("days rejects reversed, invalid, and empty ranges", function()
+    with_range_daybook(os.time({ year = 2026, month = 5, day = 22, hour = 12 }), function()
+      local cases = {
+        { "DaylogDays 2026-05-20..2026-05-18", "daylog: range start is after end" },
+        { "DaylogDays 2026-13-01..2026-05-20", "daylog: invalid date: 2026-13-01" },
+        { "DaylogDays 2026-05-18..2026-99-99", "daylog: invalid date: 2026-99-99" },
+        { "DaylogDays ..2026-05-10", "daylog: no daybook logs found" },
+      }
+
+      for _, case in ipairs(cases) do
+        with_captured_notify(function(messages)
+          vim.cmd(case[1])
+
+          t.eq(messages, { { message = case[2], level = vim.log.levels.WARN } })
+        end)
+      end
     end)
   end)
 
@@ -1478,16 +1574,16 @@ return function(t)
         "daylog-days-summary-2026-05-20..2026-05-22.day"
       )
       t.eq(t.get_lines(), {
-        "--- range summary 2026-05-20..2026-05-22 ---",
+        "--- range summary 2026-05-22..2026-05-22 (1 found) ---",
         "1:00 (+0m) retro",
         "",
-        "--- range tags 2026-05-20..2026-05-22 ---",
+        "--- range tags 2026-05-22..2026-05-22 (1 found) ---",
         "1:00 (+0m) #internal",
         "",
-        "--- range locations 2026-05-20..2026-05-22 ---",
+        "--- range locations 2026-05-22..2026-05-22 (1 found) ---",
         "1:00 (+0m) @home",
         "",
-        "--- range totals 2026-05-20..2026-05-22 ---",
+        "--- range totals 2026-05-22..2026-05-22 (1 found) ---",
         "1:00 (+0m) workday",
       })
 

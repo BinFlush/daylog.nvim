@@ -140,6 +140,36 @@ return function(t)
     t.eq(daybook.date_label(dates[3]), "2026-05-22")
   end)
 
+  t.test("daybook builds an inclusive date range, oldest to newest", function()
+    local from = os.time({ year = 2026, month = 5, day = 30, hour = 12, min = 0, sec = 0 })
+    local to = os.time({ year = 2026, month = 6, day = 2, hour = 12, min = 0, sec = 0 })
+    local dates = daybook.range_dates(from, to)
+
+    -- Spans the month boundary.
+    t.eq(#dates, 4)
+    t.eq(daybook.date_label(dates[1]), "2026-05-30")
+    t.eq(daybook.date_label(dates[4]), "2026-06-02")
+  end)
+
+  t.test("daybook range of a single day has one date; a reversed range is empty", function()
+    local day = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
+    local later = os.time({ year = 2026, month = 5, day = 20, hour = 12, min = 0, sec = 0 })
+
+    local single = daybook.range_dates(day, day)
+    t.eq(#single, 1)
+    t.eq(daybook.date_label(single[1]), "2026-05-18")
+
+    t.eq(daybook.range_dates(later, day), {})
+  end)
+
+  t.test("daybook parses a YYYY-MM-DD date, rejecting invalid ones", function()
+    t.eq(daybook.date_label(daybook.parse_date("2026-05-18")), "2026-05-18")
+    t.eq(daybook.parse_date("2026-13-01"), nil)
+    t.eq(daybook.parse_date("2026-02-30"), nil)
+    t.eq(daybook.parse_date("2026-05-18.day"), nil)
+    t.eq(daybook.parse_date("nope"), nil)
+  end)
+
   t.test("daybook parses a dated daybook filename into its date", function()
     t.eq(daybook.date_label(daybook.parse_date_label("2026-05-18.day")), "2026-05-18")
   end)

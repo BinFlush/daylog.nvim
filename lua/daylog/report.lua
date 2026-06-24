@@ -69,7 +69,7 @@ local function build_report_for_spec(spec)
     return week.build_week_report(settings, spec.anchor, daybook_lines)
   end
 
-  return week.build_days_report(settings, spec.anchor, spec.count, daybook_lines)
+  return week.build_dates_report(settings, spec.dates, daybook_lines)
 end
 
 -- Build the display lines for a report spec. Returns the lines and the period
@@ -88,14 +88,15 @@ local function build_report_lines(spec)
 end
 
 local function report_buffer_name(spec, label)
-  local prefix
   if spec.kind == "week" then
-    prefix = spec.aggregate_only and "daylog-week-summary-" or "daylog-week-"
-  else
-    prefix = spec.aggregate_only and "daylog-days-summary-" or "daylog-days-"
+    local prefix = spec.aggregate_only and "daylog-week-summary-" or "daylog-week-"
+    return prefix .. label .. ".day"
   end
 
-  return prefix .. label .. ".day"
+  -- Days reports name the buffer by the requested range, not the resolved header label
+  -- (which carries the found span and a count, neither suited to a filename).
+  local prefix = spec.aggregate_only and "daylog-days-summary-" or "daylog-days-"
+  return prefix .. spec.request_label .. ".day"
 end
 
 -- Open a fresh scratch report for a spec and tag the buffer with that spec, so

@@ -52,11 +52,15 @@ function M.same_date(a, b)
   return M.date_label(a) == M.date_label(b)
 end
 
--- Parse a daybook filename (`YYYY-MM-DD.day`) into a midday timestamp.
--- Returns nil when the name is not a valid dated daybook filename. The
--- round-trip label check rejects out-of-range dates such as 2026-02-30.
-function M.parse_date_label(name)
-  local year, month, day = name:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)%.day$")
+-- Parse a `YYYY-MM-DD` date string into a midday timestamp, or nil when it is not a
+-- valid calendar date. The round-trip label check rejects out-of-range dates such as
+-- 2026-02-30 (os.time would otherwise normalize them silently into the next month).
+function M.parse_date(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+
+  local year, month, day = value:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
   if not year then
     return nil
   end
@@ -68,6 +72,17 @@ function M.parse_date_label(name)
   end
 
   return timestamp
+end
+
+-- Parse a daybook filename (`YYYY-MM-DD.day`) into a midday timestamp, or nil when the
+-- name is not a valid dated daybook filename.
+function M.parse_date_label(name)
+  local date = name:match("^(.+)%.day$")
+  if not date then
+    return nil
+  end
+
+  return M.parse_date(date)
 end
 
 function M.week_label(now)
@@ -137,6 +152,28 @@ function M.trailing_dates(now, count)
 
   for offset = count - 1, 0, -1 do
     table.insert(dates, midday_time(anchor.year, anchor.month, anchor.day - offset))
+  end
+
+  return dates
+end
+
+-- The inclusive list of midday timestamps from `from_ts` to `to_ts`, one per calendar
+-- day. Empty when `from_ts` is after `to_ts`. Compares by date label (chronological as
+-- strings) so an off-midday endpoint still bounds the range by its calendar day.
+function M.range_dates(from_ts, to_ts)
+  local anchor = midday_date(from_ts)
+  local to_label = M.date_label(to_ts)
+  local dates = {}
+  local offset = 0
+
+  while true do
+    local stamp = midday_time(anchor.year, anchor.month, anchor.day + offset)
+    if M.date_label(stamp) > to_label then
+      break
+    end
+
+    table.insert(dates, stamp)
+    offset = offset + 1
   end
 
   return dates

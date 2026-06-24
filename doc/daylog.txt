@@ -383,14 +383,28 @@ Open a scratch report for the current ISO week from
   totals.
 
                                                          *:DaylogDays*
-:DaylogDays[!] {count}
+:DaylogDays[!] {range}
 
-Open a scratch report for the last N daybook dates from
+Open a scratch report for a span of daybook dates from
 `require('daylog').setup({ daybook = ... })`.
 
-- `{count}` must be a positive integer.
-- The range includes today and scans oldest to newest.
-- Missing, empty, or notes-only day files are skipped.
+`{range}` is one of:
+- `{count}` -- a positive integer: the last {count} days through today.
+- `{from}..{to}` -- an inclusive range between two `YYYY-MM-DD` dates.
+- `{from}..` -- from {from} through today.
+- `..{to}` -- from the earliest logged day on file through {to}.
+- `..` -- every day on file (earliest logged day through today).
+
+- Dates are `YYYY-MM-DD`. A reversed or unparseable range is reported and the
+  report is not opened.
+- The range is taken by calendar date, so a boundary that lands on a day with no
+  file is fine; missing, empty, or notes-only days anywhere in the span are
+  skipped. If the whole span has no logs, that is reported instead.
+- The buffer name uses the requested calendar bounds (e.g. `2026-05-10..2026-05-20`),
+  fixed when the report opens. The aggregate (range) headers instead show the resolved
+  span -- the first and last days that actually held a log -- and a `(N found)` count,
+  e.g. `--- range summary 2026-05-12..2026-05-18 (3 found) ---`.
+- The range scans oldest to newest.
 - Each included day is recomputed from that file's latest log block, or from
   an open buffer for it (reflecting unsaved changes).
 - Existing rendered summaries are ignored.

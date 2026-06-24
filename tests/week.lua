@@ -400,7 +400,9 @@ return function(t)
       "/tmp/timereg/2026/21/2026-05-21.day",
       "/tmp/timereg/2026/21/2026-05-22.day",
     })
-    t.eq(report.period_label, "2026-05-20..2026-05-22")
+    -- The label resolves to the span of days actually found (only 05-22 here), with a
+    -- found-day count, not the requested trailing bounds.
+    t.eq(report.period_label, "2026-05-22..2026-05-22 (1 found)")
     t.eq(#report.days, 1)
     t.eq(report.days[1].date_label, "2026-05-22")
   end)

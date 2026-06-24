@@ -33,6 +33,29 @@ local function parse_positive_integer(value)
   return number
 end
 
+-- Parse the :DaylogDays argument into a normalized request: a trailing day count, or a
+-- FROM..TO range (each side a YYYY-MM-DD string; an omitted side becomes nil, resolved
+-- later to the earliest logged day or today). The date strings are validated downstream.
+local function parse_days_request(value)
+  if type(value) == "string" and value:match("^%d+$") then
+    local count, err = parse_positive_integer(value)
+    if not count then
+      return nil, err
+    end
+    return { count = count }
+  end
+
+  local from, to = (value or ""):match("^(.-)%.%.(.-)$")
+  if from then
+    return {
+      from = from ~= "" and from or nil,
+      to = to ~= "" and to or nil,
+    }
+  end
+
+  return nil, "daylog: expected a day count or a FROM..TO range (e.g. 2026-05-10..2026-05-20)"
+end
+
 -- An optional positive day-step count; an empty argument defaults to 1.
 local function parse_step_count(value)
   if value == nil or value == "" then
@@ -121,13 +144,13 @@ function M.register(api)
   })
 
   ensure_user_command("DaylogDays", function(args)
-    local count, err = parse_positive_integer(args.args)
-    if not count then
+    local request, err = parse_days_request(args.args)
+    if not request then
       warn(err)
       return
     end
 
-    api.open_days(count, args.bang)
+    api.open_days(request, args.bang)
   end, {
     bang = true,
     nargs = 1,

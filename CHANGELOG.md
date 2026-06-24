@@ -22,6 +22,19 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- **`:DaylogDays` accepts an arbitrary date range.** Besides the trailing count
+  (`:DaylogDays 5`), it now takes a `FROM..TO` range of `YYYY-MM-DD` dates, and the
+  open-ended forms `FROM..` (through today), `..TO` (from the earliest logged day on
+  file), and `..` (every day on file). The range is taken by calendar date, so missing
+  days anywhere in the span — including a boundary that lands on a fileless day — are
+  skipped rather than erroring; a reversed/unparseable range or a span with no logs is
+  reported instead. The buffer name uses the requested bounds (pinned when the report
+  opens), while the aggregate report headers show the resolved span — the first and last
+  days that actually held a log — and a `(N found)` count, e.g.
+  `--- range summary 2026-05-12..2026-05-18 (3 found) ---`.
+
 ### Fixed
 
 - **`:DaylogSplit` across a UTC offset change.** Split now apportions an activity's
