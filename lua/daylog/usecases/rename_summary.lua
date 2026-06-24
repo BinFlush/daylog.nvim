@@ -97,6 +97,29 @@ local function merge_candidates(result, kind, current)
   return candidates
 end
 
+-- The shared description behind an activity row's source entries, or nil when they
+-- disagree. An aliased row is labeled by its alias (` => label`), but rename edits the
+-- description, so the prompt should default to that description rather than the alias.
+local function source_description(result)
+  local rows = {}
+  for _, row in ipairs(result.layout_row.item.source_entry_rows or {}) do
+    rows[row] = true
+  end
+
+  local text
+  for _, semantic_entry in ipairs(result.ctx.block.entries) do
+    if rows[semantic_entry.row] then
+      if text == nil then
+        text = semantic_entry.text
+      elseif text ~= semantic_entry.text then
+        return nil
+      end
+    end
+  end
+
+  return text
+end
+
 -- Resolve the cursor to a rename target for the shell to prompt with: { kind,
 -- current, candidates }. `candidates` are the other same-kind values to merge into.
 -- Unlike the raw summary_cursor.resolve, every failure carries a user-facing message.
@@ -109,6 +132,15 @@ function M.resolve(lines, cursor_row)
   local target, classify_err = M.classify(result.layout_row)
   if not target then
     return nil, classify_err
+  end
+
+  -- Prompt with the entries' own description (rename edits `a`, the description), not the
+  -- alias the row is labeled by; fall back to the label when the descriptions disagree.
+  if target.kind == "item" then
+    local description = source_description(result)
+    if description ~= nil then
+      target.current = description
+    end
   end
 
   target.candidates = merge_candidates(result, target.kind, target.current)

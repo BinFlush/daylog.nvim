@@ -177,6 +177,30 @@ function M.register(api)
     complete = source_complete,
   })
 
+  -- Map the cursor's entry (or every entry of a summary row) to a label it resolves to
+  -- in the summary. A lone argument that names a configured source opens its picker; any
+  -- other argument is the label to map to directly; no argument opens the picker/prompt.
+  -- The bang (`:DaylogMap!`) clears the mapping instead.
+  ensure_user_command("DaylogMap", function(args)
+    if args.bang then
+      api.map_clear()
+      return
+    end
+
+    local arg = args.args
+    if arg ~= "" and sources_registry.get(arg) then
+      api.map_summary(nil, arg)
+    elseif arg ~= "" then
+      api.map_summary(arg)
+    else
+      api.map_summary()
+    end
+  end, {
+    nargs = "*",
+    bang = true,
+    complete = source_complete,
+  })
+
   ensure_user_command("DaylogOrder", function()
     api.order_logs()
   end)

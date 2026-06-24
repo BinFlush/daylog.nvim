@@ -297,4 +297,23 @@ return function(t)
     t.eq(out[2], "08:00 meeting (1)")
     t.eq(out[3], "09:00 meeting (2)")
   end)
+
+  t.test("split drops the alias on the parts", function()
+    -- Splitting distinguishes sub-activities, the opposite of collapsing under one
+    -- alias, so the parts lose the mapping (like they lose !L / nudge).
+    local out = run(
+      buffer_with_summary({
+        "--- log q=1 d=hm ---",
+        "08:00 meeting => MTG-1",
+        "10:00 done",
+      }),
+      "(+0m) MTG-1",
+      { 1, 1 }
+    )
+
+    t.eq(out[2], "08:00 meeting (1)")
+    t.eq(out[3], "09:00 meeting (2)")
+    t.ok(has(out, "1:00 (+0m) meeting (1)"), "the part is summarized by its own name")
+    t.ok(not has(out, "1:00 (+0m) MTG-1"), "nothing still maps to the alias")
+  end)
 end

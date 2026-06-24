@@ -21,6 +21,14 @@ function M.format(entry, current_tag, current_location, current_offset)
     table.insert(parts, entry.text)
   end
 
+  -- A mapping alias (` => label`) replaces the description with its target in the summary.
+  -- It sits right after the description so the metadata below trails the line as usual and
+  -- attaches to the entry/its target. May be multi-word, so it goes in as `=>` then label.
+  if entry.alias and entry.alias ~= "" then
+    table.insert(parts, "=>")
+    table.insert(parts, entry.alias)
+  end
+
   if entry.tag ~= current_tag then
     if entry.tag == nil then
       table.insert(parts, syntax.TAG_CLEAR_TOKEN)
@@ -92,6 +100,10 @@ function M.sanitize_text(text)
     return text
   end
 
+  -- ` => ` is the alias separator, so neutralize it inside activity text (a pasted or
+  -- source title like "Fix => prod" must not silently become an alias).
+  text = text:gsub(" => ", " (=>) ")
+
   local tokens = {}
   for token in text:gmatch("%S+") do
     table.insert(tokens, token)
@@ -106,6 +118,14 @@ function M.sanitize_text(text)
   end
 
   return table.concat(tokens, " ")
+end
+
+-- Make `value` safe to use as an entry's alias label. The alias is followed by the entry's
+-- trailing metadata run, so -- exactly like activity text -- it must not end in a token that
+-- would be peeled as metadata, and it cannot contain the ` => ` separator. Both are
+-- precisely sanitize_text's job. Returns "" for an empty value (a cleared mapping).
+function M.sanitize_alias(value)
+  return M.sanitize_text(value or "")
 end
 
 return M

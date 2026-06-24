@@ -24,6 +24,18 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **Entry mapping (`=> alias`) and `:DaylogMap`.** An entry can carry `=> label`
+  after its description: it keeps what you wrote but resolves to `label` in the
+  summary — counting toward, and shown as, that target — so several entries (even
+  with different descriptions) that share an alias fold into one row. The trailing
+  metadata (`#tag`, `!L`, ...) follows the alias and attaches to the entry as usual.
+  `:DaylogMap {label}` sets the alias on the entry under the cursor, or on every
+  entry of a main summary row; with a configured source it can map onto a work item
+  via a picker. `:DaylogMap!` clears it. A logged (`!L`) entry is refused. This is a
+  non-destructive alternative to renaming or copy-and-clean: the day file stays your
+  own journal while the summary reads canonically. `:DaylogRename` still edits the
+  description; mapping sets the report label.
+
 - **`:DaylogDays` accepts an arbitrary date range.** Besides the trailing count
   (`:DaylogDays 5`), it now takes a `FROM..TO` range of `YYYY-MM-DD` dates, and the
   open-ended forms `FROM..` (through today), `..TO` (from the earliest logged day on

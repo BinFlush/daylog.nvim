@@ -30,7 +30,11 @@ local function build_intervals(entries)
       start = current.minutes,
       stop = next.minutes,
       duration = next_effective - current_effective,
-      text = current.text,
+      -- A mapping alias resolves the grouping/display label: an aliased entry counts
+      -- toward, and is shown as, its target. The original text stays on the entry (this
+      -- is the only place the alias is applied; every downstream grouping keys on `text`).
+      -- An empty alias is treated as none (a cleared mapping).
+      text = (current.alias ~= nil and current.alias ~= "") and current.alias or current.text,
       tag = current.tag,
       location = current.location,
       workday_excluded = current.workday_excluded,

@@ -241,6 +241,21 @@ local function parse_header(line, row)
   return nil
 end
 
+-- An entry's optional alias: ` => label` is the target the entry maps to in the summary.
+-- The trailing metadata (#tag/@location/utc/round/!L) is peeled first and attaches to the
+-- entry as on any line, so by the time this runs the input is `description => label` and
+-- the alias is the run after the LAST ` => ` (multi-word allowed). The text is already
+-- whitespace-normalized, so the separator is a single ` => `. Returns (description, alias)
+-- with alias non-empty, or (text, nil).
+local function split_alias(text)
+  local before, alias = text:match("^(.+) => (.+)$")
+  if not before then
+    return text, nil
+  end
+
+  return before, alias
+end
+
 local function parse_entry(line, row)
   local hh, mm, rest = line:match("^(%d%d):(%d%d)(.*)$")
   if not hh then
@@ -280,6 +295,8 @@ local function parse_entry(line, row)
   end
 
   local text = normalize_text(rest:gsub("^%s+", ""))
+  -- Peel the trailing metadata run first (so it attaches to the entry/its alias exactly
+  -- as on any line), then split the remaining `description => label` on the last ` => `.
   local metadata, err = parse_entry_metadata(text)
   if err then
     return {
@@ -290,12 +307,14 @@ local function parse_entry(line, row)
     }
   end
 
+  local before, alias = split_alias(metadata.text)
+
   return {
     kind = syntax.NODE_KIND.ENTRY,
     row = row,
     raw = line,
     minutes = hh * 60 + mm,
-    text = metadata.text,
+    text = before,
     explicit_tag = metadata.explicit_tag,
     explicit_tag_clear = metadata.explicit_tag_clear,
     explicit_location = metadata.explicit_location,
@@ -304,6 +323,7 @@ local function parse_entry(line, row)
     nudge = metadata.nudge,
     logged = metadata.logged,
     logged_minutes = metadata.logged_minutes,
+    alias = alias,
   }
 end
 
@@ -352,6 +372,40 @@ function M.tokens(line)
     result[#result + 1] = { col_start = start - 1, col_end = start - 1 + #text, text = text }
   end
   return result
+end
+
+-- The byte span of an entry's ` => label` alias -- from the `=>` token through the last
+-- label word, excluding the trailing metadata run that follows it -- as 0-based
+-- { col_start, col_end } (end exclusive), or nil when the line has no alias. Mirrors the
+-- parser (peel trailing metadata, then the last ` => `) so the highlighter colors exactly
+-- what the parser reads as the alias.
+function M.alias_span(line)
+  local tokens = M.tokens(line)
+
+  -- The trailing run of metadata tokens is not part of the alias.
+  local last_label = #tokens
+  for i = #tokens, 1, -1 do
+    if parse_entry_control_token(tokens[i].text) then
+      last_label = i - 1
+    else
+      break
+    end
+  end
+
+  -- The alias opens at the last `=>` token at or before the final label word.
+  local arrow
+  for i = last_label - 1, 1, -1 do
+    if tokens[i].text == "=>" then
+      arrow = i
+      break
+    end
+  end
+
+  if not arrow then
+    return nil
+  end
+
+  return { col_start = tokens[arrow].col_start, col_end = tokens[last_label].col_end }
 end
 
 -- The (+Nm) / (-Nm) rounding markers on a line as 0-based byte spans. This is the

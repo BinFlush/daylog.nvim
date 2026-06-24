@@ -36,6 +36,7 @@ local function copy_fields(src)
     workday_excluded = src.workday_excluded,
     logged = src.logged,
     logged_minutes = src.logged_minutes,
+    alias = src.alias,
   }
 end
 
@@ -122,6 +123,8 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     -- A frozen committed value (minutes) rides on the !L marker; per-entry and
     -- non-sticky like `logged` itself. Only present when the entry carries `!L<n>`.
     logged_minutes = node.logged_minutes,
+    -- A mapping alias (` => label`): per-entry, non-sticky, taken straight from the node.
+    alias = node.alias,
   }
 end
 

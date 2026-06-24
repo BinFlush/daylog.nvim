@@ -10,6 +10,7 @@ local log_current = require("daylog.usecases.log_current")
 local daybook_io = require("daylog.daybook_io")
 local order_logs = require("daylog.usecases.order_logs")
 local refresh_summaries = require("daylog.usecases.refresh_summaries")
+local map = require("daylog.map")
 local rename = require("daylog.rename")
 local repeat_current = require("daylog.usecases.repeat_current")
 local sources_http = require("daylog.sources.http")
@@ -36,6 +37,8 @@ M.highlight_buffer = buffer.highlight_buffer
 M.refresh_indicators = buffer.refresh_indicators
 M.render_stray = buffer.render_stray
 M.rename_summary = rename.summary
+M.map_summary = map.summary
+M.map_clear = map.clear
 
 -- Day-file IO, rebound as locals.
 local existing_daybook_dates = daybook_io.existing_daybook_dates

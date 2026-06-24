@@ -4,6 +4,7 @@
 :DaylogInit	daylog.txt	/*:DaylogInit*
 :DaylogInsert	daylog.txt	/*:DaylogInsert*
 :DaylogLog	daylog.txt	/*:DaylogLog*
+:DaylogMap	daylog.txt	/*:DaylogMap*
 :DaylogNextDay	daylog.txt	/*:DaylogNextDay*
 :DaylogOrder	daylog.txt	/*:DaylogOrder*
 :DaylogPrevDay	daylog.txt	/*:DaylogPrevDay*
@@ -26,6 +27,7 @@ daylog-development	daylog.txt	/*daylog-development*
 daylog-format	daylog.txt	/*daylog-format*
 daylog-gotchas	daylog.txt	/*daylog-gotchas*
 daylog-license	daylog.txt	/*daylog-license*
+daylog-mapping	daylog.txt	/*daylog-mapping*
 daylog-overview	daylog.txt	/*daylog-overview*
 daylog-sources	daylog.txt	/*daylog-sources*
 daylog-sticky-metadata	daylog.txt	/*daylog-sticky-metadata*

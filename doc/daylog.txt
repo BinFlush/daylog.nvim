@@ -54,6 +54,8 @@ Vocabulary (used throughout this help and the source):
   q= / d=   Per-log options: the quantize bucket and the duration format.
   !L        Marks an interval as already logged to an external system;
             `!L<minutes>` also freezes its committed value.
+  => alias  Maps an entry to a label it resolves to in the summary, keeping the
+            entry's own description (|daylog-mapping|, |:DaylogMap|).
 
 Run `:checkhealth daylog` to verify setup, command registration, help docs,
 and runtime plugin integration.
@@ -101,7 +103,7 @@ The header may set initial sticky metadata and options:
 An entry has this shape:
 
 >
-  HH:MM text [#tag|#-] [@location|@-] [utc±H] [round±N] [!L[minutes]]
+  HH:MM text [=> alias] [#tag|#-] [@location|@-] [utc±H] [round±N] [!L[minutes]]
 <
 
 Example:
@@ -126,6 +128,11 @@ Rules:
   `00:00`). A `24:00` entry followed by another timestamped entry is an error.
 - Non-timestamped lines under an entry are notes.
 - Notes move with their timestamped entry when copied or ordered.
+- `=> alias` maps the entry to a label it resolves to in the summary: the
+  interval counts toward, and is shown as, that target, while the entry keeps
+  its own description. The alias may contain spaces; the trailing metadata below
+  follows it (attaching to the entry as usual). Normally written by |:DaylogMap|.
+  See |daylog-mapping|.
 - `!L` marks the interval started by that entry as already logged externally.
   An optional minute count -- `!L<minutes>`, written by |:DaylogLog| -- freezes
   that row at its committed value, so appending later entries can never restate
@@ -554,6 +561,36 @@ attached log and rebuilding its summary.
   After a confirmation listing the affected files, each is rewritten -- in its open
   buffer if one exists (save it yourself), otherwise on disk -- and the report
   rebuilds. A source replacement is not offered from a report.
+
+                                        *:DaylogMap* *daylog-mapping*
+:DaylogMap[!] [label|source]
+
+Map entries to a label they resolve to in the summary, without changing what you
+wrote. An entry with `=> alias` keeps its own description but counts toward, and
+is shown as, the alias; several entries (even with different descriptions) that
+share an alias fold into one row. This is a non-destructive alternative to
+renaming or to copying-and-cleaning a log for reporting: the day file stays your
+own journal while the summary reads in canonical terms.
+
+- With the cursor on an entry, that one entry is mapped -- so you can map some
+  entries of an activity and not others, or map two same-named entries apart.
+- With the cursor on a main summary row, every entry feeding it is mapped.
+- `:DaylogMap {label}` sets the alias to that (possibly multi-word) label. The
+  trailing metadata (`#tag`, `!L`, ...) stays on the entry and follows the alias.
+- With no argument you get a prompt seeded with the current alias; if a
+  |daylog-sources| source is configured, a picker of its work items instead
+  (mapping onto `{id} {title}`), exactly like |:DaylogInsert| / |:DaylogRename|.
+  With several sources, name one as the argument (tab-completed).
+- `:DaylogMap!` (bang) clears the mapping on the cursor's target.
+- A logged entry (`!L`) is refused: its committed value is tied to its current
+  identity. Unlog it, map it, then log again.
+- |:DaylogRename| and `:DaylogMap` are complementary: rename rewrites the
+  description (what you did), map sets the alias (how it is reported). Renaming an
+  aliased row edits its description and leaves the alias -- and the summary label --
+  in place. Splitting an aliased row drops the alias on its parts, and a repeat
+  keeps it.
+- The label is sanitized so it can never grow trailing metadata, and a literal
+  ` => ` typed inside a description is read as the alias separator.
 
                                         *:DaylogBalance* *daylog-balance*
 :DaylogBalance [steps]

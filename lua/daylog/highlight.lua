@@ -45,6 +45,8 @@ M.GROUPS = {
   DaylogOption = "PreProc",
   DaylogOffset = "Type",
   DaylogNudge = "Constant",
+  -- A mapping alias (` => label`) -- the target an entry resolves to in the summary.
+  DaylogAlias = "String",
   DaylogNote = "Comment",
   -- The active-log bar is a fixed soft green (a deliberate accent, not a syntax-role
   -- link); default = true still lets a theme/user override win.
@@ -227,7 +229,13 @@ function M.spans(lines)
         push_summary_row(spans, index, line, kind)
       elseif kind == syntax.NODE_KIND.ENTRY then
         push(spans, index, 0, TIMESTAMP_WIDTH, "DaylogTimestamp", TOKEN_PRIORITY)
+        -- Metadata trails the line as usual; the ` => label` alias sits before it (between
+        -- the description and the metadata) and is colored on its own.
         push_trailing_metadata(spans, index, line)
+        local alias = document.alias_span(line)
+        if alias then
+          push(spans, index, alias.col_start, alias.col_end, "DaylogAlias", TOKEN_PRIORITY)
+        end
       else
         -- A NOTE_LINE, or an INVALID_ENTRY whose time the parser rejected (so it is
         -- not a timestamp): a free note. A summary-shaped line outside a summary

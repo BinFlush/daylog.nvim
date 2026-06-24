@@ -241,4 +241,45 @@ return function(t)
     -- A non-token word that merely starts with the letters is left alone.
     t.eq(entry.sanitize_text("look at !Llamas"), "look at !Llamas")
   end)
+
+  t.test("entry parse reads a multi-word alias with trailing metadata", function()
+    -- The metadata trails the line as usual and attaches to the entry; the alias is the
+    -- ` => label` between the description and that metadata.
+    local parsed = entry.parse("09:00 fix login => BUG-123 Fix the login #ProjectOrion !L30")
+    t.eq(parsed.text, "fix login")
+    t.eq(parsed.tag, "ProjectOrion")
+    t.eq(parsed.logged, true)
+    t.eq(parsed.logged_minutes, 30)
+    t.eq(parsed.alias, "BUG-123 Fix the login")
+  end)
+
+  t.test("entry parse takes the alias from the last => separator", function()
+    -- A description that itself contains ` => ` keeps everything up to the final one.
+    local parsed = entry.parse("09:00 turn a => b => CANONICAL")
+    t.eq(parsed.text, "turn a => b")
+    t.eq(parsed.alias, "CANONICAL")
+  end)
+
+  t.test("entry format places the alias after the description, before the metadata", function()
+    t.eq(
+      entry.format({ minutes = 540, text = "fix login", tag = "ProjectOrion", alias = "BUG-123" }),
+      "09:00 fix login => BUG-123 #ProjectOrion"
+    )
+    -- An empty alias emits nothing (a cleared mapping), keeping non-aliased lines stable.
+    t.eq(entry.format({ minutes = 540, text = "fix login", alias = "" }), "09:00 fix login")
+  end)
+
+  t.test("entry sanitize_alias collapses whitespace and neutralizes trailing tokens", function()
+    t.eq(entry.sanitize_alias("  BUG-123   Fix  "), "BUG-123 Fix")
+    -- The alias is followed by metadata, so a trailing token-shaped word is parenthesized.
+    t.eq(entry.sanitize_alias("BUG #urgent"), "BUG (#urgent)")
+    -- It cannot contain its own separator either.
+    t.eq(entry.sanitize_alias("BUG => prod"), "BUG (=>) prod")
+    t.eq(entry.sanitize_alias(""), "")
+  end)
+
+  t.test("entry sanitize_text neutralizes an embedded alias separator", function()
+    -- A pasted/source title must not silently become an alias.
+    t.eq(entry.sanitize_text("turn a => b"), "turn a (=>) b")
+  end)
 end

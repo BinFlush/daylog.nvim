@@ -48,7 +48,8 @@ function M.run(lines, row, time)
   local insertion_state = support.get_insert_state(ctx.block, minutes)
 
   -- A repeat is a fresh entry: it copies the activity's metadata from the source but
-  -- takes the new time and never inherits the source's logged or round±N marker.
+  -- takes the new time and never inherits the source's logged or round±N marker. The
+  -- mapping alias (` => label`) is part of the activity's identity, so it is kept.
   local fields = analyze.copy_fields(current_item)
   fields.minutes = minutes
   fields.logged = false

@@ -517,4 +517,20 @@ return function(t)
     -- round±N is entry-only (non-sticky); in a header it is just an invalid token.
     t.eq(document.parse_line("--- log round+1 ---").invalid_tokens, { "round+1" })
   end)
+
+  t.test("document parse splits a => alias off an entry, before its trailing metadata", function()
+    local node = document.parse_line("09:00 fix login => BUG-123 Fix it #ProjectOrion")
+    t.eq(node.kind, syntax.NODE_KIND.ENTRY)
+    t.eq(node.text, "fix login")
+    t.eq(node.explicit_tag, "ProjectOrion")
+    t.eq(node.alias, "BUG-123 Fix it")
+  end)
+
+  t.test("document alias_span covers the => label, excluding trailing metadata", function()
+    local line = "09:00 fix => BUG-123 Login #ClientA"
+    local span = document.alias_span(line)
+    t.eq(line:sub(span.col_start + 1, span.col_end), "=> BUG-123 Login")
+    -- A line with no alias has no span.
+    t.eq(document.alias_span("09:00 fix login"), nil)
+  end)
 end

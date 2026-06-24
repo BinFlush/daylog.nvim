@@ -1691,4 +1691,49 @@ return function(t)
     t.eq(week.workday_error_minutes, 0) -- +5 +5 -10 cancel
     t.eq(week.workday_nudge, 1)
   end)
+
+  t.test("summary groups aliased entries under their target label", function()
+    -- Two different descriptions aliased to one label merge into a single row, labeled
+    -- and counted by the alias; an unaliased activity is unaffected.
+    local block = block_from_lines({
+      "--- log ---",
+      "08:00 fix login => BUG-1",
+      "08:30 chase timeout => BUG-1",
+      "09:00 standup",
+      "09:15 done",
+    })
+
+    t.eq(summarize_exact(block).summary_items, {
+      {
+        text = "BUG-1",
+        tag = nil,
+        duration = 60,
+        unrounded_duration = 60,
+        workday_excluded = false,
+        source_entry_rows = { 2, 3 },
+      },
+      {
+        text = "standup",
+        tag = nil,
+        duration = 15,
+        unrounded_duration = 15,
+        workday_excluded = false,
+        source_entry_rows = { 4 },
+      },
+    })
+  end)
+
+  t.test("logged_value_conflicts keys on the resolved alias label", function()
+    -- Two differently-described entries aliased to one label fold into one row, so
+    -- disagreeing committed values still conflict (the diagnostic follows the alias).
+    local block = block_from_lines({
+      "--- log ---",
+      "08:00 fix login => BUG-1 !L60",
+      "09:00 chase timeout => BUG-1 !L45",
+      "10:00 done",
+    })
+    local conflicts = summary.logged_value_conflicts(block.entries)
+    t.eq(#conflicts, 1)
+    t.eq(conflicts[1].row, 2)
+  end)
 end

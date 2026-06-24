@@ -477,4 +477,39 @@ return function(t)
 
     t.ok(err ~= nil, "an invalid log yields an error")
   end)
+
+  t.test("renaming an aliased activity rewrites the description and keeps the alias", function()
+    local out = rename({
+      "--- log ---",
+      "08:00 fix login => BUG-1",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) BUG-1",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    }, 6, "investigate timeout")
+
+    -- Rename edits the description (a); the alias (b) and the summary label persist.
+    t.eq(out[2], "08:00 investigate timeout => BUG-1")
+    t.eq(out[6], "1.00h (+0m) BUG-1")
+  end)
+
+  t.test("rename resolve prompts with the description, not the alias label", function()
+    local target = rename_summary.resolve({
+      "--- log ---",
+      "08:00 fix login => BUG-1",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) BUG-1",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    }, 6)
+
+    t.eq(target.kind, "item")
+    t.eq(target.current, "fix login")
+  end)
 end

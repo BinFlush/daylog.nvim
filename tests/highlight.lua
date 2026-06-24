@@ -418,4 +418,17 @@ return function(t)
     load({ "08:00 wrap up the round" })
     t.ok(group_at(1, col_of(1, "round")) ~= "DaylogNudge", "a bare 'round' is not a nudge")
   end)
+
+  t.test("an aliased entry highlights the => label and its trailing metadata", function()
+    load({ "--- log ---", "09:00 fix login => BUG-123 Login #ClientA !L30" })
+
+    -- The => label is the alias; the metadata after it still classifies as metadata.
+    t.eq(group_at(2, col_of(2, "=>")), "DaylogAlias")
+    t.eq(group_at(2, col_of(2, "BUG-123")), "DaylogAlias")
+    t.eq(group_at(2, col_of(2, "#ClientA")), "DaylogTag")
+    t.eq(group_at(2, col_of(2, "!L30")), "DaylogLogged")
+
+    -- The description before the arrow is not part of the alias.
+    t.ok(group_at(2, col_of(2, "fix")) ~= "DaylogAlias", "the description is not the alias")
+  end)
 end
