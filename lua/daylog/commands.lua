@@ -117,6 +117,11 @@ end
 -- verb on `api` (the init module's M).
 function M.register(api)
   ensure_user_command("DaylogInsert", function(args)
+    if args.bang then
+      api.insert_unified()
+      return
+    end
+
     local name = args.fargs[1]
     if not name then
       api.insert_now()
@@ -125,6 +130,7 @@ function M.register(api)
 
     api.insert_from_source(name)
   end, {
+    bang = true,
     nargs = "?",
     complete = function(arglead)
       return source_complete(arglead)

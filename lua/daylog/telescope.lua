@@ -271,4 +271,66 @@ function M.rename_pick(opts)
   controller.picker:find()
 end
 
+-- A picker for :DaylogInsert!'s unified pool: pre-ranked, display-ready rows (source work-items
+-- and recent activities) that you fuzzy-filter. Offline -- no live search. <CR> inserts the
+-- highlighted row; <C-e> (or <CR> with nothing selected) inserts what you typed; closing without
+-- a pick leaves a bare timestamp via on_cancel.
+--
+-- opts: { on_pick = fn(row), on_create = fn(text), on_cancel = fn()|nil, prompt = string|nil,
+--         theme = table|nil }
+function M.insert_pick(rows, opts)
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local conf = require("telescope.config").values
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+
+  local picker = pickers.new(opts.theme or {}, {
+    prompt_title = opts.prompt or "Daylog: insert  (<CR> pick, <C-e> type)",
+    finder = finders.new_table({
+      results = rows,
+      entry_maker = function(row)
+        return { value = row, display = row.display, ordinal = row.display }
+      end,
+    }),
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr, map)
+      local picked = false
+
+      vim.api.nvim_create_autocmd("BufWipeout", {
+        buffer = prompt_bufnr,
+        once = true,
+        callback = function()
+          if opts.on_cancel and not picked then
+            vim.schedule(opts.on_cancel)
+          end
+        end,
+      })
+
+      actions.select_default:replace(function()
+        picked = true
+        local entry = action_state.get_selected_entry()
+        local typed = action_state.get_current_line()
+        actions.close(prompt_bufnr)
+        if entry and entry.value then
+          opts.on_pick(entry.value)
+        else
+          opts.on_create(typed)
+        end
+      end)
+
+      map({ "i", "n" }, "<C-e>", function()
+        picked = true
+        local typed = action_state.get_current_line()
+        actions.close(prompt_bufnr)
+        opts.on_create(typed)
+      end)
+
+      return true
+    end,
+  })
+
+  picker:find()
+end
+
 return M

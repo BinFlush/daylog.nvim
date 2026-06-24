@@ -144,4 +144,13 @@ function M.ensure_fresh(name, ttl, on_ready, on_unavailable)
   end)
 end
 
+-- Kick a silent background refresh when a source's cache is stale or absent (and no sync is
+-- already running). The unified insert picker reads caches synchronously and refreshes out of
+-- band, rather than blocking on a fetch, so it stays instant across many sources.
+function M.refresh_if_stale(name, ttl)
+  if cache.is_stale(M.read_cache(name), os.time(), ttl) and not in_flight[name] then
+    M.sync(name, { silent = true })
+  end
+end
+
 return M

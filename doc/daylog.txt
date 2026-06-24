@@ -414,7 +414,7 @@ to the latest log even if that is days ahead, while `monday..today` stops at tod
   totals.
 
                                                          *:DaylogInsert*
-:DaylogInsert [source]
+:DaylogInsert[!] [source]
 
 Insert the current time into the log block under the cursor.
 
@@ -430,6 +430,14 @@ supports live search, this is a search-as-you-type Telescope picker (see
 |daylog-sources|). Otherwise it is `vim.ui.select`, which Telescope, fzf-lua,
 snacks, or mini.pick take over when installed. Cancelling the picker falls
 back to the plain bare timestamp.
+
+With a bang (`:DaylogInsert!`) it opens the unified "what to log" picker: one
+fuzzy, offline list pooling every configured source's cached work items together
+with your recent logged activities, ranked by the same worklog frecency as the
+source picker (see |daylog-picker|) and de-duplicated, so an activity that matches
+a tracked item appears once. Pick a row to insert it, type a fresh activity to
+insert that, or cancel for a bare timestamp. With no sources configured it is just
+your recent activities; with nothing to offer it falls back to a bare timestamp.
 
 When the buffer is a daybook file (see |daylog-config|) dated for a day other
 than today, inserting the current time is refused, since stamping "now" into

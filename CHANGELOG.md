@@ -24,6 +24,11 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **`:DaylogInsert!` — the unified "what to log" picker.** One fuzzy, offline list that pools
+  every configured source's cached work items together with your recent logged activities
+  (across days), ranked by worklog frecency and de-duplicated so an activity matching a tracked
+  item appears once. Pick a row to insert it, type a fresh activity, or cancel for a bare
+  timestamp. Bare `:DaylogInsert` (stamp the time) and `:DaylogInsert <source>` are unchanged.
 - **Entry mapping (`=> alias`) and `:DaylogMap`.** An entry can carry `=> label`
   after its description: it keeps what you wrote but resolves to `label` in the
   summary — counting toward, and shown as, that target — so several entries (even

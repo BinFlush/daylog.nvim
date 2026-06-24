@@ -126,6 +126,23 @@ function M.rename(opts)
   local source = opts.source
   local items = ranked(source, opts.initial_items or {})
 
+  -- Drop a local candidate that is also a source item (same entry text), so the picker never
+  -- lists the same thing twice; the richer item row stays. (A no-op for tag/location renames,
+  -- whose candidates are #x / @x and never an item title.)
+  if source and #items > 0 then
+    local item_keys = {}
+    for _, item in ipairs(items) do
+      item_keys[entry.sanitize_text(source.to_entry_text(item))] = true
+    end
+    local deduped = {}
+    for _, value in ipairs(candidates) do
+      if not item_keys[entry.sanitize_text(value)] then
+        deduped[#deduped + 1] = value
+      end
+    end
+    candidates = deduped
+  end
+
   if pcall(require, "telescope") then
     require("daylog.telescope").rename_pick({
       candidates = candidates,
@@ -185,6 +202,111 @@ function M.rename(opts)
     end
     opts.on_pick(choice)
   end)
+end
+
+-- Open the unified insert picker over pre-ranked rows (source work-items + recent activities).
+-- Telescope when installed, else vim.ui.select with a type-new sentinel. An empty pool inserts
+-- nothing -- it calls on_cancel (a bare timestamp).
+--
+-- opts: { prompt, prompt_fallback, type_new_label, on_pick = fn(row), on_create = fn(text),
+--         on_type_new = fn(), on_cancel = fn() }
+function M.insert(rows, opts)
+  if #rows == 0 then
+    opts.on_cancel()
+    return
+  end
+
+  if pcall(require, "telescope") then
+    require("daylog.telescope").insert_pick(rows, {
+      prompt = opts.prompt,
+      on_pick = opts.on_pick,
+      on_create = opts.on_create,
+      on_cancel = opts.on_cancel,
+    })
+    return
+  end
+
+  local TYPE_NEW = {}
+  local choices = {}
+  for _, row in ipairs(rows) do
+    choices[#choices + 1] = row
+  end
+  choices[#choices + 1] = TYPE_NEW
+
+  vim.ui.select(choices, {
+    prompt = opts.prompt_fallback,
+    format_item = function(choice)
+      if choice == TYPE_NEW then
+        return opts.type_new_label
+      end
+      return choice.display
+    end,
+  }, function(choice)
+    if not choice then
+      opts.on_cancel()
+      return
+    end
+    if choice == TYPE_NEW then
+      opts.on_type_new()
+      return
+    end
+    opts.on_pick(choice)
+  end)
+end
+
+-- Build the unified insert pool from already-read source caches plus the recent worklog
+-- activities, rank it (the same time-decayed frecency), and open the picker. `specs` =
+-- { { name, source, items }, ... }; `opts` = { on_insert = fn(text), on_cancel = fn() }.
+-- Picking an item inserts its to_entry_text, an activity inserts its text, typing inserts that.
+function M.insert_unified(specs, opts)
+  local picker = config.get().picker or {}
+  local usage = worklog_usage(
+    picker.frecency_days or DEFAULT_FRECENCY_DAYS,
+    picker.half_life_days or DEFAULT_HALF_LIFE_DAYS
+  )
+
+  local source_by_name = {}
+  local sources = {}
+  for _, spec in ipairs(specs) do
+    source_by_name[spec.name] = spec.source
+    sources[#sources + 1] = {
+      name = spec.name,
+      items = spec.items,
+      key_of = function(item)
+        return entry.sanitize_text(spec.source.to_entry_text(item))
+      end,
+      display_for = sources_picker.display_for(spec.source, spec.items),
+    }
+  end
+
+  local rows =
+    rank.build_insert_pool(sources, { usage = usage, base = picker.base or DEFAULT_BASE })
+
+  local function insert(text)
+    if text and text ~= "" then
+      opts.on_insert(text)
+    else
+      opts.on_cancel()
+    end
+  end
+
+  M.insert(rows, {
+    prompt = "Daylog: insert",
+    prompt_fallback = "Daylog: insert",
+    type_new_label = "✎ Type a new activity…",
+    on_pick = function(row)
+      if row.kind == "item" then
+        insert(source_by_name[row.source].to_entry_text(row.item))
+      else
+        insert(row.text)
+      end
+    end,
+    on_create = insert,
+    on_type_new = function()
+      insert(vim.fn.input({ prompt = "daylog: log: " }))
+    end,
+    on_cancel = opts.on_cancel,
+  })
 end
 
 return M

@@ -24,6 +24,12 @@ local function active_rank(active)
   return 1
 end
 
+-- The worklog relevance score: decayed frequency weighted against decayed duration. Positive
+-- for anything you have logged (each event contributes at least `base * w`), 0 otherwise.
+local function score_for(used, base)
+  return used and (base * used.freq + used.time) or 0
+end
+
 -- Effective-UTC gap between two entries: subtract each entry's offset so an interval that spans
 -- a timezone/DST move measures its true length; with no offsets it is just b.minutes - a.minutes.
 -- (The same formula summary.build_intervals uses for durations.)
@@ -90,7 +96,7 @@ function M.order(items, ctx)
     decorated[index] = {
       item = item,
       index = index,
-      score = used and (base * used.freq + used.time) or 0,
+      score = score_for(used, base),
     }
   end
 
@@ -127,6 +133,70 @@ function M.order(items, ctx)
     ordered[i] = d.item
   end
   return ordered
+end
+
+-- Build one ranked, deduped pool of insertable rows from several sources' items plus the
+-- leftover recent activities (the worklog texts that are not a source item). PURE.
+--
+-- `sources` is a list of { name, items, key_of=fn(item)->string, display_for=fn(item)->string };
+-- `ctx = { usage, base }`. Each item becomes a row keyed on its entry text; a usage key that no
+-- item claims becomes an `activity` row -- so an activity that matches a tracker item appears
+-- once (as the item). Rows sort by the worklog score (desc), then item-before-activity, then
+-- their build order (stable). Returns rows:
+--   { kind = "item", source = name, item, key, display, score }
+--   { kind = "activity", text = key, key, display, score }
+function M.build_insert_pool(sources, ctx)
+  local usage = ctx.usage or {}
+  local base = ctx.base
+  if base == nil then
+    base = 30
+  end
+
+  local rows = {}
+  local seen = {}
+
+  for _, source in ipairs(sources) do
+    for _, item in ipairs(source.items or {}) do
+      local key = source.key_of(item)
+      if not seen[key] then
+        seen[key] = true
+        rows[#rows + 1] = {
+          kind = "item",
+          source = source.name,
+          item = item,
+          key = key,
+          display = source.display_for(item),
+          score = score_for(usage[key], base),
+          order = #rows + 1,
+        }
+      end
+    end
+  end
+
+  for key, used in pairs(usage) do
+    if not seen[key] then
+      rows[#rows + 1] = {
+        kind = "activity",
+        text = key,
+        key = key,
+        display = key,
+        score = score_for(used, base),
+        order = #rows + 1,
+      }
+    end
+  end
+
+  table.sort(rows, function(a, b)
+    if a.score ~= b.score then
+      return a.score > b.score
+    end
+    if a.kind ~= b.kind then
+      return a.kind == "item"
+    end
+    return a.order < b.order
+  end)
+
+  return rows
 end
 
 return M

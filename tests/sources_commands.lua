@@ -307,4 +307,110 @@ return function(t)
     t.ok(offered ~= nil, "the picker opens despite the unreachable source")
     t.eq(t.get_lines()[2], "08:00 beta")
   end)
+
+  t.test("DaylogRename dedups a candidate that equals a source item", function()
+    registry.clear()
+    register_fake()
+    -- An activity named exactly like a FAKE work item, plus the one we rename.
+    t.reset({ "--- log ---", "08:00 review", "09:00 1 Item one", "10:00 done" })
+    vim.cmd("DaylogRefresh")
+    for i, line in ipairs(t.get_lines()) do
+      if line:find("%) review$") then
+        vim.api.nvim_win_set_cursor(0, { i, 0 })
+      end
+    end
+
+    local offered = {}
+    local old_ensure = sync.ensure_fresh
+    local old_select = vim.ui.select
+    sync.ensure_fresh = function(_name, _ttl, on_ready)
+      on_ready(FAKE_ITEMS)
+    end
+    vim.ui.select = function(items, opts, _)
+      for _, choice in ipairs(items) do
+        offered[#offered + 1] = opts.format_item(choice)
+      end
+      -- cancel: do not invoke on_choice
+    end
+
+    local ok, err = xpcall(function()
+      vim.cmd("DaylogRename FAKE")
+    end, debug.traceback)
+
+    sync.ensure_fresh = old_ensure
+    vim.ui.select = old_select
+    if not ok then
+      error(err, 0)
+    end
+
+    -- "1 Item one" appears once (the work item), not also as a merge candidate.
+    local count = 0
+    for _, label in ipairs(offered) do
+      if label == "1 Item one" then
+        count = count + 1
+      end
+    end
+    t.eq(count, 1)
+  end)
+
+  -- Stub the unified picker's synchronous reads + vim.ui.select. `pick` selects the top pool
+  -- row; otherwise it cancels.
+  local function with_stubbed_unified(pick, fn)
+    local old_read = sync.read_items
+    local old_refresh = sync.refresh_if_stale
+    local old_select = vim.ui.select
+
+    sync.read_items = function(name)
+      return name == "FAKE" and FAKE_ITEMS or {}
+    end
+    sync.refresh_if_stale = function() end
+    vim.ui.select = function(items, _, on_choice)
+      on_choice(pick and items[1] or nil)
+    end
+
+    local ok, err = xpcall(fn, debug.traceback)
+
+    sync.read_items = old_read
+    sync.refresh_if_stale = old_refresh
+    vim.ui.select = old_select
+
+    if not ok then
+      error(err, 0)
+    end
+  end
+
+  t.test("DaylogInsert! pools sources and inserts the picked row", function()
+    registry.clear()
+    register_fake()
+    t.reset({ "--- log ---", "08:00 first", "09:00 done" })
+    t.set_cursor(2, 0)
+
+    with_stubbed_unified(true, function()
+      with_mocked_date("11:30", function()
+        vim.cmd("DaylogInsert!")
+      end)
+    end)
+
+    t.eq(t.get_lines(), {
+      "--- log ---",
+      "08:00 first",
+      "09:00 done",
+      "11:30 1 Item one",
+    })
+  end)
+
+  t.test("DaylogInsert! falls back to a bare timestamp on cancel", function()
+    registry.clear()
+    register_fake()
+    t.reset({ "--- log ---", "08:00 first", "09:00 done" })
+    t.set_cursor(2, 0)
+
+    with_stubbed_unified(false, function()
+      with_mocked_date("11:30", function()
+        vim.cmd("DaylogInsert!")
+      end)
+    end)
+
+    t.eq(t.get_lines()[4], "11:30 ")
+  end)
 end

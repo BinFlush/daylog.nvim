@@ -144,4 +144,74 @@ return function(t)
 
     t.eq(ids(out), { "x", "y", "z" })
   end)
+
+  t.test("build_insert_pool merges, dedups, and ranks items and activities", function()
+    local sources = {
+      {
+        name = "FAKE",
+        items = { { id = "1", title = "One" }, { id = "2", title = "Two" } },
+        key_of = function(item)
+          return item.id .. " " .. item.title
+        end,
+        display_for = function(item)
+          return "#" .. item.id .. " " .. item.title
+        end,
+      },
+    }
+    local usage = {
+      ["1 One"] = { freq = 5, time = 100 }, -- also a tracker item -> folds into the item row
+      ["standup"] = { freq = 2, time = 30 }, -- a logged activity with no matching item
+    }
+
+    local rows = rank.build_insert_pool(sources, { usage = usage, base = 30 })
+
+    -- One (item, 250) > standup (activity, 90) > Two (item, 0); "1 One" appears once.
+    t.eq(#rows, 3)
+    t.eq({ rows[1].kind, rows[1].key }, { "item", "1 One" })
+    t.eq(rows[1].display, "#1 One")
+    t.eq({ rows[2].kind, rows[2].text }, { "activity", "standup" })
+    t.eq({ rows[3].kind, rows[3].key }, { "item", "2 Two" })
+  end)
+
+  t.test("build_insert_pool keeps the first source on a cross-source key clash", function()
+    local function src(name)
+      return {
+        name = name,
+        items = { { id = "X" } },
+        key_of = function(item)
+          return item.id
+        end,
+        display_for = function(item)
+          return name .. ":" .. item.id
+        end,
+      }
+    end
+
+    local rows = rank.build_insert_pool({ src("A"), src("B") }, { usage = {}, base = 30 })
+
+    t.eq(#rows, 1)
+    t.eq(rows[1].source, "A")
+  end)
+
+  t.test("build_insert_pool puts an item before an activity on a score tie", function()
+    local sources = {
+      {
+        name = "S",
+        items = { { id = "i" } },
+        key_of = function(item)
+          return item.id
+        end,
+        display_for = function(item)
+          return item.id
+        end,
+      },
+    }
+    -- "a" scores 0 (freq/time 0), same as the never-logged item -> the item leads.
+    local rows =
+      rank.build_insert_pool(sources, { usage = { a = { freq = 0, time = 0 } }, base = 30 })
+
+    t.eq(#rows, 2)
+    t.eq(rows[1].kind, "item")
+    t.eq(rows[2].kind, "activity")
+  end)
 end

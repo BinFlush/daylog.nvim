@@ -141,6 +141,52 @@ function M.insert_from_source(name)
   end)
 end
 
+-- The unified "what to log" picker (`:DaylogInsert!`): pool every configured source's cached
+-- items plus your recent logged activities into one ranked, deduped, offline fuzzy list. Picking
+-- a row inserts it at the current time; cancelling leaves a bare timestamp, like :DaylogInsert.
+function M.insert_unified()
+  if guard_current_time("insert") then
+    return
+  end
+
+  -- Refuse a cursor outside a log up front, before the async picker, exactly like the other
+  -- insert paths. insert_entry re-validates at apply time too.
+  local cursor_ctx, cursor_err = support.get_validated_at_row(buffer_lines(), cursor_row())
+  if not cursor_ctx then
+    warn(cursor_err)
+    return
+  end
+
+  local sources_cfg = config.get().sources or {}
+  local time = os.date("%H:%M")
+  local target_buf = vim.api.nvim_get_current_buf()
+
+  -- Read each source's cache synchronously (offline, instant) and kick a background refresh when
+  -- stale; a brand-new source with no cache contributes activities only this time.
+  local specs = {}
+  for _, name in ipairs(sources_registry.names()) do
+    local ttl = sources_cfg[name] and sources_cfg[name].ttl or 1800
+    sources_sync.refresh_if_stale(name, ttl)
+    specs[#specs + 1] = {
+      name = name,
+      source = sources_registry.get(name),
+      items = sources_sync.read_items(name),
+    }
+  end
+
+  pick.insert_unified(specs, {
+    on_insert = function(text)
+      if buffer_changed(target_buf, "insert") then
+        return
+      end
+      apply_insert_entry(time, text)
+    end,
+    on_cancel = function()
+      apply_insert_time(time)
+    end,
+  })
+end
+
 -- Refresh the on-disk cache for one source, or every configured source.
 function M.sync_source(name)
   if name and name ~= "" then
