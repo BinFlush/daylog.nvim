@@ -50,9 +50,10 @@ happen, but they are called out clearly in this changelog.
 ### Changed
 
 - **Source pickers lead with what you've been working on.** A source's cached work items
-  are now ordered by your worklog — items you've recently or often logged time against
-  rise to the top (a look-back window, `picker.frecency_days`, default 30; override the
-  ordering with `picker.rank`). Works for any source.
+  are now ordered by your worklog — a time-decayed frecency that weighs how recently, how
+  often, and how much *time* you've logged against each item, so the things you actually work
+  on rise to the top. Tunable via `picker.frecency_days` / `half_life_days` / `base`, or
+  replace the ordering entirely with `picker.rank`. Works for any source.
 - **Live tracker search is now opt-in** — set `search = true` on a source to enable the
   per-keystroke network search. By default the picker reads the offline cache and filters
   locally (instant, no network); with Telescope you still get a fuzzy picker over the cache.

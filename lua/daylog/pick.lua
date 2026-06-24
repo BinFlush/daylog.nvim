@@ -28,10 +28,14 @@ local function source_opt(name, key)
   return source_config and source_config[key] or nil
 end
 
+local DEFAULT_FRECENCY_DAYS = 30
+local DEFAULT_HALF_LIFE_DAYS = 7
+local DEFAULT_BASE = 30
+
 -- Scan the last `days` daylogs for what you have logged time against (buffer-aware, so
--- today's unsaved entries count too) and build the worklog-usage map the ranker keys on.
--- Empty when no daybook is configured.
-local function worklog_usage(days)
+-- today's unsaved entries count too) and build the time-decayed worklog-usage map the ranker
+-- keys on. Empty when no daybook is configured.
+local function worklog_usage(days, half_life)
   local settings = daybook_io.expanded_daybook_settings()
   if not settings then
     return {}
@@ -44,7 +48,7 @@ local function worklog_usage(days)
       lists[#lists + 1] = { date = date, lines = lines }
     end
   end
-  return rank.build_usage(lists)
+  return rank.build_usage(lists, os.time(), half_life)
 end
 
 -- Reorder a source's items so the ones you have recently logged lead -- the built-in
@@ -58,10 +62,14 @@ local function ranked(source, items)
   local picker = config.get().picker or {}
   local order = picker.rank or rank.order
   return order(items, {
-    usage = worklog_usage(picker.frecency_days or 30),
+    usage = worklog_usage(
+      picker.frecency_days or DEFAULT_FRECENCY_DAYS,
+      picker.half_life_days or DEFAULT_HALF_LIFE_DAYS
+    ),
     key_of = function(item)
       return entry.sanitize_text(source.to_entry_text(item))
     end,
+    base = picker.base or DEFAULT_BASE,
     now = os.time(),
   })
 end
