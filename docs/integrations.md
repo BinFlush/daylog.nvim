@@ -117,11 +117,13 @@ container-optional) and the **item shape**, never the query mechanism.
 ## Roadmap
 
 - [x] **Lock the contract** — item shape (`active`, `updated`), fetch conventions, this record.
-- [ ] **Core worklog-frecency ranker** — re-rank the cached set by what you've recently/often
-  logged against (matched by `id` / `to_entry_text` against recent `.day` files), with
-  `active`/`updated` as tiebreakers and a `rank` config hook. Source-agnostic; the universal
-  win. *(Next.)*
-- [ ] **Offline-first**: make live `search` opt-in per source (default off).
+- [x] **Core worklog-frecency ranker** — `lua/daylog/sources/rank.lua` (pure) re-ranks the
+  cached set so items you've recently/often logged against lead, matched by
+  `sanitize_text(to_entry_text(item))` against the last `frecency_days` of `.day` files (a live
+  daybook scan in `pick.lua` — no hidden state), with `active`/`updated` as tiebreakers and a
+  stable fallback. The global `picker = { rank?, frecency_days? }` config exposes the override
+  hook (`fn(items, ctx) -> items`). On by default; source-agnostic.
+- [ ] **Offline-first**: make live `search` opt-in per source (default off). *(Next.)*
 - [ ] **ADO scope**: org-wide "involves me" default + container-optional (drop the required
   `project`); apply the same scope to `search` so it can't leak other teams' items.
 - [ ] **Second reference source**: Jira (proves the conventions on a different query language).

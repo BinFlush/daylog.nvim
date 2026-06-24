@@ -1,4 +1,8 @@
 local config = require("daylog.config")
+local daybook = require("daylog.daybook")
+local daybook_io = require("daylog.daybook_io")
+local entry = require("daylog.entry")
+local rank = require("daylog.sources.rank")
 local sources_picker = require("daylog.sources.picker")
 
 local M = {}
@@ -24,6 +28,44 @@ local function source_opt(name, key)
   return source_config and source_config[key] or nil
 end
 
+-- Scan the last `days` daylogs for what you have logged time against (buffer-aware, so
+-- today's unsaved entries count too) and build the worklog-usage map the ranker keys on.
+-- Empty when no daybook is configured.
+local function worklog_usage(days)
+  local settings = daybook_io.expanded_daybook_settings()
+  if not settings then
+    return {}
+  end
+
+  local lists = {}
+  for _, date in ipairs(daybook.trailing_dates(os.time(), days)) do
+    local lines = daybook_io.daybook_lines(daybook.path_for_date(settings, date))
+    if lines then
+      lists[#lists + 1] = { date = date, lines = lines }
+    end
+  end
+  return rank.build_usage(lists)
+end
+
+-- Reorder a source's items so the ones you have recently logged lead -- the built-in
+-- worklog-frecency ranker, or a user-supplied picker.rank. Source items only; with no
+-- source (a candidate-only rename) or an empty list it is a no-op.
+local function ranked(source, items)
+  if not source or #items == 0 then
+    return items
+  end
+
+  local picker = config.get().picker or {}
+  local order = picker.rank or rank.order
+  return order(items, {
+    usage = worklog_usage(picker.frecency_days or 30),
+    key_of = function(item)
+      return entry.sanitize_text(source.to_entry_text(item))
+    end,
+    now = os.time(),
+  })
+end
+
 -- Pick a source work-item to act on (insert). Telescope live-search when the source
 -- supports it; otherwise the offline cache via vim.ui.select. Cancelling (a nil
 -- choice / a wiped prompt) calls on_cancel.
@@ -31,7 +73,7 @@ end
 -- opts: { source_name, initial_items, prompt, prompt_fallback,
 --         on_pick = fn(item), on_cancel = fn()|nil }
 function M.item(source, opts)
-  local items = opts.initial_items or {}
+  local items = ranked(source, opts.initial_items or {})
 
   -- live_pick wires its server search only when the source can search; a
   -- non-searchable source has no reason to prefer it over plain vim.ui.select, so
@@ -74,7 +116,7 @@ end
 function M.rename(opts)
   local candidates = opts.candidates or {}
   local source = opts.source
-  local items = opts.initial_items or {}
+  local items = ranked(source, opts.initial_items or {})
 
   if pcall(require, "telescope") then
     require("daylog.telescope").rename_pick({

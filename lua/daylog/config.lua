@@ -325,6 +325,38 @@ local function normalize_sources(sources)
   return result
 end
 
+-- Cross-source picker behavior (not per-source): how a source's cached items are ranked
+-- in the picker. `rank` overrides the built-in worklog-frecency ranker (same signature,
+-- fn(items, ctx) -> items); `frecency_days` is the daybook look-back window the ranker
+-- scans (default applied at use time).
+local function normalize_picker(picker)
+  if picker == nil then
+    return nil
+  end
+
+  if type(picker) ~= "table" then
+    error("daylog: setup picker must be a table")
+  end
+
+  local result = {}
+
+  if picker.rank ~= nil then
+    if type(picker.rank) ~= "function" then
+      error("daylog: picker.rank must be a function")
+    end
+    result.rank = picker.rank
+  end
+
+  if picker.frecency_days ~= nil then
+    if not positive_integer(picker.frecency_days) then
+      error("daylog: picker.frecency_days must be a positive integer")
+    end
+    result.frecency_days = picker.frecency_days
+  end
+
+  return result
+end
+
 local function normalize_config(options)
   if options == nil then
     return {
@@ -352,6 +384,11 @@ local function normalize_config(options)
   local sources = normalize_sources(options.sources)
   if sources ~= nil then
     result.sources = sources
+  end
+
+  local picker = normalize_picker(options.picker)
+  if picker ~= nil then
+    result.picker = picker
   end
 
   return result
