@@ -585,6 +585,27 @@ return function(t)
     t.eq(cursor[2], 3) -- the column is preserved
   end)
 
+  t.test("copy moves the cursor onto the new log header", function()
+    t.reset({
+      "--- log ---",
+      "08:00 plan",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+    })
+    t.set_cursor(2, 0)
+    local before = #t.get_lines()
+
+    vim.cmd("DaylogCopy")
+
+    -- The cursor jumps into the appended copy, onto its log header (so the window
+    -- scrolls to it).
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    t.ok(cursor[1] > before, "the cursor moved into the new copy")
+    t.ok(t.get_lines()[cursor[1]]:find("^%-%-%- log"), "the cursor is on the new log header")
+  end)
+
   t.test("insert orders into explicit log block after equal timestamps", function()
     t.reset({
       "--- log #ProjectOrion @office ---",

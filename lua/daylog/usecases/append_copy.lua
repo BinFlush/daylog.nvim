@@ -40,7 +40,12 @@ function M.run(lines)
     table.insert(rendered, line)
   end
 
-  return support.append_edit(lines, rendered)
+  -- Move the cursor onto the new copy so the window scrolls to it and it is visibly
+  -- clear something happened. `render.log_lines` emits a leading blank then the header,
+  -- appended at `#lines`, so the new log header sits at `#lines + 2`.
+  local result = support.append_edit(lines, rendered)
+  result.cursor = { #lines + 2, 0 }
+  return result
 end
 
 return M

@@ -62,6 +62,7 @@ happen, but they are called out clearly in this changelog.
 - **`:DaylogRename` renames a single entry** when the cursor is on an entry line.
 - **`:DaylogRename` still opens the merge picker** when a configured source is unreachable.
 - **`:DaylogBalance` keeps the cursor on a summary row** that reorders.
+- **`:DaylogCopy` moves the cursor onto the new copy** so it is visible.
 
 ## 0.10.0 - 2026-06-24
 

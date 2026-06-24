@@ -177,6 +177,7 @@ return function(t)
           },
         },
       },
+      cursor = { 6, 0 },
     })
   end)
 
@@ -213,6 +214,7 @@ return function(t)
           },
         },
       },
+      cursor = { 7, 0 },
     })
   end)
 
@@ -252,6 +254,7 @@ return function(t)
           },
         },
       },
+      cursor = { 5, 0 },
     })
   end)
 
@@ -288,7 +291,18 @@ return function(t)
           },
         },
       },
+      cursor = { 5, 0 },
     })
+  end)
+
+  t.test("append_copy moves the cursor onto the new log header", function()
+    local input = { "--- log ---", "08:00 plan", "09:00 done" }
+    local result = append_copy.run(input)
+
+    -- The cursor lands on the second appended line -- the copy's header.
+    local offset = result.cursor[1] - #input
+    t.eq(offset, 2)
+    t.ok(result.edits[1].lines[offset]:find("^%-%-%- log"), "the cursor is on the new log header")
   end)
 
   t.test("repeat_current re-emits the tag change and preserves the following entry", function()
