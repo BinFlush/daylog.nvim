@@ -258,16 +258,16 @@ return function(t)
     vim.cmd("DaylogRename ship the release")
     t.eq(t.get_lines()[2], "08:00 ship the release")
 
-    -- A source-name argument opens the unified picker (it no longer scopes to that source).
+    -- A source-name argument opens that source's scoped (live-search-capable) picker.
     on_review_summary_row()
-    with_stubbed_unified(true, function()
+    with_stubbed_picker(true, function()
       vim.cmd("DaylogRename FAKE")
     end)
     t.eq(t.get_lines()[2], "08:00 1 Item one")
   end)
 
   t.test(
-    "DaylogRename on a tag row opens the candidate picker (a source arg no longer refuses)",
+    "DaylogRename refuses a source on a non-activity row, then opens the merge picker",
     function()
       registry.clear()
       register_fake()
@@ -279,10 +279,11 @@ return function(t)
         end
       end
 
-      -- A tag row has no pool, so it offers the other tag totals as merge targets.
+      -- A source can only replace an activity; on a tag row it is reported, then the normal
+      -- candidate (merge) picker opens -- here cancelled, so nothing is mutated.
       local old_select = vim.ui.select
-      vim.ui.select = function(items, _, on_choice)
-        on_choice(items[1])
+      vim.ui.select = function(_, _, on_choice)
+        on_choice(nil)
       end
 
       with_captured_notify(function(messages)
@@ -293,16 +294,16 @@ return function(t)
         if not ok then
           error(err, 0)
         end
+        local refused = false
         for _, message in ipairs(messages) do
-          t.ok(
-            message.message:find("a source can only replace an activity") == nil,
-            "a source arg on a tag row should not be refused"
-          )
+          if message.message:find("a source can only replace an activity") then
+            refused = true
+          end
         end
+        t.ok(refused, "naming a source on a tag row should be refused")
       end)
 
-      -- Picking the other tag total merged #ClientA into #other.
-      t.eq(t.get_lines()[2], "08:00 a #other")
+      t.eq(t.get_lines()[2], "08:00 a #ClientA")
     end
   )
 
@@ -346,6 +347,20 @@ return function(t)
 
     with_stubbed_unified(true, function()
       vim.cmd("DaylogMap")
+    end)
+
+    t.eq(t.get_lines()[2], "08:00 review => 1 Item one")
+  end)
+
+  t.test("DaylogMap <source> maps the cursor entry onto a scoped source item", function()
+    registry.clear()
+    register_fake()
+    t.reset({ "--- log ---", "08:00 review", "09:00 done" })
+    t.set_cursor(2, 0)
+
+    -- A named source scopes to that one tracker's items (live-search-capable), like Insert.
+    with_stubbed_picker(true, function()
+      vim.cmd("DaylogMap FAKE")
     end)
 
     t.eq(t.get_lines()[2], "08:00 review => 1 Item one")

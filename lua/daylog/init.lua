@@ -104,9 +104,6 @@ function M.insert_from_source(name)
     return
   end
 
-  local sources = config.get().sources or {}
-  local ttl = sources[name] and sources[name].ttl or 1800
-
   -- The picker is async, so capture the moment and the target buffer up front: a
   -- late selection then stamps the time the command was issued and never edits a
   -- buffer we have since moved away from.
@@ -123,22 +120,17 @@ function M.insert_from_source(name)
     apply_insert_entry(time, source.to_entry_text(item))
   end
 
-  sources_sync.ensure_fresh(name, ttl, function(items)
-    -- With Telescope and a searchable source, type-as-you-search across the whole
-    -- tracker (cached items show at an empty prompt); otherwise the offline cache via
-    -- vim.ui.select. Both insert through insert_choice; cancelling leaves a bare
-    -- timestamp, like a plain :DaylogInsert.
-    pick.item(source, {
-      source_name = name,
-      initial_items = items,
-      prompt = "Daylog: " .. name,
-      prompt_fallback = "Daylog: pick " .. name .. " item",
-      on_pick = insert_choice,
-      on_cancel = function()
-        apply_insert_time(time)
-      end,
-    })
-  end)
+  -- The scoped source picker: type-as-you-search across the whole tracker when the source
+  -- supports it (cached items show at an empty prompt), else the offline cache. Cancelling
+  -- leaves a bare timestamp, like a plain :DaylogInsert.
+  pick.source(source, name, {
+    prompt = "Daylog: " .. name,
+    prompt_fallback = "Daylog: pick " .. name .. " item",
+    on_pick = insert_choice,
+    on_cancel = function()
+      apply_insert_time(time)
+    end,
+  })
 end
 
 -- The unified "what to log" picker (`:DaylogInsert!`): pool every configured source's cached

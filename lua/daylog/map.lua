@@ -1,6 +1,7 @@
 local buffer = require("daylog.buffer")
 local pick = require("daylog.pick")
 local map_summary = require("daylog.usecases.map_summary")
+local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
 
 local M = {}
@@ -47,11 +48,11 @@ function M.clear()
   apply(cursor_row(), vim.api.nvim_get_current_buf(), "")
 end
 
--- Set the alias: a direct `value`, or the unified picker (map onto a work item or recent
--- activity), or a plain prompt when there is nothing to pick. An empty/cancelled prompt is a
--- no-op -- clearing is the explicit `:DaylogMap!`. A source-name arg no longer scopes (the pool
--- is all sources), so it is accepted but unused.
-function M.summary(value, _source_name)
+-- Set the alias: a direct `value`, a named source's scoped picker (live-searchable, mapping onto
+-- a work item -- like :DaylogInsert <source>), or the unified pool (recent activities + every
+-- source's items) with no argument; a plain prompt when there is nothing to pick. An
+-- empty/cancelled prompt is a no-op -- clearing is the explicit `:DaylogMap!`.
+function M.summary(value, source_name)
   if in_report() then
     warn("daylog: :DaylogMap is not available in a report; map in the day file")
     return
@@ -82,6 +83,25 @@ function M.summary(value, _source_name)
       prompt = "daylog: map to: ",
       default = current.alias or "",
     }))
+  end
+
+  -- A named source scopes to that one tracker (live-searchable when `search = true`), mapping
+  -- onto the chosen work item's entry text -- exactly like :DaylogInsert <source>.
+  if source_name then
+    local source = sources_registry.get(source_name)
+    if not source then
+      warn("daylog: unknown source '" .. source_name .. "'")
+      return
+    end
+    pick.source(source, source_name, {
+      prompt = "Daylog: map -> " .. source_name,
+      prompt_fallback = "Daylog: pick " .. source_name .. " item",
+      on_pick = function(item)
+        apply_map(source.to_entry_text(item))
+      end,
+      on_cancel = nil,
+    })
+    return
   end
 
   -- Map onto the same unified pool as :DaylogInsert! -- recent activities across days plus every

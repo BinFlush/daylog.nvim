@@ -533,18 +533,21 @@ propagating into the attached log and rebuilding its summary.
 - Renaming to a name that already exists merges the two: the row's intervals fold
   into the existing tag, location, or activity (renaming and merging are the same
   operation). For an activity, this merges with another activity under the same tag.
-- For an activity, the picker is the same unified pool as |:DaylogInsert!|: your
-  recent logged activities (across days) plus every configured source's work items,
-  ranked by worklog frecency (see |daylog-picker|) and de-duplicated. Picking one
-  renames the activity to it -- a work item to its entry text (`{id} {title}`),
-  exactly like |:DaylogInsert|. With Telescope, type to filter; `<CR>` picks the
-  highlighted row and `<C-e>` renames to the text you typed. Without Telescope it is
-  a |vim.ui.select| list plus a "type a new name" entry. With nothing to pick it
-  falls back to a plain prompt seeded with the current value.
+- For an activity with no argument, the picker is the same unified pool as
+  |:DaylogInsert!|: your recent logged activities (across days) plus every configured
+  source's work items, ranked by worklog frecency (see |daylog-picker|) and
+  de-duplicated. Picking one renames the activity to it -- a work item to its entry
+  text (`{id} {title}`). With Telescope, type to filter; `<CR>` picks the highlighted
+  row and `<C-e>` renames to the text you typed. Without Telescope it is a
+  |vim.ui.select| list plus a "type a new name" entry. With nothing to pick it falls
+  back to a plain prompt seeded with the current value.
+- Naming a source (`:DaylogRename {source}`, tab-completed) scopes the picker to that
+  one tracker's work items, live-searched as you type when it has `search = true` --
+  exactly like |:DaylogInsert| {source}. Only an activity row accepts a source; on a
+  tag or location it is reported. A `[name]` argument that is not a source name
+  renames directly to that text.
 - For a tag or location the picker offers the other tags / locations to merge into
-  (there is no work-item pool for those). A `[name]` argument that is not a source
-  name renames directly to that text; a source name just opens the picker (it no
-  longer scopes to a single source).
+  (there is no work-item pool for those).
 - A tag or location name must be letters, digits, underscores, or hyphens; activity
   text is sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active log's summary; a row that no longer
@@ -574,8 +577,9 @@ own journal while the summary reads in canonical terms.
 - With no argument the same unified pool as |:DaylogInsert!| / |:DaylogRename|
   opens -- your recent activities and every source's work items -- and the chosen
   value becomes the alias (a work item maps onto `{id} {title}`); with nothing to
-  pick, a prompt seeded with the current alias. A source-name argument just opens
-  the picker (it no longer scopes to a single source).
+  pick, a prompt seeded with the current alias. Naming a source scopes the picker to
+  that one tracker (live-searched with `search = true`), exactly like |:DaylogInsert|
+  {source}.
 - `:DaylogMap!` (bang) clears the mapping on the cursor's target.
 - A logged entry (`!L`) is refused: its committed value is tied to its current
   identity. Unlog it, map it, then log again.

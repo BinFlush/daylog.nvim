@@ -4,6 +4,7 @@ local daybook_io = require("daylog.daybook_io")
 local entry = require("daylog.entry")
 local rank = require("daylog.sources.rank")
 local sources_picker = require("daylog.sources.picker")
+local sources_sync = require("daylog.sources.sync")
 
 local M = {}
 
@@ -17,9 +18,9 @@ local M = {}
 -- backend opens and routes the chosen value. Distinct from the PURE
 -- daylog.sources.picker (align / merge / display_for / should_query) it consumes.
 
--- Resolve a per-source config option (min_query) in one place. Returns nil for an
--- unconfigured / custom source -- the backend then applies its own default
--- (should_query clamps a nil min_query to 1).
+-- Resolve a per-source config option (min_query, ttl) in one place. Returns nil for an
+-- unconfigured / custom source -- the caller then applies its own default
+-- (should_query clamps a nil min_query to 1; M.source falls back to a default ttl).
 local function source_opt(name, key)
   if not name then
     return nil
@@ -108,6 +109,27 @@ function M.item(source, opts)
       return
     end
     opts.on_pick(choice)
+  end)
+end
+
+-- Open the scoped picker for one named source (`:DaylogInsert/:DaylogRename/:DaylogMap <source>`):
+-- load/refresh its cache, then hand its items to M.item -- which live-searches the tracker as you
+-- type when the source supports it, else filters the offline cache. The chosen item goes to
+-- opts.on_pick(item); cancelling calls opts.on_cancel. Items only; the unified pool (M.unified) is
+-- where recent activities and type-a-name live.
+--
+-- opts: { prompt, prompt_fallback, on_pick = fn(item), on_cancel = fn()|nil }
+function M.source(source, name, opts)
+  local ttl = source_opt(name, "ttl") or 1800
+  sources_sync.ensure_fresh(name, ttl, function(items)
+    M.item(source, {
+      source_name = name,
+      initial_items = items,
+      prompt = opts.prompt,
+      prompt_fallback = opts.prompt_fallback,
+      on_pick = opts.on_pick,
+      on_cancel = opts.on_cancel,
+    })
   end)
 end
 

@@ -57,10 +57,11 @@ happen, but they are called out clearly in this changelog.
 - **One picker for Insert!, Rename, and Map; the rendered name leads.** `:DaylogRename` and
   `:DaylogMap` now open the same unified pool as `:DaylogInsert!` — your recent activities plus
   every source's work items, frecency-ranked and de-duplicated — instead of a single source's
-  items; pick a row to rename/map onto it. A source-name argument no longer scopes to that one
-  source (it just opens the pool), and renaming a tag/location still offers the other
-  tags/locations. Tracked items now display with their inserted text (`{id} {title}`) on the far
-  left, lined up with the plain activity rows, and the `[type/state]`/project metadata trailing.
+  items; pick a row to rename/map onto it. Naming a source still scopes the picker to that one
+  tracker, with live search (`search = true`) — exactly like `:DaylogInsert <source>` — and
+  renaming a tag/location still offers the other tags/locations. Tracked items now display with
+  their inserted text (`{id} {title}`) on the far left, lined up with the plain activity rows, and
+  the `[type/state]`/project metadata trailing.
 - **Source pickers lead with what you've been working on.** A source's cached work items
   are now ordered by your worklog — a time-decayed frecency that weighs how recently, how
   often, and how much *time* you've logged against each item, so the things you actually work

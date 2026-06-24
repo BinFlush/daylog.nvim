@@ -6,6 +6,7 @@ local render = require("daylog.render")
 local report_buffers = require("daylog.report")
 local rename_summary = require("daylog.usecases.rename_summary")
 local report_cursor = require("daylog.usecases.report_cursor")
+local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
 
 local M = {}
@@ -96,6 +97,29 @@ function M.summary(new_value, source_name)
       prompt = string.format("daylog: rename %s: ", label),
       default = target.current,
     }))
+  end
+
+  -- A named source replaces an activity with one of its work items, scoped to that source and
+  -- live-searchable (`search = true`) -- exactly like :DaylogInsert <source>. It only applies to
+  -- an activity row; on a tag/location it is reported, then the normal merge picker opens.
+  if source_name then
+    local source = sources_registry.get(source_name)
+    if not source then
+      warn("daylog: unknown source '" .. source_name .. "'")
+      return
+    end
+    if target.kind == "item" then
+      pick.source(source, source_name, {
+        prompt = string.format("Daylog: rename activity -> %s", source_name),
+        prompt_fallback = "Daylog: pick " .. source_name .. " item",
+        on_pick = function(item)
+          apply_rename(source.to_entry_text(item))
+        end,
+        on_cancel = nil,
+      })
+      return
+    end
+    warn("daylog: a source can only replace an activity, not a " .. target.kind)
   end
 
   -- Pick the new value, then rename into it (renaming to a value that already exists merges the
