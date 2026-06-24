@@ -75,10 +75,10 @@ end
 function M.item(source, opts)
   local items = ranked(source, opts.initial_items or {})
 
-  -- live_pick wires its server search only when the source can search; a
-  -- non-searchable source has no reason to prefer it over plain vim.ui.select, so
-  -- gate on both (the historical condition, kept verbatim).
-  if pcall(require, "telescope") and source.search then
+  -- Telescope gives a nicer picker even cache-only, so prefer it whenever installed;
+  -- live_pick wires the as-you-type server search only when the source provides one
+  -- (it's off by default), so an offline source still gets the Telescope picker.
+  if pcall(require, "telescope") then
     require("daylog.telescope").live_pick(source, {
       initial_items = items,
       prompt = opts.prompt,

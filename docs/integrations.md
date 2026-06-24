@@ -123,7 +123,8 @@ container-optional) and the **item shape**, never the query mechanism.
   daybook scan in `pick.lua` — no hidden state), with `active`/`updated` as tiebreakers and a
   stable fallback. The global `picker = { rank?, frecency_days? }` config exposes the override
   hook (`fn(items, ctx) -> items`). On by default; source-agnostic.
-- [ ] **Offline-first**: make live `search` opt-in per source (default off). *(Next.)*
+- [x] **Offline-first** — live `search` is opt-in per source (default off; `search = true` to
+  enable); with Telescope you still get a fuzzy picker over the cache when it's off.
 - [ ] **ADO scope**: org-wide "involves me" default + container-optional (drop the required
-  `project`); apply the same scope to `search` so it can't leak other teams' items.
+  `project`); apply the same scope to `search` so it can't leak other teams' items. *(Next.)*
 - [ ] **Second reference source**: Jira (proves the conventions on a different query language).

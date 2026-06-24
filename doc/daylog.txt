@@ -684,6 +684,7 @@ Configure sources in `setup{}`:
         -- query     = '<raw WIQL>',          -- or your own WIQL
         -- template  = '{id} {title}',        -- inserted activity text
         -- ttl       = 1800,                  -- cache lifetime, seconds
+        -- search    = false,                 -- opt in to live tracker search
         -- min_query = 3,                     -- chars before live search runs
       },
     },
@@ -706,9 +707,10 @@ Configure sources in `setup{}`:
   current time. The template fills `{id}`, `{title}`, `{type}`, `{state}`, and
   `{project}` from the work item; any other `{name}` placeholder is left
   unchanged. The title is sanitized so it can never form trailing metadata.
-- Live search waits until the prompt is `min_query` characters (default 3);
-  below that only the cached items are filtered, with no request. Set
-  `min_query = 1` to search from the first keystroke.
+- Live as-you-type tracker search is off by default -- the picker is your offline
+  cache. Set `search = true` to enable it; it then waits until the prompt is
+  `min_query` characters (default 3) before each request (`min_query = 1` searches
+  from the first keystroke).
 
 For a step-by-step Azure DevOps setup -- creating the PAT, where to store it, and
 troubleshooting -- see the guide at docs/azure-devops.md in the repository.
@@ -719,14 +721,17 @@ refreshes in the background when older than `ttl` (default 1800 seconds) and on
 |:DaylogSync|. Syncing requires the `curl` executable; pick-time needs no
 network.
 
-With Telescope installed and a source that supports search, |:DaylogInsert|
-{source} opens a Telescope picker that searches the tracker live as you type
-(debounced, once the prompt reaches `min_query` characters), with your cached
-items shown at an empty prompt. Without Telescope it uses the offline
-`vim.ui.select` cache picker. The Azure DevOps source searches work-item titles
-across your configured project(s) and hydrates at most 200 matches; if more match,
-the picker notes "showing first N of M matches" so you can refine. A failed search
-reports a `daylog:` warning.
+With Telescope installed, |:DaylogInsert| {source} opens a Telescope picker over
+your cached items with client-side fuzzy filtering; without it, the offline
+`vim.ui.select` cache picker (so fzf-lua / snacks / mini.pick work too). Either
+way picking is offline.
+
+Live as-you-type tracker search is opt-in -- set `search = true` on the source. It
+then queries the tracker on each keystroke (debounced, once the prompt reaches
+`min_query` characters) and merges matches into your cached items. The Azure DevOps
+source searches work-item titles across your configured project(s) and hydrates at
+most 200 matches; if more match, the picker notes "showing first N of M matches" so
+you can refine. A failed search reports a `daylog:` warning.
 
                                                   *daylog-custom-source*
 You can register your own source (e.g. Jira, GitHub Issues) with:
@@ -760,7 +765,7 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
       type in |:DaylogInsert| {source}, with the same cb(items, err) shape as
       fetch. cb may take an optional third argument -- the total number of
       matches before any local cap -- so the picker can flag a truncated set.
-      Omit search to filter only the cached items.
+      Omit search (the offline-first default) to filter only the cached items.
 
 An `item` is a table. `id` and `title` are required; `type`, `state`, `active`,
 `updated`, and `url` are optional. `id` is both the cache key and the ranking

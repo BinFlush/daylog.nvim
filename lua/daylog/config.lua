@@ -248,6 +248,16 @@ local function normalize_azure_devops(name, entry)
     result.format_item = entry.format_item
   end
 
+  -- Live as-you-type tracker search is off by default (the offline cache is the
+  -- picker); opt in per source. Picking stays offline either way -- only an enabled
+  -- search reaches the network on each keystroke.
+  if entry.search ~= nil then
+    if type(entry.search) ~= "boolean" then
+      error("daylog: source '" .. name .. "'.search must be a boolean")
+    end
+    result.search = entry.search
+  end
+
   return result
 end
 

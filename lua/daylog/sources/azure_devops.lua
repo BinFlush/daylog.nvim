@@ -193,9 +193,10 @@ function M.new(_name, cfg, deps)
     end)
   end
 
-  -- Live text search over work-item titles (used by the Telescope live picker),
-  -- scoped to the configured project(s) by the URL and/or the team-project filter.
-  function source.search(query, cb)
+  -- Optional live text search over work-item titles (the Telescope live picker),
+  -- scoped like fetch by the URL and/or the team-project filter. Off by default --
+  -- the offline cache is the picker -- and enabled per source with `search = true`.
+  local function run_search(query, cb)
     local escaped = (query or ""):gsub("'", "''")
     local wiql = string.format(
       "SELECT [System.Id] FROM WorkItems "
@@ -216,6 +217,10 @@ function M.new(_name, cfg, deps)
         body = json.encode({ query = wiql }),
       }
     end)
+  end
+
+  if cfg.search then
+    source.search = run_search
   end
 
   -- The fixed-width leading cells for one item: id, then [type/state], then the

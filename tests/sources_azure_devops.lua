@@ -21,6 +21,9 @@ return function(t)
       project = "Platform",
       api_version = "7.0",
       template = "{id} {title}",
+      -- Live search is opt-in; enable it by default here so the search tests below
+      -- exercise it (the default-off behavior is covered by its own test).
+      search = true,
     }
     for key, value in pairs(overrides or {}) do
       cfg[key] = value
@@ -198,6 +201,24 @@ return function(t)
     )
   end)
 
+  t.test("search is omitted unless enabled (offline by default)", function()
+    local transport = fake_transport(function()
+      return { status = 200, body = "{}" }
+    end)
+
+    -- No `search` key (the real default after config normalization) -> no method,
+    -- so the picker stays cache-only.
+    local off = new_source({
+      organization = "contoso",
+      project = "Platform",
+      api_version = "7.0",
+      template = "{id} {title}",
+    }, transport)
+    t.eq(off.search, nil)
+
+    t.ok(type(new_source(base_cfg(), transport).search) == "function")
+  end)
+
   t.test("search runs a WIQL CONTAINS WORDS query then hydrates", function()
     local transport = fake_transport(function(opts)
       if opts.url:match("/wiql%?") then
@@ -329,6 +350,7 @@ return function(t)
       projects = { "Platform", "Data" },
       api_version = "7.0",
       template = "{id} {title}",
+      search = true,
     }
     local source = new_source(cfg, transport)
     local result
@@ -366,8 +388,10 @@ return function(t)
       return { status = 200, body = vim.json.encode({ value = {} }) }
     end)
 
-    local source =
-      new_source({ organization = "contoso", projects = { "Pro'ject", "B" } }, transport)
+    local source = new_source(
+      { organization = "contoso", projects = { "Pro'ject", "B" }, search = true },
+      transport
+    )
     source.search("x", function() end)
 
     local body = vim.json.decode(transport.seen[1].body)
