@@ -340,7 +340,7 @@ return function(t)
   end)
 
   t.test("a labeled multi-day report section highlights its rows", function()
-    -- :DaylogWeek / :DaylogDays produce labeled headers the old syntax file did
+    -- :DaylogDays produces labeled headers the old syntax file did
     -- not recognize; the parser-driven highlighter does, so report rows highlight.
     load({
       "--- day summary 2026-05-18 q=30 ---",

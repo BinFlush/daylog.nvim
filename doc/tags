@@ -14,7 +14,6 @@
 :DaylogSplit	daylog.txt	/*:DaylogSplit*
 :DaylogSync	daylog.txt	/*:DaylogSync*
 :DaylogToday	daylog.txt	/*:DaylogToday*
-:DaylogWeek	daylog.txt	/*:DaylogWeek*
 daylog-active-indicator	daylog.txt	/*daylog-active-indicator*
 daylog-auto-summary	daylog.txt	/*daylog-auto-summary*
 daylog-balance	daylog.txt	/*daylog-balance*

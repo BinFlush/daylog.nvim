@@ -53,7 +53,8 @@ local function parse_days_request(value)
     }
   end
 
-  return nil, "daylog: expected a day count or a FROM..TO range (e.g. 2026-05-10..2026-05-20)"
+  return nil,
+    "daylog: expected a day count or a FROM..TO range (e.g. 2026-05-10..2026-05-20, monday.., ..today)"
 end
 
 -- An optional positive day-step count; an empty argument defaults to 1.
@@ -136,12 +137,6 @@ function M.register(api)
   register_parsed_command("DaylogPrevDay", parse_step_count, function(count)
     api.open_relative_day(-count)
   end)
-
-  ensure_user_command("DaylogWeek", function(args)
-    api.open_week(args.bang)
-  end, {
-    bang = true,
-  })
 
   ensure_user_command("DaylogDays", function(args)
     local request, err = parse_days_request(args.args)

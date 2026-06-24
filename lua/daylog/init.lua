@@ -383,18 +383,18 @@ function M.init_day(offset)
   apply_refresh(false)
 end
 
-function M.open_week(aggregate_only)
-  open_report({ kind = "week", anchor = os.time(), aggregate_only = aggregate_only or false })
-end
-
--- Resolve a `:DaylogDays` range request into a concrete, pinned list of dates. An
--- omitted start resolves to the earliest logged day on file, an omitted end to today;
--- an explicit reversed range is rejected, and a span with no logs falls through to the
--- "no daybook logs found" warning when the report is built.
+-- Resolve a `:DaylogDays` range request into a concrete, pinned list of dates. Each bound
+-- is a named token (`today`, `monday`, ...) or a `YYYY-MM-DD` literal; an omitted start
+-- resolves to the earliest logged day on file and an omitted end to the latest (so an open
+-- end reaches as far as the data goes, future-dated files included). An explicit reversed
+-- range is rejected, and a span with no logs falls through to the "no daybook logs found"
+-- warning when the report is built.
 local function resolve_range_dates(request)
+  local now = os.time()
+
   local from_ts
   if request.from then
-    from_ts = daybook.parse_date(request.from)
+    from_ts = daybook.resolve_date(request.from, now)
     if not from_ts then
       return nil, "daylog: invalid date: " .. request.from
     end
@@ -411,12 +411,19 @@ local function resolve_range_dates(request)
 
   local to_ts
   if request.to then
-    to_ts = daybook.parse_date(request.to)
+    to_ts = daybook.resolve_date(request.to, now)
     if not to_ts then
       return nil, "daylog: invalid date: " .. request.to
     end
   else
-    to_ts = daybook.offset_date(os.time(), 0)
+    local settings = expanded_daybook_settings()
+    if settings == nil then
+      return nil, "daylog: daybook.root is not configured"
+    end
+    to_ts = daybook_io.latest_daybook_date(settings)
+    if not to_ts then
+      return nil, "daylog: no daybook logs found"
+    end
   end
 
   if request.from and request.to and from_ts > to_ts then
@@ -447,7 +454,6 @@ function M.open_days(request, aggregate_only)
   local request_label = #dates > 0 and daybook.date_range_label(dates[1], dates[#dates]) or nil
 
   open_report({
-    kind = "days",
     dates = dates,
     request_label = request_label,
     aggregate_only = aggregate_only or false,

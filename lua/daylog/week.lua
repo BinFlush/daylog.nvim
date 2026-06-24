@@ -96,16 +96,6 @@ function M.build_daybook_report(settings, dates, read_lines)
   return M.build_report(build_days(settings, dates, read_lines))
 end
 
-function M.build_week_report(settings, now, read_lines)
-  local report, err = M.build_daybook_report(settings, daybook.iso_week_dates(now), read_lines)
-  if not report then
-    return nil, err
-  end
-
-  report.period_label = daybook.week_label(now)
-  return report
-end
-
 -- Build a report over an explicit list of dates, labeled by its calendar bounds. The
 -- date list carries the whole period intent (count, range, or open-ended), so this is
 -- the single builder behind every `:DaylogDays` form.

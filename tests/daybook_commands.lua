@@ -953,130 +953,7 @@ return function(t)
     end)
   end)
 
-  t.test("week opens a scratch report with daily summaries before the weekly total", function()
-    local root = vim.fn.tempname()
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 22,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-    local monday = os.time({
-      year = 2026,
-      month = 5,
-      day = 18,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-    local friday = os.time({
-      year = 2026,
-      month = 5,
-      day = 22,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-
-    write_daybook_file(root, "%Y/%V", monday, {
-      "--- log #ClientA @office q=30 ---",
-      "08:00 plan",
-      "08:20 implementation @home",
-      "09:00 done",
-      "",
-      "--- summary q=15 d=dec ---",
-      "stale",
-    })
-
-    write_daybook_file(root, "%Y/%V", friday, {
-      "--- log #ClientA @office q=30 ---",
-      "09:00 stale",
-      "09:30 done",
-      "",
-      "--- summary q=15 d=dec ---",
-      "stale",
-      "",
-      "--- log #internal @home q=60 ---",
-      "10:00 retro",
-      "10:40 done",
-    })
-
-    with_daylog_setup({
-      defaults = {
-        duration_format = "hm",
-      },
-      daybook = {
-        root = root,
-        directory = "%Y/%V",
-      },
-    }, function()
-      vim.cmd("silent! only!")
-      t.reset({ "notes" })
-
-      local windows_before = #vim.api.nvim_tabpage_list_wins(0)
-
-      with_mocked_time(now, function()
-        vim.cmd("DaylogWeek")
-      end)
-
-      t.eq(#vim.api.nvim_tabpage_list_wins(0), windows_before + 1)
-      t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "daylog-week-2026-W21.day")
-      t.eq(vim.bo.buftype, "nofile")
-      t.eq(vim.bo.bufhidden, "wipe")
-      t.ok(not vim.bo.swapfile)
-      t.ok(not vim.bo.modifiable)
-      t.ok(not vim.bo.modified)
-      t.eq(t.get_lines(), {
-        "--- day summary 2026-05-18 q=30 ---",
-        "0:30 (+10m) implementation",
-        "0:30 (-10m) plan",
-        "",
-        "--- day tags 2026-05-18 ---",
-        "1:00 (+0m) #ClientA",
-        "",
-        "--- day locations 2026-05-18 ---",
-        "0:30 (+10m) @home",
-        "0:30 (-10m) @office",
-        "",
-        "--- day totals 2026-05-18 ---",
-        "1:00 (+0m) workday",
-        "",
-        "--- day summary 2026-05-22 q=60 ---",
-        "1:00 (-20m) retro",
-        "",
-        "--- day tags 2026-05-22 ---",
-        "1:00 (-20m) #internal",
-        "",
-        "--- day locations 2026-05-22 ---",
-        "1:00 (-20m) @home",
-        "",
-        "--- day totals 2026-05-22 ---",
-        "1:00 (-20m) workday",
-        "",
-        "--- week summary 2026-W21 ---",
-        "1:00 (-20m) retro",
-        "0:30 (+10m) implementation",
-        "0:30 (-10m) plan",
-        "",
-        "--- week tags 2026-W21 ---",
-        "1:00 (+0m) #ClientA",
-        "1:00 (-20m) #internal",
-        "",
-        "--- week locations 2026-W21 ---",
-        "1:30 (-10m) @home",
-        "0:30 (-10m) @office",
-        "",
-        "--- week totals 2026-W21 ---",
-        "2:00 (-20m) workday",
-      })
-
-      vim.cmd("silent! only!")
-    end)
-  end)
-
-  t.test("week report reflects unsaved edits in an open daybook buffer", function()
+  t.test("a range report reflects unsaved edits in an open daybook buffer", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })
     local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
@@ -1108,7 +985,7 @@ return function(t)
       t.ok(vim.bo.modified)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogWeek")
+        vim.cmd("DaylogDays 2026-05-18..2026-05-22")
       end)
 
       local has_two_hours, has_one_hour = false, false
@@ -1133,70 +1010,7 @@ return function(t)
     end)
   end)
 
-  t.test("week bang opens only the weekly aggregate scratch report", function()
-    local root = vim.fn.tempname()
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 22,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-    local monday = os.time({
-      year = 2026,
-      month = 5,
-      day = 18,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-
-    write_daybook_file(root, "%Y/%V", monday, {
-      "--- log #ClientA @office q=30 ---",
-      "08:00 plan",
-      "09:00 done",
-    })
-
-    with_daylog_setup({
-      defaults = {
-        duration_format = "hm",
-      },
-      daybook = {
-        root = root,
-        directory = "%Y/%V",
-      },
-    }, function()
-      vim.cmd("silent! only!")
-      t.reset({ "notes" })
-
-      with_mocked_time(now, function()
-        vim.cmd("DaylogWeek!")
-      end)
-
-      t.eq(
-        vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
-        "daylog-week-summary-2026-W21.day"
-      )
-      t.eq(t.get_lines(), {
-        "--- week summary 2026-W21 ---",
-        "1:00 (+0m) plan",
-        "",
-        "--- week tags 2026-W21 ---",
-        "1:00 (+0m) #ClientA",
-        "",
-        "--- week locations 2026-W21 ---",
-        "1:00 (+0m) @office",
-        "",
-        "--- week totals 2026-W21 ---",
-        "1:00 (+0m) workday",
-      })
-
-      vim.cmd("silent! only!")
-    end)
-  end)
-
-  t.test("week expands a home-relative daybook root before building reports", function()
+  t.test("a range report expands a home-relative daybook root before building it", function()
     local now = os.time({
       year = 2026,
       month = 5,
@@ -1231,51 +1045,16 @@ return function(t)
         t.reset({ "notes" })
 
         with_mocked_time(now, function()
-          vim.cmd("DaylogWeek")
+          vim.cmd("DaylogDays 2026-05-18..2026-05-22")
         end)
 
-        t.eq(vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"), "daylog-week-2026-W21.day")
+        t.eq(
+          vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"),
+          "daylog-days-2026-05-18..2026-05-22.day"
+        )
         t.eq(t.get_lines()[1], "--- day summary 2026-05-18 q=15 ---")
 
         vim.cmd("silent! only!")
-      end)
-    end)
-  end)
-
-  t.test("week warns and leaves the current buffer unchanged when no daily files exist", function()
-    local root = vim.fn.tempname()
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 22,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-
-    with_daylog_setup({
-      daybook = {
-        root = root,
-        directory = "%Y/%V",
-      },
-    }, function()
-      vim.cmd("silent! only!")
-      t.reset({ "scratch" })
-
-      with_captured_notify(function(messages)
-        with_mocked_time(now, function()
-          vim.cmd("DaylogWeek")
-        end)
-
-        t.eq(#vim.api.nvim_tabpage_list_wins(0), 1)
-        t.eq(vim.api.nvim_buf_get_name(0), "")
-        t.eq(t.get_lines(), { "scratch" })
-        t.eq(messages, {
-          {
-            message = "daylog: no daybook logs found",
-            level = vim.log.levels.WARN,
-          },
-        })
       end)
     end)
   end)
@@ -1289,7 +1068,7 @@ return function(t)
       t.ok(tostring(err):match("E471") ~= nil)
 
       local range_error = "daylog: expected a day count or a FROM..TO range "
-        .. "(e.g. 2026-05-10..2026-05-20)"
+        .. "(e.g. 2026-05-10..2026-05-20, monday.., ..today)"
       local count_error = "daylog: days count must be a positive integer"
 
       for _, case in ipairs({
@@ -1491,21 +1270,50 @@ return function(t)
     end)
   end)
 
-  t.test("days resolves open-ended ranges against today and the daybook", function()
+  t.test("days resolves open-ended ranges against the daybook extent", function()
+    -- The daybook has logs on 05-18 and 05-20 only; today (05-22) carries none.
     with_range_daybook(os.time({ year = 2026, month = 5, day = 22, hour = 12 }), function()
-      -- FROM.. runs through today.
+      -- FROM.. runs through the latest day on file (not today).
       vim.cmd("DaylogDays! 2026-05-20..")
-      t.eq(report_name(), "daylog-days-summary-2026-05-20..2026-05-22.day")
+      t.eq(report_name(), "daylog-days-summary-2026-05-20..2026-05-20.day")
 
       -- ..TO starts at the earliest logged day on file.
       vim.cmd("enew")
       vim.cmd("DaylogDays! ..2026-05-19")
       t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-19.day")
 
-      -- .. is everything on file (earliest through today).
+      -- .. spans the earliest through the latest day on file.
       vim.cmd("enew")
       vim.cmd("DaylogDays! ..")
-      t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-22.day")
+      t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-20.day")
+
+      -- A named token resolves: monday.. is the week's Monday through the latest log.
+      vim.cmd("enew")
+      vim.cmd("DaylogDays! monday..")
+      t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-20.day")
+    end)
+  end)
+
+  t.test("an open right end reaches future-dated files", function()
+    local root = vim.fn.tempname()
+    local function ts(day)
+      return os.time({ year = 2026, month = 5, day = day, hour = 12, min = 0, sec = 0 })
+    end
+    -- A log dated after "today" (05-22): an open right end must include it.
+    write_daybook_file(root, "%Y/%V", ts(20), { "--- log ---", "10:00 review", "11:00 done" })
+    write_daybook_file(root, "%Y/%V", ts(25), { "--- log ---", "10:00 plan ahead", "11:00 done" })
+
+    with_daylog_setup({
+      defaults = { duration_format = "hm" },
+      daybook = { root = root, directory = "%Y/%V" },
+    }, function()
+      vim.cmd("silent! only!")
+      t.reset({ "notes" })
+      with_mocked_time(ts(22), function()
+        vim.cmd("DaylogDays! 2026-05-20..")
+      end)
+      t.eq(report_name(), "daylog-days-summary-2026-05-20..2026-05-25.day")
+      vim.cmd("silent! only!")
     end)
   end)
 
@@ -1677,54 +1485,6 @@ return function(t)
           },
         })
       end)
-    end)
-  end)
-
-  t.test("week report refreshes when a dependent daybook buffer changes", function()
-    local root = vim.fn.tempname()
-    local now = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })
-    local monday = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
-
-    local monday_path = write_daybook_file(root, "%Y/%V", monday, {
-      "--- log #ClientA @office q=30 ---",
-      "08:00 plan",
-      "09:00 done",
-    })
-
-    with_daylog_setup({
-      auto_summary = "save",
-      defaults = { duration_format = "hm" },
-      daybook = { root = root, directory = "%Y/%V" },
-    }, function()
-      vim.cmd("silent! only!")
-
-      -- Monday open in its own window so the report split does not replace it.
-      vim.cmd("edit " .. vim.fn.fnameescape(monday_path))
-      local monday_buf = vim.api.nvim_get_current_buf()
-      local monday_win = vim.api.nvim_get_current_win()
-
-      with_mocked_time(now, function()
-        vim.cmd("DaylogWeek")
-      end)
-      local report_buf = vim.api.nvim_get_current_buf()
-
-      t.ok(report_has_workday(report_buf, "1:00"), "report should start from Monday's one-hour day")
-
-      -- Extend Monday to two hours in its buffer (unsaved) and signal a save.
-      vim.api.nvim_buf_set_lines(monday_buf, 0, -1, false, {
-        "--- log #ClientA @office q=30 ---",
-        "08:00 plan",
-        "10:00 done",
-      })
-      vim.api.nvim_set_current_win(monday_win)
-      with_mocked_time(now, function()
-        vim.api.nvim_exec_autocmds("BufWritePre", { buffer = monday_buf })
-      end)
-
-      t.ok(report_has_workday(report_buf, "2:00"), "report should rebuild to the two-hour day")
-      t.ok(not report_has_workday(report_buf, "1:00"), "stale one-hour total should be gone")
-
-      vim.cmd("silent! only!")
     end)
   end)
 

@@ -364,46 +364,30 @@ current buffer.
 Jump backward to the previous day that has a log, relative to the file in the
 current buffer. Behaves like |:DaylogNextDay| in the opposite direction.
 
-                                                        *:DaylogWeek*
-:DaylogWeek[!]
-
-Open a scratch report for the current ISO week from
-`require('daylog').setup({ daybook = ... })`.
-
-- The week runs Monday through Sunday.
-- Missing, empty, or notes-only day files are skipped.
-- Each included day is recomputed from that file's latest log block, or from
-  an open buffer for it (reflecting unsaved changes).
-- Existing rendered summaries are ignored.
-- The report shows each included day's summary first, then one weekly summary
-  built by summing those daily results.
-- Each day's summary header carries that day's own `q=` bucket (e.g.
-  `--- day summary 2026-05-18 q=30 ---`), so a period mixing different quanta
-  stays legible. The weekly summary header has no bucket token.
-- While open, the report refreshes as its source files and buffers change,
-  following `auto_summary` (see |daylog-auto-summary|).
-- With `!`, the scratch buffer omits the per-day review sections and shows only
-  the weekly aggregate summary.
-- The report is read-only, but |:DaylogRename| acts on it: a row renames the
-  item across the period (aggregate row) or in one day (per-day row).
-- Non-empty invalid daybook files abort the report instead of producing partial
-  totals.
-
                                                          *:DaylogDays*
 :DaylogDays[!] {range}
 
 Open a scratch report for a span of daybook dates from
-`require('daylog').setup({ daybook = ... })`.
+`require('daylog').setup({ daybook = ... })`. There is no separate week command --
+a week is `:DaylogDays monday..` (or `monday..today` to stop at today).
 
 `{range}` is one of:
-- `{count}` -- a positive integer: the last {count} days through today.
-- `{from}..{to}` -- an inclusive range between two `YYYY-MM-DD` dates.
-- `{from}..` -- from {from} through today.
+- `{count}` -- a positive integer: the last {count} days, through today.
+- `{from}..{to}` -- an inclusive range between two dates.
+- `{from}..` -- from {from} through the latest logged day on file.
 - `..{to}` -- from the earliest logged day on file through {to}.
-- `..` -- every day on file (earliest logged day through today).
+- `..` -- every day on file (earliest through latest logged day).
 
-- Dates are `YYYY-MM-DD`. A reversed or unparseable range is reported and the
-  report is not opened.
+Each `{from}` / `{to}` bound is a `YYYY-MM-DD` date or a named token:
+- `today`, `yesterday`.
+- A weekday (`monday`..`sunday`, or `mon`..`sun`) -- its most recent occurrence on
+  or before today, so `friday` on a Friday is today and `monday` is this week's
+  Monday.
+
+An open end reaches the data's extent, future-dated files included: `monday..` runs
+to the latest log even if that is days ahead, while `monday..today` stops at today.
+
+- A reversed or unparseable range is reported and the report is not opened.
 - The range is taken by calendar date, so a boundary that lands on a day with no
   file is fine; missing, empty, or notes-only days anywhere in the span are
   skipped. If the whole span has no logs, that is reported instead.
@@ -559,7 +543,7 @@ propagating into the attached log and rebuilding its summary.
   text is sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active log's summary; a row that no longer
   matches the recomputed summary is refused (run |:DaylogRefresh| first).
-- From a |:DaylogWeek| / |:DaylogDays| report you can rename across days: on an
+- From a |:DaylogDays| report you can rename across days: on an
   aggregate (period) row the item is renamed in every day of the report, on a
   per-day row in that one day's file. Days that do not contain the item are skipped.
   After a confirmation listing the affected files, each is rewritten -- in its open
@@ -616,8 +600,8 @@ partition that foots to its total.
   marker is shown on every affected summary row so it stays visible and
   adjustable. Run the command again to add more, with the opposite sign to undo,
   or with `0` to clear the cursor target's nudge.
-- A week report (|:DaylogWeek|) sums its days without re-rounding, so balancing
-  one day reconciles the week total automatically -- adjust whichever day is
+- A multi-day report (|:DaylogDays|) sums its days without re-rounding, so balancing
+  one day reconciles the period total automatically -- adjust whichever day is
   still open while the earlier ones stay put.
 - The displayed times, durations elsewhere, and the rounding of other rows are
   untouched; only the nudged row's displayed duration and residual change.
@@ -848,7 +832,7 @@ Omit it to leave new headers without an offset (the default).
 `daybook` is optional:
 
 - `root` is the base directory used by |:DaylogToday|, |:DaylogInit|,
-  |:DaylogNextDay|, |:DaylogPrevDay|, |:DaylogDays|, and |:DaylogWeek|.
+  |:DaylogNextDay|, |:DaylogPrevDay|, and |:DaylogDays|.
 - `directory` is an optional `strftime` template under that root.
 - The filename is always `YYYY-MM-DD.day`.
 
@@ -887,14 +871,12 @@ opens:
 `directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees better
 than `%Y/%V` around new year boundaries.
 
-|:DaylogDays| uses the same daybook settings to scan the last N dates,
-including today, from oldest to newest. |:DaylogWeek| scans the current ISO
-week from Monday through Sunday. Both commands recompute each included day's
-summary from the latest log block in that file (or an open buffer for it,
-including unsaved edits), show those daily sections in a scratch buffer, then
-append one aggregate summary built from those daily results.
-While a report is open it refreshes as those sources change, following
-`auto_summary`.
+|:DaylogDays| uses the same daybook settings to scan a span of dates (a count, a
+date range, or named tokens like `monday..`), oldest to newest. It recomputes each
+included day's summary from the latest log block in that file (or an open buffer
+for it, including unsaved edits), shows those daily sections in a scratch buffer,
+then appends one aggregate summary built from those daily results. While a report
+is open it refreshes as those sources change, following `auto_summary`.
 
                                                         *daylog-auto-summary*
 `auto_summary` controls when existing summaries refresh automatically (see
@@ -905,8 +887,8 @@ While a report is open it refreshes as those sources change, following
 - `save` - on write (`:w`).
 - `off` (or `false`) - never automatically; run |:DaylogRefresh| yourself.
 
-Open |:DaylogWeek| and |:DaylogDays| reports follow the same setting,
-rebuilding in place as their source days change.
+Open |:DaylogDays| reports follow the same setting, rebuilding in place as their
+source days change.
 
 >
   require('daylog').setup({ auto_summary = 'idle' })

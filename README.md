@@ -61,7 +61,7 @@ prefix is free in your config:
 -- global
 vim.keymap.set("n", "<leader>dt", "<cmd>DaylogToday<cr>",   { desc = "Daylog: today" })
 vim.keymap.set("n", "<leader>di", "<cmd>DaylogInsert<cr>",     { desc = "Daylog: insert time" })
-vim.keymap.set("n", "<leader>dw", "<cmd>DaylogWeek<cr>",    { desc = "Daylog: week report" })
+vim.keymap.set("n", "<leader>dw", "<cmd>DaylogDays monday..<cr>", { desc = "Daylog: week report" })
 vim.keymap.set("n", "<leader>dc", "<cmd>DaylogCopy<cr>",    { desc = "Daylog: copy block" })
 vim.keymap.set("n", "<leader>do", "<cmd>DaylogOrder<cr>",   { desc = "Daylog: order entries" })
 vim.keymap.set("n", "<leader>df", "<cmd>DaylogRefresh<cr>", { desc = "Daylog: refresh summaries" })
@@ -108,8 +108,9 @@ into another system, put the cursor on its summary row and run it. Daylog marks
 the underlying entries with `!L` so you can see what's already logged; run it again
 to unmark.
 
-**Review — `:DaylogWeek`.** A read-only report of the whole week (`:DaylogDays 7`
-for the last seven days). It stays live as you edit the days it covers.
+**Review — `:DaylogDays`.** A read-only multi-day report — `:DaylogDays monday..`
+for the week, `:DaylogDays 7` for the last seven days, or any date range. It stays
+live as you edit the days it covers.
 
 In short: open today, `Insert` / `Repeat` as you work, watch the live summary,
 `Log` rows as you report them, and `Week` to review.
@@ -140,7 +141,7 @@ the `!L` marker, the `d=hm` duration format) is in `:help daylog-format`.
 | `:DaylogNextDay` / `:DaylogPrevDay [count]` | Step between days |
 | `:DaylogInsert [source]` | Stamp the current time; with a source name, pick a work item to insert (see [Sources](#sources)) |
 | `:DaylogRepeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
-| `:DaylogWeek[!]` / `:DaylogDays[!] {n}` | Open a week / last-N-days report (`!` for totals only) |
+| `:DaylogDays[!] {range}` | Open a multi-day report — a count, a date range, or named tokens like `monday..` (`!` for totals only) |
 | `:DaylogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
 | `:DaylogRename [name\|source]` | Rename (or merge) the activity, tag, or location of the summary row under the cursor; for an activity, name a [source](#sources) to replace it with a tracked work item |
 | `:DaylogCopy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |
@@ -154,7 +155,7 @@ The exact rules for each are in `:help daylog-commands`.
 
 `:DaylogToday` and `:DaylogCopy` start a log with its summary attached, and
 by default it stays live as you type (`auto_summary = "change"`). The same setting
-keeps open `:DaylogWeek` / `:DaylogDays` reports current. Prefer to refresh by
+keeps open `:DaylogDays` reports current. Prefer to refresh by
 hand? Set `auto_summary = "off"` and use `:DaylogRefresh`. More in
 `:help daylog-summaries`.
 

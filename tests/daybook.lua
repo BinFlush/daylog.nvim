@@ -92,33 +92,26 @@ return function(t)
     t.eq(daybook.date_label(daybook.offset_date(now, 1)), "2026-05-19")
   end)
 
-  t.test("daybook derives monday to sunday for the current iso week", function()
-    local dates = daybook.iso_week_dates(os.time({
-      year = 2026,
-      month = 5,
-      day = 22,
-      hour = 9,
-      min = 0,
-      sec = 0,
-    }))
+  t.test("daybook resolves named date tokens against a reference day", function()
+    -- 2026-05-22 is a Friday.
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 9, min = 0, sec = 0 })
+    local function label(token)
+      local ts = daybook.resolve_date(token, now)
+      return ts and daybook.date_label(ts) or nil
+    end
 
-    t.eq(#dates, 7)
-    t.eq(daybook.date_label(dates[1]), "2026-05-18")
-    t.eq(daybook.date_label(dates[7]), "2026-05-24")
-  end)
-
-  t.test("daybook week label uses iso week year", function()
-    t.eq(
-      daybook.week_label(os.time({
-        year = 2021,
-        month = 1,
-        day = 1,
-        hour = 12,
-        min = 0,
-        sec = 0,
-      })),
-      "2020-W53"
-    )
+    t.eq(label("today"), "2026-05-22")
+    t.eq(label("yesterday"), "2026-05-21")
+    -- A weekday is the most recent occurrence on or before today.
+    t.eq(label("friday"), "2026-05-22") -- today is Friday
+    t.eq(label("fri"), "2026-05-22") -- abbreviation
+    t.eq(label("monday"), "2026-05-18") -- this week's Monday
+    t.eq(label("sunday"), "2026-05-17") -- last Sunday (not the coming one)
+    t.eq(label("Wed"), "2026-05-20") -- case-insensitive
+    -- A literal date passes through; anything else is nil.
+    t.eq(label("2026-01-09"), "2026-01-09")
+    t.eq(label("someday"), nil)
+    t.eq(label("2026-13-01"), nil)
   end)
 
   t.test("daybook derives trailing dates oldest to newest including today", function()

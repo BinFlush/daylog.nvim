@@ -166,6 +166,21 @@ local function earliest_daybook_date(settings)
   return earliest
 end
 
+-- The latest daybook date that holds a daylog, or nil when none exist. Resolves an
+-- open-ended range end (`FROM..` / `..`); future-dated files count, so an open right end
+-- reaches genuinely into the future.
+local function latest_daybook_date(settings)
+  local latest
+
+  for _, date in ipairs(existing_daybook_dates(settings)) do
+    if not latest or date > latest then
+      latest = date
+    end
+  end
+
+  return latest
+end
+
 local function expanded_daybook_settings()
   local settings = config.get().daybook
   if settings == nil then
@@ -247,6 +262,7 @@ M.daybook_lines = daybook_lines
 M.daybook_path_has_content = daybook_path_has_content
 M.existing_daybook_dates = existing_daybook_dates
 M.earliest_daybook_date = earliest_daybook_date
+M.latest_daybook_date = latest_daybook_date
 M.expanded_daybook_settings = expanded_daybook_settings
 M.can_abandon_current_buffer = can_abandon_current_buffer
 M.open_daybook_file = open_daybook_file

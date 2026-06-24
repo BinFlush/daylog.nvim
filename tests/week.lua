@@ -1,7 +1,7 @@
 return function(t)
   local week = require("daylog.week")
 
-  t.test("week report combines daily quantized summaries without re-quantizing", function()
+  t.test("multi-day report combines daily quantized summaries without re-quantizing", function()
     local report = week.build_report({
       {
         date_label = "2026-05-18",
@@ -137,7 +137,7 @@ return function(t)
     })
   end)
 
-  t.test("week report preserves logged separation through daily recomputation", function()
+  t.test("multi-day report preserves logged separation through daily recomputation", function()
     local report = week.build_report({
       {
         date_label = "2026-05-18",
@@ -314,52 +314,6 @@ return function(t)
 
     t.eq(report, nil)
     t.eq(err, "daylog: no daybook logs found")
-  end)
-
-  t.test("build_week_report derives monday to sunday daybook paths and label", function()
-    local seen_paths = {}
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 22,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-
-    local report = week.build_week_report(
-      {
-        root = "/tmp/timereg",
-        directory = "%Y/%V",
-      },
-      now,
-      function(path)
-        table.insert(seen_paths, path)
-
-        if path == "/tmp/timereg/2026/21/2026-05-18.day" then
-          return {
-            "--- log ---",
-            "08:00 plan",
-            "09:00 done",
-          }
-        end
-
-        return nil
-      end
-    )
-
-    t.eq(seen_paths, {
-      "/tmp/timereg/2026/21/2026-05-18.day",
-      "/tmp/timereg/2026/21/2026-05-19.day",
-      "/tmp/timereg/2026/21/2026-05-20.day",
-      "/tmp/timereg/2026/21/2026-05-21.day",
-      "/tmp/timereg/2026/21/2026-05-22.day",
-      "/tmp/timereg/2026/21/2026-05-23.day",
-      "/tmp/timereg/2026/21/2026-05-24.day",
-    })
-    t.eq(report.period_label, "2026-W21")
-    t.eq(#report.days, 1)
-    t.eq(report.days[1].date_label, "2026-05-18")
   end)
 
   t.test("days report derives trailing daybook paths through one helper", function()

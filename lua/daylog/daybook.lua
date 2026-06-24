@@ -85,10 +85,6 @@ function M.parse_date_label(name)
   return M.parse_date(date)
 end
 
-function M.week_label(now)
-  return os.date("%G-W%V", now)
-end
-
 function M.date_range_label(first, last)
   return M.date_label(first) .. ".." .. M.date_label(last)
 end
@@ -127,23 +123,47 @@ function M.offset_date(now, offset_days)
   return midday_time(anchor.year, anchor.month, anchor.day + offset)
 end
 
-function M.iso_week_dates(now)
-  local anchor = midday_date(now)
-  local monday = {
-    year = anchor.year,
-    month = anchor.month,
-    day = anchor.day - (iso_weekday(now) - 1),
-    hour = 12,
-    min = 0,
-    sec = 0,
-  }
-  local dates = {}
+-- Named-date tokens usable wherever a range bound goes (:DaylogDays). A weekday resolves
+-- to its most recent occurrence on or before today (latest match): `friday` on a Friday is
+-- today, and a weekday later in the week than today is last week's. Case-insensitive, full
+-- names and 3-letter abbreviations.
+local WEEKDAYS = {
+  monday = 1,
+  mon = 1,
+  tuesday = 2,
+  tue = 2,
+  wednesday = 3,
+  wed = 3,
+  thursday = 4,
+  thu = 4,
+  friday = 5,
+  fri = 5,
+  saturday = 6,
+  sat = 6,
+  sunday = 7,
+  sun = 7,
+}
 
-  for offset = 0, 6 do
-    table.insert(dates, midday_time(monday.year, monday.month, monday.day + offset))
+-- Resolve a date token to a midday timestamp, or nil when it is neither a known name nor a
+-- valid `YYYY-MM-DD` literal.
+function M.resolve_date(token, now)
+  if type(token) ~= "string" then
+    return nil
   end
 
-  return dates
+  local key = token:lower()
+  if key == "today" then
+    return M.offset_date(now, 0)
+  elseif key == "yesterday" then
+    return M.offset_date(now, -1)
+  end
+
+  local weekday = WEEKDAYS[key]
+  if weekday then
+    return M.offset_date(now, -((iso_weekday(now) - weekday) % 7))
+  end
+
+  return M.parse_date(token)
 end
 
 function M.trailing_dates(now, count)

@@ -36,16 +36,21 @@ happen, but they are called out clearly in this changelog.
   own journal while the summary reads canonically. `:DaylogRename` still edits the
   description; mapping sets the report label.
 
-- **`:DaylogDays` accepts an arbitrary date range.** Besides the trailing count
-  (`:DaylogDays 5`), it now takes a `FROM..TO` range of `YYYY-MM-DD` dates, and the
-  open-ended forms `FROM..` (through today), `..TO` (from the earliest logged day on
-  file), and `..` (every day on file). The range is taken by calendar date, so missing
-  days anywhere in the span — including a boundary that lands on a fileless day — are
-  skipped rather than erroring; a reversed/unparseable range or a span with no logs is
-  reported instead. The buffer name uses the requested bounds (pinned when the report
-  opens), while the aggregate report headers show the resolved span — the first and last
-  days that actually held a log — and a `(N found)` count, e.g.
+- **`:DaylogDays` takes a flexible date range with named dates.** Besides the trailing
+  count (`:DaylogDays 5`), it takes a `FROM..TO` range and the open-ended forms `FROM..`,
+  `..TO`, and `..`. Each bound is a `YYYY-MM-DD` date or a named token — `today`,
+  `yesterday`, or a weekday (`monday`..`sunday` / `mon`..`sun`), which resolves to its most
+  recent occurrence on or before today. Open ends reach the data's extent on both sides
+  (the earliest/latest day on file), future-dated files included — so a week is
+  `:DaylogDays monday..`, or `monday..today` to stop at today. Days are taken by calendar
+  date; missing days are skipped, and a reversed/unparseable range or an empty span is
+  reported. The aggregate headers show the resolved span and a `(N found)` count, e.g.
   `--- range summary 2026-05-12..2026-05-18 (3 found) ---`.
+
+### Removed
+
+- **`:DaylogWeek`** (breaking) — a week is now `:DaylogDays monday..` (or `monday..today`).
+  The report shows the resolved span and `(N found)` rather than the ISO-week label.
 
 ### Fixed
 

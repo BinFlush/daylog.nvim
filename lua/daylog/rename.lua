@@ -386,8 +386,8 @@ rename_from_report = function(spec, new_value, source_name)
   end
 
   local duration_format = config.get().defaults.duration_format
-  local layout_fn = spec.kind == "week" and render.week_report_layout or render.days_report_layout
-  local layout = layout_fn(report, duration_format, { aggregate_only = spec.aggregate_only })
+  local layout =
+    render.days_report_layout(report, duration_format, { aggregate_only = spec.aggregate_only })
 
   local resolved, resolve_err = report_cursor.resolve(layout, cursor_row())
   if not resolved then

@@ -451,9 +451,9 @@ return function(t)
     )
   end)
 
-  t.test("render builds a weekly report with daily sections before the weekly total", function()
+  t.test("render builds a range report with daily sections before the aggregate total", function()
     t.eq(
-      render.week_report_lines({
+      render.days_report_lines({
         period_label = "2026-W21",
         days = {
           {
@@ -532,10 +532,10 @@ return function(t)
         "--- day totals 2026-05-18 ---",
         "1:00 (+8m) workday",
         "",
-        "--- week summary 2026-W21 ---",
+        "--- range summary 2026-W21 ---",
         "1:00 (+8m) plan",
         "",
-        "--- week totals 2026-W21 ---",
+        "--- range totals 2026-W21 ---",
         "1:00 (+8m) workday",
       }
     )
@@ -543,7 +543,7 @@ return function(t)
 
   t.test("render labels each day section with its own q= and leaves the aggregate bare", function()
     t.eq(
-      render.week_report_lines({
+      render.days_report_lines({
         period_label = "2026-W21",
         days = {
           {
@@ -597,18 +597,18 @@ return function(t)
         "1:00 (+8m) workday",
         "",
         -- ...while the aggregate header stays bare (no q= token).
-        "--- week summary 2026-W21 ---",
+        "--- range summary 2026-W21 ---",
         "1:00 (+8m) plan",
         "",
-        "--- week totals 2026-W21 ---",
+        "--- range totals 2026-W21 ---",
         "1:00 (+8m) workday",
       }
     )
   end)
 
-  t.test("render can omit day sections for a weekly aggregate-only report", function()
+  t.test("render can omit day sections for an aggregate-only report", function()
     t.eq(
-      render.week_report_lines(
+      render.days_report_lines(
         {
           period_label = "2026-W21",
           days = {
@@ -673,24 +673,24 @@ return function(t)
         }
       ),
       {
-        "--- week summary 2026-W21 ---",
+        "--- range summary 2026-W21 ---",
         "1:00 (+8m) plan",
         "",
-        "--- week tags 2026-W21 ---",
+        "--- range tags 2026-W21 ---",
         "1:00 (+8m) #ClientA",
         "",
-        "--- week locations 2026-W21 ---",
+        "--- range locations 2026-W21 ---",
         "1:00 (+8m) @office",
         "",
-        "--- week totals 2026-W21 ---",
+        "--- range totals 2026-W21 ---",
         "1:00 (+8m) workday",
       }
     )
   end)
 
-  t.test("render weekly reports use logged headers when logged totals are present", function()
+  t.test("render reports use logged headers when logged totals are present", function()
     t.eq(
-      render.week_report_lines({
+      render.days_report_lines({
         period_label = "2026-W21",
         days = {
           {
@@ -762,13 +762,13 @@ return function(t)
         "--- day totals 2026-05-18 ---",
         "1:00 (+0m) workday",
         "",
-        "--- week summary 2026-W21 ---",
+        "--- range summary 2026-W21 ---",
         "1:00 (+0m) plan !L",
         "",
-        "--- week logged 2026-W21 ---",
+        "--- range logged 2026-W21 ---",
         "1:00 (+0m) logged",
         "",
-        "--- week totals 2026-W21 ---",
+        "--- range totals 2026-W21 ---",
         "1:00 (+0m) workday",
       }
     )

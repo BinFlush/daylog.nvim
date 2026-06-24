@@ -476,8 +476,8 @@ end
 -- aggregate-only) followed by the aggregate section. Each carries the summary and
 -- the labeled headers to render it with; the per-day sections also carry the date
 -- label and source path so the layout can trace a row back to one file.
--- `aggregate_prefix` is the only thing that differs between a week report (`week`)
--- and a trailing-days report (`range`).
+-- `aggregate_prefix` (`range`) labels the aggregate section's headers, distinct from the
+-- per-day sections' `day`.
 local function report_sections(report, options, aggregate_prefix)
   options = options or {}
   local sections = {}
@@ -536,16 +536,8 @@ local function period_report_layout(report, duration_format, options, aggregate_
   return rows
 end
 
-function M.week_report_lines(report, duration_format, options)
-  return period_report_lines(report, duration_format, options, "week")
-end
-
 function M.days_report_lines(report, duration_format, options)
   return period_report_lines(report, duration_format, options, "range")
-end
-
-function M.week_report_layout(report, duration_format, options)
-  return period_report_layout(report, duration_format, options, "week")
 end
 
 function M.days_report_layout(report, duration_format, options)

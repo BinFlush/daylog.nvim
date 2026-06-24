@@ -65,10 +65,6 @@ local function build_report_for_spec(spec)
     return nil, "daylog: daybook.root is not configured"
   end
 
-  if spec.kind == "week" then
-    return week.build_week_report(settings, spec.anchor, daybook_lines)
-  end
-
   return week.build_dates_report(settings, spec.dates, daybook_lines)
 end
 
@@ -82,18 +78,12 @@ local function build_report_lines(spec)
 
   local options = { aggregate_only = spec.aggregate_only }
   local duration_format = config.get().defaults.duration_format
-  local render_report = spec.kind == "week" and render.week_report_lines or render.days_report_lines
 
-  return render_report(report, duration_format, options), report.period_label
+  return render.days_report_lines(report, duration_format, options), report.period_label
 end
 
-local function report_buffer_name(spec, label)
-  if spec.kind == "week" then
-    local prefix = spec.aggregate_only and "daylog-week-summary-" or "daylog-week-"
-    return prefix .. label .. ".day"
-  end
-
-  -- Days reports name the buffer by the requested range, not the resolved header label
+local function report_buffer_name(spec)
+  -- Reports name the buffer by the requested range, not the resolved header label
   -- (which carries the found span and a count, neither suited to a filename).
   local prefix = spec.aggregate_only and "daylog-days-summary-" or "daylog-days-"
   return prefix .. spec.request_label .. ".day"
@@ -101,8 +91,8 @@ end
 
 -- Open a fresh scratch report for a spec and tag the buffer with that spec, so
 -- the auto-summary autocmds can rebuild it in place when a dependent daybook
--- buffer changes. The anchor is pinned at open time, so the report keeps
--- covering the same period for as long as it stays open.
+-- buffer changes. The date list is pinned at open time, so the report keeps
+-- covering the same span for as long as it stays open.
 local function open_report(spec)
   local lines, label_or_err = build_report_lines(spec)
   if not lines then
@@ -110,7 +100,7 @@ local function open_report(spec)
     return
   end
 
-  open_report_buffer(lines, report_buffer_name(spec, label_or_err))
+  open_report_buffer(lines, report_buffer_name(spec))
   vim.api.nvim_buf_set_var(0, "log_report", spec)
 end
 

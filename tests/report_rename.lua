@@ -33,20 +33,20 @@ return function(t)
     return out
   end
 
-  -- Monday/Wednesday of ISO week 21, with a Thursday anchor so :DaylogWeek covers
+  -- Monday and Wednesday of the same week; an explicit range covers
   -- both. directory "%Y/%V" places them under the same week folder.
   local d1 = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
   local d2 = os.time({ year = 2026, month = 5, day = 20, hour = 12, min = 0, sec = 0 })
   local week_time = os.time({ year = 2026, month = 5, day = 21, hour = 10, min = 0, sec = 0 })
 
   -- The 1-based report-buffer row of an activity line, in the aggregate section
-  -- (after "--- week summary ---") or, when aggregate is false, the first per-day
+  -- (after "--- range summary ---") or, when aggregate is false, the first per-day
   -- occurrence.
   local function activity_row(text, aggregate)
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     local in_aggregate = false
     for i, line in ipairs(lines) do
-      if line:match("^%-%-%- week summary ") then
+      if line:match("^%-%-%- range summary ") then
         in_aggregate = true
       end
       if in_aggregate == aggregate and line:match("%) " .. text .. "$") then
@@ -55,7 +55,7 @@ return function(t)
     end
   end
 
-  local function open_week()
+  local function open_report()
     local p1 = write_daybook_file(
       vim.g._entry_root,
       "%Y/%V",
@@ -80,19 +80,19 @@ return function(t)
     )
 
     with_mocked_time(week_time, function()
-      vim.cmd("DaylogWeek")
+      vim.cmd("DaylogDays 2026-05-18..2026-05-20")
     end)
 
     return p1, p2
   end
 
-  t.test("renaming an aggregate activity from a week report rewrites every day file", function()
+  t.test("renaming an aggregate activity from a range report rewrites every day file", function()
     vim.g._entry_root = vim.fn.tempname()
 
     with_daylog_setup({
       daybook = { root = vim.g._entry_root, directory = "%Y/%V" },
     }, function()
-      local p1, p2 = open_week()
+      local p1, p2 = open_report()
 
       local row = activity_row("implementation", true)
       t.ok(row ~= nil, "aggregate implementation row found")
@@ -112,13 +112,13 @@ return function(t)
     end)
   end)
 
-  t.test("renaming a per-day row from a week report touches only that day", function()
+  t.test("renaming a per-day row from a range report touches only that day", function()
     vim.g._entry_root = vim.fn.tempname()
 
     with_daylog_setup({
       daybook = { root = vim.g._entry_root, directory = "%Y/%V" },
     }, function()
-      local p1, p2 = open_week()
+      local p1, p2 = open_report()
 
       local row = activity_row("implementation", false)
       t.ok(row ~= nil, "per-day implementation row found")
@@ -140,7 +140,7 @@ return function(t)
     with_daylog_setup({
       daybook = { root = vim.g._entry_root, directory = "%Y/%V" },
     }, function()
-      local p1, p2 = open_week()
+      local p1, p2 = open_report()
 
       vim.api.nvim_win_set_cursor(0, { activity_row("implementation", true), 0 })
 
@@ -159,7 +159,7 @@ return function(t)
     with_daylog_setup({
       daybook = { root = vim.g._entry_root, directory = "%Y/%V" },
     }, function()
-      open_week()
+      open_report()
 
       -- The first line is a labeled section header.
       vim.api.nvim_win_set_cursor(0, { 1, 0 })

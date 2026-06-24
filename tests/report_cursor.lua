@@ -12,7 +12,7 @@ return function(t)
     return summary.summarize_block(block), block.quantize_minutes
   end
 
-  -- A two-day week report whose days both carry "implementation" under #ClientA.
+  -- A two-day range report whose days both carry "implementation" under #ClientA.
   local function sample_report()
     local s1, q1 = day_summary({
       "--- log #ClientA ---",
@@ -56,7 +56,7 @@ return function(t)
   end
 
   t.test("report_cursor resolves an aggregate activity row to a global item target", function()
-    local layout = render.week_report_layout(sample_report(), "dec", {})
+    local layout = render.days_report_layout(sample_report(), "dec", {})
     local index = find(layout, function(row)
       return row.scope == "aggregate"
         and row.kind == render.LAYOUT_KIND.SUMMARY_ITEM
@@ -70,7 +70,7 @@ return function(t)
   end)
 
   t.test("report_cursor resolves a per-day activity row to that day's file", function()
-    local layout = render.week_report_layout(sample_report(), "dec", {})
+    local layout = render.days_report_layout(sample_report(), "dec", {})
     local index = find(layout, function(row)
       return row.scope == "day"
         and row.kind == render.LAYOUT_KIND.SUMMARY_ITEM
@@ -84,7 +84,7 @@ return function(t)
   end)
 
   t.test("report_cursor resolves an aggregate tag row to a tag target", function()
-    local layout = render.week_report_layout(sample_report(), "dec", {})
+    local layout = render.days_report_layout(sample_report(), "dec", {})
     local index = find(layout, function(row)
       return row.scope == "aggregate" and row.kind == render.LAYOUT_KIND.TAG_TOTAL
     end)
@@ -94,7 +94,7 @@ return function(t)
   end)
 
   t.test("report_cursor refuses header, totals, blank, and out-of-range rows", function()
-    local layout = render.week_report_layout(sample_report(), "dec", {})
+    local layout = render.days_report_layout(sample_report(), "dec", {})
 
     local header = find(layout, function(row)
       return row.kind == render.LAYOUT_KIND.HEADER
