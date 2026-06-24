@@ -170,8 +170,9 @@ local function normalize_azure_devops(name, entry)
     organization = required_string("organization"),
   }
 
-  -- A source targets a single `project` (project-scoped requests) or a `projects`
-  -- list (organization-scoped, filtered to those team projects) -- exactly one.
+  -- Scope is optional: a single `project` (project-scoped requests), a `projects` list
+  -- (organization-scoped, filtered to those team projects), or neither -- the default,
+  -- organization-wide. `project` and `projects` are mutually exclusive.
   if entry.project ~= nil and entry.projects ~= nil then
     error("daylog: source '" .. name .. "' must not set both project and projects")
   elseif entry.projects ~= nil then
@@ -197,8 +198,6 @@ local function normalize_azure_devops(name, entry)
     result.projects = projects
   elseif entry.project ~= nil then
     result.project = required_string("project")
-  else
-    error("daylog: source '" .. name .. "' must set 'project' or 'projects'")
   end
 
   -- The PAT is a function so it is resolved lazily at fetch time and never stored
@@ -230,6 +229,12 @@ local function normalize_azure_devops(name, entry)
   -- project-scoped), so it can't be combined with a cross-project `projects` list.
   if result.projects ~= nil and (result.query ~= nil or result.query_id ~= nil) then
     error("daylog: source '" .. name .. "' cannot combine projects with query or query_id")
+  end
+
+  -- A saved ADO query lives in a project, so query_id needs one (raw `query` may run
+  -- organization-wide, so it does not).
+  if result.query_id ~= nil and result.project == nil then
+    error("daylog: source '" .. name .. "'.query_id needs a project")
   end
 
   if entry.api_version ~= nil then

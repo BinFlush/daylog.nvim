@@ -16,6 +16,11 @@ local WORKITEM_FIELDS =
   "System.Id,System.Title,System.WorkItemType,System.State,System.TeamProject,System.ChangedDate"
 local MAX_ITEMS = 200
 
+-- The broadest "this item involves me" predicate WIQL can express cleanly (mentions and
+-- watching are not queryable). Shared by the default fetch and the live search, so both
+-- stay scoped to your work.
+local INVOLVES_ME = "([System.AssignedTo] = @Me OR [System.CreatedBy] = @Me)"
+
 local function encode_segment(segment)
   return (
     segment:gsub("[^%w%-%._~]", function(c)
@@ -31,32 +36,34 @@ function M.new(_name, cfg, deps)
   local api_version = cfg.api_version or "7.0"
   local template = cfg.template or "{id} {title}"
 
-  -- A single `project` keeps the request project-scoped (URL segment). A `projects`
-  -- list goes organization-scoped and narrows the WIQL with a team-project filter
-  -- instead, so one query spans the chosen subset.
+  -- Scope: a single `project` keeps requests project-scoped (URL segment). Otherwise the
+  -- request is organization-scoped -- a `projects` list narrows the WIQL to that subset with a
+  -- team-project filter, and neither (the default) spans the whole org.
   local base
   local project_filter = ""
-  if cfg.projects then
-    base = string.format("https://dev.azure.com/%s/_apis/wit", encode_segment(cfg.organization))
-    local quoted = {}
-    for _, project in ipairs(cfg.projects) do
-      quoted[#quoted + 1] = "'" .. project:gsub("'", "''") .. "'"
-    end
-    project_filter = " AND [System.TeamProject] IN (" .. table.concat(quoted, ", ") .. ")"
-  else
+  if cfg.project then
     base = string.format(
       "https://dev.azure.com/%s/%s/_apis/wit",
       encode_segment(cfg.organization),
       encode_segment(cfg.project)
     )
+  else
+    base = string.format("https://dev.azure.com/%s/_apis/wit", encode_segment(cfg.organization))
+    if cfg.projects then
+      local quoted = {}
+      for _, project in ipairs(cfg.projects) do
+        quoted[#quoted + 1] = "'" .. project:gsub("'", "''") .. "'"
+      end
+      project_filter = " AND [System.TeamProject] IN (" .. table.concat(quoted, ", ") .. ")"
+    end
   end
 
-  -- Default set: assigned to me, active, recently changed -- plus the team-project
-  -- filter when organization-scoped. The filter sits in the WHERE clause, before the
-  -- trailing ORDER BY; it is "" for a single project.
+  -- Default set: items that involve you (assigned or created), active, recently changed --
+  -- plus the team-project filter when organization-scoped. The filter sits in the WHERE
+  -- clause, before the trailing ORDER BY; it is "" for a single project or org-wide.
   local default_wiql = table.concat({
     "SELECT [System.Id] FROM WorkItems",
-    "WHERE [System.AssignedTo] = @Me",
+    "WHERE " .. INVOLVES_ME,
     "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'",
     "AND [System.ChangedDate] >= @Today - 30" .. project_filter,
     -- Id is a tiebreaker so the 200-item cap is deterministic when several items
@@ -201,7 +208,9 @@ function M.new(_name, cfg, deps)
     local wiql = string.format(
       "SELECT [System.Id] FROM WorkItems "
         .. "WHERE [System.Title] CONTAINS WORDS '%s' "
-        .. "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'"
+        .. "AND "
+        .. INVOLVES_ME
+        .. " AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'"
         .. "%s"
         .. " ORDER BY [System.ChangedDate] DESC, [System.Id] DESC",
       escaped,

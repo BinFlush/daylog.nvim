@@ -68,6 +68,26 @@ return function(t)
     config.setup()
   end)
 
+  t.test("config accepts a source with no project (organization-wide)", function()
+    config.setup({
+      sources = {
+        ADO = {
+          type = "azure_devops",
+          organization = "contoso",
+          token = function()
+            return "pat"
+          end,
+        },
+      },
+    })
+
+    local source = config.get().sources.ADO
+    t.eq(source.organization, "contoso")
+    t.eq(source.project, nil)
+    t.eq(source.projects, nil)
+    config.setup()
+  end)
+
   t.test("config validates sources", function()
     local function bad(options, pattern)
       local ok, err = pcall(config.setup, options)
@@ -95,10 +115,6 @@ return function(t)
       { sources = { ADO = { type = "azure_devops", project = "P", token = function() end } } },
       "organization must be a non%-empty string"
     )
-    bad(
-      { sources = { ADO = { type = "azure_devops", organization = "O", token = function() end } } },
-      "must set 'project' or 'projects'"
-    )
     bad(azure({ token = "pat" }), "token must be a function")
     bad(azure({ query = "q", query_id = "id" }), "must not set both query and query_id")
     bad(azure({ ttl = -1 }), "ttl must be a positive integer")
@@ -117,6 +133,7 @@ return function(t)
     bad(ado({ projects = {} }), "projects must be a non%-empty list")
     bad(ado({ projects = { "A", 2 } }), "projects must be a non%-empty list")
     bad(ado({ projects = { "A" }, query_id = "x" }), "cannot combine projects with query")
+    bad(ado({ query_id = "x" }), "query_id needs a project")
 
     local too_many = {}
     for i = 1, 101 do

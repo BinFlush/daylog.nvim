@@ -61,9 +61,8 @@ A `fetch` should return **your relevant work**, defined the same way on every tr
    custom workflow names), not hardcoded status strings.
 3. **Recently updated** — a rolling window (e.g. last 30 days), ordered updated-desc, capped
    to a sane N.
-4. **Container-optional** — query org-wide / across projects where the API supports it, so a
-   project/repo/team **restructure can't silently drop your work**. Never *require* a
-   container for scope.
+4. **Container-optional** — query org-wide / across projects where the API supports it; never
+   *require* a container for scope.
 
 **Scope overrides are the source's own config, not a generic knob.** Let users replace the
 default scope with whatever their tracker speaks — a WIQL/JQL string, a saved-query id, a
@@ -98,8 +97,8 @@ Reference queries:
 - **Default scope = "involves me", not "assigned to me".** GitHub's `involves:@me` is the
   model; it catches the unassigned-but-worked items and generalizes (each source maps it to
   its closest net — Linear's caps at assigned+created).
-- **Container optional everywhere.** All four support org-wide queries; this is the *general*
-  fix for restructure-fragility, not an ADO patch.
+- **Container optional everywhere.** All four support org-wide queries, so this is a general
+  capability, not an ADO patch.
 - **The core ranks by your worklog.** Frecency keyed on the universal `id` needs zero source
   cooperation and is the one truly cross-source relevance signal — so it lives in the core,
   not in any source.
@@ -125,6 +124,7 @@ container-optional) and the **item shape**, never the query mechanism.
   hook (`fn(items, ctx) -> items`). On by default; source-agnostic.
 - [x] **Offline-first** — live `search` is opt-in per source (default off; `search = true` to
   enable); with Telescope you still get a fuzzy picker over the cache when it's off.
-- [ ] **ADO scope**: org-wide "involves me" default + container-optional (drop the required
-  `project`); apply the same scope to `search` so it can't leak other teams' items. *(Next.)*
+- [x] **ADO scope** — the default fetch and the live search both use `involves me` (assigned
+  or created) + active + recent; `project`/`projects` are optional and the default is org-wide,
+  and search carries the same scope. `query`/`query_id` remain the per-source override.
 - [ ] **Second reference source**: Jira (proves the conventions on a different query language).

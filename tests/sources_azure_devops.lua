@@ -119,7 +119,36 @@ return function(t)
     t.eq(items, {})
     -- Only the WIQL request happens when there are no ids to hydrate.
     t.eq(#transport.seen, 1)
-    t.ok(vim.json.decode(transport.seen[1].body).query:match("@Me") ~= nil)
+    -- "Involves me" = assigned or created.
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("%[System%.AssignedTo%] = @Me") ~= nil, body.query)
+    t.ok(body.query:match("%[System%.CreatedBy%] = @Me") ~= nil, body.query)
+  end)
+
+  t.test("fetch with no project or projects runs organization-wide", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = vim.json.encode({ workItems = {} }) }
+      end
+      return { status = 200, body = vim.json.encode({ value = {} }) }
+    end)
+
+    -- Neither project nor projects -> org-scoped URL, no team-project filter.
+    local source = new_source({
+      organization = "contoso",
+      api_version = "7.0",
+      template = "{id} {title}",
+    }, transport)
+    source.fetch(function() end)
+
+    t.ok(
+      transport.seen[1].url:match("dev%.azure%.com/contoso/_apis/wit/wiql") ~= nil,
+      transport.seen[1].url
+    )
+    local body = vim.json.decode(transport.seen[1].body)
+    t.ok(body.query:match("%[System%.AssignedTo%] = @Me") ~= nil, body.query)
+    t.ok(body.query:match("%[System%.CreatedBy%] = @Me") ~= nil, body.query)
+    t.ok(body.query:match("TeamProject") == nil, body.query)
   end)
 
   t.test("fetch runs a saved query by id with GET", function()
@@ -253,6 +282,8 @@ return function(t)
     t.eq(transport.seen[1].method, "POST")
     local body = vim.json.decode(transport.seen[1].body)
     t.ok(body.query:match("CONTAINS WORDS 'login'") ~= nil, body.query)
+    -- Search is scoped to your items too, so it can't surface another team's.
+    t.ok(body.query:match("%[System%.CreatedBy%] = @Me") ~= nil, body.query)
   end)
 
   t.test("search escapes single quotes in the query", function()

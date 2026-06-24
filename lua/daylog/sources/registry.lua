@@ -12,8 +12,8 @@ local M = {}
 -- Conventions (documented, not enforced -- see docs/integrations.md for the why):
 --   * fetch returns YOUR RELEVANT WORK -- the broadest reasonable "involves me"
 --     (assigned/created/mentioned/watching, as the API allows) that is active and
---     recently updated, container-optional (org-wide where supported, so a project/team
---     restructure cannot silently drop work), ordered newest-first and capped.
+--     recently updated, container-optional (org-wide where the API supports it), ordered
+--     newest-first and capped.
 --   * Scope overrides are the source's OWN config (a WIQL/JQL string, a saved-query id,
 --     a search string, a GraphQL filter) -- there is intentionally no generic cross-source
 --     "query" or "saved_query" knob, because query languages and saved queries are not

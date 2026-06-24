@@ -47,6 +47,21 @@ happen, but they are called out clearly in this changelog.
   reported. The aggregate headers show the resolved span and a `(N found)` count, e.g.
   `--- range summary 2026-05-12..2026-05-18 (3 found) ---`.
 
+### Changed
+
+- **Source pickers lead with what you've been working on.** A source's cached work items
+  are now ordered by your worklog — items you've recently or often logged time against
+  rise to the top (a look-back window, `picker.frecency_days`, default 30; override the
+  ordering with `picker.rank`). Works for any source.
+- **Live tracker search is now opt-in** — set `search = true` on a source to enable the
+  per-keystroke network search. By default the picker reads the offline cache and filters
+  locally (instant, no network); with Telescope you still get a fuzzy picker over the cache.
+- **Azure DevOps default scope is now organization-wide and person-scoped.** The cache (and
+  live search) lists work items that **involve you** — assigned to *or* created by you — that
+  are active and recently changed, **organization-wide** by default. `project`/`projects` are
+  now optional (set one to narrow); search carries the same scope. Use `query`/`query_id` for
+  a custom scope (`query_id` needs a `project`).
+
 ### Removed
 
 - **`:DaylogWeek`** (breaking) — a week is now `:DaylogDays monday..` (or `monday..today`).

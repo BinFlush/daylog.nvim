@@ -697,12 +697,14 @@ Configure sources in `setup{}`:
 - `token` is a function returning a Personal Access Token. It is called only
   when syncing and is never written to the cache, so keep no secret in plain
   config -- read it from the environment or a password manager.
-- By default the cache holds work items assigned to you that are active and
-  recently changed. Override with a saved query (`query_id`) or raw WIQL
-  (`query`).
-- Set `projects = { 'A', 'B' }` instead of `project` to search a chosen subset
-  of the organization's projects at once; results are labelled by project. It is
-  mutually exclusive with `project`, `query`, and `query_id`.
+- By default the cache holds the work items that involve you -- assigned to or
+  created by you -- that are active and recently changed, across your whole
+  organization. Replace the scope with a saved query (`query_id`, which needs a
+  `project`) or raw WIQL (`query`).
+- `project` and `projects` are optional and mutually exclusive: a single `project`
+  scopes requests to it; `projects = { 'A', 'B' }` to that subset of the
+  organization (results labelled by project); omitting both spans the whole
+  organization. `projects` cannot combine with `query` or `query_id`.
 - The picked item is inserted as `template` (default `{id} {title}`) at the
   current time. The template fills `{id}`, `{title}`, `{type}`, `{state}`, and
   `{project}` from the work item; any other `{name}` placeholder is left
@@ -729,9 +731,10 @@ way picking is offline.
 Live as-you-type tracker search is opt-in -- set `search = true` on the source. It
 then queries the tracker on each keystroke (debounced, once the prompt reaches
 `min_query` characters) and merges matches into your cached items. The Azure DevOps
-source searches work-item titles across your configured project(s) and hydrates at
-most 200 matches; if more match, the picker notes "showing first N of M matches" so
-you can refine. A failed search reports a `daylog:` warning.
+source searches work-item titles among the items that involve you (the same scope as
+the cache, so it never surfaces another team's work) and hydrates at most 200
+matches; if more match, the picker notes "showing first N of M matches" so you can
+refine. A failed search reports a `daylog:` warning.
 
                                                   *daylog-custom-source*
 You can register your own source (e.g. Jira, GitHub Issues) with:
