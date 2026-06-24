@@ -59,6 +59,10 @@ happen, but they are called out clearly in this changelog.
   westward jump would push a cut to or past 24:00, which can't be written without a new
   offset.
 
+- **`:DaylogRename` renames a single entry** when the cursor is on an entry line.
+- **`:DaylogRename` still opens the merge picker** when a configured source is unreachable.
+- **`:DaylogBalance` keeps the cursor on a summary row** that reorders.
+
 ## 0.10.0 - 2026-06-24
 
 ### Added

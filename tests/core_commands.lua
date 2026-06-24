@@ -559,6 +559,32 @@ return function(t)
     t.eq(t.get_lines()[3], "09:00 alpha")
   end)
 
+  t.test("balance follows a reordered summary row with the cursor", function()
+    t.reset({
+      "--- log q=60 d=hm ---",
+      "08:00 alpha",
+      "09:00 beta",
+      "11:00 done",
+    })
+    vim.cmd("DaylogRefresh")
+
+    -- Put the cursor on the "alpha" summary row (below "beta") at a non-zero column.
+    local alpha_row
+    for i, line in ipairs(t.get_lines()) do
+      if line:find("%) alpha$") then
+        alpha_row = i
+      end
+    end
+    t.set_cursor(alpha_row, 3)
+
+    vim.cmd("DaylogBalance +2") -- alpha becomes 3h and jumps above beta
+
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    t.ok(cursor[1] < alpha_row, "the cursor moved up to the row's new line")
+    t.ok(t.get_lines()[cursor[1]]:find("alpha", 1, true), "the cursor is on the alpha row")
+    t.eq(cursor[2], 3) -- the column is preserved
+  end)
+
   t.test("insert orders into explicit log block after equal timestamps", function()
     t.reset({
       "--- log #ProjectOrion @office ---",

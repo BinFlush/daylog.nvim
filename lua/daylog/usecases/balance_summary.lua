@@ -252,11 +252,53 @@ local function entry_direct_changes(block, cursor_row, delta)
   return nil
 end
 
+-- Whether two summary layout rows denote the same target, by kind + identity (mirrors
+-- `scope_for`). Balance only changes a row's duration/nudge, so these fields are stable,
+-- which lets the balanced row be re-found after the rebuild to follow it with the cursor.
+local function same_target(a, b)
+  if a.kind ~= b.kind then
+    return false
+  end
+
+  local K = render.LAYOUT_KIND
+  if a.kind == K.SUMMARY_ITEM then
+    return a.item.text == b.item.text
+      and a.item.tag == b.item.tag
+      and (a.item.workday_excluded == true) == (b.item.workday_excluded == true)
+      and (a.item.logged == true) == (b.item.logged == true)
+  elseif a.kind == K.TAG_TOTAL then
+    return a.item.tag == b.item.tag
+  elseif a.kind == K.LOCATION_TOTAL then
+    return a.item.location == b.item.location
+  elseif a.kind == K.LOGGED_TOTAL then
+    return (a.item.logged == true) == (b.item.logged == true)
+  elseif a.kind == K.TOTAL then
+    return a.total == b.total
+  end
+
+  return false
+end
+
+-- The buffer line `target_row` renders at in the rebuilt summary, so the cursor can
+-- follow a row that reordered. The layout is 1:1 with the rebuilt lines, so its index
+-- maps straight onto the region.
+local function cursor_for_target(rebuilt, block, region, target_row)
+  local layout =
+    render.summary_layout(rebuilt, block.duration_format, support.summary_render_options(block))
+  for i, row in ipairs(layout) do
+    if same_target(row, target_row) then
+      return region.start_row + (i - 1)
+    end
+  end
+  return nil
+end
+
 -- Build the edit script that rewrites the changed entry lines and, when the block
 -- already carries a summary, rebuilds it in place from the nudged entries. Modeled
 -- on log_current: the source entries gain/lose their round±N marker and the one
--- summary is regenerated, so it stays a pure projection.
-local function build_edits(analysis, block, entry_changes)
+-- summary is regenerated, so it stays a pure projection. `target_row` (the resolved
+-- summary layout row, when balancing one) makes the cursor follow it to its new line.
+local function build_edits(analysis, block, entry_changes, target_row)
   if next(entry_changes) == nil then
     return nil, M.NOTHING
   end
@@ -277,11 +319,11 @@ local function build_edits(analysis, block, entry_changes)
 
   local region = support.locate_summary(analysis, block)
 
-  local edits = {}
+  local result = { edits = {} }
 
   if region then
     local rebuilt = summary.summarize_entries(modified, block.quantize_minutes)
-    table.insert(edits, {
+    table.insert(result.edits, {
       start_index = region.start_row - 1,
       end_index = region.end_row - 1,
       lines = render.summary_lines(
@@ -290,18 +332,22 @@ local function build_edits(analysis, block, entry_changes)
         support.summary_render_options(block)
       ),
     })
+    -- Follow the balanced row to its new line when it reordered.
+    if target_row then
+      result.cursor_row = cursor_for_target(rebuilt, block, region, target_row)
+    end
   end
 
   for _, edit in ipairs(source_edits) do
-    table.insert(edits, edit)
+    table.insert(result.edits, edit)
   end
 
   -- Apply highest-row-first so the summary rebuild does not shift the source rows.
-  table.sort(edits, function(a, b)
+  table.sort(result.edits, function(a, b)
     return a.start_index > b.start_index
   end)
 
-  return { edits = edits }
+  return result
 end
 
 -- `delta` is a signed integer of q-steps; 0 clears the cursor target's nudge.
@@ -315,7 +361,7 @@ function M.run(lines, cursor_row, delta)
     if not entry_changes then
       return nil, err
     end
-    return build_edits(result.ctx.analysis, result.ctx.block, entry_changes)
+    return build_edits(result.ctx.analysis, result.ctx.block, entry_changes, result.layout_row)
   end
 
   if resolve_err then

@@ -266,4 +266,55 @@ return function(t)
     local _, err = balance.run(lines, row_of(lines, "08:00 plan"), 1)
     t.eq(err, balance.ONLY_LOGGED)
   end)
+
+  t.test("balancing a row up past another follows it to its new line", function()
+    -- The summary lists beta (2h) then alpha (1h); balancing alpha +2 makes it 3h, so it
+    -- jumps above beta and the cursor follows.
+    local lines = buffer_with_summary({
+      "--- log q=60 d=hm ---",
+      "08:00 alpha",
+      "09:00 beta",
+      "11:00 done",
+    })
+    local alpha_row = row_of(lines, ") alpha")
+
+    local result = balance.run(lines, alpha_row, 2)
+    local out = apply(lines, result)
+
+    t.ok(result.cursor_row < alpha_row, "alpha moved up the summary")
+    t.ok(out[result.cursor_row]:find("alpha", 1, true), "the cursor lands on the alpha row")
+    t.ok(out[result.cursor_row]:find("round+2", 1, true), "and it is the balanced row")
+  end)
+
+  t.test("balancing a row that stays put leaves the cursor on its line", function()
+    local lines = buffer_with_summary({
+      "--- log q=60 d=hm ---",
+      "08:00 big",
+      "10:00 small",
+      "11:00 done",
+    })
+    local big_row = row_of(lines, ") big")
+
+    -- big (2h) is already the top row; balancing it up keeps it there.
+    local result = balance.run(lines, big_row, 1)
+
+    t.eq(result.cursor_row, big_row)
+  end)
+
+  t.test("balancing a tag total that reorders follows it too", function()
+    local lines = buffer_with_summary({
+      "--- log q=60 d=hm ---",
+      "08:00 a #x",
+      "09:00 b #y",
+      "11:00 done",
+    })
+    -- Tag totals list #y (2h) then #x (1h); balancing #x +2 makes it 3h and it moves up.
+    local x_row = row_of(lines, ") #x")
+
+    local result = balance.run(lines, x_row, 2)
+    local out = apply(lines, result)
+
+    t.ok(result.cursor_row < x_row, "#x moved up its section")
+    t.ok(out[result.cursor_row]:find("#x", 1, true), "the cursor lands on the #x total")
+  end)
 end

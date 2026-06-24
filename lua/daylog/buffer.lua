@@ -207,6 +207,14 @@ local function refresh_diagnostics()
 end
 
 local function apply_result(result)
+  -- A row-only cursor follow (e.g. a balanced summary row that reordered) keeps the
+  -- user's column: capture it before the edits move things, then clamp it to the
+  -- destination line below.
+  local preserved_col
+  if result.cursor_row then
+    preserved_col = vim.api.nvim_win_get_cursor(0)[2]
+  end
+
   -- Apply edits in the order given -- never reorder or sort them. refresh_summaries.run
   -- composes header-recovery edits (in the original coordinates) ahead of summary edits
   -- (in the post-recovery coordinates) as two ordered phases; a recovery that inserts a
@@ -218,6 +226,10 @@ local function apply_result(result)
 
   if result.cursor then
     vim.api.nvim_win_set_cursor(0, result.cursor)
+  elseif result.cursor_row then
+    local line = vim.api.nvim_buf_get_lines(0, result.cursor_row - 1, result.cursor_row, false)[1]
+      or ""
+    vim.api.nvim_win_set_cursor(0, { result.cursor_row, math.min(preserved_col, #line) })
   end
 
   if result.startinsert then
