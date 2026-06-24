@@ -1,5 +1,3 @@
-local picker = require("daylog.sources.picker")
-
 local M = {}
 
 -- Azure DevOps work-item source.
@@ -232,12 +230,18 @@ function M.new(_name, cfg, deps)
     source.search = run_search
   end
 
-  -- One item's picker cells: the rendered name (`to_entry_text` -- exactly what gets inserted)
+  -- One item's picker line: the rendered name (`to_entry_text` -- exactly what gets inserted)
   -- leads, so it shows on the far left lined up with the plain activity rows; [type/state], then
-  -- the project when several are configured, trail as metadata. The id already lives inside the
-  -- rendered name, so it is not repeated. format_items pads the leading name into a column so the
-  -- trailing metadata lines up under it.
-  local function item_cells(item)
+  -- the project when several are configured, trail as metadata right after it. The id already
+  -- lives inside the rendered name, so it is not repeated. The metadata is not column-aligned
+  -- across items on purpose: padding the variable-width name to the widest one would shove the
+  -- metadata off the right of the picker when titles vary, so it trails each name directly and
+  -- always stays visible. (No format_items, so the display contract falls back to this per item.)
+  function source.format_item(item)
+    if cfg.format_item then
+      return cfg.format_item(item)
+    end
+
     local cells = {
       source.to_entry_text(item),
       string.format("[%s/%s]", item.type or "?", item.state or "?"),
@@ -245,34 +249,7 @@ function M.new(_name, cfg, deps)
     if cfg.projects then
       cells[#cells + 1] = item.project or "?"
     end
-    return cells
-  end
-
-  function source.format_item(item)
-    if cfg.format_item then
-      return cfg.format_item(item)
-    end
-
-    return (table.concat(item_cells(item), "  "):gsub("%s+$", ""))
-  end
-
-  -- The whole item list as aligned picker lines: the rendered-name column pads to the widest so
-  -- the [type/state] and project columns line up under each other, instead of a ragged trailing
-  -- field. A user-supplied cfg.format_item is per-item, so it is mapped without alignment.
-  function source.format_items(items)
-    if cfg.format_item then
-      local lines = {}
-      for index, item in ipairs(items) do
-        lines[index] = cfg.format_item(item)
-      end
-      return lines
-    end
-
-    local rows = {}
-    for index, item in ipairs(items) do
-      rows[index] = item_cells(item)
-    end
-    return picker.align(rows)
+    return (table.concat(cells, "  "):gsub("%s+$", ""))
   end
 
   function source.to_entry_text(item)

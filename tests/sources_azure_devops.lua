@@ -207,26 +207,25 @@ return function(t)
     t.eq(source.to_entry_text({ id = "5", title = "Rework #flaky" }), "5 Rework #flaky")
   end)
 
-  t.test("format_item leads with the rendered name, then the metadata", function()
-    -- The rendered name (to_entry_text) is first so it lines up with plain activity rows.
+  t.test("format_item leads with the rendered name, the metadata trailing", function()
+    -- The rendered name (to_entry_text) is first so it lines up with plain activity rows; the
+    -- metadata trails it directly on each row.
     local source = new_source(base_cfg(), fake_transport(function() end))
     t.eq(
       source.format_item({ id = "5", title = "Fix", type = "Bug", state = "Active" }),
       "5 Fix  [Bug/Active]"
     )
-  end)
-
-  t.test("format_items pads the rendered-name column so the metadata lines up", function()
-    local source = new_source(base_cfg(), fake_transport(function() end))
+    -- A long title does not push the metadata away: there is no cross-item column padding
+    -- (no format_items), so it stays adjacent and visible in the picker.
+    t.eq(source.format_items, nil)
     t.eq(
-      source.format_items({
-        { id = "5", title = "Fix login", type = "Bug", state = "Active" },
-        { id = "1234", title = "Refactor", type = "Task", state = "New" },
+      source.format_item({
+        id = "105210",
+        title = "Investigate auth timeout",
+        type = "Bug",
+        state = "Active",
       }),
-      {
-        "5 Fix login    [Bug/Active]",
-        "1234 Refactor  [Task/New]",
-      }
+      "105210 Investigate auth timeout  [Bug/Active]"
     )
   end)
 
