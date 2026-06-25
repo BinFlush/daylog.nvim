@@ -90,8 +90,10 @@ function M.entry_at_row(lines, row)
 end
 
 -- Insert one formatted entry for `activity` at `minutes` into the active
--- log, placed at the sorted position with sticky metadata resolved.
-function M.seed_edit(lines, activity, minutes)
+-- log, placed at the sorted position with sticky metadata resolved. `auto_offset`
+-- (optional) is the live OS offset; a drift from the offset in effect records the new
+-- zone on the seeded entry (used by the cross-day repeat into an existing today).
+function M.seed_edit(lines, activity, minutes, auto_offset)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
     return nil, err
@@ -106,16 +108,23 @@ function M.seed_edit(lines, activity, minutes)
   fields.logged = false
   fields.nudge = nil
 
+  local stamp = support.offset_stamp(state.offset, auto_offset)
+  local ins_offset = activity.offset
+  if stamp ~= nil then
+    fields.offset = stamp
+    ins_offset = stamp
+  end
+
   local line = entry.format(fields, state.tag, state.location, state.offset)
 
-  return support.insert_entry_edit(
-    ctx.block,
-    minutes,
-    line,
-    activity.tag,
-    activity.location,
-    activity.offset
-  )
+  local result =
+    support.insert_entry_edit(ctx.block, minutes, line, activity.tag, activity.location, ins_offset)
+
+  if stamp ~= nil then
+    result.offset_change = { from = state.offset, to = stamp }
+  end
+
+  return result
 end
 
 -- Append a bare 24:00 entry that closes the active log's final task at the

@@ -276,7 +276,10 @@ times, the `24:00` end-of-day boundary, past-midnight carryover, and the daybook
 date -- only the computed durations change. A log with no `utc` marker
 anywhere behaves exactly as before.
 
-Set a base offset automatically with `defaults.utc` (see |daylog-config|).
+These `utc±N` tokens are usually written for you: `auto_timezone` (on by default)
+baselines each header and records a drift -- DST or travel -- as you stamp times,
+so you rarely type one by hand. See |daylog-auto-timezone| (and `defaults.utc` in
+|daylog-config| to pin a fixed offset).
 
 ==============================================================================
 GOTCHAS                                                      *daylog-gotchas*
@@ -856,6 +859,7 @@ Configure `daylog.nvim` with:
     },
     auto_summary = 'idle',
     active_indicator = true,
+    auto_timezone = true,
     picker = { frecency_days = 30 },
   })
 <
@@ -863,11 +867,11 @@ Configure `daylog.nvim` with:
 `defaults` are used for the initial log header created by |:DaylogToday|
 and |:DaylogInit|.
 
-`defaults.utc` stamps a base UTC offset into that header (see
-|daylog-utc-offset|), for frequent travellers who always want a zone recorded.
-It is either a signed offset string (`'+2'`, `'-4'`, `'+5:30'`) or `'auto'`,
-which fills in the system's current offset at the moment the file is created.
-Omit it to leave new headers without an offset (the default).
+`defaults.utc` pins a base UTC offset into that header (see |daylog-utc-offset|),
+overriding the automatic one. It is either a signed offset string (`'+2'`, `'-4'`,
+`'+5:30'`) or `'auto'`, which fills in the system's current offset at the moment the
+file is created. When it is omitted, `auto_timezone` (on by default) supplies the
+system offset anyway -- see |daylog-auto-timezone|.
 
 `daybook` is optional:
 
@@ -957,6 +961,30 @@ any diagnostic hides them so the warnings stand on their own.
 
 >
   require('daylog').setup({ active_indicator = false })
+<
+
+                                                      *daylog-auto-timezone*
+`auto_timezone` keeps your logs honest across a clock change. It is optional and
+defaults to `true`. The system UTC offset is read from `os.date('%z')` and used
+two ways:
+
+- A new day's header gets the current offset as a baseline (`--- log utc+2 ---`),
+  unless you pinned one with `defaults.utc` (which still wins).
+- Every command that stamps the current time (|:DaylogInsert|, |:DaylogRepeat|, and
+  the past-midnight / cross-day variants) compares the live offset to the one in
+  effect; if it has drifted -- a DST switch or travel -- the new entry records the
+  new offset as a `utc±N` token, and you get a one-line `daylog: UTC offset ... ->
+  ... recorded` notice. So an interval that spans the change keeps its true length
+  (see |daylog-utc-offset|) instead of silently gaining or losing the hour.
+
+The check only adds a token when the day already carries an offset baseline (a
+header offset), so an older offset-naive log is never disturbed. A bare
+|:DaylogInsert| at a drift writes `HH:MM  utc±N`; type the activity in the gap
+before the token. When the platform reports no numeric offset, the feature is a
+no-op. Set `auto_timezone = false` to record offsets only when you type them.
+
+>
+  require('daylog').setup({ auto_timezone = false })
 <
 
                                                           *daylog-picker*

@@ -18,9 +18,9 @@ local apply_result = buffer.apply_result
 
 -- The system's current UTC offset in signed minutes, parsed from os.date("%z")
 -- ("+0200", "-0400", "+0530"). Returns nil when the platform does not report a
--- numeric offset, so an unresolvable "auto" default stamps no zone rather than a
--- wrong one. This is the one, one-time clock read for the offset feature; mid-day
--- markers stay manual.
+-- numeric offset, so an unresolvable offset stamps no zone rather than a wrong one.
+-- Polled both when a day's header is created and (via live_offset) on every
+-- current-time insert, so auto_timezone can catch a mid-day DST/travel change.
 local function system_utc_offset_minutes()
   local sign, hours, minutes = tostring(os.date("%z")):match("^([%+%-])(%d%d)(%d%d)$")
   if not sign then
@@ -35,18 +35,34 @@ local function system_utc_offset_minutes()
   return total
 end
 
--- Resolve a defaults table's `utc` for a fresh log header: the "auto" sentinel
--- becomes the system's current offset, a numeric offset passes through, and absent
--- stays absent. The shared config table is never mutated; a copy is returned only
--- when "auto" must be resolved.
+-- The live system offset to stamp on a current-time insert, or nil when the feature
+-- is off or the platform reports no numeric offset (a graceful no-op either way). The
+-- per-insert tracking compares this against the offset already in effect.
+local function live_offset()
+  if not config.get().auto_timezone then
+    return nil
+  end
+  return system_utc_offset_minutes()
+end
+
+-- Resolve a defaults table's `utc` for a fresh log header: the system's current offset
+-- fills in for the "auto" sentinel, and also for an unset offset when `auto_timezone`
+-- is on (the default) -- so a new day carries a zone baseline. A numeric offset passes
+-- through unchanged (an explicit defaults.utc still wins), and absent + auto_timezone
+-- off stays absent. The shared config table is never mutated; a copy is returned only
+-- when the offset must be resolved.
 local function resolve_log_defaults(defaults)
-  if defaults == nil or defaults.utc ~= "auto" then
+  local utc = defaults and defaults.utc
+  local resolve = utc == "auto" or (utc == nil and config.get().auto_timezone)
+  if not resolve then
     return defaults
   end
 
   local resolved = {}
-  for key, value in pairs(defaults) do
-    resolved[key] = value
+  if defaults then
+    for key, value in pairs(defaults) do
+      resolved[key] = value
+    end
   end
   resolved.utc = system_utc_offset_minutes()
   return resolved
@@ -257,6 +273,7 @@ local function current_buffer_daybook_date(settings)
   return daybook.date_from_path(settings, vim.fn.fnamemodify(name, ":p"))
 end
 
+M.live_offset = live_offset
 M.loaded_buffer_for_path = loaded_buffer_for_path
 M.daybook_lines = daybook_lines
 M.daybook_path_has_content = daybook_path_has_content

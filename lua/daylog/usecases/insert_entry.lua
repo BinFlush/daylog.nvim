@@ -10,7 +10,7 @@ local M = {}
 -- regardless of the source. A sibling of insert_now: that one stamps a bare
 -- timestamp, this one stamps a timestamp plus an activity.
 
-function M.run(lines, row, time, text)
+function M.run(lines, row, time, text, auto_offset)
   local ctx, err = support.get_validated_at_row(lines, row)
   if not ctx then
     return nil, err
@@ -26,14 +26,19 @@ function M.run(lines, row, time, text)
   -- same state as the entry's effective metadata makes entry.format emit no tokens,
   -- and passing it to insert_entry_edit makes the follower rewrite a guaranteed
   -- no-op -- so the result is byte-identical to a hand-typed "HH:MM <text>" and no
-  -- following entry silently changes tag, location, or offset.
+  -- following entry silently changes tag, location, or offset. The exception is a
+  -- drifted live offset (auto_timezone): the entry then takes the new offset, so
+  -- entry.format emits a utc±N token and the follower is compensated.
   local state = support.get_insert_state(ctx.block, minutes)
+  local stamp = support.offset_stamp(state.offset, auto_offset)
+  local ins_offset = stamp or state.offset
+
   local inserted_line = entry.format({
     minutes = minutes,
     text = entry.sanitize_text(text),
     tag = state.tag,
     location = state.location,
-    offset = state.offset,
+    offset = ins_offset,
     logged = false,
   }, state.tag, state.location, state.offset)
 
@@ -43,8 +48,12 @@ function M.run(lines, row, time, text)
     inserted_line,
     state.tag,
     state.location,
-    state.offset
+    ins_offset
   )
+
+  if stamp ~= nil then
+    result.offset_change = { from = state.offset, to = stamp }
+  end
 
   -- Land the cursor at end of the inserted line and enter insert mode, matching
   -- insert_now's affordance so the user can keep typing notes.

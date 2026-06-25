@@ -22,6 +22,18 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- **`auto_timezone` (default on): automatic UTC-offset tracking.** A new day's header now carries
+  the system UTC offset as a baseline (e.g. `--- log utc+2 ---`), and every current-time insert
+  (`:DaylogInsert`, `:DaylogRepeat`, and the past-midnight / cross-day variants) records a `utc±N`
+  token when the live offset has drifted — a DST switch or travel — with a one-line notice. So an
+  interval that spans the change keeps its true length instead of silently gaining or losing the
+  hour. The check only adds a token when the day already has an offset baseline, and is a no-op on
+  platforms that report no numeric offset. An explicit `defaults.utc` still wins the header. Set
+  `auto_timezone = false` to record offsets only when you type them. **Behavior change:** new day
+  headers now carry a UTC offset by default. See `:help daylog-auto-timezone`.
+
 ### Changed
 
 - **Picker ranking is now standard Mozilla-style frecency.** The worklog ranker that orders a

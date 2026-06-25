@@ -47,6 +47,7 @@ local can_abandon_current_buffer = daybook_io.can_abandon_current_buffer
 local open_daybook_file = daybook_io.open_daybook_file
 local edit_daybook_file = daybook_io.edit_daybook_file
 local current_buffer_daybook_date = daybook_io.current_buffer_daybook_date
+local live_offset = daybook_io.live_offset
 
 -- Report buffers, rebound as locals.
 local open_report = report_buffers.open_report
@@ -108,6 +109,7 @@ function M.insert_from_source(name)
   -- late selection then stamps the time the command was issued and never edits a
   -- buffer we have since moved away from.
   local time = os.date("%H:%M")
+  local auto_offset = live_offset()
   local target_buf = vim.api.nvim_get_current_buf()
 
   -- Apply a chosen item into the originating buffer, guarding against the buffer
@@ -117,7 +119,7 @@ function M.insert_from_source(name)
       return
     end
 
-    apply_insert_entry(time, source.to_entry_text(item))
+    apply_insert_entry(time, source.to_entry_text(item), auto_offset)
   end
 
   -- The scoped source picker: type-as-you-search across the whole tracker when the source
@@ -128,7 +130,7 @@ function M.insert_from_source(name)
     prompt_fallback = "Daylog: pick " .. name .. " item",
     on_pick = insert_choice,
     on_cancel = function()
-      apply_insert_time(time)
+      apply_insert_time(time, auto_offset)
     end,
   })
 end
@@ -150,6 +152,7 @@ function M.insert_unified()
   end
 
   local time = os.date("%H:%M")
+  local auto_offset = live_offset()
   local target_buf = vim.api.nvim_get_current_buf()
 
   -- Insert the chosen/typed activity, or a bare timestamp for an empty value -- guarded against
@@ -159,9 +162,9 @@ function M.insert_unified()
       return
     end
     if text == nil or text == "" then
-      apply_insert_time(time)
+      apply_insert_time(time, auto_offset)
     else
-      apply_insert_entry(time, text)
+      apply_insert_entry(time, text, auto_offset)
     end
   end
 
@@ -177,7 +180,7 @@ function M.insert_unified()
       insert(vim.fn.input({ prompt = "daylog: log: " }))
     end,
     on_cancel = function()
-      apply_insert_time(time)
+      apply_insert_time(time, auto_offset)
     end,
   })
 end
@@ -211,7 +214,7 @@ function M.insert_now()
     return
   end
 
-  apply_insert_time(os.date("%H:%M"))
+  apply_insert_time(os.date("%H:%M"), live_offset())
 end
 
 function M.append_copy()
@@ -223,7 +226,7 @@ function M.repeat_current()
     return
   end
 
-  run_buffer_usecase(repeat_current.run, cursor_row(), os.date("%H:%M"))
+  run_buffer_usecase(repeat_current.run, cursor_row(), os.date("%H:%M"), live_offset())
 end
 
 function M.order_logs()

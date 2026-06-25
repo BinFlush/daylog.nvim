@@ -18,6 +18,28 @@ function M.with_mocked_date(value, fn)
   end
 end
 
+-- Mock the system UTC offset that daybook_io reads from os.date("%z"), leaving every
+-- other os.date format delegating to the real implementation (the timestamp arg is
+-- forwarded). Install it inside with_mocked_date so the wholesale clock mock still
+-- answers "%H:%M" while this answers "%z".
+function M.with_mocked_utc_offset(offset_string, fn)
+  local old_date = os.date
+
+  rawset(os, "date", function(format, ...)
+    if format == "%z" then
+      return offset_string
+    end
+    return old_date(format, ...)
+  end)
+
+  local ok, err = xpcall(fn, debug.traceback)
+  rawset(os, "date", old_date)
+
+  if not ok then
+    error(err, 0)
+  end
+end
+
 function M.with_mocked_time(value, fn)
   local old_time = os.time
 

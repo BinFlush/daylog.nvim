@@ -52,6 +52,19 @@ function M.get_insert_state(block, minutes)
   return body.state_before(block, minutes)
 end
 
+-- The UTC offset to stamp on a current-time insert, or nil for no token. Stamps the
+-- live OS offset (`auto_offset`) only when it is known, the insertion point already
+-- carries an offset baseline (`current_offset ~= nil`), and that baseline has drifted
+-- -- a DST or travel change. An offset-naive day (no header offset) is left untouched,
+-- since a lone token there has no baseline to be a delta from and would distort the
+-- one interval; a fresh day gets its baseline from the header (see daybook_io).
+function M.offset_stamp(current_offset, auto_offset)
+  if auto_offset ~= nil and current_offset ~= nil and auto_offset ~= current_offset then
+    return auto_offset
+  end
+  return nil
+end
+
 -- Build the edit that inserts `inserted_line` (whose effective tag/location/offset
 -- are `ins_tag`/`ins_loc`/`ins_offset`) at `minutes` in `block`. When the inserted
 -- entry changes the sticky tag/location/offset the following entry was silently

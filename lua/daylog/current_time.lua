@@ -27,11 +27,12 @@ local expanded_daybook_settings = daybook_io.expanded_daybook_settings
 local daybook_lines = daybook_io.daybook_lines
 local daybook_path_has_content = daybook_io.daybook_path_has_content
 local open_daybook_file = daybook_io.open_daybook_file
+local live_offset = daybook_io.live_offset
 
-local function apply_insert_time(time)
+local function apply_insert_time(time, auto_offset)
   local lines = buffer_lines()
   local row = cursor_row()
-  local result, err = insert_now.run(lines, row, time)
+  local result, err = insert_now.run(lines, row, time, auto_offset)
   if not result then
     warn(err)
     return false
@@ -44,8 +45,8 @@ end
 -- Insert a fully-resolved "HH:MM <text>" entry at the cursor's log and enter
 -- insert mode. Mirrors apply_insert_time but carries an activity string (the text
 -- is built and sanitized by the source layer before it gets here).
-local function apply_insert_entry(time, entry_text)
-  local result, err = insert_entry.run(buffer_lines(), cursor_row(), time, entry_text)
+local function apply_insert_entry(time, entry_text, auto_offset)
+  local result, err = insert_entry.run(buffer_lines(), cursor_row(), time, entry_text, auto_offset)
   if not result then
     warn(err)
     return false
@@ -184,7 +185,11 @@ local function run_cross_day_repeat(settings, now)
     return
   end
 
-  local seed, seed_err = carryover.seed_edit(buffer_lines(), activity, minutes)
+  -- Repeating into an existing today whose header may sit at an older offset is the
+  -- one carryover path where the live zone can genuinely have drifted since the day
+  -- was opened, so it tracks it. (The past-midnight carryover seeds into a today
+  -- created moments earlier at the live offset, so it never needs a token.)
+  local seed, seed_err = carryover.seed_edit(buffer_lines(), activity, minutes, live_offset())
   if not seed then
     warn(seed_err)
     return

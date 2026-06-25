@@ -210,11 +210,14 @@ require("daylog").setup({
   defaults = { tag = "ClientA", location = "office", quantize_minutes = 15, duration_format = "dec" },
   daybook = { root = "~/daylog", directory = "%Y/%V" }, -- directory is an optional strftime template
   auto_summary = "change", -- change | idle | save | off
+  auto_timezone = true, -- baseline the UTC offset and record DST/travel drift (off = manual only)
 })
 ```
 
 Everything is optional. `defaults` seed each new day's header; `daybook.root` is
-where `:DaylogToday` and the reports look (files are always `YYYY-MM-DD.day`). Full
+where `:DaylogToday` and the reports look (files are always `YYYY-MM-DD.day`).
+`auto_timezone` (on by default) records the UTC offset so a clock change while you
+work — DST or travel — never skews a duration; `:help daylog-auto-timezone`. Full
 reference: `:help daylog-config`.
 
 ## Documentation

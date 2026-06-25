@@ -1,6 +1,7 @@
 local config = require("daylog.config")
 local highlight = require("daylog.highlight")
 local refresh_summaries = require("daylog.usecases.refresh_summaries")
+local syntax = require("daylog.syntax")
 local text = require("daylog.text")
 
 local M = {}
@@ -14,6 +15,20 @@ local M = {}
 
 local function warn(message)
   vim.notify(message, vim.log.levels.WARN)
+end
+
+-- Tell the user, on the rare current-time insert that recorded a UTC offset change
+-- (DST/travel via auto_timezone), what was stamped -- so a silently shifted clock
+-- does not go unnoticed. `from` is always a real offset (the in-effect baseline).
+local function notify_offset_change(change)
+  vim.notify(
+    string.format(
+      "daylog: UTC offset %s → %s recorded",
+      syntax.utc_offset_token(change.from),
+      syntax.utc_offset_token(change.to)
+    ),
+    vim.log.levels.INFO
+  )
 end
 
 ---@return string[]
@@ -234,6 +249,10 @@ local function apply_result(result)
 
   if result.startinsert then
     vim.cmd("startinsert!")
+  end
+
+  if result.offset_change then
+    notify_offset_change(result.offset_change)
   end
 
   -- Keep buffer diagnostics current after any edit. This is the single choke

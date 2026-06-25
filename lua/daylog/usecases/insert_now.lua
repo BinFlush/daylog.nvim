@@ -1,11 +1,13 @@
 local support = require("daylog.usecases.support")
+local syntax = require("daylog.syntax")
 
 local M = {}
 
 -- Build the edit script for inserting a fresh timestamped line into the
--- log containing the cursor.
+-- log containing the cursor. `auto_offset` (optional) is the live OS offset; when it
+-- has drifted from the offset in effect (DST/travel), the entry records the new zone.
 
-function M.run(lines, row, time)
+function M.run(lines, row, time, auto_offset)
   local ctx, err = support.get_validated_at_row(lines, row)
   local minutes
 
@@ -19,18 +21,35 @@ function M.run(lines, row, time)
   end
 
   local insert_index = support.get_insert_index(ctx.block, minutes)
+  local state = support.get_insert_state(ctx.block, minutes)
+  local stamp = support.offset_stamp(state.offset, auto_offset)
 
-  return {
-    edits = {
-      {
-        start_index = insert_index,
-        end_index = insert_index,
-        lines = { time .. " " },
+  local result
+  if stamp ~= nil then
+    -- The zone drifted: record it so this entry's interval stays correct. The token
+    -- must trail the activity, which the user has not typed yet, so place it after a
+    -- two-space gutter and land the cursor in the gap (#time + 1) -- typing then yields
+    -- the canonical "HH:MM <text> utc±N". insert_entry_edit also compensates a follower
+    -- that was silently inheriting the old offset.
+    local inserted_line = time .. "  " .. syntax.utc_offset_token(stamp)
+    result =
+      support.insert_entry_edit(ctx.block, minutes, inserted_line, state.tag, state.location, stamp)
+    result.offset_change = { from = state.offset, to = stamp }
+  else
+    result = {
+      edits = {
+        {
+          start_index = insert_index,
+          end_index = insert_index,
+          lines = { time .. " " },
+        },
       },
-    },
-    cursor = { insert_index + 1, #time + 1 },
-    startinsert = true,
-  }
+    }
+  end
+
+  result.cursor = { insert_index + 1, #time + 1 }
+  result.startinsert = true
+  return result
 end
 
 return M

@@ -4,8 +4,17 @@ return function(t)
   local with_mocked_confirm = helpers.with_mocked_confirm
   local with_mocked_time = helpers.with_mocked_time
   local with_temp_home_root = helpers.with_temp_home_root
-  local with_daylog_setup = helpers.with_daylog_setup
   local write_daybook_file = helpers.write_daybook_file
+
+  -- These tests assert freshly-created headers and run on a real machine clock, so
+  -- default auto_timezone off -- otherwise every created header would gain the host's
+  -- live `utc±N` (non-deterministic across machines/CI). The timezone feature has its
+  -- own coverage in tests/auto_timezone.lua. A test can still opt in by passing
+  -- `auto_timezone = true`.
+  local function with_daylog_setup(options, fn)
+    options = vim.tbl_extend("keep", options or {}, { auto_timezone = false })
+    helpers.with_daylog_setup(options, fn)
+  end
 
   helpers.setup_daylog()
 

@@ -28,6 +28,7 @@ return function(t)
       },
       auto_summary = "change",
       active_indicator = true,
+      auto_timezone = true,
     })
 
     config.setup()
@@ -35,6 +36,7 @@ return function(t)
       defaults = {},
       auto_summary = "change",
       active_indicator = true,
+      auto_timezone = true,
     })
   end)
 
@@ -124,6 +126,7 @@ return function(t)
       },
       auto_summary = "change",
       active_indicator = true,
+      auto_timezone = true,
     })
 
     config.setup()
@@ -162,6 +165,26 @@ return function(t)
     local ok, err = pcall(config.setup, { active_indicator = "yes" })
     t.ok(not ok)
     t.ok(tostring(err):match("active_indicator must be a boolean") ~= nil)
+
+    config.setup()
+  end)
+
+  t.test("config setup normalizes and validates auto_timezone", function()
+    -- On by default, and an explicit toggle is preserved.
+    t.eq(config.get().auto_timezone, true)
+
+    config.setup({ auto_timezone = false })
+    t.eq(config.get().auto_timezone, false)
+
+    config.setup({ auto_timezone = true })
+    t.eq(config.get().auto_timezone, true)
+
+    config.setup()
+    t.eq(config.get().auto_timezone, true)
+
+    local ok, err = pcall(config.setup, { auto_timezone = "yes" })
+    t.ok(not ok)
+    t.ok(tostring(err):match("auto_timezone must be a boolean") ~= nil)
 
     config.setup()
   end)

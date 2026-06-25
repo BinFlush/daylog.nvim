@@ -6,6 +6,7 @@ local current = {
   defaults = {},
   auto_summary = "change",
   active_indicator = true,
+  auto_timezone = true,
 }
 
 local AUTO_SUMMARY_MODES = {
@@ -144,6 +145,24 @@ local function normalize_active_indicator(value)
 
   if type(value) ~= "boolean" then
     error("daylog: active_indicator must be a boolean")
+  end
+
+  return value
+end
+
+-- Live timezone tracking: stamp the system UTC offset into a new day's header (an
+-- offset baseline) and append a utc±N token whenever the OS offset drifts -- DST or
+-- travel -- from the offset in effect at a current-time insert, so an interval that
+-- spans the change keeps its true length. On by default; an unset value stays on.
+-- See daylog-auto-timezone; it interacts with defaults.utc (an explicit offset still
+-- wins for the header).
+local function normalize_auto_timezone(value)
+  if value == nil then
+    return true
+  end
+
+  if type(value) ~= "boolean" then
+    error("daylog: auto_timezone must be a boolean")
   end
 
   return value
@@ -378,6 +397,7 @@ local function normalize_config(options)
       defaults = {},
       auto_summary = "change",
       active_indicator = true,
+      auto_timezone = true,
     }
   end
 
@@ -389,6 +409,7 @@ local function normalize_config(options)
     defaults = normalize_defaults(options.defaults),
     auto_summary = normalize_auto_summary(options.auto_summary),
     active_indicator = normalize_active_indicator(options.active_indicator),
+    auto_timezone = normalize_auto_timezone(options.auto_timezone),
   }
 
   local daybook = normalize_daybook(options.daybook)

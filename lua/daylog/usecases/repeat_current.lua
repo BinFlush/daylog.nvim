@@ -9,7 +9,7 @@ local M = {}
 -- cursor may sit on a timestamped entry or on a main summary row; the latter is
 -- mapped back to the source entry it summarizes (see summary_cursor).
 
-function M.run(lines, row, time)
+function M.run(lines, row, time, auto_offset)
   local ctx, err = support.get_validated_at_row(lines, row)
 
   if not ctx then
@@ -55,17 +55,32 @@ function M.run(lines, row, time)
   fields.logged = false
   fields.nudge = nil
 
+  -- A drifted live offset (auto_timezone) overrides the copied source offset, so the
+  -- repeat records the zone the activity is happening in now.
+  local stamp = support.offset_stamp(insertion_state.offset, auto_offset)
+  local ins_offset = current_item.offset
+  if stamp ~= nil then
+    fields.offset = stamp
+    ins_offset = stamp
+  end
+
   local line =
     entry.format(fields, insertion_state.tag, insertion_state.location, insertion_state.offset)
 
-  return support.insert_entry_edit(
+  local result = support.insert_entry_edit(
     ctx.block,
     minutes,
     line,
     current_item.tag,
     current_item.location,
-    current_item.offset
+    ins_offset
   )
+
+  if stamp ~= nil then
+    result.offset_change = { from = insertion_state.offset, to = stamp }
+  end
+
+  return result
 end
 
 return M
