@@ -200,6 +200,25 @@ local function analyze_entry_items(block, diagnostics)
     end
   end
 
+  -- A log is either timezone-naive (no offsets anywhere) or timezone-aware (a baseline
+  -- every entry inherits) -- never a mix. A naive prefix followed by a utc±N token silently
+  -- reinterprets the transition interval (its effective length jumps by the new offset), so
+  -- introducing an offset after offset-free entries is refused until the log is made
+  -- all-or-nothing: a header offset, or none. Offsets are sticky with no clear token, so the
+  -- first non-nil offset after a nil one is the only transition to catch.
+  for i = 2, #entry_items do
+    if entry_items[i].offset ~= nil and entry_items[i - 1].offset == nil then
+      push_diagnostic(diagnostics, {
+        code = syntax.DIAGNOSTIC.MIXED_OFFSET,
+        severity = "error",
+        row = entry_items[i].row or entry_items[i].start_row,
+        message = "a utc offset here follows offset-free entries; put the offset on the log "
+          .. "header (or remove it) so the whole log is timezone-consistent",
+      })
+      break
+    end
+  end
+
   return entry_items, entries
 end
 

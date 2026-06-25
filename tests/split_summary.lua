@@ -186,13 +186,15 @@ return function(t)
   end)
 
   t.test("split apportions real time across an offset change", function()
-    -- stand is 2.5h of real time though its local window is only 30 min (the clock jumps
-    -- to utc-2 at the next entry). An even split gives each part 1:15 of real time, placed
-    -- with no new utc token; stand (2) lands at 10:25, and the next entry is in a new time
-    -- zone (utc-2) so its earlier 09:40 reading is fine -- real time keeps increasing.
+    -- The header pins the start at utc+0, so the first entry is explicitly UTC and the log
+    -- stays timezone-consistent (offset-free entries before a utc token would be refused).
+    -- stand is 2.5h of real time though its local window is only 30 min (the clock jumps to
+    -- utc-2 at the next entry). An even split gives each part 1:15 of real time, placed with
+    -- no new utc token; stand (2) lands at 10:25, and the next entry is in a new time zone
+    -- (utc-2) so its earlier 09:40 reading is fine -- real time keeps increasing.
     local out = run(
       buffer_with_summary({
-        "--- log q=1 d=hm ---",
+        "--- log utc+0 q=1 d=hm ---",
         "09:10 stand",
         "09:40 test utc-2",
       }),
@@ -208,12 +210,13 @@ return function(t)
   end)
 
   t.test("split works when a later entry is written in a new time zone", function()
-    -- A at 10:00 then B at 09:00 utc-2: B is written in a new zone (we moved utc-2), so its
-    -- wall clock reads an hour earlier though real time advanced an hour (UTC 10:00 ->
-    -- 11:00). Splitting A evenly yields two 30-min parts.
+    -- The header pins the start at utc+0 (keeping the log timezone-consistent). A at 10:00
+    -- then B at 09:00 utc-2: B is written in a new zone (we moved utc-2), so its wall clock
+    -- reads an hour earlier though real time advanced an hour (UTC 10:00 -> 11:00). Splitting
+    -- A evenly yields two 30-min parts.
     local out = run(
       buffer_with_summary({
-        "--- log q=1 d=hm ---",
+        "--- log utc+0 q=1 d=hm ---",
         "10:00 A",
         "09:00 B utc-2",
       }),
@@ -229,10 +232,11 @@ return function(t)
   end)
 
   t.test("split refuses when an offset change pushes a cut past the end of the day", function()
-    -- late is 2h of real time starting at 23:00; an even split would place the second part
-    -- at 24:00 on the local clock, with another entry after it -- not a writable time.
+    -- The header pins the start at utc+0 (keeping the log timezone-consistent). late is 2h of
+    -- real time starting at 23:00; an even split would place the second part at 24:00 on the
+    -- local clock, with another entry after it -- not a writable time.
     local lines = buffer_with_summary({
-      "--- log q=1 d=hm ---",
+      "--- log utc+0 q=1 d=hm ---",
       "23:00 late",
       "23:00 done utc-2",
     })

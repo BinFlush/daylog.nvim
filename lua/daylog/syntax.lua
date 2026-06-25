@@ -65,6 +65,7 @@ M.DIAGNOSTIC = {
   INVALID_ENTRY = "invalid_entry",
   UNORDERED_TIMESTAMPS = "unordered_timestamps",
   MIDNIGHT_NOT_FINAL = "midnight_not_final",
+  MIXED_OFFSET = "mixed_offset",
   INVALID_FIRST_HEADER = "invalid_first_header",
   INVALID_LOG_HEADER_OPTION = "invalid_log_header_option",
   INVALID_LOG_HEADER_METADATA = "invalid_log_header_metadata",
@@ -73,7 +74,7 @@ M.DIAGNOSTIC = {
 
 -- Diagnostic categories. Structural diagnostics describe a malformed document
 -- shape (bad first header, bad header options); block diagnostics describe a
--- problem within one log block's entries.
+-- problem within one log block's entries that stops it being acted on or summarized.
 M.DIAGNOSTIC_CATEGORY = {
   STRUCTURAL = "structural",
   BLOCK = "block",
@@ -86,6 +87,7 @@ M.DIAGNOSTIC_CATEGORY_BY_CODE = {
   [M.DIAGNOSTIC.INVALID_ENTRY] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.UNORDERED_TIMESTAMPS] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.MIDNIGHT_NOT_FINAL] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.MIXED_OFFSET] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.INVALID_FIRST_HEADER] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
   [M.DIAGNOSTIC.INVALID_LOG_HEADER_OPTION] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,
   [M.DIAGNOSTIC.INVALID_LOG_HEADER_METADATA] = M.DIAGNOSTIC_CATEGORY.STRUCTURAL,

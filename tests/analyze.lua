@@ -926,6 +926,63 @@ return function(t)
     t.eq(analyze.find_block_diagnostic(analysis, analysis.log_blocks[1]), diagnostic)
   end)
 
+  t.test("analyze refuses a utc offset introduced after offset-free entries", function()
+    local analysis = analyze.analyze(document.parse({
+      "--- log ---",
+      "08:00 a",
+      "09:00 b utc-5",
+      "10:00 c",
+    }))
+
+    local diagnostic = {
+      code = "mixed_offset",
+      category = "block",
+      severity = "error",
+      row = 3,
+      message = "a utc offset here follows offset-free entries; put the offset on the log "
+        .. "header (or remove it) so the whole log is timezone-consistent",
+    }
+
+    -- A block diagnostic, so it refuses commands and stops the summary, like an unordered log.
+    t.eq(analysis.diagnostics, { diagnostic })
+    t.eq(analyze.find_block_diagnostic(analysis, analysis.log_blocks[1]), diagnostic)
+  end)
+
+  t.test("analyze accepts a consistently naive or timezoned log", function()
+    -- Fully naive: no offsets anywhere.
+    t.eq(
+      analyze.analyze(document.parse({
+        "--- log ---",
+        "08:00 a",
+        "09:00 b",
+        "10:00 c",
+      })).diagnostics,
+      {}
+    )
+
+    -- The first entry establishes the offset, so there is no offset-free prefix.
+    t.eq(
+      analyze.analyze(document.parse({
+        "--- log ---",
+        "08:00 a utc-5",
+        "09:00 b",
+        "10:00 c",
+      })).diagnostics,
+      {}
+    )
+
+    -- A header baseline keeps every entry timezone-aware even as the offset changes mid-log.
+    t.eq(
+      analyze.analyze(document.parse({
+        "--- log utc+2 ---",
+        "08:00 a",
+        "09:00 b utc-4",
+        "10:00 c",
+      })).diagnostics,
+      {}
+    )
+  end)
+
   t.test("analyze inherits a header utc offset and switches it on an explicit token", function()
     local analysis = analyze.analyze(document.parse({
       "--- log @office utc+2 ---",

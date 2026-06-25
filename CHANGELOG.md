@@ -34,6 +34,12 @@ happen, but they are called out clearly in this changelog.
   `auto_timezone = false` to record offsets only when you type them. **Behavior change:** new day
   headers now carry a UTC offset by default. See `:help daylog-auto-timezone`.
 
+- **Diagnostic: a log must be all-or-nothing on UTC offsets.** Introducing a `utc±N` token after
+  offset-free entries is now refused (a block diagnostic, like out-of-order timestamps), because it
+  would silently reinterpret the entries before it — the transition interval jumps by the offset.
+  Make the log consistent by putting the offset on the header (or removing it); `utc+0` on the
+  header pins a real-time log to UTC explicitly. A fully naive or fully timezoned log is unaffected.
+
 ### Changed
 
 - **Picker ranking is now standard Mozilla-style frecency.** The worklog ranker that orders a

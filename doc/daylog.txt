@@ -276,6 +276,14 @@ times, the `24:00` end-of-day boundary, past-midnight carryover, and the daybook
 date -- only the computed durations change. A log with no `utc` marker
 anywhere behaves exactly as before.
 
+A log must be all-or-nothing on offsets: either no entry carries one (a naive,
+local-time log) or every entry is offset-aware (a header offset, or the first
+entry's `utc` token, that the rest inherit). Introducing a `utc` token after
+offset-free entries is refused with a diagnostic -- it would silently reinterpret
+the entries before it (the transition interval jumps by the offset). Put the
+offset on the header (or remove it) to make the log consistent. To start a log in
+real time and pin its zone explicitly, give the header `utc+0`.
+
 These `utc±N` tokens are usually written for you: `auto_timezone` (on by default)
 baselines each header and records a drift -- DST or travel -- as you stamp times,
 so you rarely type one by hand. See |daylog-auto-timezone| (and `defaults.utc` in
