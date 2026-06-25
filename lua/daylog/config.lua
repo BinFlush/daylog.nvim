@@ -341,11 +341,9 @@ local function normalize_sources(sources)
 end
 
 -- Cross-source picker behavior (not per-source): how a source's cached items are ranked in
--- the picker. The built-in ranker scores each item by a time-decayed worklog frecency.
+-- the picker. The built-in ranker scores each item by a standard Mozilla-style worklog frecency.
 -- `rank` overrides it wholesale (same signature, fn(items, ctx) -> items); `frecency_days` is
--- the daybook look-back window scanned, `half_life_days` how fast a logged item's weight
--- decays, and `base` how much one log counts versus a minute of tracked time. Defaults are
--- applied at use time (pick.lua).
+-- the daybook look-back window scanned. Defaults are applied at use time (pick.lua).
 local function normalize_picker(picker)
   if picker == nil then
     return nil
@@ -369,20 +367,6 @@ local function normalize_picker(picker)
       error("daylog: picker.frecency_days must be a positive integer")
     end
     result.frecency_days = picker.frecency_days
-  end
-
-  if picker.half_life_days ~= nil then
-    if not positive_integer(picker.half_life_days) then
-      error("daylog: picker.half_life_days must be a positive integer")
-    end
-    result.half_life_days = picker.half_life_days
-  end
-
-  if picker.base ~= nil then
-    if not positive_integer(picker.base) then
-      error("daylog: picker.base must be a positive integer")
-    end
-    result.base = picker.base
   end
 
   return result

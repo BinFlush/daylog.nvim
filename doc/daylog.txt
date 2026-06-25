@@ -963,24 +963,22 @@ any diagnostic hides them so the warnings stand on their own.
 `picker` tunes how a |daylog-sources| source's cached work items are ordered in
 the picker. It is optional. By default the items you actually work on lead:
 daylog scans your recent daylogs (the worklog is the signal; no hidden state is
-kept) and scores each item by a time-decayed "frecency" -- recent, frequent, and
-long-tracked activities rank highest -- then falls back to a source's own order
-(active items first, most recently updated next) for items you have never logged.
+kept) and scores each item by a standard Mozilla-style "frecency" -- recently and
+frequently logged activities rank highest -- then falls back to a source's own
+order (active items first, most recently updated next) for items you have never
+logged.
 
-The score sums, over each logged entry of an item, `base + minutes` (the time
-tracked on it) discounted by `0.5 ^ (age_days / half_life_days)`, so recency, how
-often, and how much time all contribute.
+Each logged entry of an activity is a "visit". The score scales the activity's
+total visit count by the average recency weight of its most recent visits (a
+visit in the last 4 days is worth 100, then 70 / 50 / 30 by 14 / 31 / 90 days, and
+10 beyond), so recency and how often both contribute -- duration is not a factor.
 
 - `frecency_days` -- how many days of daylogs to scan (positive integer, default
   30).
-- `half_life_days` -- how fast a logged item's weight fades (positive integer,
-  default 7: a week-old log counts half as much as a fresh one).
-- `base` -- how much a single log is worth against a minute of tracked time
-  (positive integer, default 30).
 - `rank` -- an optional function `fn(items, ctx) -> items` that replaces the
-  built-in ranker entirely. `ctx` carries `usage` (an activity-text -> `{ freq,
-  time, count, latest }` map from the scan), `key_of(item)` (the text the item
-  would be logged as, for matching against `usage`), `base`, and `now`.
+  built-in ranker entirely. `ctx` carries `usage` (an activity-text -> `{ count,
+  latest, score }` map from the scan), `key_of(item)` (the text the item would be
+  logged as, for matching against `usage`), and `now`.
 
 This applies to every source, so a custom Jira or GitHub source is ranked the
 same way. See docs/integrations.md for the design.

@@ -193,7 +193,8 @@ Picking is offline and instant — it reads a local cache, and only `:DaylogSync
 touches the network. With Telescope you get a fuzzy picker over the cache;
 otherwise `vim.ui.select`, so fzf-lua / snacks / mini.pick work too. Live
 as-you-type search of the whole tracker is opt-in — set `search = true` on the
-source. The picker also leads with the items you've recently logged time against.
+source. The picker also leads with the items you've logged most recently and most
+often (a Mozilla-style frecency over your daylogs).
 
 - **Set up the token:** [docs/azure-devops.md](docs/azure-devops.md) covers creating
   the PAT, where to keep it, and troubleshooting.

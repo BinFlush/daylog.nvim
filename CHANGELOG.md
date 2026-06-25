@@ -20,6 +20,24 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Changed
+
+- **Picker ranking is now standard Mozilla-style frecency.** The worklog ranker that orders a
+  source's cached items (and the `:DaylogInsert!` pool) previously folded each activity's tracked
+  *duration* into a time-decayed score. It now uses the standard Firefox frecency formula: each
+  logged entry is a "visit", and an activity scores its total visit count times the average
+  recency weight (100 / 70 / 50 / 30 / 10 by 4 / 14 / 31 / 90 days) of its most recent visits —
+  recency and frequency only, no duration. The daybook scan window (`picker.frecency_days`) and
+  the wholesale `picker.rank` override are unchanged; a custom `rank` now receives `usage` entries
+  shaped `{ count, latest, score }`.
+
+### Removed
+
+- **`picker.half_life_days` and `picker.base`** — the tuning knobs for the old duration-aware
+  decay have no meaning under Mozilla frecency. They are silently ignored if set (not an error).
+
 ## 0.11.0 - 2026-06-25
 
 ### Added

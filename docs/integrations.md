@@ -117,13 +117,13 @@ container-optional) and the **item shape**, never the query mechanism.
 
 - [x] **Lock the contract** — item shape (`active`, `updated`), fetch conventions, this record.
 - [x] **Core worklog-frecency ranker** — `lua/daylog/sources/rank.lua` (pure) scores the cached
-  set by a **time-decayed frecency** over your recent daylogs: per logged entry, `base + minutes`
-  discounted by `0.5 ^ (age / half_life)`, summed per item — folding recency, frequency, and time
-  tracked into one number (Mozilla-frecency / recsys time-decay). Matched by
-  `sanitize_text(to_entry_text(item))` against the last `frecency_days` of `.day` files (a live
-  daybook scan in `pick.lua` — no hidden state); never-logged items fall back to `active` /
-  `updated`. Config `picker = { rank?, frecency_days?, half_life_days?, base? }`; `rank` overrides
-  wholesale. On by default; source-agnostic.
+  set by a **standard Mozilla-style frecency** over your recent daylogs: each logged entry is a
+  "visit", and an activity scores its total visit count times the average recency weight
+  (100/70/50/30/10 by 4/14/31/90 days) of its most recent (≤10) visits — folding recency and
+  frequency into one number (no duration term). Matched by `sanitize_text(to_entry_text(item))`
+  against the last `frecency_days` of `.day` files (a live daybook scan in `pick.lua` — no hidden
+  state); never-logged items fall back to `active` / `updated`. Config
+  `picker = { rank?, frecency_days? }`; `rank` overrides wholesale. On by default; source-agnostic.
 - [x] **Offline-first** — live `search` is opt-in per source (default off; `search = true` to
   enable); with Telescope you still get a fuzzy picker over the cache when it's off.
 - [x] **ADO scope** — the default fetch and the live search both use `involves me` (assigned

@@ -190,11 +190,16 @@ return function(t)
   end)
 
   t.test("config normalizes and validates picker", function()
-    config.setup({ picker = { frecency_days = 14, half_life_days = 3, base = 10 } })
+    config.setup({ picker = { frecency_days = 14 } })
     local picker = config.get().picker
     t.eq(picker.frecency_days, 14)
-    t.eq(picker.half_life_days, 3)
-    t.eq(picker.base, 10)
+
+    -- The retired duration-frecency knobs are no longer normalized -- silently ignored, not
+    -- carried onto the config.
+    config.setup({ picker = { half_life_days = 3, base = 10 } })
+    picker = config.get().picker
+    t.eq(picker.half_life_days, nil)
+    t.eq(picker.base, nil)
 
     local function bad(p, pattern)
       local ok, err = pcall(config.setup, { picker = p })
@@ -205,8 +210,6 @@ return function(t)
     bad("x", "setup picker must be a table")
     bad({ rank = 1 }, "picker%.rank must be a function")
     bad({ frecency_days = 0 }, "frecency_days must be a positive integer")
-    bad({ half_life_days = -1 }, "half_life_days must be a positive integer")
-    bad({ base = 1.5 }, "base must be a positive integer")
 
     config.setup()
   end)

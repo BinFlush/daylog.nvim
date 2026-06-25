@@ -9,48 +9,89 @@ return function(t)
     return out
   end
 
-  -- A date of 0 is one half-life (7 days) before `now`, so its weight is exactly 0.5.
-  local NOW = 7 * 86400
+  local DAY = 86400
+  -- Well past the last recency bucket (90 days) so a visit can be placed in any bucket.
+  local NOW = 100 * DAY
 
-  t.test("build_usage decays frequency and duration by recency", function()
+  t.test("build_usage scores by Mozilla frecency: visit count x recency weight", function()
     local usage = rank.build_usage({
-      { date = NOW, lines = { "--- log ---", "08:00 review", "08:30 done" } }, -- w=1, 30 min
-      { date = 0, lines = { "--- log ---", "08:00 review", "09:30 done" } }, -- w=0.5, 90 min
-    }, NOW, 7)
+      { date = NOW, lines = { "--- log ---", "08:00 review", "08:30 done" } }, -- age 0 -> 100
+      { date = NOW - 3 * DAY, lines = { "--- log ---", "08:00 review", "09:30 done" } }, -- age 3 -> 100
+    }, NOW)
 
-    -- freq = 1 + 0.5 ; time = 1*30 + 0.5*90
-    t.eq(usage["review"].freq, 1.5)
-    t.eq(usage["review"].time, 75)
+    -- "review" visited twice, both in the first (<=4 days) bucket: count 2, sampled 2,
+    -- points 200 -> ceil(2 * 200 / 2) = 200.
     t.eq(usage["review"].count, 2)
     t.eq(usage["review"].latest, NOW)
+    t.eq(usage["review"].score, 200)
   end)
 
-  t.test("build_usage measures duration in effective UTC across an offset change", function()
+  t.test("build_usage weights a more recent visit above an older one", function()
     local usage = rank.build_usage({
-      { date = 0, lines = { "--- log ---", "08:00 review utc+2", "10:00 done utc+0" } },
-    }, 0, 7)
+      { date = NOW - 2 * DAY, lines = { "--- log ---", "08:00 fresh", "08:30 done" } }, -- age 2 -> 100
+      { date = NOW - 20 * DAY, lines = { "--- log ---", "08:00 stale", "08:30 done" } }, -- age 20 -> 50
+    }, NOW)
 
-    -- (10:00 - utc0) - (08:00 - utc+2) = 600 - 360 = 240 effective minutes, not the raw 120.
-    t.eq(usage["review"].time, 240)
+    t.eq(usage["fresh"].score, 100)
+    t.eq(usage["stale"].score, 50)
   end)
 
-  t.test("build_usage counts the in-progress last entry but gives it no time", function()
-    local usage = rank.build_usage({
-      { date = 0, lines = { "--- log ---", "08:00 review" } },
-    }, 0, 7)
+  t.test("build_usage scales the score by how often an activity is logged", function()
+    local days = {}
+    for i = 1, 3 do
+      days[i] = { date = NOW - i * DAY, lines = { "--- log ---", "08:00 standup", "08:15 done" } }
+    end
+    local usage = rank.build_usage(days, NOW)
 
-    t.eq(usage["review"].freq, 1)
-    t.eq(usage["review"].time, 0)
+    -- 3 visits, all in the first bucket (ages 1/2/3 -> 100): ceil(3 * 300 / 3) = 300.
+    t.eq(usage["standup"].count, 3)
+    t.eq(usage["standup"].score, 300)
+  end)
+
+  t.test("build_usage ignores duration -- only recency and count matter", function()
+    local usage = rank.build_usage({
+      { date = NOW, lines = { "--- log ---", "08:00 short", "08:05 long", "12:00 done" } },
+    }, NOW)
+
+    -- "short" tracks 5 minutes and "long" 235, but each is one visit today -> equal scores,
+    -- and the usage map no longer carries a duration field at all.
+    t.eq(usage["short"].score, usage["long"].score)
+    t.eq(usage["short"].time, nil)
+  end)
+
+  t.test("build_usage samples only the most recent visits but scales by the full count", function()
+    local days = {}
+    for i = 1, 10 do
+      days[i] = { date = NOW, lines = { "--- log ---", "08:00 daily", "08:15 done" } } -- age 0 -> 100
+    end
+    for i = 1, 5 do
+      days[10 + i] =
+        { date = NOW - 200 * DAY, lines = { "--- log ---", "08:00 daily", "08:15 done" } } -- age 200 -> 10
+    end
+    local usage = rank.build_usage(days, NOW)
+
+    -- 15 visits; only the 10 most recent (weight 100) are sampled, so the 5 stale ones drop out
+    -- of the average yet still scale the count: ceil(15 * (10 * 100) / 10) = 1500.
+    t.eq(usage["daily"].count, 15)
+    t.eq(usage["daily"].score, 1500)
+  end)
+
+  t.test("build_usage counts the in-progress last entry as a visit", function()
+    local usage = rank.build_usage({
+      { date = NOW, lines = { "--- log ---", "08:00 review" } },
+    }, NOW)
+
     t.eq(usage["review"].count, 1)
+    t.eq(usage["review"].score, 100)
   end)
 
   t.test("build_usage keys on the activity text with trailing metadata peeled", function()
     local usage = rank.build_usage({
       {
-        date = 0,
+        date = NOW,
         lines = { "--- log #ProjectX ---", "08:00 review #ProjectX @office", "09:00 done" },
       },
-    }, 0, 7)
+    }, NOW)
 
     t.ok(usage["review"] ~= nil)
     t.eq(usage["review #ProjectX @office"], nil)
@@ -58,41 +99,24 @@ return function(t)
 
   t.test("build_usage on a prose-only or empty day yields nothing", function()
     local usage = rank.build_usage({
-      { date = 1, lines = { "Holiday -- no work" } },
-      { date = 2, lines = {} },
-    }, 2, 7)
+      { date = NOW, lines = { "Holiday -- no work" } },
+      { date = NOW, lines = {} },
+    }, NOW)
 
     t.eq(next(usage), nil)
   end)
 
-  t.test("order leads with the higher worklog score (time outweighs a bare count)", function()
+  t.test("order leads with the higher frecency score", function()
     local items = { { id = "a", title = "A" }, { id = "b", title = "B" } }
 
     local out = rank.order(items, {
-      usage = { A = { freq = 1, time = 10 }, B = { freq = 1, time = 200 } },
+      usage = { A = { score = 40 }, B = { score = 230 } },
       key_of = function(item)
         return item.title
       end,
-      base = 30,
     })
 
-    -- A = 30*1 + 10 = 40 ; B = 30*1 + 200 = 230.
     t.eq(ids(out), { "b", "a" })
-  end)
-
-  t.test("order rewards frequency through base", function()
-    local items = { { id = "rare", title = "Rare" }, { id = "often", title = "Often" } }
-
-    local out = rank.order(items, {
-      usage = { Rare = { freq = 1, time = 0 }, Often = { freq = 5, time = 0 } },
-      key_of = function(item)
-        return item.title
-      end,
-      base = 30,
-    })
-
-    -- Rare = 30 ; Often = 150.
-    t.eq(ids(out), { "often", "rare" })
   end)
 
   t.test("order puts a logged item above an unlogged but active/recent one", function()
@@ -102,11 +126,10 @@ return function(t)
     }
 
     local out = rank.order(items, {
-      usage = { X = { freq = 1, time = 5 } },
+      usage = { X = { score = 35 } },
       key_of = function(item)
         return item.title
       end,
-      base = 30,
     })
 
     -- logged = 35 > fresh = 0, despite fresh being active and newer.
@@ -125,7 +148,6 @@ return function(t)
       key_of = function()
         return nil
       end,
-      base = 30,
     })
 
     t.eq(ids(out), { "open_new", "open_old", "done" })
@@ -139,7 +161,6 @@ return function(t)
       key_of = function()
         return nil
       end,
-      base = 30,
     })
 
     t.eq(ids(out), { "x", "y", "z" })
@@ -162,11 +183,11 @@ return function(t)
       },
     }
     local usage = {
-      ["1 One"] = { freq = 5, time = 100 }, -- also a tracker item -> folds into the item row
-      ["standup"] = { freq = 2, time = 30 }, -- a logged activity with no matching item
+      ["1 One"] = { score = 250 }, -- also a tracker item -> folds into the item row
+      ["standup"] = { score = 90 }, -- a logged activity with no matching item
     }
 
-    local rows = rank.build_insert_pool(sources, { usage = usage, base = 30 })
+    local rows = rank.build_insert_pool(sources, { usage = usage })
 
     -- One (item, 250) > standup (activity, 90) > Two (item, 0); "1 One" appears once.
     t.eq(#rows, 3)
@@ -193,7 +214,7 @@ return function(t)
       }
     end
 
-    local rows = rank.build_insert_pool({ src("A"), src("B") }, { usage = {}, base = 30 })
+    local rows = rank.build_insert_pool({ src("A"), src("B") }, { usage = {} })
 
     t.eq(#rows, 1)
     t.eq(rows[1].source, "A")
@@ -215,9 +236,8 @@ return function(t)
         end,
       },
     }
-    -- "a" scores 0 (freq/time 0), same as the never-logged item -> the item leads.
-    local rows =
-      rank.build_insert_pool(sources, { usage = { a = { freq = 0, time = 0 } }, base = 30 })
+    -- "a" scores 0, same as the never-logged item -> the item leads.
+    local rows = rank.build_insert_pool(sources, { usage = { a = { score = 0 } } })
 
     t.eq(#rows, 2)
     t.eq(rows[1].kind, "item")

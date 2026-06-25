@@ -5,13 +5,13 @@ local M = {}
 
 -- Worklog-frecency ranking of source items (PURE).
 --
--- Reorders a source's cached items so the ones you actually work on lead, by a time-decayed
--- "frecency" score over your recent daylogs: each logged event contributes a base amount plus
--- the time tracked on it, discounted by how long ago it was. That single sum folds recency
--- (the decay), frequency (the number of events) and duration (the minutes) together. The signal
--- is your daybook (no hidden state) keyed on the entry text, so one ranker serves every source.
--- The daybook scan that feeds build_usage is the only impure part and lives in the picker shell
--- (pick.lua); everything here is pure over plain tables.
+-- Reorders a source's cached items so the ones you actually work on lead, by a standard
+-- Mozilla-style "frecency" over your recent daylogs. Each logged entry of an activity is a
+-- "visit"; an activity scores its total visit count times the average recency weight of its
+-- most recent visits, so recent *and* frequent activities rank highest (duration is not a
+-- factor). The signal is your daybook (no hidden state) keyed on the entry text, so one ranker
+-- serves every source. The daybook scan that feeds build_usage is the only impure part and
+-- lives in the picker shell (pick.lua); everything here is pure over plain tables.
 
 -- Open before unknown before done, so a normalized `active` flag breaks ties sensibly without
 -- forcing every source to set it.
@@ -24,47 +24,69 @@ local function active_rank(active)
   return 1
 end
 
--- The worklog relevance score: decayed frequency weighted against decayed duration. Positive
--- for anything you have logged (each event contributes at least `base * w`), 0 otherwise.
-local function score_for(used, base)
-  return used and (base * used.freq + used.time) or 0
+-- How many of the most recent visits to sample, and the recency buckets that weight them --
+-- the Firefox frecency defaults: a visit in the last 4 days is worth 100, then 70 / 50 / 30 by
+-- 14 / 31 / 90 days, and 10 beyond that.
+local SAMPLE_SIZE = 10
+
+local function recency_weight(age_days)
+  if age_days <= 4 then
+    return 100
+  elseif age_days <= 14 then
+    return 70
+  elseif age_days <= 31 then
+    return 50
+  elseif age_days <= 90 then
+    return 30
+  end
+  return 10
 end
 
--- Effective-UTC gap between two entries: subtract each entry's offset so an interval that spans
--- a timezone/DST move measures its true length; with no offsets it is just b.minutes - a.minutes.
--- (The same formula summary.build_intervals uses for durations.)
-local function interval_minutes(a, b)
-  return (b.minutes - (b.offset or 0)) - (a.minutes - (a.offset or 0))
+-- Standard Mozilla frecency for a list of visit timestamps: sample the most recent SAMPLE_SIZE,
+-- weight each by its recency bucket, and scale the average by the full visit count. (Firefox's
+-- per-visit-type bonus collapses to 1 here -- every logged entry is the same kind of visit.)
+-- Returns a non-negative integer; 0 for no visits. Sorts `dates` in place (caller owns it).
+local function frecency(dates, now)
+  local count = #dates
+  if count == 0 then
+    return 0
+  end
+  table.sort(dates, function(a, b)
+    return a > b
+  end)
+  local sampled = math.min(SAMPLE_SIZE, count)
+  local points = 0
+  for i = 1, sampled do
+    points = points + recency_weight((now - dates[i]) / 86400)
+  end
+  return math.ceil(count * points / sampled)
 end
 
--- Build a usage map from recent daylogs for the time-decayed frecency score. `day_line_lists`
--- is { { date = <timestamp>, lines = <string[]> }, ... }. Each logged entry contributes to its
--- activity, weighted by recency `w = 0.5 ^ (age_days / half_life_days)`: `freq` accumulates `w`
--- (a decayed event count) and `time` accumulates `w * minutes` (its tracked duration -- the gap
--- to the next entry). `count` and `latest` are carried for reference and a custom picker.rank.
--- Pure: `now` and `half_life_days` are passed in.
-function M.build_usage(day_line_lists, now, half_life_days)
-  local usage = {}
+-- The worklog relevance score: the frecency precomputed in build_usage, or 0 for a never-logged
+-- item.
+local function score_for(used)
+  return used and used.score or 0
+end
+
+-- Build a usage map from recent daylogs for the Mozilla frecency score. `day_line_lists` is
+-- { { date = <timestamp>, lines = <string[]> }, ... }. Every logged entry is a "visit" keyed on
+-- its activity text (its `#tag`/`@location`/`!L` metadata peeled, matching how it is reported).
+-- Each map value carries the visit `count`, the `latest` visit timestamp, and the computed
+-- `score`; `count` and `latest` are kept for reference and a custom picker.rank. Pure: `now` is
+-- passed in.
+function M.build_usage(day_line_lists, now)
+  local visits = {}
   for _, day in ipairs(day_line_lists) do
-    local w = 0.5 ^ ((now - day.date) / 86400 / half_life_days)
     local analysis = analyze.analyze(document.parse(day.lines))
     for _, block in ipairs(analysis.log_blocks) do
-      local entries = block.entries
-      for i, entry in ipairs(entries) do
+      for _, entry in ipairs(block.entries) do
         local text = entry.text
         if text and text ~= "" then
-          -- The last entry of a block has no successor -> 0 minutes (in progress); it still
-          -- counts toward freq, so the item you just started ranks by recency.
-          local nxt = entries[i + 1]
-          local minutes = nxt and math.max(0, interval_minutes(entry, nxt)) or 0
-
-          local seen = usage[text]
+          local seen = visits[text]
           if not seen then
-            usage[text] = { freq = w, time = w * minutes, count = 1, latest = day.date }
+            visits[text] = { dates = { day.date }, latest = day.date }
           else
-            seen.freq = seen.freq + w
-            seen.time = seen.time + w * minutes
-            seen.count = seen.count + 1
+            seen.dates[#seen.dates + 1] = day.date
             if day.date > seen.latest then
               seen.latest = day.date
             end
@@ -73,22 +95,26 @@ function M.build_usage(day_line_lists, now, half_life_days)
       end
     end
   end
+
+  local usage = {}
+  for text, seen in pairs(visits) do
+    usage[text] = {
+      count = #seen.dates,
+      latest = seen.latest,
+      score = frecency(seen.dates, now),
+    }
+  end
   return usage
 end
 
--- Order items by relevance (descending). The worklog score is `base * freq + time` -- the
--- decayed frequency weighted against the decayed duration -- so it is positive for anything you
--- have logged and 0 otherwise. ctx = { usage, key_of, base }; `key_of(item)` returns the entry
--- text the item would be logged as, matching build_usage's keys. Never-logged items (and exact
--- ties) fall back to the normalized `active` flag, then the tracker `updated` timestamp, then
--- the original index (stable -- items that tie on everything keep their input order).
+-- Order items by relevance (descending) on the precomputed worklog frecency -- positive for
+-- anything you have logged, 0 otherwise. ctx = { usage, key_of }; `key_of(item)` returns the
+-- entry text the item would be logged as, matching build_usage's keys. Never-logged items (and
+-- exact ties) fall back to the normalized `active` flag, then the tracker `updated` timestamp,
+-- then the original index (stable -- items that tie on everything keep their input order).
 function M.order(items, ctx)
   local usage = ctx.usage or {}
   local key_of = ctx.key_of
-  local base = ctx.base
-  if base == nil then
-    base = 30
-  end
 
   local decorated = {}
   for index, item in ipairs(items) do
@@ -96,12 +122,12 @@ function M.order(items, ctx)
     decorated[index] = {
       item = item,
       index = index,
-      score = score_for(used, base),
+      score = score_for(used),
     }
   end
 
   table.sort(decorated, function(a, b)
-    -- worklog relevance: decayed frequency + duration
+    -- worklog frecency
     if a.score ~= b.score then
       return a.score > b.score
     end
@@ -139,19 +165,15 @@ end
 -- leftover recent activities (the worklog texts that are not a source item). PURE.
 --
 -- `sources` is a list of { name, items, key_of, display_for, text_of } (each fn(item)->string);
--- `ctx = { usage, base }`. Each item becomes a row keyed on its entry text; a usage key that no
--- item claims becomes an `activity` row -- so an activity that matches a tracker item appears
--- once (as the item). Every row carries `.text` -- what gets inserted/renamed-to when chosen (an
--- item's entry text, an activity's logged text). Rows sort by the worklog score (desc), then
+-- `ctx = { usage }`. Each item becomes a row keyed on its entry text; a usage key that no item
+-- claims becomes an `activity` row -- so an activity that matches a tracker item appears once
+-- (as the item). Every row carries `.text` -- what gets inserted/renamed-to when chosen (an
+-- item's entry text, an activity's logged text). Rows sort by the worklog frecency (desc), then
 -- item-before-activity, then their build order (stable). Returns rows:
 --   { kind = "item", source = name, item, key, display, text, score }
 --   { kind = "activity", key, display, text, score }
 function M.build_insert_pool(sources, ctx)
   local usage = ctx.usage or {}
-  local base = ctx.base
-  if base == nil then
-    base = 30
-  end
 
   local rows = {}
   local seen = {}
@@ -168,7 +190,7 @@ function M.build_insert_pool(sources, ctx)
           key = key,
           display = source.display_for(item),
           text = source.text_of(item),
-          score = score_for(usage[key], base),
+          score = score_for(usage[key]),
           order = #rows + 1,
         }
       end
@@ -182,7 +204,7 @@ function M.build_insert_pool(sources, ctx)
         text = key,
         key = key,
         display = key,
-        score = score_for(used, base),
+        score = score_for(used),
         order = #rows + 1,
       }
     end

@@ -30,13 +30,11 @@ local function source_opt(name, key)
 end
 
 local DEFAULT_FRECENCY_DAYS = 30
-local DEFAULT_HALF_LIFE_DAYS = 7
-local DEFAULT_BASE = 30
 
--- Scan the last `days` daylogs for what you have logged time against (buffer-aware, so
--- today's unsaved entries count too) and build the time-decayed worklog-usage map the ranker
--- keys on. Empty when no daybook is configured.
-local function worklog_usage(days, half_life)
+-- Scan the last `days` daylogs for what you have logged (buffer-aware, so today's unsaved
+-- entries count too) and build the worklog-usage map the frecency ranker keys on. Empty when no
+-- daybook is configured.
+local function worklog_usage(days)
   local settings = daybook_io.expanded_daybook_settings()
   if not settings then
     return {}
@@ -49,7 +47,7 @@ local function worklog_usage(days, half_life)
       lists[#lists + 1] = { date = date, lines = lines }
     end
   end
-  return rank.build_usage(lists, os.time(), half_life)
+  return rank.build_usage(lists, os.time())
 end
 
 -- Reorder a source's items so the ones you have recently logged lead -- the built-in
@@ -63,14 +61,10 @@ local function ranked(source, items)
   local picker = config.get().picker or {}
   local order = picker.rank or rank.order
   return order(items, {
-    usage = worklog_usage(
-      picker.frecency_days or DEFAULT_FRECENCY_DAYS,
-      picker.half_life_days or DEFAULT_HALF_LIFE_DAYS
-    ),
+    usage = worklog_usage(picker.frecency_days or DEFAULT_FRECENCY_DAYS),
     key_of = function(item)
       return entry.sanitize_text(source.to_entry_text(item))
     end,
-    base = picker.base or DEFAULT_BASE,
     now = os.time(),
   })
 end
@@ -203,15 +197,12 @@ function M.choose(rows, opts)
 end
 
 -- Build the unified pool from already-read source caches plus the recent worklog activities, rank
--- it (the same time-decayed frecency), and open the picker over it. `specs` = { { name, source,
+-- it (the same worklog frecency), and open the picker over it. `specs` = { { name, source,
 -- items }, ... }. Every row carries the text it would be logged as (an item's to_entry_text, an
 -- activity's text), so on_choose receives that directly. `opts` is passed through to M.choose.
 function M.unified(specs, opts)
   local picker = config.get().picker or {}
-  local usage = worklog_usage(
-    picker.frecency_days or DEFAULT_FRECENCY_DAYS,
-    picker.half_life_days or DEFAULT_HALF_LIFE_DAYS
-  )
+  local usage = worklog_usage(picker.frecency_days or DEFAULT_FRECENCY_DAYS)
 
   local sources = {}
   for _, spec in ipairs(specs) do
@@ -228,8 +219,7 @@ function M.unified(specs, opts)
     }
   end
 
-  local rows =
-    rank.build_insert_pool(sources, { usage = usage, base = picker.base or DEFAULT_BASE })
+  local rows = rank.build_insert_pool(sources, { usage = usage })
   M.choose(rows, opts)
 end
 
