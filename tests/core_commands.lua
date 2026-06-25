@@ -559,6 +559,71 @@ return function(t)
     t.eq(t.get_lines()[3], "09:00 alpha")
   end)
 
+  t.test("DaylogMap over a line range maps every entry in the selection", function()
+    t.reset({
+      "--- log q=1 d=hm ---",
+      "09:00 alpha",
+      "09:30 beta",
+      "10:00 gamma",
+      "10:30 done",
+    })
+    vim.cmd("DaylogRefresh")
+
+    -- :N,M is what a visual selection sends; map all the entries in those lines at once.
+    vim.cmd("2,4DaylogMap WORK-1")
+
+    t.eq(t.get_lines()[2], "09:00 alpha => WORK-1")
+    t.eq(t.get_lines()[3], "09:30 beta => WORK-1")
+    t.eq(t.get_lines()[4], "10:00 gamma => WORK-1")
+    t.eq(t.get_lines()[5], "10:30 done")
+
+    local folded = false
+    for _, line in ipairs(t.get_lines()) do
+      if line == "1:30 (+0m) WORK-1" then
+        folded = true
+      end
+    end
+    t.ok(folded, "the three entries fold under the one alias")
+  end)
+
+  t.test("DaylogMap! over a line range clears every mapping in the selection", function()
+    t.reset({
+      "--- log q=1 d=hm ---",
+      "09:00 alpha => WORK-1",
+      "09:30 beta => WORK-1",
+      "10:00 done",
+    })
+    vim.cmd("DaylogRefresh")
+
+    vim.cmd("2,3DaylogMap!")
+
+    t.eq(t.get_lines()[2], "09:00 alpha")
+    t.eq(t.get_lines()[3], "09:30 beta")
+  end)
+
+  t.test("DaylogMap over a range refuses when the selection includes a logged entry", function()
+    t.reset({
+      "--- log q=1 d=hm ---",
+      "09:00 alpha",
+      "09:30 deploy !L30",
+      "10:00 done",
+    })
+    vim.cmd("DaylogRefresh")
+
+    with_captured_notify(function(messages)
+      vim.cmd("2,3DaylogMap BUG-1")
+      local refused = false
+      for _, message in ipairs(messages) do
+        if message.message:find("logged", 1, true) then
+          refused = true
+        end
+      end
+      t.ok(refused, "warns that a logged entry is in the selection")
+    end)
+
+    t.eq(t.get_lines()[2], "09:00 alpha") -- nothing mapped
+  end)
+
   t.test("balance follows a reordered summary row with the cursor", function()
     t.reset({
       "--- log q=60 d=hm ---",

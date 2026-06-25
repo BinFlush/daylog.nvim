@@ -70,6 +70,16 @@ return function(t)
     return apply(lines, result)
   end
 
+  -- Map over the [needle1, needle2] line range -- what a visual selection sends.
+  local function run_range(lines, needle1, needle2, alias)
+    local result, err =
+      map_summary.run_range(lines, row_of(lines, needle1), row_of(lines, needle2), alias)
+    if not result then
+      return nil, err
+    end
+    return apply(lines, result)
+  end
+
   t.test("maps a single entry, regrouping just it", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
@@ -214,5 +224,85 @@ return function(t)
     t.ok(has(out, "08:00 sync => SYNC-1 #teamA"), "the teamA entries are mapped")
     t.ok(has(out, "09:00 sync => SYNC-1"), "the inheriting teamA entry is mapped")
     t.ok(has(out, "10:00 sync #teamB"), "the differently-tagged closing entry is untouched")
+  end)
+
+  t.test("maps every entry in a visual range, folding them under one alias", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 fix login",
+      "09:30 chase timeout",
+      "10:00 write tests",
+      "10:30 done",
+    })
+
+    -- Three working entries with different descriptions, mapped in one selection.
+    local out = run_range(lines, "09:00 fix login", "10:00 write tests", "TICKET-1")
+
+    t.ok(has(out, "09:00 fix login => TICKET-1"), "first entry mapped")
+    t.ok(has(out, "09:30 chase timeout => TICKET-1"), "second entry mapped")
+    t.ok(has(out, "10:00 write tests => TICKET-1"), "third entry mapped")
+    t.ok(has(out, "1:30 (+0m) TICKET-1"), "all three fold into one alias row")
+    t.ok(has(out, "10:30 done"), "the closing entry below the range is untouched")
+  end)
+
+  t.test("clears every mapping in a visual range", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 fix login => BUG-1",
+      "09:30 chase timeout => BUG-1",
+      "10:00 done",
+    })
+
+    local out = run_range(lines, "09:00 fix login", "09:30 chase timeout", "")
+
+    t.ok(has(out, "09:00 fix login"), "first alias cleared")
+    t.ok(has(out, "09:30 chase timeout"), "second alias cleared")
+    t.ok(not has(out, "09:00 fix login => BUG-1"), "no alias token remains")
+  end)
+
+  t.test("refuses the whole range when any selected entry is logged", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 fix login",
+      "09:30 deploy !L30",
+      "10:00 done",
+    })
+
+    local _, err = run_range(lines, "09:00 fix login", "09:30 deploy", "BUG-1")
+
+    t.eq(err, map_summary.REFUSE_LOGGED)
+  end)
+
+  t.test("ignores non-entry lines in a range, mapping only the entries", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 alpha",
+      "09:30 beta",
+      "10:00 gamma",
+      "10:30 done",
+    })
+
+    -- From the header line down through gamma: the header is ignored, the three working
+    -- entries map, and the closing "done" below the range is left alone.
+    local out = run_range(lines, "--- log q=1", "10:00 gamma", "WORK-1")
+
+    t.ok(has(out, "09:00 alpha => WORK-1"), "alpha mapped")
+    t.ok(has(out, "09:30 beta => WORK-1"), "beta mapped")
+    t.ok(has(out, "10:00 gamma => WORK-1"), "gamma mapped")
+    t.ok(has(out, "10:30 done"), "the closing entry below the range is untouched")
+    t.ok(has(out, "1:30 (+0m) WORK-1"), "the three fold under the alias")
+  end)
+
+  t.test("refuses a range that covers no entries", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 alpha",
+      "09:30 done",
+    })
+
+    -- A range over only the generated summary row touches no entries.
+    local _, err = run_range(lines, "(+0m) alpha", "(+0m) alpha", "X")
+
+    t.eq(err, map_summary.NO_RANGE_ENTRIES)
   end)
 end

@@ -9,9 +9,9 @@ local M = {}
 -- Map operation (shell).
 --
 -- Sets or clears an entry's mapping alias -- the label it resolves to in the summary --
--- with the cursor on a main summary row (every contributing entry) or on a single entry.
--- The pure math is in usecases/map_summary; this is the prompt / source-picker / apply
--- shell around it, mirroring the rename shell.
+-- with the cursor on a main summary row (every contributing entry), on a single entry, or
+-- over a visual range (every selected entry line). The pure math is in usecases/map_summary;
+-- this is the prompt / source-picker / apply shell around it, mirroring the rename shell.
 
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
@@ -24,12 +24,34 @@ local function in_report()
   return ok and type(spec) == "table"
 end
 
-local function apply(row, target_buf, label)
+-- A usecase call bound to the cursor entry/row, or to a `{ r1, r2 }` line range -- the
+-- difference between a plain :DaylogMap and a ranged (visual) one. do_run(lines, label)
+-- returns the usecase result.
+local function runner(range, row)
+  if range then
+    return function(lines, label)
+      return map_summary.run_range(lines, range[1], range[2], label)
+    end
+  end
+  return function(lines, label)
+    return map_summary.run(lines, row, label)
+  end
+end
+
+-- Peek the current alias for a prompt default, cursor or range alike.
+local function peek(range, row)
+  if range then
+    return map_summary.peek_range(buffer_lines(), range[1], range[2])
+  end
+  return map_summary.peek(buffer_lines(), row)
+end
+
+local function apply(target_buf, label, do_run)
   if buffer_changed(target_buf, "map") then
     return
   end
 
-  local result, err = map_summary.run(buffer_lines(), row, label)
+  local result, err = do_run(buffer_lines(), label)
   if not result then
     warn(err)
     return
@@ -38,39 +60,40 @@ local function apply(row, target_buf, label)
   apply_result(result)
 end
 
--- Clear the alias on the cursor's target (`:DaylogMap!`).
-function M.clear()
+-- Clear the alias on the cursor's target, or every entry in a visual range (`:DaylogMap!`).
+function M.clear(range)
   if in_report() then
     warn("daylog: :DaylogMap is not available in a report; map in the day file")
     return
   end
 
-  apply(cursor_row(), vim.api.nvim_get_current_buf(), "")
+  apply(vim.api.nvim_get_current_buf(), "", runner(range, cursor_row()))
 end
 
 -- Set the alias: a direct `value`, a named source's scoped picker (live-searchable, mapping onto
 -- a work item -- like :DaylogInsert <source>), or the unified pool (recent activities + every
 -- source's items) with no argument; a plain prompt when there is nothing to pick. An
 -- empty/cancelled prompt is a no-op -- clearing is the explicit `:DaylogMap!`.
-function M.summary(value, source_name)
+function M.summary(value, source_name, range)
   if in_report() then
     warn("daylog: :DaylogMap is not available in a report; map in the day file")
     return
   end
 
   local row = cursor_row()
-  local current, err = map_summary.peek(buffer_lines(), row)
+  local current, err = peek(range, row)
   if not current then
     warn(err)
     return
   end
 
   local target_buf = vim.api.nvim_get_current_buf()
+  local do_run = runner(range, row)
   local function apply_map(label)
     if label == nil or label == "" or label == current.alias then
       return
     end
-    apply(row, target_buf, label)
+    apply(target_buf, label, do_run)
   end
 
   if value ~= nil then

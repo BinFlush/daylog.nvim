@@ -24,6 +24,14 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **`:DaylogMap` accepts a range — map a whole selection at once.** Visually select a block of
+  entries (then `:`, which fills in the range) or give an explicit `:N,MDaylogMap` to set or clear
+  the `=> alias` on every entry in the selection in one step — handy now that mapping is the way to
+  relabel for the report. Non-entry lines (header, blanks, the summary) are ignored and it is scoped
+  to the active log; a logged (`!L`) entry in the selection refuses the whole map (exclude or unlog
+  it). A bare `:DaylogMap` on the cursor entry/row is unchanged. Bind a visual-mode keymap with the
+  `:` form (`vim.keymap.set("x", "<leader>dm", ":DaylogMap<cr>")`), not `<cmd>`.
+
 - **`auto_timezone` (default on): automatic UTC-offset tracking.** A new day's header now carries
   the system UTC offset as a baseline (e.g. `--- log utc+2 ---`), and every current-time insert
   (`:DaylogInsert`, `:DaylogRepeat`, and the past-midnight / cross-day variants) records a `utc±N`

@@ -183,22 +183,27 @@ function M.register(api)
   -- other argument is the label to map to directly; no argument opens the picker/prompt.
   -- The bang (`:DaylogMap!`) clears the mapping instead.
   ensure_user_command("DaylogMap", function(args)
+    -- A visual selection (or :N,M) supplies a line range; a bare :DaylogMap has range == 0
+    -- and maps the cursor entry / summary row as before.
+    local range = args.range > 0 and { args.line1, args.line2 } or nil
+
     if args.bang then
-      api.map_clear()
+      api.map_clear(range)
       return
     end
 
     local arg = args.args
     if arg ~= "" and sources_registry.get(arg) then
-      api.map_summary(nil, arg)
+      api.map_summary(nil, arg, range)
     elseif arg ~= "" then
-      api.map_summary(arg)
+      api.map_summary(arg, nil, range)
     else
-      api.map_summary()
+      api.map_summary(nil, nil, range)
     end
   end, {
     nargs = "*",
     bang = true,
+    range = true,
     complete = source_complete,
   })
 
