@@ -228,42 +228,26 @@ return function(t)
     error("review summary row not found")
   end
 
-  t.test("DaylogRename replaces an activity with a source item (unified pool)", function()
-    registry.clear()
-    register_fake()
-    on_review_summary_row()
-
-    -- The activity renames into the unified pool; the stub picks the first pool row (the
-    -- frecency-tie keeps the source item's input order, so it is the FAKE work item).
-    with_stubbed_unified(true, function()
-      vim.cmd("DaylogRename")
-    end)
-
-    t.eq(t.get_lines()[2], "08:00 1 Item one")
-    local renamed = false
-    for _, line in ipairs(t.get_lines()) do
-      if line:find("%) 1 Item one$") then
-        renamed = true
-      end
-    end
-    t.ok(renamed, "the summary row should be rebuilt to the work item")
-  end)
-
-  t.test("DaylogRename arg names a source, otherwise renames directly", function()
+  t.test("DaylogRename refuses an activity row, with or without a source arg", function()
     registry.clear()
     register_fake()
 
-    -- A non-source argument renames the activity to that literal text.
+    -- Relabeling an activity for the report is :DaylogMap's job (it can map onto a source
+    -- item); rename refuses the activity row -- a bare name and a source arg alike.
     on_review_summary_row()
-    vim.cmd("DaylogRename ship the release")
-    t.eq(t.get_lines()[2], "08:00 ship the release")
-
-    -- A source-name argument opens that source's scoped (live-search-capable) picker.
-    on_review_summary_row()
-    with_stubbed_picker(true, function()
+    with_captured_notify(function(messages)
+      vim.cmd("DaylogRename ship the release")
       vim.cmd("DaylogRename FAKE")
+      local refused = 0
+      for _, message in ipairs(messages) do
+        if message.message:find(":DaylogMap to relabel") then
+          refused = refused + 1
+        end
+      end
+      t.eq(refused, 2)
     end)
-    t.eq(t.get_lines()[2], "08:00 1 Item one")
+
+    t.eq(t.get_lines()[2], "08:00 review")
   end)
 
   t.test(
@@ -307,38 +291,6 @@ return function(t)
     end
   )
 
-  t.test("DaylogRename on an activity with an empty pool falls back to the input prompt", function()
-    registry.clear()
-    register_fake()
-    on_review_summary_row()
-
-    -- No cached items and (an unnamed test buffer) no daybook scan -> an empty pool, so the
-    -- plain rename input prompt opens instead.
-    local old_read = sync.read_items
-    local old_refresh = sync.refresh_if_stale
-    local old_input = vim.fn.input
-    sync.read_items = function()
-      return {}
-    end
-    sync.refresh_if_stale = function() end
-    vim.fn.input = function()
-      return "renamed via prompt"
-    end
-
-    local ok, err = xpcall(function()
-      vim.cmd("DaylogRename")
-    end, debug.traceback)
-
-    sync.read_items = old_read
-    sync.refresh_if_stale = old_refresh
-    vim.fn.input = old_input
-    if not ok then
-      error(err, 0)
-    end
-
-    t.eq(t.get_lines()[2], "08:00 renamed via prompt")
-  end)
-
   t.test("DaylogMap maps the cursor entry onto a pool item", function()
     registry.clear()
     register_fake()
@@ -364,51 +316,6 @@ return function(t)
     end)
 
     t.eq(t.get_lines()[2], "08:00 review => 1 Item one")
-  end)
-
-  t.test("DaylogRename dedups a candidate that equals a source item", function()
-    registry.clear()
-    register_fake()
-    -- An activity named exactly like a FAKE work item, plus the one we rename.
-    t.reset({ "--- log ---", "08:00 review", "09:00 1 Item one", "10:00 done" })
-    vim.cmd("DaylogRefresh")
-    for i, line in ipairs(t.get_lines()) do
-      if line:find("%) review$") then
-        vim.api.nvim_win_set_cursor(0, { i, 0 })
-      end
-    end
-
-    local offered = {}
-    local old_ensure = sync.ensure_fresh
-    local old_select = vim.ui.select
-    sync.ensure_fresh = function(_name, _ttl, on_ready)
-      on_ready(FAKE_ITEMS)
-    end
-    vim.ui.select = function(items, opts, _)
-      for _, choice in ipairs(items) do
-        offered[#offered + 1] = opts.format_item(choice)
-      end
-      -- cancel: do not invoke on_choice
-    end
-
-    local ok, err = xpcall(function()
-      vim.cmd("DaylogRename FAKE")
-    end, debug.traceback)
-
-    sync.ensure_fresh = old_ensure
-    vim.ui.select = old_select
-    if not ok then
-      error(err, 0)
-    end
-
-    -- "1 Item one" appears once (the work item), not also as a merge candidate.
-    local count = 0
-    for _, label in ipairs(offered) do
-      if label == "1 Item one" then
-        count = count + 1
-      end
-    end
-    t.eq(count, 1)
   end)
 
   t.test("DaylogInsert! pools sources and inserts the picked row", function()

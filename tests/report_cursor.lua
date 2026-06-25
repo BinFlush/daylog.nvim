@@ -4,6 +4,7 @@ return function(t)
   local render = require("daylog.render")
   local summary = require("daylog.summary")
   local report_cursor = require("daylog.usecases.report_cursor")
+  local rename_summary = require("daylog.usecases.rename_summary")
 
   -- Build a single day's summary the way the report pipeline (week.lua) does.
   local function day_summary(lines)
@@ -55,32 +56,22 @@ return function(t)
     end
   end
 
-  t.test("report_cursor resolves an aggregate activity row to a global item target", function()
+  t.test("report_cursor refuses an activity row (aggregate and per-day)", function()
     local layout = render.days_report_layout(sample_report(), "dec", {})
-    local index = find(layout, function(row)
-      return row.scope == "aggregate"
-        and row.kind == render.LAYOUT_KIND.SUMMARY_ITEM
-        and row.item.text == "implementation"
-    end)
 
-    local resolved = report_cursor.resolve(layout, index)
-    t.eq(resolved.scope, "aggregate")
-    t.eq(resolved.path, nil)
-    t.eq(resolved.target, { kind = "item", current = "implementation", tag = "ClientA" })
-  end)
+    -- An activity row is not renamable (use :DaylogMap); both scopes refuse, so a report
+    -- rename never reaches a day file.
+    for _, scope in ipairs({ "aggregate", "day" }) do
+      local index = find(layout, function(row)
+        return row.scope == scope
+          and row.kind == render.LAYOUT_KIND.SUMMARY_ITEM
+          and row.item.text == "implementation"
+      end)
 
-  t.test("report_cursor resolves a per-day activity row to that day's file", function()
-    local layout = render.days_report_layout(sample_report(), "dec", {})
-    local index = find(layout, function(row)
-      return row.scope == "day"
-        and row.kind == render.LAYOUT_KIND.SUMMARY_ITEM
-        and row.item.text == "implementation"
-    end)
-
-    local resolved = report_cursor.resolve(layout, index)
-    t.eq(resolved.scope, "day")
-    t.eq(resolved.path, "/j/2026-05-18.day")
-    t.eq(resolved.target, { kind = "item", current = "implementation", tag = "ClientA" })
+      local resolved, err = report_cursor.resolve(layout, index)
+      t.eq(resolved, nil)
+      t.eq(err, rename_summary.REFUSE_ACTIVITY_ROW)
+    end
   end)
 
   t.test("report_cursor resolves an aggregate tag row to a tag target", function()

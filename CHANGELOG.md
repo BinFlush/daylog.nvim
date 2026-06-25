@@ -51,6 +51,15 @@ happen, but they are called out clearly in this changelog.
   the wholesale `picker.rank` override are unchanged; a custom `rank` now receives `usage` entries
   shaped `{ count, latest, score }`.
 
+- **`:DaylogRename` no longer renames an activity from its summary row.** A summary row groups
+  entries that resolve to one label by different means (a bare entry's description, or a mapped
+  entry's `=> alias`), so a bulk rename through it was ambiguous and could silently overwrite the
+  distinct descriptions a mapping deliberately keeps. Rename now acts only on a **single entry's
+  text** or a **`#tag`/`@location`** (from the cursor or a `:DaylogDays` report); use `:DaylogMap`
+  to relabel or merge an activity for the report (non-destructive — your journal text stays).
+  Renaming an *activity* across days from a report is dropped too; tags and locations still rename
+  across days.
+
 ### Removed
 
 - **`picker.half_life_days` and `picker.base`** — the tuning knobs for the old duration-aware
@@ -58,11 +67,11 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
-- **`:DaylogMap` / `:DaylogRename` on a summary row now also affect the log's closing entry**
-  when it shares the row's activity. The final entry starts no interval (so it has no duration in
-  the summary), but it is the same activity and will start contributing the moment another entry
-  follows it — so its alias/description now stays in step with the rest of the row. `:DaylogLog` is
-  unchanged: it freezes a duration, and the closing entry has none to freeze.
+- **`:DaylogMap` on a summary row also affects the log's closing entry** when it shares the row's
+  activity. The final entry starts no interval (so it has no duration in the summary), but it is
+  the same activity and will start contributing the moment another entry follows it — so its alias
+  now stays in step with the rest of the row. `:DaylogLog` is unchanged: it freezes a duration, and
+  the closing entry has none to freeze.
 
 ## 0.11.0 - 2026-06-25
 

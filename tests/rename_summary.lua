@@ -44,8 +44,8 @@ return function(t)
     return false
   end
 
-  t.test("rename an activity row rewrites its source entries and the summary", function()
-    local out = rename({
+  t.test("rename refuses an activity summary row -- :DaylogMap relabels for the report", function()
+    local _, err = rename_summary.run({
       "--- log ---",
       "08:00 implementation",
       "09:00 meeting",
@@ -60,23 +60,11 @@ return function(t)
       "3.00h (+0m) workday",
     }, 8, "coding")
 
-    t.eq(out, {
-      "--- log ---",
-      "08:00 coding",
-      "09:00 meeting",
-      "10:00 coding",
-      "11:00 done",
-      "",
-      "--- summary q=15 d=dec ---",
-      "2.00h (+0m) coding",
-      "1.00h (+0m) meeting",
-      "",
-      "--- totals ---",
-      "3.00h (+0m) workday",
-    })
+    t.eq(err, rename_summary.REFUSE_ACTIVITY_ROW)
   end)
 
-  t.test("renaming an activity sanitizes trailing metadata in the new text", function()
+  t.test("rename sanitizes trailing metadata in an entry's new text", function()
+    -- Rename acts on the entry under the cursor (row 2), not the summary row.
     local out = rename({
       "--- log ---",
       "08:00 deploy",
@@ -87,7 +75,7 @@ return function(t)
       "",
       "--- totals ---",
       "1.00h (+0m) workday",
-    }, 6, "deploy #urgent")
+    }, 2, "deploy #urgent")
 
     -- The trailing #urgent is parenthesized so it cannot become entry metadata.
     t.eq(out[2], "08:00 deploy (#urgent)")
@@ -281,8 +269,8 @@ return function(t)
     t.eq(target.candidates, { "b" })
   end)
 
-  t.test("resolve returns the same-tag activities as merge candidates", function()
-    local target = rename_summary.resolve({
+  t.test("resolve refuses an activity summary row", function()
+    local _, err = rename_summary.resolve({
       "--- log #proj ---",
       "08:00 plan",
       "09:00 build",
@@ -301,9 +289,7 @@ return function(t)
       "3.00h (+0m) workday",
     }, 8)
 
-    t.eq(target.kind, "item")
-    t.eq(target.current, "plan")
-    t.eq(target.candidates, { "build", "review" })
+    t.eq(err, rename_summary.REFUSE_ACTIVITY_ROW)
   end)
 
   t.test("rename refuses a totals row", function()
@@ -363,7 +349,7 @@ return function(t)
     t.eq(err, "daylog: a tag or location name must be letters, digits, underscores, or hyphens")
   end)
 
-  t.test("rename rejects empty activity text", function()
+  t.test("rename rejects empty activity text on an entry", function()
     local _, err = rename_summary.run({
       "--- log ---",
       "08:00 plan",
@@ -371,7 +357,7 @@ return function(t)
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",
-    }, 6, "   ")
+    }, 2, "   ")
 
     t.eq(err, "daylog: the activity text cannot be empty")
   end)
@@ -562,8 +548,8 @@ return function(t)
     t.ok(err ~= nil, "an invalid log yields an error")
   end)
 
-  t.test("renaming an aliased activity rewrites the description and keeps the alias", function()
-    local out = rename({
+  t.test("rename refuses a mapped activity row (descriptions kept; :DaylogMap relabels)", function()
+    local lines = {
       "--- log ---",
       "08:00 fix login => BUG-1",
       "09:00 done",
@@ -573,55 +559,35 @@ return function(t)
       "",
       "--- totals ---",
       "1.00h (+0m) workday",
-    }, 6, "investigate timeout")
+    }
 
-    -- Rename edits the description (a); the alias (b) and the summary label persist.
-    t.eq(out[2], "08:00 investigate timeout => BUG-1")
-    t.eq(out[6], "1.00h (+0m) BUG-1")
+    -- The row is labeled by the alias BUG-1; a rename (which edits descriptions) would
+    -- silently overwrite "fix login", so the row is refused. Both run and resolve refuse.
+    local _, run_err = rename_summary.run(lines, 6, "investigate timeout")
+    t.eq(run_err, rename_summary.REFUSE_ACTIVITY_ROW)
+
+    local _, resolve_err = rename_summary.resolve(lines, 6)
+    t.eq(resolve_err, rename_summary.REFUSE_ACTIVITY_ROW)
   end)
 
-  t.test("rename resolve prompts with the description, not the alias label", function()
-    local target = rename_summary.resolve({
-      "--- log ---",
-      "08:00 fix login => BUG-1",
-      "09:00 done",
-      "",
-      "--- summary q=15 d=dec ---",
-      "1.00h (+0m) BUG-1",
-      "",
-      "--- totals ---",
-      "1.00h (+0m) workday",
-    }, 6)
-
-    t.eq(target.kind, "item")
-    t.eq(target.current, "fix login")
-  end)
-
-  t.test("renames the closing entry when it shares the row's activity", function()
+  t.test("rename on an entry leaves a same-named closing entry untouched", function()
+    -- The closing "10:00 alpha" shares the cursor entry's text but is a different entry;
+    -- an entry rename must touch only the entry under the cursor.
     local out = rename({
       "--- log ---",
       "08:00 alpha",
-      "09:00 alpha",
-      "10:00 alpha", -- the closing entry: starts no interval, but is still "alpha"
-      "",
-      "--- summary q=15 d=dec ---",
-      "2.00h (+0m) alpha",
-      "",
-      "--- totals ---",
-      "2.00h (+0m) workday",
-    }, 7, "beta")
-
-    t.eq(out, {
-      "--- log ---",
-      "08:00 beta",
       "09:00 beta",
-      "10:00 beta", -- the closing entry is renamed too
+      "10:00 alpha", -- the closing entry, same text as the cursor entry
       "",
       "--- summary q=15 d=dec ---",
-      "2.00h (+0m) beta",
+      "1.00h (+0m) alpha",
+      "1.00h (+0m) beta",
       "",
       "--- totals ---",
       "2.00h (+0m) workday",
-    })
+    }, 2, "gamma") -- cursor on the first "alpha"
+
+    t.eq(out[2], "08:00 gamma")
+    t.eq(out[4], "10:00 alpha") -- the closing entry keeps its text
   end)
 end

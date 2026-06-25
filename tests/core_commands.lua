@@ -457,7 +457,7 @@ return function(t)
     t.eq(lines[11], "2.00h (+0m) #Globex")
   end)
 
-  t.test("rename an activity from its summary row uses the prompt default", function()
+  t.test("rename an entry with no arg prompts with its text as the default", function()
     t.reset({
       "--- log ---",
       "08:00 implementation",
@@ -469,7 +469,7 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
     })
-    t.set_cursor(6, 0) -- the "implementation" main row
+    t.set_cursor(2, 0) -- the "implementation" entry (an empty pool falls back to the prompt)
 
     with_mocked_input("coding", function()
       vim.cmd("DaylogRename")
@@ -517,7 +517,7 @@ return function(t)
     t.eq(t.get_lines()[11], "2.00h (+0m) #b")
   end)
 
-  t.test("rename accepts a multi-word activity name as a command argument", function()
+  t.test("rename accepts a multi-word name as a command argument on an entry", function()
     t.reset({
       "--- log ---",
       "08:00 implementation",
@@ -529,7 +529,7 @@ return function(t)
       "--- totals ---",
       "1.00h (+0m) workday",
     })
-    t.set_cursor(6, 0)
+    t.set_cursor(2, 0)
 
     vim.cmd("DaylogRename fix the build")
 

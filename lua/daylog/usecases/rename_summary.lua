@@ -8,16 +8,20 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Rename what a summary row stands for, propagating into the attached log.
+-- Rename a single entry's text, or a #tag / @location, propagating into the log.
 --
--- The rendered summary row is only a selector (see summary_cursor): the active
--- log is analyzed from source and the cursor row maps back to a recomputed
--- summary item. The rename then rewrites the *source* and rebuilds the one
--- summary, keeping the summary a pure projection.
+-- Rename edits the journal at the source -- one entry's description, or a metadata
+-- token everywhere it is effective. It deliberately does NOT act on an activity summary
+-- row: that row groups entries that resolve to one string by different means (a bare
+-- entry's description, or a mapped entry's `=> alias`), so a bulk rename through it is
+-- ambiguous and would overwrite the distinct descriptions a mapping deliberately keeps.
+-- Relabel an activity for the report with :DaylogMap (non-destructive); fix journal text
+-- by renaming the entries. So a cursor resolves to:
 --
---   * a main summary row renames the activity text of its source entries;
---   * a tag-total row renames that #tag everywhere it is effective;
---   * a location-total row renames that @location everywhere it is effective.
+--   * an entry line -> that one entry's activity text;
+--   * a tag-total row -> that #tag everywhere it is effective;
+--   * a location-total row -> that @location everywhere it is effective;
+--   * an activity summary row -> refused (M.REFUSE_ACTIVITY_ROW).
 --
 -- Tag/location renames are value substitutions: only the header token and the
 -- explicit tokens that named the old value are rewritten. Sticky inheritance is
@@ -25,8 +29,9 @@ local M = {}
 -- the new one from the same (rewritten) source -- so unrelated lines are left
 -- untouched. Only lines whose canonical rendering actually changes are edited.
 
-M.NOT_A_ROW =
-  "daylog: put the cursor on an entry, or a summary item, tag, or location row, to rename it"
+M.NOT_A_ROW = "daylog: put the cursor on an entry, or a tag or location row, to rename it"
+M.REFUSE_ACTIVITY_ROW = "daylog: rename an entry to fix its text, or :DaylogMap to relabel "
+  .. "an activity for the report"
 M.CANNOT_TOTALS = "daylog: a totals row cannot be renamed"
 M.CANNOT_UNTAGGED = "daylog: the (untagged) group cannot be renamed; tag the entries first"
 M.CANNOT_NO_LOCATION =
@@ -35,16 +40,17 @@ M.INVALID_NAME = "daylog: a tag or location name must be letters, digits, unders
 M.EMPTY_TEXT = "daylog: the activity text cannot be empty"
 M.SAME_NAME = "daylog: the new name matches the current name"
 
--- Classify a summary layout row into a rename target { kind, current, tag? }. The
--- `tag` is the activity's tag scope (an item is identified by text *and* tag), used
--- by run_by_value / the report rename to find the same item in another log. The
--- single-file run ignores it (it acts on the cursor's exact item). PURE.
+-- Classify a summary layout row into a rename target { kind, current } -- a #tag or
+-- @location total. An activity summary row (SUMMARY_ITEM) is refused: rename does not act
+-- on the ambiguous activity grouping (see the module header); :DaylogMap relabels it. This
+-- is the single chokepoint for both the cursor (resolve_context) and report (report_cursor)
+-- paths; the entry-line branch builds its target without classify, so it is not refused. PURE.
 function M.classify(layout_row)
   local kind = layout_row.kind
   local item = layout_row.item
 
   if kind == render.LAYOUT_KIND.SUMMARY_ITEM then
-    return { kind = "item", current = item.text or "", tag = item.tag }
+    return nil, M.REFUSE_ACTIVITY_ROW
   elseif kind == render.LAYOUT_KIND.TAG_TOTAL then
     if item.tag == nil then
       return nil, M.CANNOT_UNTAGGED
@@ -290,15 +296,11 @@ local function build_rename(block, region, item, target, new_value)
       return nil, M.SAME_NAME
     end
 
+    -- Rename exactly the entries in source_entry_rows -- for an entry-line cursor that is the
+    -- one entry; a same-named sibling or the closing entry is never swept in.
     local rows = {}
     for _, row in ipairs(item.source_entry_rows or {}) do
       rows[row] = true
-    end
-    -- The closing entry contributes no interval, so it is absent from source_entry_rows;
-    -- include it when its activity matches the row, so a same-activity closer is renamed too.
-    local closing = summary.closing_entry_row_for(block.entries, item)
-    if closing then
-      rows[closing] = true
     end
     ops.affected = function(it)
       return rows[it.start_row] == true

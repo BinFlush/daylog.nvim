@@ -148,7 +148,7 @@ the `!L` marker, the `=> alias` report label, the `d=hm` duration format) is in
 | `:DaylogDays[!] {range}` | Open a multi-day report — a count, a date range, or named tokens like `monday..` (`!` for totals only) |
 | `:DaylogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
 | `:DaylogBalance [steps]` | Nudge the rounding of the summary row (or entry) under the cursor by ±N q-steps to land a residual (`0` clears) |
-| `:DaylogRename [name\|source]` | Rename (or merge) the activity, tag, or location under the cursor; an activity opens the unified picker (recent activities + all [source](#sources) items), or name a source to scope to its items with live search |
+| `:DaylogRename [name\|source]` | Rename the entry's text, or a `#tag`/`@location`, under the cursor (an entry opens the unified picker; tag/location merge into an existing one). Not for activity summary rows — use `:DaylogMap` to relabel an activity for the report |
 | `:DaylogMap[!] [label\|source]` | Map the entry (or every entry of a summary row) under the cursor to a report label (`=> alias`) — your text stays, the summary reads canonically; `!` clears it, or name a source to map onto a work item |
 | `:DaylogSplit [w1 w2 …]` | Split the activity on the summary row under the cursor into weighted sub-activities (`foo (1)`, `foo (2)`, …), preserving its total time |
 | `:DaylogCopy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |

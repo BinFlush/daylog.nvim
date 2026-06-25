@@ -63,6 +63,17 @@ sum(item totals) = sum(tag totals) = sum(location totals) = activity total
 workday total    = sum(intervals where workday_excluded = false)
 ```
 
+The "activity text" an interval reports under is its **resolved label**: an entry's
+mapping alias (`=> label`) when it has one, else its own description. A bare entry and a
+mapped one are therefore interchangeable in the report — `08:00 1 Item one` and
+`08:00 fix login => 1 Item one` both report under "1 Item one". **Mapping is optional and
+additive**: a user may never map (logging source items, or anything, as bare rows), map
+some entries, or fold heterogeneous descriptions onto one label — the report treats all
+three the same. No command may assume an activity row is "really" a mapping or "really" a
+bare description; both are first-class. (This is why renaming an entry may target a source
+item, and why renaming an activity _row_ — a group that may mix both — is refused; rename
+edits one entry's text, `:DaylogMap` relabels the report.)
+
 ## Module overview
 
 ```text
