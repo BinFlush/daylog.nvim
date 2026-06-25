@@ -61,6 +61,7 @@ prefix is free in your config:
 -- global
 vim.keymap.set("n", "<leader>dt", "<cmd>DaylogToday<cr>",   { desc = "Daylog: today" })
 vim.keymap.set("n", "<leader>di", "<cmd>DaylogInsert<cr>",     { desc = "Daylog: insert time" })
+vim.keymap.set("n", "<leader>dI", "<cmd>DaylogInsert!<cr>",    { desc = "Daylog: what to log" })
 vim.keymap.set("n", "<leader>dw", "<cmd>DaylogDays monday..<cr>", { desc = "Daylog: week report" })
 vim.keymap.set("n", "<leader>dc", "<cmd>DaylogCopy<cr>",    { desc = "Daylog: copy block" })
 vim.keymap.set("n", "<leader>do", "<cmd>DaylogOrder<cr>",   { desc = "Daylog: order entries" })
@@ -71,6 +72,8 @@ vim.keymap.set("n", "[d",         "<cmd>DaylogPrevDay<cr>", { desc = "Daylog: pr
 -- with the cursor on a summary row or an entry
 vim.keymap.set("n", "<leader>dr", "<cmd>DaylogRepeat<cr>",     { desc = "Daylog: repeat activity" })
 vim.keymap.set("n", "<leader>dR", "<cmd>DaylogRename<cr>",     { desc = "Daylog: rename" })
+vim.keymap.set("n", "<leader>dm", "<cmd>DaylogMap<cr>",        { desc = "Daylog: map to label" })
+vim.keymap.set("n", "<leader>ds", "<cmd>DaylogSplit<cr>",      { desc = "Daylog: split activity" })
 vim.keymap.set("n", "<leader>dl", "<cmd>DaylogLog<cr>",        { desc = "Daylog: toggle logged" })
 vim.keymap.set("n", "<leader>d+", "<cmd>DaylogBalance +1<cr>", { desc = "Daylog: round up a step" })
 vim.keymap.set("n", "<leader>d-", "<cmd>DaylogBalance -1<cr>", { desc = "Daylog: round down a step" })
@@ -113,7 +116,7 @@ for the week, `:DaylogDays 7` for the last seven days, or any date range. It sta
 live as you edit the days it covers.
 
 In short: open today, `Insert` / `Repeat` as you work, watch the live summary,
-`Log` rows as you report them, and `Week` to review.
+`Log` rows as you report them, and `Days` to review.
 
 ## Tags and locations
 
@@ -131,7 +134,8 @@ bucket (`q=`) in the header or on any entry:
 
 Tags and locations are sticky — an entry that omits one inherits the previous
 value. The rest of the grammar (clearing with `#-` / `@-`, out-of-office `#ooo`,
-the `!L` marker, the `d=hm` duration format) is in `:help daylog-format`.
+the `!L` marker, the `=> alias` report label, the `d=hm` duration format) is in
+`:help daylog-format`.
 
 ## Commands
 
@@ -143,7 +147,10 @@ the `!L` marker, the `d=hm` duration format) is in `:help daylog-format`.
 | `:DaylogRepeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
 | `:DaylogDays[!] {range}` | Open a multi-day report — a count, a date range, or named tokens like `monday..` (`!` for totals only) |
 | `:DaylogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
+| `:DaylogBalance [steps]` | Nudge the rounding of the summary row (or entry) under the cursor by ±N q-steps to land a residual (`0` clears) |
 | `:DaylogRename [name\|source]` | Rename (or merge) the activity, tag, or location under the cursor; an activity opens the unified picker (recent activities + all [source](#sources) items), or name a source to scope to its items with live search |
+| `:DaylogMap[!] [label\|source]` | Map the entry (or every entry of a summary row) under the cursor to a report label (`=> alias`) — your text stays, the summary reads canonically; `!` clears it, or name a source to map onto a work item |
+| `:DaylogSplit [w1 w2 …]` | Split the activity on the summary row under the cursor into weighted sub-activities (`foo (1)`, `foo (2)`, …), preserving its total time |
 | `:DaylogCopy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |
 | `:DaylogOrder` | Rewrite the log in chronological order |
 | `:DaylogRefresh` | Rebuild every summary to match its entries |

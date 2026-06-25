@@ -134,7 +134,7 @@ set. Because programmatic edits do not fire the change autocmds, the
 buffer-editing commands republish diagnostics after applying (so `:DaylogOrder`
 clears its own warning). Diagnostics also render inline in any mode, so there is
 no insert-mode timing to manage. The reporting core (`summary.lua`, `render.lua`)
-stays pure so the daybook reports (`:DaylogWeek` / `:DaylogDays`) share it
+stays pure so the daybook reports (`:DaylogDays`) share it
 unchanged; an open report re-derives on the same `auto_summary` autocmds,
 rebuilding from a spec stored on its buffer so it tracks its source days the way
 an in-file summary tracks its entries. Each day section in a report labels its
@@ -315,8 +315,8 @@ straight from the parse. Summary rows -- derived output, not source -- are
 recognized by the shapes `render.lua` emits (a leading duration, `(+Nm)` markers,
 trailing metadata); a summary section runs from a generated section header to the
 blank line that ends it, and the same predicate matches the labeled multi-day
-report headers (`--- day summary <date> q=N ---`), so the `:DaylogWeek` /
-`:DaylogDays` reports highlight too. Whole-line "base" spans (a header, a note)
+report headers (`--- day summary <date> q=N ---`), so the `:DaylogDays`
+reports highlight too. Whole-line "base" spans (a header, a note)
 sit at a lower priority than the narrower token spans layered over them, so a
 `#tag` inside a header wins at its own cells.
 
