@@ -2,7 +2,7 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Semantic analyzer for parsed log documents.
+-- Semantic analyzer for parsed log documents (PURE).
 --
 -- This layer turns syntax nodes into log blocks, semantic entries, entry
 -- items with attached note lines, and structured diagnostics. It is the main

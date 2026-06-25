@@ -570,7 +570,8 @@ own journal while the summary reads in canonical terms.
 
 - With the cursor on an entry, that one entry is mapped -- so you can map some
   entries of an activity and not others, or map two same-named entries apart.
-- With the cursor on a main summary row, every entry feeding it is mapped.
+- With the cursor on a main summary row, every entry feeding it -- including a
+  final closing entry that shares its activity -- is mapped.
 - With a visual selection (then `:`, which fills in the `'<,'>` range) -- or an
   explicit `:N,M` range -- every entry line in the selection is mapped (or cleared)
   at once. Non-entry lines (the header, blanks, the summary) are ignored, the

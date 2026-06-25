@@ -415,6 +415,8 @@ local function find_target_item(recomputed, target)
       end
     end
   else
+    -- An activity is matched by text + tag. The cursor and report UIs refuse activity rows
+    -- in classify, so this branch serves run_by_value as a complete value-keyed primitive.
     for _, item in ipairs(recomputed.summary_items or {}) do
       if (item.text or "") == target.current and item.tag == target.tag then
         return item
