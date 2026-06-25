@@ -294,6 +294,12 @@ local function build_rename(block, region, item, target, new_value)
     for _, row in ipairs(item.source_entry_rows or {}) do
       rows[row] = true
     end
+    -- The closing entry contributes no interval, so it is absent from source_entry_rows;
+    -- include it when its activity matches the row, so a same-activity closer is renamed too.
+    local closing = summary.closing_entry_row_for(block.entries, item)
+    if closing then
+      rows[closing] = true
+    end
     ops.affected = function(it)
       return rows[it.start_row] == true
     end

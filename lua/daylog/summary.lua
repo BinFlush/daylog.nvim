@@ -11,6 +11,12 @@ local M = {}
 -- sections, sorting, and logged totals. The generic grouping engine lives in
 -- projection.lua and the rounding arithmetic in quantize.lua.
 
+-- The text an entry contributes to the summary: its mapping alias when set, else its
+-- description. The original text stays on the entry; every grouping/display keys on this.
+local function entry_summary_text(e)
+  return (e.alias ~= nil and e.alias ~= "") and e.alias or e.text
+end
+
 local function build_intervals(entries)
   local intervals = {}
 
@@ -31,10 +37,9 @@ local function build_intervals(entries)
       stop = next.minutes,
       duration = next_effective - current_effective,
       -- A mapping alias resolves the grouping/display label: an aliased entry counts
-      -- toward, and is shown as, its target. The original text stays on the entry (this
-      -- is the only place the alias is applied; every downstream grouping keys on `text`).
-      -- An empty alias is treated as none (a cleared mapping).
-      text = (current.alias ~= nil and current.alias ~= "") and current.alias or current.text,
+      -- toward, and is shown as, its target. The original text stays on the entry; every
+      -- downstream grouping keys on this resolved `text`.
+      text = entry_summary_text(current),
       tag = current.tag,
       location = current.location,
       workday_excluded = current.workday_excluded,
@@ -53,6 +58,31 @@ local function build_intervals(entries)
   end
 
   return intervals
+end
+
+-- The block's closing entry (its final entry) starts no interval, so its row never lands in a
+-- summary item's `source_entry_rows` -- yet it still carries an activity identity. Return its row
+-- when it WOULD group into `item` were another entry to follow it: same resolved text, tag, #ooo
+-- exclusion, and logged state that `build_intervals`/`summarize_items` key on. Lets identity edits
+-- (:DaylogMap / :DaylogRename) reach a same-activity entry that currently happens to close the log.
+-- Returns nil when there is no entry or it does not match. `entries` is the block's `entries` list
+-- (its `.row` equals the entry item's `start_row`, the coordinate the target sets use).
+function M.closing_entry_row_for(entries, item)
+  local last = entries[#entries]
+  if not last then
+    return nil
+  end
+
+  if
+    entry_summary_text(last) == item.text
+    and last.tag == item.tag
+    and (last.workday_excluded or false) == (item.workday_excluded or false)
+    and (last.logged and true or nil) == item.logged
+  then
+    return last.row
+  end
+
+  return nil
 end
 
 -- Fine-grained rows are the quantization base.

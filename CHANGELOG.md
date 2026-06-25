@@ -50,6 +50,14 @@ happen, but they are called out clearly in this changelog.
 - **`picker.half_life_days` and `picker.base`** — the tuning knobs for the old duration-aware
   decay have no meaning under Mozilla frecency. They are silently ignored if set (not an error).
 
+### Fixed
+
+- **`:DaylogMap` / `:DaylogRename` on a summary row now also affect the log's closing entry**
+  when it shares the row's activity. The final entry starts no interval (so it has no duration in
+  the summary), but it is the same activity and will start contributing the moment another entry
+  follows it — so its alias/description now stays in step with the rest of the row. `:DaylogLog` is
+  unchanged: it freezes a duration, and the closing entry has none to freeze.
+
 ## 0.11.0 - 2026-06-25
 
 ### Added

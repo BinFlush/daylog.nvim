@@ -28,7 +28,20 @@ local function resolve_targets(lines, cursor_row)
     if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
       return nil, nil, M.NOT_MAPPABLE
     end
-    return result.ctx, result.layout_row.item.source_entry_rows or {}, nil
+
+    local item = result.layout_row.item
+    local rows = {}
+    for _, row in ipairs(item.source_entry_rows or {}) do
+      rows[#rows + 1] = row
+    end
+    -- The closing entry contributes no interval, so it is absent from source_entry_rows;
+    -- include it when its activity matches the row, so a same-activity closer is mapped too.
+    local closing = summary.closing_entry_row_for(result.ctx.block.entries, item)
+    if closing then
+      rows[#rows + 1] = closing
+    end
+
+    return result.ctx, rows, nil
   end
 
   if resolve_err then

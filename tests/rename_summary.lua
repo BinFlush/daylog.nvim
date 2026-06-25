@@ -596,4 +596,32 @@ return function(t)
     t.eq(target.kind, "item")
     t.eq(target.current, "fix login")
   end)
+
+  t.test("renames the closing entry when it shares the row's activity", function()
+    local out = rename({
+      "--- log ---",
+      "08:00 alpha",
+      "09:00 alpha",
+      "10:00 alpha", -- the closing entry: starts no interval, but is still "alpha"
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) alpha",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    }, 7, "beta")
+
+    t.eq(out, {
+      "--- log ---",
+      "08:00 beta",
+      "09:00 beta",
+      "10:00 beta", -- the closing entry is renamed too
+      "",
+      "--- summary q=15 d=dec ---",
+      "2.00h (+0m) beta",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    })
+  end)
 end

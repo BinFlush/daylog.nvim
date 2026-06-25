@@ -185,4 +185,34 @@ return function(t)
 
     t.eq(err, map_summary.NOT_MAPPABLE)
   end)
+
+  t.test("maps the closing entry when it shares the row's activity", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 standup",
+      "09:15 standup",
+      "09:30 standup", -- the closing entry: starts no interval, but is still "standup"
+    })
+
+    local out = run(lines, "(+0m) standup", "MEETING-1")
+
+    t.ok(has(out, "09:00 standup => MEETING-1"), "first entry mapped")
+    t.ok(has(out, "09:15 standup => MEETING-1"), "second entry mapped")
+    t.ok(has(out, "09:30 standup => MEETING-1"), "the closing entry is mapped too")
+  end)
+
+  t.test("leaves a closing entry that belongs to a different row unmapped", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "08:00 sync #teamA",
+      "09:00 sync",
+      "10:00 sync #teamB", -- closing: same text, different tag -> a different row
+    })
+
+    local out = run(lines, "(+0m) sync", "SYNC-1")
+
+    t.ok(has(out, "08:00 sync => SYNC-1 #teamA"), "the teamA entries are mapped")
+    t.ok(has(out, "09:00 sync => SYNC-1"), "the inheriting teamA entry is mapped")
+    t.ok(has(out, "10:00 sync #teamB"), "the differently-tagged closing entry is untouched")
+  end)
 end
