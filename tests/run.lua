@@ -3,6 +3,13 @@ local failures = {}
 
 vim.o.hidden = true
 
+-- Headless tests open many `.day` buffers; with `'swapfile'` on (the `-u NONE`
+-- default) each one writes a swap file into the global swap dir, which outlives
+-- the temp daybook roots and -- if a run is killed mid-edit (e.g. SIGPIPE from
+-- piping the suite into `head`) -- gets orphaned, tripping E325 on later runs.
+-- Tests never need recovery, so turn swap off entirely.
+vim.o.swapfile = false
+
 -- Enable filetype detection and ftplugins so opening a `.day` file sets
 -- filetype=daylog, exactly as in a real session. The daybook/report commands
 -- rely on this (their auto-summary autocmds key off the daylog filetype) and the
