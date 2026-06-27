@@ -401,7 +401,10 @@ function M.alias_span(line)
     end
   end
 
-  if not arrow then
+  -- A real alias needs a non-empty description before the arrow (mirroring parse_entry's
+  -- `(.+) => (.+)`): index 3 is the earliest arrow with a description token (2) after the
+  -- timestamp (1), so `08:00 => foo` -- where the arrow follows only the timestamp -- is none.
+  if not arrow or arrow < 3 then
     return nil
   end
 

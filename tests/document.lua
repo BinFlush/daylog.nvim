@@ -532,5 +532,8 @@ return function(t)
     t.eq(line:sub(span.col_start + 1, span.col_end), "=> BUG-123 Login")
     -- A line with no alias has no span.
     t.eq(document.alias_span("09:00 fix login"), nil)
+    -- An arrow with no description before it (only the timestamp) is not an alias, matching
+    -- parse_entry, which reads `09:00 => foo` as the description "=> foo" with no alias.
+    t.eq(document.alias_span("09:00 => foo"), nil)
   end)
 end
