@@ -97,6 +97,21 @@ return function(t)
     t.eq(usage["review #ProjectX @office"], nil)
   end)
 
+  t.test("build_usage keys a mapped entry on its alias, not its description", function()
+    -- A mapped entry reports under its `=> alias`, and so does a source item's key, so the
+    -- visit must credit the alias. Otherwise a mapped log neither boosts the item it maps to
+    -- nor counts as the same activity a bare entry would -- bare and mapped are equivalent.
+    local usage = rank.build_usage({
+      {
+        date = NOW,
+        lines = { "--- log ---", "08:00 fix login => 1234 Title", "09:00 done" },
+      },
+    }, NOW)
+
+    t.ok(usage["1234 Title"] ~= nil)
+    t.eq(usage["fix login"], nil)
+  end)
+
   t.test("build_usage on a prose-only or empty day yields nothing", function()
     local usage = rank.build_usage({
       { date = NOW, lines = { "Holiday -- no work" } },

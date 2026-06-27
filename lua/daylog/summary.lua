@@ -12,8 +12,10 @@ local M = {}
 -- projection.lua and the rounding arithmetic in quantize.lua.
 
 -- The text an entry contributes to the summary: its mapping alias when set, else its
--- description. The original text stays on the entry; every grouping/display keys on this.
-local function entry_summary_text(e)
+-- description. The original text stays on the entry; every grouping/display keys on this,
+-- and so does the frecency ranker (sources/rank), so a bare and a mapped entry that report
+-- as the same label rank as one activity.
+function M.entry_summary_text(e)
   return (e.alias ~= nil and e.alias ~= "") and e.alias or e.text
 end
 
@@ -39,7 +41,7 @@ local function build_intervals(entries)
       -- A mapping alias resolves the grouping/display label: an aliased entry counts
       -- toward, and is shown as, its target. The original text stays on the entry; every
       -- downstream grouping keys on this resolved `text`.
-      text = entry_summary_text(current),
+      text = M.entry_summary_text(current),
       tag = current.tag,
       location = current.location,
       workday_excluded = current.workday_excluded,
@@ -74,7 +76,7 @@ function M.closing_entry_row_for(entries, item)
   end
 
   if
-    entry_summary_text(last) == item.text
+    M.entry_summary_text(last) == item.text
     and last.tag == item.tag
     and (last.workday_excluded or false) == (item.workday_excluded or false)
     and (last.logged and true or nil) == item.logged

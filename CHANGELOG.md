@@ -44,6 +44,10 @@ happen, but they are called out clearly in this changelog.
   with `os.rename`, which cannot overwrite an existing file on Windows, so every sync after
   the first failed and the picker kept reading the stale cache. Writes now use
   `vim.loop.fs_rename`, which replaces atomically on every platform.
+- **Frecency ranking now credits mapped entries to the item they map to.** The picker's
+  recent-activity ranking keyed on an entry's description, so a `=> alias` mapping never
+  boosted the source item it reported as and also surfaced a duplicate "activity" row. It now
+  keys on the resolved label (alias when set), so a bare and a mapped entry rank as one.
 
 ## 0.12.0 - 2026-06-25
 

@@ -1,5 +1,6 @@
 local document = require("daylog.document")
 local analyze = require("daylog.analyze")
+local summary = require("daylog.summary")
 
 local M = {}
 
@@ -9,8 +10,8 @@ local M = {}
 -- Mozilla-style "frecency" over your recent daylogs. Each logged entry of an activity is a
 -- "visit"; an activity scores its total visit count times the average recency weight of its
 -- most recent visits, so recent *and* frequent activities rank highest (duration is not a
--- factor). The signal is your daybook (no hidden state) keyed on the entry text, so one ranker
--- serves every source. The daybook scan that feeds build_usage is the only impure part and
+-- factor). The signal is your daybook (no hidden state) keyed on each entry's resolved label,
+-- so one ranker serves every source. The daybook scan that feeds build_usage is the only impure part and
 -- lives in the picker shell (pick.lua); everything here is pure over plain tables.
 
 -- Open before unknown before done, so a normalized `active` flag breaks ties sensibly without
@@ -70,7 +71,8 @@ end
 
 -- Build a usage map from recent daylogs for the Mozilla frecency score. `day_line_lists` is
 -- { { date = <timestamp>, lines = <string[]> }, ... }. Every logged entry is a "visit" keyed on
--- its activity text (its `#tag`/`@location`/`!L` metadata peeled, matching how it is reported).
+-- its resolved label -- the mapping alias when set, else the description -- matching how it is
+-- reported and how key_of keys a source item, so a bare and a mapped entry count as one.
 -- Each map value carries the visit `count`, the `latest` visit timestamp, and the computed
 -- `score`; `count` and `latest` are kept for reference and a custom picker.rank. Pure: `now` is
 -- passed in.
@@ -80,7 +82,10 @@ function M.build_usage(day_line_lists, now)
     local analysis = analyze.analyze(document.parse(day.lines))
     for _, block in ipairs(analysis.log_blocks) do
       for _, entry in ipairs(block.entries) do
-        local text = entry.text
+        -- Key on the resolved label (the mapping alias when set, else the description),
+        -- matching how the entry is reported and how key_of(item) keys a source item, so a
+        -- mapped entry credits the item it maps to instead of spawning a duplicate activity.
+        local text = summary.entry_summary_text(entry)
         if text and text ~= "" then
           local seen = visits[text]
           if not seen then
