@@ -40,6 +40,10 @@ happen, but they are called out clearly in this changelog.
   a totals row it reported the misleading "summary row does not match the active log;
   regenerate the summary"; it now says to put the cursor on an activity summary row, reserving
   the regenerate message for a genuine summary/log mismatch.
+- **The source cache now refreshes on native Windows.** Cache writes renamed the temp file
+  with `os.rename`, which cannot overwrite an existing file on Windows, so every sync after
+  the first failed and the picker kept reading the stale cache. Writes now use
+  `vim.loop.fs_rename`, which replaces atomically on every platform.
 
 ## 0.12.0 - 2026-06-25
 

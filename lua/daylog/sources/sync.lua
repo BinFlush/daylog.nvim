@@ -51,10 +51,13 @@ function M.write_cache(name, items, now)
   local ok = pcall(function()
     vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
     -- Write to a temp file then rename, so a reader in another Neovim never sees a
-    -- half-written cache.
+    -- half-written cache. vim.loop.fs_rename (libuv) replaces an existing destination on
+    -- every platform -- MoveFileEx on Windows, rename(2) on POSIX -- whereas os.rename
+    -- cannot overwrite on native Windows, where the cache would then never refresh. The
+    -- assert turns a rename failure into the pcall's warn instead of a silent no-op.
     local tmp = path .. ".tmp"
     vim.fn.writefile({ vim.json.encode(cache.encode(items, now)) }, tmp)
-    os.rename(tmp, path)
+    assert(vim.loop.fs_rename(tmp, path))
   end)
 
   if not ok then
