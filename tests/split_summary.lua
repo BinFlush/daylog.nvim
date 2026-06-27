@@ -1,7 +1,6 @@
 return function(t)
   local analyze = require("daylog.analyze")
   local split_summary = require("daylog.usecases.split_summary")
-  local summary_cursor = require("daylog.usecases.summary_cursor")
   local document = require("daylog.document")
   local render = require("daylog.render")
   local summary = require("daylog.summary")
@@ -263,14 +262,26 @@ return function(t)
     t.ok(has(out, "0:15 (+0m) stand (2)"), "part 2 is 15 minutes")
   end)
 
-  t.test("split refuses a non-main summary row", function()
+  t.test("split points a non-activity summary row at the right row", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
       "08:00 meeting",
       "10:00 done",
     })
     local _, err = split_summary.run(lines, row_of(lines, "(+0m) workday"), { 1, 1 })
-    t.eq(err, summary_cursor.STALE)
+    t.eq(err, split_summary.NOT_A_ROW)
+  end)
+
+  t.test("split on an entry asks for a summary row instead of reporting STALE", function()
+    -- The cursor on a valid entry (not a summary row) must report NOT_A_ROW, not the
+    -- misleading STALE "regenerate the summary" reserved for a genuine region mismatch.
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "08:00 meeting",
+      "10:00 done",
+    })
+    local _, err = split_summary.run(lines, row_of(lines, "08:00 meeting"), { 1, 1 })
+    t.eq(err, split_summary.NOT_A_ROW)
   end)
 
   t.test("split rejects bad weight vectors", function()

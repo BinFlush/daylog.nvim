@@ -36,6 +36,10 @@ happen, but they are called out clearly in this changelog.
   (`daylog: round-N rounds this item below zero; clear or reduce the nudge`) at the offending
   entry so the undefined marker is surfaced and corrected; the summary still renders the
   clamped row.
+- **`:DaylogSplit` gives a clearer error off an activity row.** With the cursor on an entry or
+  a totals row it reported the misleading "summary row does not match the active log;
+  regenerate the summary"; it now says to put the cursor on an activity summary row, reserving
+  the regenerate message for a genuine summary/log mismatch.
 
 ## 0.12.0 - 2026-06-25
 

@@ -25,6 +25,7 @@ M.REFUSE_OFFSET =
 M.NEED_TWO = "daylog: split needs at least two parts"
 M.BAD_WEIGHT = "daylog: split weights must be positive numbers"
 M.NOTHING = "daylog: nothing to split on this row"
+M.NOT_A_ROW = "daylog: put the cursor on an activity summary row to split it"
 
 -- The sub-activity name for part `index` of an activity. A blank activity (a bare
 -- `#tag` entry) becomes just the `(index)` suffix. `(index)` is plain text -- never a
@@ -91,15 +92,19 @@ function M.run(lines, cursor_row, weights)
 
   local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
   if not result then
+    -- resolve_err means the cursor is inside the summary region but its row no longer
+    -- matches the active log (STALE/AMBIGUOUS) -- pass that through. A nil err means the
+    -- cursor is not on a summary row at all, so point the user at one (unless the active
+    -- log itself is the problem).
     if resolve_err then
       return nil, resolve_err
     end
     local _, validate_err = support.get_validated_active(lines)
-    return nil, validate_err or summary_cursor.STALE
+    return nil, validate_err or M.NOT_A_ROW
   end
 
   if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
-    return nil, summary_cursor.STALE
+    return nil, M.NOT_A_ROW
   end
 
   local block = result.ctx.block
