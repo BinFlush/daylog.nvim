@@ -6,6 +6,7 @@ return function(t)
   local new_log = require("daylog.usecases.new_log")
   local order_logs = require("daylog.usecases.order_logs")
   local repeat_current = require("daylog.usecases.repeat_current")
+  local support = require("daylog.usecases.support")
 
   t.test("new_log usecase creates the initial header in an empty buffer", function()
     local result = new_log.run({ "" })
@@ -1457,5 +1458,18 @@ return function(t)
         },
       },
     })
+  end)
+
+  t.test("support.apply_edits applies highest-first edits off-buffer", function()
+    -- Two disjoint replace edits (0-based), sorted highest-start-first: the higher edit
+    -- grows the line count and, applied first, leaves the lower edit's indexes valid --
+    -- the pure mirror of how the shell's nvim_buf_set_lines apply behaves.
+    local lines = { "a", "b", "c", "d" }
+    local edits = {
+      { start_index = 3, end_index = 4, lines = { "D1", "D2" } },
+      { start_index = 0, end_index = 1, lines = {} },
+    }
+
+    t.eq(support.apply_edits(lines, edits), { "b", "c", "D1", "D2" })
   end)
 end

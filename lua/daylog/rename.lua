@@ -6,6 +6,7 @@ local render = require("daylog.render")
 local report_buffers = require("daylog.report")
 local rename_summary = require("daylog.usecases.rename_summary")
 local report_cursor = require("daylog.usecases.report_cursor")
+local support = require("daylog.usecases.support")
 local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
 
@@ -149,32 +150,6 @@ function M.summary(new_value, source_name)
     rows[#rows + 1] = { display = candidate, text = candidate }
   end
   pick.choose(rows, choose_opts)
-end
-
--- Apply an edit script (0-based, sorted highest-start-first by the usecase) to a
--- plain line list, returning the new list. Used to compute a day file's rewritten
--- content off-buffer for the multi-day rename.
-local function lines_with_edits(lines, edits)
-  local out = {}
-  for i, line in ipairs(lines) do
-    out[i] = line
-  end
-
-  for _, edit in ipairs(edits) do
-    local next_out = {}
-    for i = 1, edit.start_index do
-      next_out[#next_out + 1] = out[i]
-    end
-    for _, line in ipairs(edit.lines) do
-      next_out[#next_out + 1] = line
-    end
-    for i = edit.end_index + 1, #out do
-      next_out[#next_out + 1] = out[i]
-    end
-    out = next_out
-  end
-
-  return out
 end
 
 -- The day files a resolved report row acts on: one path for a per-day row, every
@@ -347,7 +322,7 @@ rename_from_report = function(spec, new_value, source_name)
       if lines then
         local result, run_err = rename_summary.run_by_value(lines, target, value)
         if result then
-          changes[#changes + 1] = { path = path, lines = lines_with_edits(lines, result.edits) }
+          changes[#changes + 1] = { path = path, lines = support.apply_edits(lines, result.edits) }
         elseif run_err then
           warn(run_err)
           return

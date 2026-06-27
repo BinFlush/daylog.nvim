@@ -230,4 +230,33 @@ function M.append_edit(lines, appended_lines)
   }
 end
 
+-- Apply a list of replace edits ({ start_index, end_index, lines }, 0-based, disjoint,
+-- sorted highest-start-first) to a plain line list, returning the new list -- the pure
+-- mirror of the shell's nvim_buf_set_lines apply. Highest-first ordering keeps each edit's
+-- indexes valid as earlier (higher) edits change the line count, so a caller that builds
+-- edits in another order must sort before applying. Lets a usecase build a repaired copy
+-- in memory (refresh) and the rename shell rewrite an off-screen day file, both off-buffer.
+function M.apply_edits(lines, edits)
+  local out = {}
+  for i, line in ipairs(lines) do
+    out[i] = line
+  end
+
+  for _, edit in ipairs(edits) do
+    local next_out = {}
+    for i = 1, edit.start_index do
+      next_out[#next_out + 1] = out[i]
+    end
+    for _, line in ipairs(edit.lines) do
+      next_out[#next_out + 1] = line
+    end
+    for i = edit.end_index + 1, #out do
+      next_out[#next_out + 1] = out[i]
+    end
+    out = next_out
+  end
+
+  return out
+end
+
 return M

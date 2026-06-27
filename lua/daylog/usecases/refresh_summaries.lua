@@ -104,30 +104,6 @@ local function canonical_edit(lines, body_end, zone_end, content, trailing)
   }, matches
 end
 
--- Apply a list of replace edits (0-based, disjoint, sorted highest-first) to a line
--- list -- the pure mirror of the buffer apply, used internally to build the repaired
--- copy before re-analyzing.
-local function apply_edits(lines, edits)
-  local out = {}
-  for i, line in ipairs(lines) do
-    out[i] = line
-  end
-  for _, edit in ipairs(edits) do
-    local next_out = {}
-    for i = 1, edit.start_index do
-      next_out[#next_out + 1] = out[i]
-    end
-    for _, line in ipairs(edit.lines) do
-      next_out[#next_out + 1] = line
-    end
-    for i = edit.end_index + 1, #out do
-      next_out[#next_out + 1] = out[i]
-    end
-    out = next_out
-  end
-  return out
-end
-
 -- Read log-header parameters from a (possibly corrupted) header line: q=, d=,
 -- #tag, @location, utc±H -- in any order, ignoring damaged dashes/keyword and junk
 -- tokens. Returns the parsed fields and whether the line looked like a header at all
@@ -373,7 +349,7 @@ function M.run(lines)
   end)
   local work, work_analysis = lines, analysis
   if #recover_edits > 0 then
-    work = apply_edits(lines, recover_edits)
+    work = support.apply_edits(lines, recover_edits)
     work_analysis = analyze.analyze(document.parse(work))
   end
 
