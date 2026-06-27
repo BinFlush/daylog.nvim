@@ -325,6 +325,34 @@ local function frozen_drift_warnings(block)
   return warnings
 end
 
+-- A manual `round±N` marker is honest only while the row can absorb it. A round-down can be
+-- demanded past what the row holds -- typed too large by hand, or left stale by an edit that
+-- shrank the activity -- which would carry the displayed duration below zero. The quantizer
+-- clamps the display to 0 and records `nudge_below_zero`; surface that as a diagnostic so the
+-- out-of-range marker is corrected rather than silently honored. The summary still renders
+-- (clamped), mirroring the frozen-drift surfacing above.
+local function nudge_range_warnings(block)
+  local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+
+  local warnings = {}
+  for _, row in ipairs(rows) do
+    if row.nudge_below_zero then
+      local at = row.source_entry_rows and row.source_entry_rows[1]
+      if at then
+        warnings[#warnings + 1] = {
+          row = at,
+          message = string.format(
+            "daylog: round%+d rounds this item below zero; clear or reduce the nudge",
+            row.nudge
+          ),
+        }
+      end
+    end
+  end
+
+  return warnings
+end
+
 function M.run(lines)
   local analysis = analyze.analyze(document.parse(lines))
 
@@ -359,6 +387,10 @@ function M.run(lines)
     -- the boundary is left untouched.
     if not analyze.find_block_diagnostic(work_analysis, block) then
       for _, warning in ipairs(frozen_drift_warnings(block)) do
+        warnings[#warnings + 1] = warning
+      end
+
+      for _, warning in ipairs(nudge_range_warnings(block)) do
         warnings[#warnings + 1] = warning
       end
 

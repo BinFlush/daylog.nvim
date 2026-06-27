@@ -678,4 +678,35 @@ return function(t)
       },
     })
   end)
+
+  t.test("refresh warns about a round nudge that drives an item below zero", function()
+    -- A hand-typed round-N too large to absorb (-9999 on a 60-min item at q=15) would round
+    -- the row below zero. The quantizer clamps the display to 0.00h and the summary still
+    -- regenerates, but refresh surfaces the out-of-range marker as a diagnostic at its entry.
+    local result = refresh_summaries.run({
+      "--- log #ClientA q=15 ---",
+      "08:00 task round-9999",
+      "09:00 done",
+    })
+
+    t.eq(result.warnings, {
+      {
+        row = 2,
+        message = "daylog: round-9999 rounds this item below zero; clear or reduce the nudge",
+      },
+    })
+    t.ok(#result.edits > 0, "the summary still regenerates around the clamped row")
+  end)
+
+  t.test("refresh accepts a round nudge that lands exactly on zero", function()
+    -- A 60-min item at q=15 holds four buckets; round-4 takes it to exactly 0.00h, which is
+    -- in range, so no diagnostic is raised. Only round-5 and beyond cross below zero.
+    local result = refresh_summaries.run({
+      "--- log #ClientA q=15 ---",
+      "08:00 task round-4",
+      "09:00 done",
+    })
+
+    t.eq(result.warnings, {})
+  end)
 end

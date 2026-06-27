@@ -103,15 +103,19 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   -- Second pass: apply per-row manual rounding nudges on top of the largest-remainder
   -- baseline. A nudge of +k rounds the row up k more buckets (-k down); because every
   -- displayed section is a sum of these same rows, the shift flows consistently into
-  -- the section totals and each section stays a partition. Only the displayed
-  -- duration is clamped at zero (a row can never show negative time); a nudge may
-  -- otherwise carry a row below its floored value, so the stored marker always
-  -- matches the realized rounding.
+  -- the section totals and each section stays a partition. The displayed duration is
+  -- clamped at zero (a row can never show negative time); when a nudge would carry the
+  -- row below zero the clamp is recorded in `nudge_below_zero` so the refresh pass can
+  -- warn that the (hand-written or drifted) marker no longer reconciles.
   for _, row in ipairs(result) do
     if row.nudge and row.nudge ~= 0 and row.logged_minutes == nil then
       local base = math.floor(row.unrounded_duration / bucket_minutes) * bucket_minutes
       local current_blocks = (row.duration - base) / bucket_minutes
-      row.duration = math.max(0, base + (current_blocks + row.nudge) * bucket_minutes)
+      local nudged = base + (current_blocks + row.nudge) * bucket_minutes
+      if nudged < 0 then
+        row.nudge_below_zero = true
+      end
+      row.duration = math.max(0, nudged)
       row.error_minutes = row.unrounded_duration - row.duration
     end
   end

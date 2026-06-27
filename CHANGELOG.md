@@ -20,6 +20,23 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Fixed
+
+- **`:DaylogBalance` no longer over-rounds an entry below zero.** Running a round-down on an
+  entry directly (cursor on the `HH:MM` line) ignored the floor the summary-row path already
+  enforces, so e.g. `:DaylogBalance -50` on a one-hour activity wrote a bogus `round-50`
+  marker and rendered the row as `0.00h (+60m)`. The entry path now refuses with the same
+  "cannot round down further" message once a step would take the displayed duration below
+  zero, matching `:DaylogBalance` on a summary row.
+- **An out-of-range `round±N` marker now raises a diagnostic.** A `round-N` typed by hand (or
+  left stale by an edit that shrank the activity) large enough to round an item below zero was
+  honored silently — the row rendered `0.00h` with the marker intact. Refresh now flags it
+  (`daylog: round-N rounds this item below zero; clear or reduce the nudge`) at the offending
+  entry so the undefined marker is surfaced and corrected; the summary still renders the
+  clamped row.
+
 ## 0.12.0 - 2026-06-25
 
 ### Added

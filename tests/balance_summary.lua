@@ -148,6 +148,26 @@ return function(t)
     t.eq(err, balance.CANNOT_DOWN)
   end)
 
+  t.test("balance refuses an over-large round-down addressed to an entry", function()
+    -- A single 60-min task at q=15 displays 1.00h. Addressing the entry directly, -4 lands
+    -- it exactly on 0.00h and is allowed; -5 would cross below 0, so the entry path refuses
+    -- with CANNOT_DOWN -- the same bound the summary-row path (plan_steps) already enforces --
+    -- instead of writing an out-of-range round-N marker.
+    local lines = buffer_with_summary({
+      "--- log #ClientA q=15 ---",
+      "08:00 task",
+      "09:00 done",
+    })
+
+    local floored = run(lines, "08:00 task", -4)
+    t.eq(floored[2], "08:00 task round-4")
+    t.eq(floored[row_of(floored, "workday")], "0.00h (+60m) workday round-4")
+
+    local result, err = balance.run(lines, row_of(lines, "08:00 task"), -5)
+    t.eq(result, nil)
+    t.eq(err, balance.CANNOT_DOWN)
+  end)
+
   t.test("balance marks every interval of a multi-interval activity row", function()
     -- review is three intervals (one fine-grained row, 78min -> 1.25h +3m). Rounding
     -- the row up one bucket marks ALL THREE intervals and lands at 1.50h -- not three

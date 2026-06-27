@@ -225,7 +225,7 @@ end
 -- new value. Returns nil when the cursor entry starts no interval (e.g. the closing
 -- entry of the day), which therefore contributes to no row and cannot be rounded.
 local function entry_direct_changes(block, cursor_row, delta)
-  local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+  local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
 
   local current_entry_nudge = current_nudges(block)
 
@@ -236,6 +236,11 @@ local function entry_direct_changes(block, cursor_row, delta)
         -- quantizer, so refuse rather than write a marker that does nothing.
         if delta ~= 0 and row.logged_minutes ~= nil then
           return nil, M.ONLY_LOGGED
+        end
+        -- Refuse a round-down that would drive the displayed duration below 0, exactly as the
+        -- summary-row path (plan_steps) does, instead of writing an out-of-range round-N marker.
+        if delta < 0 and (row.duration + delta * bucket_minutes) < 0 then
+          return nil, M.CANNOT_DOWN
         end
         local new_nudge = delta == 0 and 0 or (row.nudge or 0) + delta
         local changes = {}
