@@ -4,6 +4,10 @@ local sources_registry = require("daylog.sources.registry")
 
 local M = {}
 
+-- The :checkhealth daylog probe (shell). Verifies the plugin loaded, setup ran, the user
+-- commands are registered, the filetype maps, and configured sources have a cache. Read-only:
+-- it never calls setup() or touches buffers, so it cannot disturb the user's live state.
+
 local function start(name)
   if vim.health and vim.health.start then
     vim.health.start(name)

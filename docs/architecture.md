@@ -94,11 +94,21 @@ render.lua        -> output rendering
 week.lua          -> daybook week/days report assembly (reuses the reporting core)
 highlight.lua     -> parser-driven highlight spans (pure)
 text.lua          -> small shared text predicates (e.g. is_empty)
-usecases/         -> pure command operations (incl. insert_entry)
+usecases/         -> pure command operations (incl. insert_entry, support helpers)
 sources/          -> external work-item sources (pure providers + shell IO/UI)
+
+-- the shell layer: the only modules that touch the Neovim API / IO / UI
+init.lua          -> shell: setup, autocmds, source wiring, edit-script application
+commands.lua      -> shell: user-command and autocmd definitions
+buffer.lua        -> shell: buffer/cursor/clock, edit application, diagnostic + highlight publishing
+report.lua        -> shell: multi-day report buffers
+rename.lua        -> shell: rename picker / confirm / multi-file write
+map.lua           -> shell: mapping picker
+pick.lua          -> shell: mixed-row picker (Telescope or vim.ui.select)
+daybook_io.lua    -> shell: daybook file IO and buffer/path resolution
+current_time.lua  -> shell: current-time stamping + cross-day carryover
+filetype.lua      -> shell: filetype registration
 telescope.lua     -> shell: optional Telescope live-search picker (insert + rename)
-filetype.lua      -> filetype registration
-init.lua          -> Neovim shell
 health.lua        -> shell: the :checkhealth probe
 ftplugin/daylog.lua -> shell: attach the highlighter to daylog buffers
 ```
@@ -365,11 +375,14 @@ paths before calling pure daybook helpers, calls usecases, applies edit scripts,
 applies highlight spans as extmarks, and shows warnings. It contains no log
 semantics.
 
-The shell is a thin *layer*, not a single file. Alongside `init.lua`, the only
-code that touches Neovim, IO, or UI is `health.lua` (the `:checkhealth` probe),
-`ftplugin/daylog.lua` (attaches the highlighter), and the sources shell modules
-(`sources/http`, `sources/sync`, and the top-level `telescope`). The semantic core -- and
-even the source providers and the highlighter -- stay pure; see below.
+The shell is a thin *layer*, not a single file. Alongside `init.lua` (setup, autocmds,
+edit-script application), the code that touches Neovim, IO, or UI is its sibling
+command/edit modules (`commands`, `buffer`, `report`, `rename`, `map`, `pick`), the
+daybook/clock IO (`daybook_io`, `current_time`), `filetype` (registers the filetype),
+`health.lua` (the `:checkhealth` probe), `ftplugin/daylog.lua` (attaches the highlighter),
+and the sources shell modules (`sources/http`, `sources/sync`, and the top-level
+`telescope`). Each shell module's header says so; everything else -- the semantic core, the
+source providers, and the highlighter -- stays pure. See below.
 
 ## Sources
 
