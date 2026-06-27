@@ -163,6 +163,16 @@ function M.new(_name, cfg, deps)
         end
       end
 
+      -- A flat WIQL query returns `workItems`; a tree or one-hop saved query returns
+      -- `workItemRelations` and no `workItems`, which would otherwise hydrate to an empty
+      -- picker indistinguishable from "no items". Surface the misconfiguration instead.
+      if #ids == 0 and decoded.workItemRelations ~= nil then
+        return cb(
+          nil,
+          "daylog: this Azure DevOps query returns linked items; use a flat work-item query"
+        )
+      end
+
       -- Report the full match count so the picker can flag when hydrate's 200-item
       -- cap truncated the results; fetch's callers simply ignore the extra arg.
       local total = #ids

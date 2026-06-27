@@ -102,6 +102,35 @@ return function(t)
     t.ok(transport.seen[1].url:match("/wiql%?api%-version=7%.0$") ~= nil)
   end)
 
+  t.test("fetch errors on a non-flat (tree/one-hop) query instead of an empty picker", function()
+    local hydrated = false
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return {
+          status = 200,
+          body = vim.json.encode({
+            queryType = "tree",
+            workItemRelations = { { target = { id = 1234 } }, { target = { id = 42 } } },
+          }),
+        }
+      end
+      hydrated = true
+      return { status = 200, body = vim.json.encode({ value = {} }) }
+    end)
+
+    local result
+    new_source(base_cfg(), transport).fetch(function(items, err)
+      result = { items = items, err = err }
+    end)
+
+    t.eq(result.items, nil)
+    t.eq(
+      result.err,
+      "daylog: this Azure DevOps query returns linked items; use a flat work-item query"
+    )
+    t.ok(not hydrated, "hydrate is not called for a non-flat query")
+  end)
+
   t.test("fetch uses the default WIQL when no query is configured", function()
     local transport = fake_transport(function(opts)
       if opts.url:match("/wiql%?") then
