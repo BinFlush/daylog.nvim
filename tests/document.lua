@@ -536,4 +536,13 @@ return function(t)
     -- parse_entry, which reads `09:00 => foo` as the description "=> foo" with no alias.
     t.eq(document.alias_span("09:00 => foo"), nil)
   end)
+
+  t.test("syntax.is_summary_row requires the marker's sign", function()
+    -- Generated rows always carry a signed `(±Nm)` marker (render uses %+d), so the predicate
+    -- requires the sign. A hand-written note shaped like an unsigned `(Nm)` is not a row, so it
+    -- is preserved rather than swept when the summary span is located.
+    t.ok(syntax.is_summary_row("3.00h (+0m) workday"))
+    t.ok(syntax.is_summary_row("9:54 (-13m) design2 !L"))
+    t.ok(not syntax.is_summary_row("lunch (5m) break"))
+  end)
 end

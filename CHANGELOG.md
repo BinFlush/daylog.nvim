@@ -57,6 +57,10 @@ happen, but they are called out clearly in this changelog.
   query configured as a tree or work-items-and-direct-links query returns `workItemRelations`
   rather than `workItems`, which silently produced no items; it now surfaces a clear error
   asking for a flat work-item query.
+- **A note shaped like an unsigned `(Nm)` is no longer mistaken for a summary row.** The
+  generated-row predicate accepted an optional sign, so a hand-written note like `lunch (5m)
+  break` sitting just above the summary could be swept as generated debris on a refresh.
+  Generated rows always sign the marker, so the sign is now required.
 
 ## 0.12.0 - 2026-06-25
 

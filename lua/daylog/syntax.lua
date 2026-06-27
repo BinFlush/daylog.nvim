@@ -154,9 +154,10 @@ end
 -- token followed by a `(±Nm)` rounding-error marker (`3.00h (+0m) workday`,
 -- `9:54 (-13m) design2 !L`). The shape backstop used when no banner survives at
 -- all: the surviving generated rows are recognized by this so their span can be
--- located and blasted.
+-- located and blasted. The marker's sign is required -- render always emits one via
+-- `%+d`, so an unsigned `(Nm)` in a hand-written note is never mistaken for a row.
 function M.is_summary_row(raw)
-  return raw:match("^%S+ %([%+%-]?%d+m%)") ~= nil
+  return raw:match("^%S+ %([%+%-]%d+m%)") ~= nil
 end
 
 -- UTC-offset markers: a third sticky dimension alongside #tag / @location.
