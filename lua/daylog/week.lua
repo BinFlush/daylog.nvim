@@ -8,7 +8,9 @@ local text = require("daylog.text")
 local M = {}
 
 local function strip_log_prefix(message)
-  return message:match("^daylog:%s*(.*)$") or message
+  -- gsub (not match) so the prefix is stripped even from a multi-line message, where
+  -- the `.` in a `(.*)$` capture would not span the newline.
+  return (message:gsub("^daylog:%s*", ""))
 end
 
 local function prefixed_file_error(path, message)
