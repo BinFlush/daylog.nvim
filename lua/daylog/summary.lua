@@ -22,7 +22,7 @@ local function build_intervals(entries)
 
   for i = 1, #entries - 1 do
     local current = entries[i]
-    local next = entries[i + 1]
+    local next_entry = entries[i + 1]
 
     -- Durations are measured in effective UTC time (`local - offset`), so an
     -- interval that spans a clock move -- a timezone crossing or a DST flip -- is
@@ -30,11 +30,11 @@ local function build_intervals(entries)
     -- raw local clock (display only). With no offsets in play this is exactly
     -- `next.minutes - current.minutes`, so a plain log is unchanged.
     local current_effective = current.minutes - (current.offset or 0)
-    local next_effective = next.minutes - (next.offset or 0)
+    local next_effective = next_entry.minutes - (next_entry.offset or 0)
 
     table.insert(intervals, {
       start = current.minutes,
-      stop = next.minutes,
+      stop = next_entry.minutes,
       duration = next_effective - current_effective,
       -- A mapping alias resolves the grouping/display label: an aliased entry counts
       -- toward, and is shown as, its target. The original text stays on the entry; every
