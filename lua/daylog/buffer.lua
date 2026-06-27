@@ -288,10 +288,6 @@ local function run_buffer_usecase(run, ...)
   return true
 end
 
--- Rebuild every log's existing summary to match its entries, and publish the
--- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
--- are already current. `join` merges the edit into the previous undo block, used
--- by the autocmd-driven refreshes so one keystroke stays one undo step.
 -- Run `fn` (which may resize or replace the buffer's lines) while preserving the
 -- cursor in `win`, restoring it afterwards clamped to the buffer's new line count and
 -- the landing line's length, so a shrunk buffer or a shorter line never throws.
@@ -316,6 +312,10 @@ local function buffer_changed(target_buf, op)
   return true
 end
 
+-- Rebuild every log's existing summary to match its entries, and publish the
+-- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
+-- are already current. `join` merges the edit into the previous undo block, used
+-- by the autocmd-driven refreshes so one keystroke stays one undo step.
 local function apply_refresh(join)
   if refreshing then
     return
