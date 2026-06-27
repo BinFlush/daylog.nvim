@@ -514,19 +514,27 @@ local function setup_auto_summary(mode)
       { group = group, callback = refresh }
     )
   elseif mode == "change" then
-    local generation = 0
+    -- Debounce per buffer so the last change in a burst refreshes, and a burst in one daylog
+    -- never cancels another daylog's pending refresh. The deferred refresh re-checks at fire
+    -- time (not just at schedule) that this is still the buffer's last change and that the
+    -- buffer is still current -- apply_refresh acts on the current buffer -- so switching away
+    -- within the 200ms window never refreshes the wrong buffer.
+    local generations = {}
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
       group = group,
       callback = function(opts)
         on_daylog_buffer(opts, function()
-          generation = generation + 1
-          local scheduled = generation
-          -- Debounce: only the last change in a burst refreshes.
+          local buf = opts.buf
+          generations[buf] = (generations[buf] or 0) + 1
+          local scheduled = generations[buf]
           vim.defer_fn(function()
-            if scheduled == generation then
+            if scheduled ~= generations[buf] or vim.api.nvim_get_current_buf() ~= buf then
+              return
+            end
+            on_daylog_buffer({ buf = buf }, function()
               apply_refresh(true)
               refresh_report_windows()
-            end
+            end)
           end, 200)
         end)
       end,

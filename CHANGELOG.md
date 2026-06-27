@@ -48,6 +48,11 @@ happen, but they are called out clearly in this changelog.
   recent-activity ranking keyed on an entry's description, so a `=> alias` mapping never
   boosted the source item it reported as and also surfaced a duplicate "activity" row. It now
   keys on the resolved label (alias when set), so a bare and a mapped entry rank as one.
+- **`auto_summary = "change"` no longer races across daylog buffers.** The 200ms debounce used
+  one counter shared by every daylog buffer, so editing a second daylog within the window
+  cancelled the first's pending refresh, and the deferred refresh did not re-check its buffer,
+  so switching buffers could refresh the wrong one. The debounce is now per buffer and the
+  deferred refresh only fires when its buffer is still current.
 
 ## 0.12.0 - 2026-06-25
 
