@@ -152,12 +152,6 @@ function M.project_quantized_items(unrounded_items, quantized_items, key_fields,
       projected.nudge = quantized_item.nudge
     end
 
-    -- Carry the frozen committed value through so the diagnostic pass can spot a
-    -- value that no longer reconciles with the current q or activity total.
-    if quantized_item and quantized_item.logged_minutes ~= nil then
-      projected.logged_minutes = quantized_item.logged_minutes
-    end
-
     if item.source_entry_rows then
       projected.source_entry_rows = item.source_entry_rows
     end
