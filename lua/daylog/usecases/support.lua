@@ -124,6 +124,39 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
   }
 end
 
+-- Build the edit for a fresh entry repeating a `source` activity at `minutes`: copy the
+-- source's metadata (its alias included, when it has one) but take the new time, dropping
+-- any logged / round±N marker -- a repeat or a carryover is a new entry, not a continuation
+-- of the source's commitment. A drifted live offset (`auto_offset`, from auto_timezone)
+-- overrides the copied source offset so the entry records the zone it is happening in now,
+-- attaching the `offset_change` the shell needs. `source` is any copy_fields-compatible
+-- activity (an entry item, or a hand-built carryover activity); its tag/location/offset
+-- drive the sticky placement. Shared by :DaylogRepeat and the cross-day carryover seed.
+function M.fresh_entry_edit(block, source, minutes, auto_offset)
+  local state = M.get_insert_state(block, minutes)
+
+  local fields = analyze.copy_fields(source)
+  fields.minutes = minutes
+  fields.logged = false
+  fields.nudge = nil
+
+  local stamp = M.offset_stamp(state.offset, auto_offset)
+  local ins_offset = source.offset
+  if stamp ~= nil then
+    fields.offset = stamp
+    ins_offset = stamp
+  end
+
+  local line = entry.format(fields, state.tag, state.location, state.offset)
+  local result = M.insert_entry_edit(block, minutes, line, source.tag, source.location, ins_offset)
+
+  if stamp ~= nil then
+    result.offset_change = { from = state.offset, to = stamp }
+  end
+
+  return result
+end
+
 -- Clone a block's semantic entries through the canonical field set (restoring the
 -- source row that copy_fields deliberately drops) and apply `mutate(copy)` to each,
 -- returning the new list. The summary-writing usecases recompute a summary from
