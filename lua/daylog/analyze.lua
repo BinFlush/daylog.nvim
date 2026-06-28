@@ -249,6 +249,14 @@ local function declare_once(result, diagnostics, flag, label, row)
   return true
 end
 
+-- The header metadata kinds that are first-wins and at-most-one: each names the result flag and
+-- value field it sets, and the noun for its "multiple ... are not allowed" diagnostic.
+local HEADER_METADATA = {
+  [syntax.TOKEN_KIND.TAG] = { has = "has_tag", value = "tag", noun = "tags" },
+  [syntax.TOKEN_KIND.LOCATION] = { has = "has_location", value = "location", noun = "locations" },
+  [syntax.TOKEN_KIND.OFFSET] = { has = "has_offset", value = "offset", noun = "utc offsets" },
+}
+
 local function interpret_log_header(header, diagnostics)
   local result = {
     tag = nil,
@@ -264,41 +272,18 @@ local function interpret_log_header(header, diagnostics)
   }
 
   for _, token in ipairs(header.metadata_tokens or {}) do
-    if token.kind == syntax.TOKEN_KIND.TAG then
-      if result.has_tag then
+    local spec = HEADER_METADATA[token.kind]
+    if spec then
+      if result[spec.has] then
         push_diagnostic(diagnostics, {
           code = syntax.DIAGNOSTIC.INVALID_LOG_HEADER_METADATA,
           severity = "error",
           row = header.row,
-          message = "multiple log header tags are not allowed",
+          message = "multiple log header " .. spec.noun .. " are not allowed",
         })
       else
-        result.has_tag = true
-        result.tag = token.value
-      end
-    elseif token.kind == syntax.TOKEN_KIND.LOCATION then
-      if result.has_location then
-        push_diagnostic(diagnostics, {
-          code = syntax.DIAGNOSTIC.INVALID_LOG_HEADER_METADATA,
-          severity = "error",
-          row = header.row,
-          message = "multiple log header locations are not allowed",
-        })
-      else
-        result.has_location = true
-        result.location = token.value
-      end
-    elseif token.kind == syntax.TOKEN_KIND.OFFSET then
-      if result.has_offset then
-        push_diagnostic(diagnostics, {
-          code = syntax.DIAGNOSTIC.INVALID_LOG_HEADER_METADATA,
-          severity = "error",
-          row = header.row,
-          message = "multiple log header utc offsets are not allowed",
-        })
-      else
-        result.has_offset = true
-        result.offset = token.value
+        result[spec.has] = true
+        result[spec.value] = token.value
       end
     end
   end
