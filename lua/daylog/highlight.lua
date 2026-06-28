@@ -143,15 +143,7 @@ end
 -- summary rows, so a run the parser rejects is never reached.
 local function push_trailing_metadata(spans, row, line)
   local tokens = document.tokens(line)
-
-  local first = #tokens + 1
-  for i = #tokens, 1, -1 do
-    if control_group(tokens[i].text) then
-      first = i
-    else
-      break
-    end
-  end
+  local first = document.trailing_metadata_start(tokens)
 
   for i = first, #tokens do
     push(

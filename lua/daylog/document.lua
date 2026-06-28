@@ -374,6 +374,22 @@ function M.tokens(line)
   return result
 end
 
+-- The 1-based index where a line's trailing run of metadata tokens (#tag / @location / utc /
+-- round / !L, any order) begins, scanning backward over `tokens` (from M.tokens); #tokens + 1
+-- when the line ends in no metadata. The parser peels this run off the end and the highlighter
+-- colors it -- one definition of where the trailing metadata starts, for both.
+function M.trailing_metadata_start(tokens)
+  local start = #tokens + 1
+  for i = #tokens, 1, -1 do
+    if parse_entry_control_token(tokens[i].text) then
+      start = i
+    else
+      break
+    end
+  end
+  return start
+end
+
 -- The byte span of an entry's ` => label` alias -- from the `=>` token through the last
 -- label word, excluding the trailing metadata run that follows it -- as 0-based
 -- { col_start, col_end } (end exclusive), or nil when the line has no alias. Mirrors the
@@ -383,14 +399,7 @@ function M.alias_span(line)
   local tokens = M.tokens(line)
 
   -- The trailing run of metadata tokens is not part of the alias.
-  local last_label = #tokens
-  for i = #tokens, 1, -1 do
-    if parse_entry_control_token(tokens[i].text) then
-      last_label = i - 1
-    else
-      break
-    end
-  end
+  local last_label = M.trailing_metadata_start(tokens) - 1
 
   -- The alias opens at the last `=>` token at or before the final label word.
   local arrow
