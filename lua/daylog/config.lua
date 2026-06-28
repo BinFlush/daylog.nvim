@@ -28,6 +28,31 @@ local function positive_integer(value)
   return type(value) == "number" and value > 0 and value == math.floor(value)
 end
 
+local function nonempty_string(value)
+  return type(value) == "string" and value ~= ""
+end
+
+local function is_function(value)
+  return type(value) == "function"
+end
+
+local function is_boolean(value)
+  return type(value) == "boolean"
+end
+
+-- Set result[field] from an optional entry[field]: when present it must satisfy `valid` (else the
+-- verbatim "daylog: source '<name>'.<field> <must>" error); when absent, result[field] is left
+-- nil so the caller can apply a default with `or`. The one optional-field shape, named once.
+local function set_optional(entry, result, name, field, valid, must)
+  local value = entry[field]
+  if value ~= nil then
+    if not valid(value) then
+      error(string.format("daylog: source '%s'.%s %s", name, field, must))
+    end
+    result[field] = value
+  end
+end
+
 local function normalize_defaults(defaults)
   if defaults == nil then
     return {}
@@ -230,19 +255,8 @@ local function normalize_azure_devops(name, entry)
     error("daylog: source '" .. name .. "' must not set both query and query_id")
   end
 
-  if entry.query ~= nil then
-    if type(entry.query) ~= "string" or entry.query == "" then
-      error("daylog: source '" .. name .. "'.query must be a non-empty string")
-    end
-    result.query = entry.query
-  end
-
-  if entry.query_id ~= nil then
-    if type(entry.query_id) ~= "string" or entry.query_id == "" then
-      error("daylog: source '" .. name .. "'.query_id must be a non-empty string")
-    end
-    result.query_id = entry.query_id
-  end
+  set_optional(entry, result, name, "query", nonempty_string, "must be a non-empty string")
+  set_optional(entry, result, name, "query_id", nonempty_string, "must be a non-empty string")
 
   -- A custom query/query_id carries its own scope (and a saved query is itself
   -- project-scoped), so it can't be combined with a cross-project `projects` list.
@@ -256,31 +270,15 @@ local function normalize_azure_devops(name, entry)
     error("daylog: source '" .. name .. "'.query_id needs a project")
   end
 
-  if entry.api_version ~= nil then
-    if type(entry.api_version) ~= "string" or entry.api_version == "" then
-      error("daylog: source '" .. name .. "'.api_version must be a non-empty string")
-    end
-    result.api_version = entry.api_version
-  else
-    result.api_version = "7.0"
-  end
+  set_optional(entry, result, name, "api_version", nonempty_string, "must be a non-empty string")
+  result.api_version = result.api_version or "7.0"
 
-  if entry.format_item ~= nil then
-    if type(entry.format_item) ~= "function" then
-      error("daylog: source '" .. name .. "'.format_item must be a function")
-    end
-    result.format_item = entry.format_item
-  end
+  set_optional(entry, result, name, "format_item", is_function, "must be a function")
 
-  -- Live as-you-type tracker search is off by default (the offline cache is the
-  -- picker); opt in per source. Picking stays offline either way -- only an enabled
-  -- search reaches the network on each keystroke.
-  if entry.search ~= nil then
-    if type(entry.search) ~= "boolean" then
-      error("daylog: source '" .. name .. "'.search must be a boolean")
-    end
-    result.search = entry.search
-  end
+  -- Live as-you-type tracker search (`search`) is off by default (the offline cache is the
+  -- picker); opt in per source. Picking stays offline either way -- only an enabled search
+  -- reaches the network on each keystroke.
+  set_optional(entry, result, name, "search", is_boolean, "must be a boolean")
 
   return result
 end
@@ -302,34 +300,16 @@ local function normalize_source(name, entry)
   local result = normalize_type(name, entry)
   result.type = entry.type
 
-  if entry.ttl ~= nil then
-    if not positive_integer(entry.ttl) then
-      error("daylog: source '" .. name .. "'.ttl must be a positive integer")
-    end
-    result.ttl = entry.ttl
-  else
-    result.ttl = SOURCE_DEFAULT_TTL
-  end
+  set_optional(entry, result, name, "ttl", positive_integer, "must be a positive integer")
+  result.ttl = result.ttl or SOURCE_DEFAULT_TTL
 
-  if entry.template ~= nil then
-    if type(entry.template) ~= "string" or entry.template == "" then
-      error("daylog: source '" .. name .. "'.template must be a non-empty string")
-    end
-    result.template = entry.template
-  else
-    result.template = SOURCE_DEFAULT_TEMPLATE
-  end
+  set_optional(entry, result, name, "template", nonempty_string, "must be a non-empty string")
+  result.template = result.template or SOURCE_DEFAULT_TEMPLATE
 
-  -- Minimum prompt length before a live search hits the network; shorter prompts
+  -- Minimum prompt length (`min_query`) before a live search hits the network; shorter prompts
   -- only filter the cached pool. Set to 1 for search-on-first-keystroke.
-  if entry.min_query ~= nil then
-    if not positive_integer(entry.min_query) then
-      error("daylog: source '" .. name .. "'.min_query must be a positive integer")
-    end
-    result.min_query = entry.min_query
-  else
-    result.min_query = SOURCE_DEFAULT_MIN_QUERY
-  end
+  set_optional(entry, result, name, "min_query", positive_integer, "must be a positive integer")
+  result.min_query = result.min_query or SOURCE_DEFAULT_MIN_QUERY
 
   return result
 end
