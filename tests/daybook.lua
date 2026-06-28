@@ -108,6 +108,13 @@ return function(t)
     t.eq(label("monday"), "2026-05-18") -- this week's Monday
     t.eq(label("sunday"), "2026-05-17") -- last Sunday (not the coming one)
     t.eq(label("Wed"), "2026-05-20") -- case-insensitive
+    t.eq(label("tomorrow"), "2026-05-23")
+    -- Signed relative day offsets; a bare (unsigned) number is NOT an offset (it is a report
+    -- count in the shared grammar).
+    t.eq(label("+1"), "2026-05-23")
+    t.eq(label("-3"), "2026-05-19")
+    t.eq(label("+0"), "2026-05-22")
+    t.eq(label("3"), nil)
     -- A literal date passes through; anything else is nil.
     t.eq(label("2026-01-09"), "2026-01-09")
     t.eq(label("someday"), nil)
