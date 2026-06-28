@@ -107,6 +107,170 @@ local function classify_source_arg(arg)
   return "value"
 end
 
+-- :Daylog <verb> -- the single command. Entry-point verbs work anywhere; editing verbs act on
+-- the current daylog buffer (and surface in completion only there).
+local ENTRY_VERBS = { "today", "day", "next", "prev", "report", "sync" }
+local EDIT_VERBS = {
+  "insert",
+  "repeat",
+  "new",
+  "copy",
+  "order",
+  "log",
+  "balance",
+  "split",
+  "map",
+  "rename",
+  "refresh",
+}
+
+-- Date tokens completion offers for `day`/`report` arguments (signed +N/-N offsets and
+-- YYYY-MM-DD literals are typed, not completed).
+local DAY_TOKENS = {
+  "today",
+  "yesterday",
+  "tomorrow",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+}
+
+local function prefix_matches(candidates, arglead)
+  local matches = {}
+  for _, candidate in ipairs(candidates) do
+    if candidate:sub(1, #arglead) == arglead then
+      table.insert(matches, candidate)
+    end
+  end
+  table.sort(matches)
+  return matches
+end
+
+-- Context-aware completion: the verb at the first argument (editing verbs only inside a daylog
+-- buffer), then per-verb argument completion -- date tokens for day/report, source names for
+-- insert/sync/rename/map.
+local function daylog_complete(arglead, cmdline, cursorpos)
+  local before = cmdline:sub(1, cursorpos):gsub(".-Daylog!?%s*", "", 1)
+  local verb = before:match("^(%S+)%s")
+
+  if not verb then
+    local verbs = vim.list_extend({}, ENTRY_VERBS)
+    if vim.bo.filetype == "daylog" then
+      vim.list_extend(verbs, EDIT_VERBS)
+    end
+    return prefix_matches(verbs, arglead)
+  end
+
+  if verb == "day" or verb == "report" then
+    return prefix_matches(DAY_TOKENS, arglead)
+  elseif verb == "insert" or verb == "sync" or verb == "rename" or verb == "map" then
+    return source_complete(arglead)
+  end
+
+  return {}
+end
+
+-- Split :Daylog's raw arguments into a verb context: fargs (the verb word dropped), rest (the
+-- raw remainder, for values that may contain spaces -- map/rename/report), the bang, and a
+-- visual range when one was given.
+local function verb_context(args)
+  local fargs = {}
+  for index = 2, #args.fargs do
+    fargs[#fargs + 1] = args.fargs[index]
+  end
+
+  return {
+    fargs = fargs,
+    rest = (args.args:gsub("^%s*%S+%s*", "")),
+    bang = args.bang,
+    range = args.range > 0 and { args.line1, args.line2 } or nil,
+  }
+end
+
+-- verb -> handler(api, ctx). Each handler reads its arguments from ctx and calls the public api
+-- verb. Bang selects the verb's variant (insert -> unified picker, map -> clear, report ->
+-- aggregate only); a range applies to map.
+local VERBS = {
+  today = function(api)
+    api.today()
+  end,
+  day = function(api, ctx)
+    api.day(ctx.fargs[1])
+  end,
+  next = function(api, ctx)
+    local count, err = parse_step_count(ctx.fargs[1])
+    if not count then
+      warn(err)
+      return
+    end
+    api.next_day(count)
+  end,
+  prev = function(api, ctx)
+    local count, err = parse_step_count(ctx.fargs[1])
+    if not count then
+      warn(err)
+      return
+    end
+    api.prev_day(count)
+  end,
+  report = function(api, ctx)
+    api.report(ctx.rest, ctx.bang)
+  end,
+  insert = function(api, ctx)
+    api.insert({ source = ctx.fargs[1], pick = ctx.bang })
+  end,
+  ["repeat"] = function(api)
+    api.repeat_()
+  end,
+  new = function(api)
+    api.new_log()
+  end,
+  copy = function(api)
+    api.copy()
+  end,
+  order = function(api)
+    api.order()
+  end,
+  log = function(api)
+    api.log()
+  end,
+  balance = function(api, ctx)
+    api.balance(ctx.fargs[1])
+  end,
+  split = function(api, ctx)
+    api.split(ctx.fargs)
+  end,
+  map = function(api, ctx)
+    if ctx.bang then
+      api.map({ clear = true, range = ctx.range })
+      return
+    end
+    local kind = classify_source_arg(ctx.rest)
+    api.map({
+      value = kind == "value" and ctx.rest or nil,
+      source = kind == "source" and ctx.rest or nil,
+      range = ctx.range,
+    })
+  end,
+  rename = function(api, ctx)
+    local kind = classify_source_arg(ctx.rest)
+    api.rename({
+      value = kind == "value" and ctx.rest or nil,
+      source = kind == "source" and ctx.rest or nil,
+    })
+  end,
+  refresh = function(api)
+    api.refresh()
+  end,
+  sync = function(api, ctx)
+    api.sync(ctx.fargs[1])
+  end,
+}
+
 -- Register a command whose single optional argument is parsed, warned-on, then
 -- dispatched. `parse(args.args) -> value | nil, err`; on a successful (non-nil) parse
 -- `dispatch(value)` runs, else the error is warned. The day-navigation commands share
@@ -129,6 +293,29 @@ end
 -- Register every :Daylog* / :Daylog* command, wiring its thin handler to the public
 -- verb on `api` (the init module's M).
 function M.register(api)
+  -- The single :Daylog <verb> command (bare :Daylog opens today). Dispatches through VERBS; the
+  -- per-verb :Daylog* commands below are transitional and retire after the test migration.
+  ensure_user_command("Daylog", function(args)
+    local verb = args.fargs[1]
+    if not verb then
+      api.today()
+      return
+    end
+
+    local handler = VERBS[verb]
+    if not handler then
+      warn("daylog: unknown verb '" .. verb .. "' -- try :Daylog <Tab>")
+      return
+    end
+
+    handler(api, verb_context(args))
+  end, {
+    nargs = "*",
+    bang = true,
+    range = true,
+    complete = daylog_complete,
+  })
+
   ensure_user_command("DaylogInsert", function(args)
     if args.bang then
       api.insert_unified()

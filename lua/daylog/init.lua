@@ -487,6 +487,37 @@ function M.prev_day(count)
   M.open_relative_day(-(count or 1))
 end
 
+-- Stamp the current time as a new entry. opts.pick opens the unified recent+sources picker;
+-- opts.source picks from that one tracker; otherwise a bare current-time entry.
+function M.insert(opts)
+  opts = opts or {}
+  if opts.pick then
+    return M.insert_unified()
+  end
+  if opts.source and opts.source ~= "" then
+    return M.insert_from_source(opts.source)
+  end
+  return M.insert_now()
+end
+
+-- Map the cursor entry / summary row to a label. opts.clear removes the mapping; otherwise
+-- opts.value sets the label directly and opts.source opens that tracker's picker. opts.range
+-- ({ line1, line2 }) maps a visual range of entries.
+function M.map(opts)
+  opts = opts or {}
+  if opts.clear then
+    return M.map_clear(opts.range)
+  end
+  return M.map_summary(opts.value, opts.source, opts.range)
+end
+
+-- Rename what a summary row reports under. opts.value renames directly; opts.source opens that
+-- tracker's picker; neither opens the unified recent+sources picker.
+function M.rename(opts)
+  opts = opts or {}
+  return M.rename_summary(opts.value, opts.source)
+end
+
 -- One end of a `:DaylogDays` range: a named token (`today`, `monday`, ...) or a `YYYY-MM-DD`
 -- literal resolved against `now`; or, when the bound is omitted, the daybook extreme that
 -- `fallback` returns (earliest for the start, latest for the end). Returns ts, or nil + err.
@@ -535,11 +566,39 @@ local function resolve_range_dates(request)
   return daybook.range_dates(from_ts, to_ts)
 end
 
--- Open a multi-day report. `request` is a normalized days request: `{ count = N }` for the
--- trailing form, or `{ from = <str|nil>, to = <str|nil> }` for an explicit/open-ended range.
--- `aggregate_only` shows only the period total. The resolved date list is pinned in the spec
--- so the report keeps its span.
-function M.report(request, aggregate_only)
+-- Parse a report range string: a bare count ("7") -> { count = N }, or a "FROM..TO" token
+-- range -> { from, to } (either side may be empty for an open end). Returns nil otherwise. A
+-- bare number reads as a count here, never a day offset -- resolve_date owns the signed-offset
+-- day tokens, so the two readings never overlap.
+local function parse_report_range(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+
+  if value:match("^%d+$") then
+    local count = tonumber(value)
+    return count >= 1 and { count = count } or nil
+  end
+
+  local from, to = value:match("^(.-)%.%.(.-)$")
+  if not from then
+    return nil
+  end
+
+  return { from = from ~= "" and from or nil, to = to ~= "" and to or nil }
+end
+
+-- Open a multi-day report over `range`: a count ("7"), a "FROM..TO" token range
+-- ("monday..today", "..today"), or a pre-parsed request table (`{ count = N }` / `{ from, to }`).
+-- `aggregate_only` shows only the period total. The resolved date list is pinned in the spec so
+-- the report keeps its span.
+function M.report(range, aggregate_only)
+  local request = type(range) == "table" and range or parse_report_range(range or "")
+  if not request then
+    warn("daylog: report expects a day count or a FROM..TO range (e.g. 7, monday..today, ..today)")
+    return
+  end
+
   local dates, err
   if request.count then
     dates = daybook.trailing_dates(os.time(), request.count)
