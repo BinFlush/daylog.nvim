@@ -166,38 +166,6 @@ local function report_target_paths(report, resolved)
   return paths
 end
 
--- The other same-kind values in the aggregate summary, as merge targets for the
--- report rename picker (mirrors rename_summary's in-file merge candidates).
-local function report_merge_candidates(report, target)
-  local aggregate = report.summary
-  local seen, candidates = {}, {}
-
-  local function add(value)
-    if value ~= nil and value ~= target.current and not seen[value] then
-      seen[value] = true
-      candidates[#candidates + 1] = value
-    end
-  end
-
-  if target.kind == "tag" then
-    for _, item in ipairs(aggregate.tag_totals or {}) do
-      add(item.tag)
-    end
-  elseif target.kind == "location" then
-    for _, item in ipairs(aggregate.location_totals or {}) do
-      add(item.location)
-    end
-  else
-    for _, item in ipairs(aggregate.summary_items or {}) do
-      if item.tag == target.tag then
-        add(item.text)
-      end
-    end
-  end
-
-  return candidates
-end
-
 -- Write a day file's new content: into its open buffer when one exists (so the user
 -- saves it, and the report -- which reads buffers first -- reflects it at once),
 -- otherwise straight to disk. The summary was already rebuilt into `new_lines`.
@@ -351,7 +319,9 @@ rename_from_report = function(spec, new_value, source_name)
     return
   end
 
-  prompt_report_rename(target, report_merge_candidates(report, target), apply)
+  local candidates =
+    rename_summary.merge_candidates(report.summary, target.kind, target.current, target.tag)
+  prompt_report_rename(target, candidates, apply)
 end
 
 return M
