@@ -323,34 +323,14 @@ local function build_edits(analysis, block, entry_changes, target_row)
   end)
 
   local region = support.locate_summary(analysis, block)
+  local summary_edit, rebuilt = support.summary_edit(block, modified, region)
 
-  local result = { edits = {} }
+  local result = { edits = support.entry_change_edits(summary_edit, source_edits) }
 
-  if region then
-    local rebuilt = summary.summarize_entries(modified, block.quantize_minutes)
-    table.insert(result.edits, {
-      start_index = region.start_row - 1,
-      end_index = region.end_row - 1,
-      lines = render.summary_lines(
-        rebuilt,
-        block.duration_format,
-        support.summary_render_options(block)
-      ),
-    })
-    -- Follow the balanced row to its new line when it reordered.
-    if target_row then
-      result.cursor_row = cursor_for_target(rebuilt, block, region, target_row)
-    end
+  -- Follow the balanced row to its new line when it reordered.
+  if region and target_row then
+    result.cursor_row = cursor_for_target(rebuilt, block, region, target_row)
   end
-
-  for _, edit in ipairs(source_edits) do
-    table.insert(result.edits, edit)
-  end
-
-  -- Apply highest-row-first so the summary rebuild does not shift the source rows.
-  table.sort(result.edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
 
   return result
 end

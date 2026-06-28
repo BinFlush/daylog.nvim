@@ -1,7 +1,6 @@
 local analyze = require("daylog.analyze")
 local entry = require("daylog.entry")
 local render = require("daylog.render")
-local summary = require("daylog.summary")
 local summary_cursor = require("daylog.usecases.summary_cursor")
 local support = require("daylog.usecases.support")
 local syntax = require("daylog.syntax")
@@ -375,27 +374,12 @@ local function build_rename(block, region, item, target, new_value)
     end
   end
 
-  -- Rebuild the one summary from the renamed entries and replace it in place. A renamed
-  -- single entry can sit in a log with no summary block yet; then there is nothing to
-  -- rebuild (a later refresh creates it) and only the source edit applies.
-  if region then
-    local rebuilt = summary.summarize_entries(renamed_entrys, block.quantize_minutes)
-    local rendered =
-      render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
-    table.insert(edits, {
-      start_index = region.start_row - 1,
-      end_index = region.end_row - 1,
-      lines = rendered,
-    })
-  end
+  -- Rebuild the one summary from the renamed entries (a nil region is a renamed single entry
+  -- in a log with no summary yet -- a later refresh creates it, and only the source edit
+  -- applies). `edits` here is the source + header edits this rename makes.
+  local summary_edit = support.summary_edit(block, renamed_entrys, region)
 
-  -- The summary rebuild targets higher rows than the source edits, so apply
-  -- highest-first to avoid index drift when the summary changes size.
-  table.sort(edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
-
-  return { edits = edits }
+  return { edits = support.entry_change_edits(summary_edit, edits) }
 end
 
 -- Find the recomputed summary item a value-keyed target names, or nil when the

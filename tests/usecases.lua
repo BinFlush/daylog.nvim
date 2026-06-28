@@ -786,14 +786,14 @@ return function(t)
           },
         },
         {
-          start_index = 1,
-          end_index = 2,
-          lines = { "08:00 implementation !L120" },
-        },
-        {
           start_index = 3,
           end_index = 4,
           lines = { "10:00 implementation !L120" },
+        },
+        {
+          start_index = 1,
+          end_index = 2,
+          lines = { "08:00 implementation !L120" },
         },
       },
     })

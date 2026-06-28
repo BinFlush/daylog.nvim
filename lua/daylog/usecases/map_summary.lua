@@ -127,32 +127,9 @@ local function apply_alias(ctx, rows, alias)
   end)
 
   local region = support.locate_summary(ctx.analysis, ctx.block)
+  local summary_edit = support.summary_edit(ctx.block, modified, region)
 
-  -- The summary region sits below the entries; apply it first (highest rows) so the
-  -- source-entry edits below it stay valid.
-  local edits = {}
-  if region then
-    local rebuilt = summary.summarize_entries(modified, ctx.block.quantize_minutes)
-    edits[#edits + 1] = {
-      start_index = region.start_row - 1,
-      end_index = region.end_row - 1,
-      lines = render.summary_lines(
-        rebuilt,
-        ctx.block.duration_format,
-        support.summary_render_options(ctx.block)
-      ),
-    }
-  end
-
-  for _, edit in ipairs(source_edits) do
-    edits[#edits + 1] = edit
-  end
-
-  table.sort(edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
-
-  return { edits = edits }
+  return { edits = support.entry_change_edits(summary_edit, source_edits) }
 end
 
 -- Validate the cursor is on a mappable target and report the current alias of its first

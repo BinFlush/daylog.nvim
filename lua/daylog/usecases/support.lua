@@ -201,6 +201,46 @@ function M.locate_summary(analysis, block)
   return region, computed, rendered
 end
 
+-- The replace-edit that rebuilds a block's EXISTING summary from its (already-modified)
+-- entries: render the projection over `modified_entries` into `region`. `region` is the
+-- located summary region (from `locate_summary`, or a cursor resolution that already found
+-- it); nil region means the block has no summary yet, so there is nothing to rebuild --
+-- creating one stays refresh_summaries' job. This is the one place the entry-changing
+-- commands derive their summary edit, so "the summary belongs to its entries" is implemented
+-- once. Also returns the rebuilt summary so a caller can follow a row to its new line
+-- (balance). See docs/architecture.md, Summary model.
+function M.summary_edit(block, modified_entries, region)
+  if not region then
+    return nil
+  end
+
+  local rebuilt = summary.summarize_entries(modified_entries, block.quantize_minutes)
+  local edit = {
+    start_index = region.start_row - 1,
+    end_index = region.end_row - 1,
+    lines = render.summary_lines(rebuilt, block.duration_format, M.summary_render_options(block)),
+  }
+  return edit, rebuilt
+end
+
+-- Assemble an entry-changing command's edit list: the rebuilt-summary edit (when there is
+-- one) ahead of the source-entry edits, sorted highest-start-first so applying the summary
+-- rebuild never shifts the lower entry rows as it changes size. `source_edits` is every
+-- non-summary edit the command makes (rewritten entries, and e.g. rename's header edit).
+function M.entry_change_edits(summary_edit, source_edits)
+  local edits = {}
+  if summary_edit then
+    edits[#edits + 1] = summary_edit
+  end
+  for _, edit in ipairs(source_edits) do
+    edits[#edits + 1] = edit
+  end
+  table.sort(edits, function(a, b)
+    return a.start_index > b.start_index
+  end)
+  return edits
+end
+
 -- The log's summary zone bounds (tail_start, stop_row): the window past the last
 -- entry, up to the next log / EOF. The create path blasts to `stop_row` so a fresh
 -- summary replaces any stray trailing blanks instead of stacking below them.

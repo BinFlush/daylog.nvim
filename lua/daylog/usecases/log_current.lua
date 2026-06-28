@@ -78,13 +78,12 @@ local function frozen_values(block, target_rows)
   return frozen
 end
 
--- Recompute the summary with `logged` toggled, by copying the block's semantic entries
--- and flipping them in memory. This avoids re-parsing the buffer and yields the
--- post-mark summary directly. On mark, every entry the merge touches (in `frozen` --
--- the newly logged rows and any already-logged row they absorb) takes the combined
--- value; on unmark the target entries clear both fields so no stale value lingers.
-local function rebuilt_summary(block, target_rows, target_logged, frozen)
-  local entries = support.modified_entries(block, function(copy)
+-- The block's semantic entries with `logged` toggled in memory; support.summary_edit rebuilds
+-- the summary from these. On mark, every entry the merge touches (in `frozen` -- the newly
+-- logged rows and any already-logged row they absorb) takes the combined value; on unmark the
+-- target entries clear both fields so no stale value lingers.
+local function logged_entries(block, target_rows, target_logged, frozen)
+  return support.modified_entries(block, function(copy)
     if target_logged then
       if frozen[copy.row] ~= nil then
         copy.logged = true
@@ -95,8 +94,6 @@ local function rebuilt_summary(block, target_rows, target_logged, frozen)
       copy.logged_minutes = nil
     end
   end)
-
-  return summary.summarize_entries(entries, block.quantize_minutes)
 end
 
 function M.run(lines, cursor_row)
@@ -159,24 +156,10 @@ function M.run(lines, cursor_row)
     end
   end)
 
-  local rebuilt = rebuilt_summary(block, target_rows, target_logged, frozen)
-  local rendered =
-    render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
+  local modified = logged_entries(block, target_rows, target_logged, frozen)
+  local summary_edit = support.summary_edit(block, modified, result.region)
 
-  -- The summary rebuild targets higher rows than the source-entry edits, so it is
-  -- applied first to avoid index drift when the rendered summary changes size.
-  local all_edits = {
-    {
-      start_index = result.region.start_row - 1,
-      end_index = result.region.end_row - 1,
-      lines = rendered,
-    },
-  }
-  for _, edit in ipairs(source_edits) do
-    table.insert(all_edits, edit)
-  end
-
-  return { edits = all_edits }
+  return { edits = support.entry_change_edits(summary_edit, source_edits) }
 end
 
 return M

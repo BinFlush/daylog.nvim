@@ -1,7 +1,6 @@
 local entry = require("daylog.entry")
 local render = require("daylog.render")
 local split = require("daylog.split")
-local summary = require("daylog.summary")
 local summary_cursor = require("daylog.usecases.summary_cursor")
 local support = require("daylog.usecases.support")
 local syntax = require("daylog.syntax")
@@ -215,28 +214,9 @@ function M.run(lines, cursor_row, weights)
     end
   end
 
-  local rebuilt = summary.summarize_entries(modified, block.quantize_minutes)
-  local rendered =
-    render.summary_lines(rebuilt, block.duration_format, support.summary_render_options(block))
+  local summary_edit = support.summary_edit(block, modified, result.region)
 
-  -- The summary region sits below the entries; applying it first (highest rows) keeps
-  -- the lower entry edits valid as they expand beneath it.
-  local edits = {
-    {
-      start_index = result.region.start_row - 1,
-      end_index = result.region.end_row - 1,
-      lines = rendered,
-    },
-  }
-  for _, edit in ipairs(source_edits) do
-    edits[#edits + 1] = edit
-  end
-
-  table.sort(edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
-
-  return { edits = edits }
+  return { edits = support.entry_change_edits(summary_edit, source_edits) }
 end
 
 return M
