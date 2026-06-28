@@ -130,8 +130,15 @@ end
 -- scoped to just it. Returns { ctx, region, recomputed, item, target } or nil, err. `item`
 -- carries `source_entry_rows`; `target` is { kind, current, tag? }.
 local function resolve_context(lines, cursor_row)
-  local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
-  if result then
+  -- A stale/ambiguous row or an invalid log surfaces as `err` (resolve_or_entry does not
+  -- reinterpret an in-summary cursor as an entry); a valid log the cursor is not on a summary
+  -- row of yields the entry under it (or nil) to rename in place.
+  local result, resolve_err = summary_cursor.resolve_or_entry(lines, cursor_row)
+  if not result then
+    return nil, resolve_err or M.NOT_A_ROW
+  end
+
+  if result.layout_row then
     local target, classify_err = M.classify(result.layout_row)
     if not target then
       return nil, classify_err
@@ -145,22 +152,11 @@ local function resolve_context(lines, cursor_row)
     }
   end
 
-  -- In the summary region but not on a selectable row -- surface that, don't reinterpret
-  -- the cursor as an entry.
-  if resolve_err then
-    return nil, resolve_err
-  end
-
-  local ctx, ctx_err = support.get_validated_active(lines)
-  if not ctx then
-    return nil, ctx_err or M.NOT_A_ROW
-  end
-
-  local entry_item = support.entry_item_at_row(ctx.block, cursor_row)
+  local entry_item = result.entry_item
   if entry_item then
-    local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
+    local region, recomputed = support.locate_summary(result.ctx.analysis, result.ctx.block)
     return {
-      ctx = ctx,
+      ctx = result.ctx,
       region = region,
       recomputed = recomputed,
       item = {

@@ -24,8 +24,12 @@ M.NO_RANGE_ENTRIES = "daylog: no entries in the selection to map"
 -- The target entry rows for the cursor: a main summary row's source entries, or a single
 -- entry under the cursor. Returns ctx, rows, err.
 local function resolve_targets(lines, cursor_row)
-  local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
-  if result then
+  local result, resolve_err = summary_cursor.resolve_or_entry(lines, cursor_row)
+  if not result then
+    return nil, nil, resolve_err or M.NOT_MAPPABLE
+  end
+
+  if result.layout_row then
     if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
       return nil, nil, M.NOT_MAPPABLE
     end
@@ -45,17 +49,8 @@ local function resolve_targets(lines, cursor_row)
     return result.ctx, rows, nil
   end
 
-  if resolve_err then
-    return nil, nil, resolve_err
-  end
-
-  local ctx, ctx_err = support.get_validated_active(lines)
-  if not ctx then
-    return nil, nil, ctx_err or M.NOT_MAPPABLE
-  end
-
-  if support.entry_item_at_row(ctx.block, cursor_row) then
-    return ctx, { cursor_row }, nil
+  if result.entry_item then
+    return result.ctx, { result.entry_item.start_row }, nil
   end
 
   return nil, nil, M.NOT_MAPPABLE

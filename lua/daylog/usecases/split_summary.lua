@@ -89,20 +89,14 @@ function M.run(lines, cursor_row, weights)
   end
   weights = resolved
 
-  local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
+  local result, resolve_err = summary_cursor.resolve_or_entry(lines, cursor_row)
   if not result then
-    -- resolve_err means the cursor is inside the summary region but its row no longer
-    -- matches the active log (STALE/AMBIGUOUS) -- pass that through. A nil err means the
-    -- cursor is not on a summary row at all, so point the user at one (unless the active
-    -- log itself is the problem).
-    if resolve_err then
-      return nil, resolve_err
-    end
-    local _, validate_err = support.get_validated_active(lines)
-    return nil, validate_err or M.NOT_A_ROW
+    return nil, resolve_err
   end
 
-  if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
+  -- Split acts only on a main activity row; an entry, another summary row, or the cursor
+  -- on nothing all point the user at a row (unless the active log itself is invalid above).
+  if not result.layout_row or result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
     return nil, M.NOT_A_ROW
   end
 

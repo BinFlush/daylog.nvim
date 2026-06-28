@@ -86,22 +86,14 @@ local function logged_entries(block, target_rows, target_logged, frozen)
 end
 
 function M.run(lines, cursor_row)
-  local result, err = summary_cursor.resolve(lines, cursor_row)
+  local result, err = summary_cursor.resolve_or_entry(lines, cursor_row)
   if not result then
-    -- resolve surfaces STALE/AMBIGUOUS directly. On a silent decline -- the cursor is
-    -- not on the active log's summary, or that log is invalid -- surface the
-    -- precise reason (a block diagnostic when present), else the generic stale message.
-    if err then
-      return nil, err
-    end
-
-    local _, validate_err = support.get_validated_active(lines)
-    return nil, validate_err or summary_cursor.STALE
+    return nil, err
   end
 
-  -- Only a main summary row carries loggable source entries; a tag / location /
-  -- logged / total row is not loggable.
-  if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
+  -- Only a main summary row carries loggable source entries; an entry, a tag /
+  -- location / logged / total row, or the cursor on nothing is not loggable.
+  if not result.layout_row or result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
     return nil, summary_cursor.STALE
   end
 

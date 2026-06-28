@@ -338,9 +338,12 @@ end
 function M.run(lines, cursor_row, delta)
   delta = delta or 0
 
-  local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
+  local result, resolve_err = summary_cursor.resolve_or_entry(lines, cursor_row)
+  if not result then
+    return nil, resolve_err or M.NOT_BALANCEABLE
+  end
 
-  if result then
+  if result.layout_row then
     local entry_changes, err = summary_entry_changes(result.ctx.block, result.layout_row, delta)
     if not entry_changes then
       return nil, err
@@ -348,17 +351,8 @@ function M.run(lines, cursor_row, delta)
     return build_edits(result.ctx.analysis, result.ctx.block, entry_changes, result.layout_row)
   end
 
-  if resolve_err then
-    return nil, resolve_err
-  end
-
-  -- The cursor is not on the active log's summary; try an entry directly.
-  local ctx, ctx_err = support.get_validated_active(lines)
-  if not ctx then
-    return nil, ctx_err or M.NOT_BALANCEABLE
-  end
-
-  local entry_changes, direct_err = entry_direct_changes(ctx.block, cursor_row, delta)
+  -- The cursor is not on a summary row; balance the entry under it directly.
+  local entry_changes, direct_err = entry_direct_changes(result.ctx.block, cursor_row, delta)
   if not entry_changes then
     return nil, direct_err or M.NOT_BALANCEABLE
   end
@@ -366,7 +360,7 @@ function M.run(lines, cursor_row, delta)
     return nil, M.NOTHING
   end
 
-  return build_edits(ctx.analysis, ctx.block, entry_changes)
+  return build_edits(result.ctx.analysis, result.ctx.block, entry_changes)
 end
 
 return M
