@@ -308,23 +308,12 @@ local function build_edits(analysis, block, entry_changes, target_row)
     return nil, M.NOTHING
   end
 
-  local source_edits = support.rewrite_entry_lines(block, function(item)
-    local new_nudge = entry_changes[item.entry.row]
-    if new_nudge ~= nil then
-      return { nudge = new_nudge }
-    end
-  end)
+  local overrides = {}
+  for row, new_nudge in pairs(entry_changes) do
+    overrides[row] = { nudge = new_nudge }
+  end
 
-  -- Rebuild the one summary from the nudged entries, replacing its located region.
-  local modified = support.modified_entries(block, function(copy)
-    if entry_changes[copy.row] ~= nil then
-      copy.nudge = entry_changes[copy.row]
-    end
-  end)
-
-  local summary_edit, rebuilt, region = support.summary_zone_edit(analysis, block, modified, false)
-
-  local result = { edits = support.entry_change_edits(summary_edit, source_edits) }
+  local result, rebuilt, region = support.apply_entry_overrides(analysis, block, overrides)
 
   -- Follow the balanced row to its new line when it reordered.
   if region and target_row then

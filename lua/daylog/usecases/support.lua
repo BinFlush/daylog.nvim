@@ -368,6 +368,33 @@ function M.summary_zone_edit(analysis, block, modified_entries, allow_create)
   return edit, rebuilt, region
 end
 
+-- Apply a per-entry field override across both halves of an entry-changing command: rewrite
+-- each overridden entry's source line AND rebuild the summary from the same overrides, so the
+-- two walks cannot disagree (the divergence class the code has been bitten by). `overrides`
+-- maps a semantic entry row to a table of field overrides ({ alias = v } for :DaylogMap,
+-- { nudge = n } for :DaylogBalance); the row's source edit and its projected entry both take
+-- exactly those fields. Returns the assembled edits (summary rebuild ahead of the source edits)
+-- plus the rebuilt summary and region, for a caller that follows a row to its new line (balance).
+-- A nil-clearing override (log_current's unmark) cannot ride a pairs()-applied table, so it
+-- stays bespoke.
+function M.apply_entry_overrides(analysis, block, overrides)
+  local source_edits = M.rewrite_entry_lines(block, function(item)
+    return overrides[item.start_row]
+  end)
+
+  local modified = M.modified_entries(block, function(copy)
+    local override = overrides[copy.row]
+    if override then
+      for key, value in pairs(override) do
+        copy[key] = value
+      end
+    end
+  end)
+
+  local summary_edit, rebuilt, region = M.summary_zone_edit(analysis, block, modified, false)
+  return { edits = M.entry_change_edits(summary_edit, source_edits) }, rebuilt, region
+end
+
 -- The log's summary zone bounds (tail_start, stop_row): the window past the last
 -- entry, up to the next log / EOF. The create path blasts to `stop_row` so a fresh
 -- summary replaces any stray trailing blanks instead of stacking below them.
