@@ -435,7 +435,7 @@ installed). Cancelling the picker falls back to the plain bare timestamp.
 
 With a bang (`:Daylog! insert`) it opens the unified "what to log" picker: one fuzzy,
 offline list pooling every configured source's cached work items together with your
-recent logged activities, ranked by worklog frecency (see |daylog-picker|) and
+recent logged activities, ranked by daylog frecency (see |daylog-picker|) and
 de-duplicated. Pick a row to insert it, type a fresh activity to insert that, or
 cancel for a bare timestamp.
 
@@ -983,7 +983,7 @@ no-op. Set `auto_timezone = false` to record offsets only when you type them.
                                                           *daylog-picker*
 `picker` tunes how a |daylog-sources| source's cached work items are ordered in
 the picker. It is optional. By default the items you actually work on lead:
-daylog scans your recent daylogs (the worklog is the signal; no hidden state is
+daylog scans your recent daylogs (they are the signal; no hidden state is
 kept) and scores each item by a standard Mozilla-style "frecency" -- recently and
 frequently logged activities rank highest -- then falls back to a source's own
 order (active items first, most recently updated next) for items you have never

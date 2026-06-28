@@ -366,7 +366,7 @@ local function normalize_sources(sources)
 end
 
 -- Cross-source picker behavior (not per-source): how a source's cached items are ranked in
--- the picker. The built-in ranker scores each item by a standard Mozilla-style worklog frecency.
+-- the picker. The built-in ranker scores each item by a standard Mozilla-style daylog frecency.
 -- `rank` overrides it wholesale (same signature, fn(items, ctx) -> items); `frecency_days` is
 -- the daybook look-back window scanned. Defaults are applied at use time (pick.lua).
 local function normalize_picker(picker)

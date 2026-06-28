@@ -4,7 +4,7 @@ local summary = require("daylog.summary")
 
 local M = {}
 
--- Worklog-frecency ranking of source items (PURE).
+-- Daylog-frecency ranking of source items (PURE).
 --
 -- Reorders a source's cached items so the ones you actually work on lead, by a standard
 -- Mozilla-style "frecency" over your recent daylogs. Each logged entry of an activity is a
@@ -63,7 +63,7 @@ local function frecency(dates, now)
   return math.ceil(count * points / sampled)
 end
 
--- The worklog relevance score: the frecency precomputed in build_usage, or 0 for a never-logged
+-- The daylog relevance score: the frecency precomputed in build_usage, or 0 for a never-logged
 -- item.
 local function score_for(used)
   return used and used.score or 0
@@ -112,7 +112,7 @@ function M.build_usage(day_line_lists, now)
   return usage
 end
 
--- Order items by relevance (descending) on the precomputed worklog frecency -- positive for
+-- Order items by relevance (descending) on the precomputed daylog frecency -- positive for
 -- anything you have logged, 0 otherwise. ctx = { usage, key_of }; `key_of(item)` returns the
 -- entry text the item would be logged as, matching build_usage's keys. Never-logged items (and
 -- exact ties) fall back to the normalized `active` flag, then the tracker `updated` timestamp,
@@ -132,7 +132,7 @@ function M.order(items, ctx)
   end
 
   table.sort(decorated, function(a, b)
-    -- worklog frecency
+    -- daylog frecency
     if a.score ~= b.score then
       return a.score > b.score
     end
@@ -167,13 +167,13 @@ function M.order(items, ctx)
 end
 
 -- Build one ranked, deduped pool of insertable rows from several sources' items plus the
--- leftover recent activities (the worklog texts that are not a source item). PURE.
+-- leftover recent activities (the daylog texts that are not a source item). PURE.
 --
 -- `sources` is a list of { name, items, key_of, display_for, text_of } (each fn(item)->string);
 -- `ctx = { usage }`. Each item becomes a row keyed on its entry text; a usage key that no item
 -- claims becomes an `activity` row -- so an activity that matches a tracker item appears once
 -- (as the item). Every row carries `.text` -- what gets inserted/renamed-to when chosen (an
--- item's entry text, an activity's logged text). Rows sort by the worklog frecency (desc), then
+-- item's entry text, an activity's logged text). Rows sort by the daylog frecency (desc), then
 -- item-before-activity, then their build order (stable). Returns rows:
 --   { kind = "item", source = name, item, key, display, text, score }
 --   { kind = "activity", key, display, text, score }
