@@ -21,17 +21,6 @@ local M = {}
 local REFUSE_OOO = "daylog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 
--- Everything that decides which summary row an interval folds into, except `logged`,
--- so an about-to-be-logged row can find the already-logged row it will merge with.
-local function activity_key(row)
-  return table.concat({
-    row.text or "",
-    row.tag or "",
-    row.location or "",
-    row.workday_excluded and "1" or "0",
-  }, "\0")
-end
-
 -- The frozen committed value to stamp on each source entry when marking !L. Marking a
 -- row logged merges it with any already-logged row of the same activity, so the new
 -- commitment is the SUM of the two rows' currently displayed durations -- and, because
@@ -45,7 +34,7 @@ local function frozen_values(block, target_rows)
   local logged_by_key = {}
   for _, row in ipairs(rows) do
     if row.logged then
-      logged_by_key[activity_key(row)] = row
+      logged_by_key[summary.activity_identity_key(row)] = row
     end
   end
 
@@ -61,7 +50,7 @@ local function frozen_values(block, target_rows)
       end
 
       if is_target then
-        local existing = logged_by_key[activity_key(row)]
+        local existing = logged_by_key[summary.activity_identity_key(row)]
         local combined = row.duration + (existing and existing.duration or 0)
         for _, source_row in ipairs(row.source_entry_rows or {}) do
           frozen[source_row] = combined

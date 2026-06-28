@@ -381,27 +381,38 @@ function M.fine_grained_quantized(entries, quantize_minutes)
   return quantize.quantize_rows(unrounded_rows, bucket_minutes, target_total), bucket_minutes
 end
 
+-- The activity-identity key of a fine-grained row or interval, EXCLUDING its logged state:
+-- the resolved text, tag, location, and #ooo exclusion that decide which fine-grained row an
+-- interval folds into. Logged is deliberately omitted, so an about-to-be-logged row finds the
+-- already-logged row of the same activity it will merge with (:DaylogLog), and a logged-value
+-- conflict scan groups across the logged/unlogged divide. One definition keeps the merge key
+-- and the conflict key from drifting. (Distinct from the summary-item key, which carries
+-- logged but not location.) PURE.
+function M.activity_identity_key(row)
+  return table.concat({
+    row.text or "",
+    row.tag or "",
+    row.location or "",
+    row.workday_excluded and "1" or "0",
+  }, "\0")
+end
+
 -- Every logged interval that folds into one fine-grained row must carry the same
 -- frozen value: :DaylogLog writes the row's committed total onto each contributing
 -- entry. The fold (build_fine_grained_rows) keeps logged_minutes as a first-seen
 -- field, so disagreeing values -- from a hand edit or a partial operation -- would be
--- silently collapsed to one. This finds every such row instead, keyed exactly like the
--- fold (text, tag, location, workday_excluded) within the logged set, so it matches
--- where the values actually collapse. Returns a list of { row } anchored at the
--- earliest conflicting entry; the shell turns each into a diagnostic. A bare `!L`
--- (unfrozen, no value) counts as its own value, so mixing `!L` and `!L60` also conflicts.
+-- silently collapsed to one. This finds every such row instead, keyed by
+-- activity_identity_key within the logged set, so it matches where the values actually
+-- collapse. Returns a list of { row } anchored at the earliest conflicting entry; the
+-- shell turns each into a diagnostic. A bare `!L` (unfrozen, no value) counts as its own
+-- value, so mixing `!L` and `!L60` also conflicts.
 function M.logged_value_conflicts(entries)
   local groups = {}
   local order = {}
 
   for _, interval in ipairs(build_intervals(entries)) do
     if interval.logged then
-      local key = table.concat({
-        interval.text or "",
-        interval.tag or "",
-        interval.location or "",
-        interval.workday_excluded and "1" or "0",
-      }, "\0")
+      local key = M.activity_identity_key(interval)
 
       local group = groups[key]
       if not group then
