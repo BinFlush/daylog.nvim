@@ -109,17 +109,8 @@ end
 -- True when a daybook day already holds log content, considering a loaded
 -- (possibly unsaved) buffer before falling back to the file on disk.
 local function daybook_path_has_content(path)
-  local buf = loaded_buffer_for_path(path)
-  if buf then
-    return not text.is_empty(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
-  end
-
-  if vim.fn.filereadable(path) == 0 then
-    return false
-  end
-
-  -- Match the loaded-buffer branch: a whitespace-only file is empty, not content.
-  return not text.is_empty(vim.fn.readfile(path))
+  local lines = daybook_lines(path)
+  return lines ~= nil and not text.is_empty(lines)
 end
 
 -- Every daybook day that actually holds a daylog: dated `.day` files under the
