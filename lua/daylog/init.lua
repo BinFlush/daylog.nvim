@@ -637,6 +637,61 @@ local function instantiate_sources()
   end
 end
 
+-- The opt-in default key set (setup({ keymaps = true })): buffer-local in daylog files so it
+-- never touches global keys. ]d / [d navigate days (deliberately overriding the diagnostic
+-- jumps inside daylog buffers); the editing verbs sit under <localleader>. Each rhs is a
+-- <Plug>(daylog-*) mapping defined in plugin/daylog.lua.
+local DEFAULT_KEYMAPS = {
+  ["]d"] = "<Plug>(daylog-next-day)",
+  ["[d"] = "<Plug>(daylog-prev-day)",
+  ["<localleader>i"] = "<Plug>(daylog-insert)",
+  ["<localleader>I"] = "<Plug>(daylog-insert-pick)",
+  ["<localleader>r"] = "<Plug>(daylog-repeat)",
+  ["<localleader>n"] = "<Plug>(daylog-new)",
+  ["<localleader>c"] = "<Plug>(daylog-copy)",
+  ["<localleader>o"] = "<Plug>(daylog-order)",
+  ["<localleader>l"] = "<Plug>(daylog-log)",
+  ["<localleader>R"] = "<Plug>(daylog-refresh)",
+}
+
+-- Apply the configured keymaps buffer-locally to a daylog buffer (true -> the default set, a
+-- table -> the user's own lhs -> rhs).
+local function apply_keymaps(buf)
+  local keymaps = config.get().keymaps
+  if not keymaps then
+    return
+  end
+
+  local maps = keymaps == true and DEFAULT_KEYMAPS or keymaps
+  for lhs, rhs in pairs(maps) do
+    vim.keymap.set("n", lhs, rhs, { buffer = buf, silent = true, desc = "daylog" })
+  end
+end
+
+-- (Re)install the FileType hook applying the opt-in keymaps to each daylog buffer. The augroup
+-- clears on re-setup so a config change never stacks hooks; already-open daylog buffers get the
+-- maps immediately.
+local function setup_keymaps()
+  local group = vim.api.nvim_create_augroup("DaylogKeymaps", { clear = true })
+  if not config.get().keymaps then
+    return
+  end
+
+  vim.api.nvim_create_autocmd("FileType", {
+    group = group,
+    pattern = "daylog",
+    callback = function(opts)
+      apply_keymaps(opts.buf)
+    end,
+  })
+
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].filetype == "daylog" then
+      apply_keymaps(buf)
+    end
+  end
+end
+
 function M.setup(options)
   config.setup(options)
   filetype.register()
@@ -644,6 +699,7 @@ function M.setup(options)
   commands.register(M)
 
   setup_auto_summary(config.get().auto_summary)
+  setup_keymaps()
 end
 
 return M
