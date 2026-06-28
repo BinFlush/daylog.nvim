@@ -40,8 +40,8 @@ Vocabulary (used throughout this help and the source):
   daylog    One calendar day's file, `YYYY-MM-DD.day` -- and the plugin itself.
   log       A `--- log ---` block in a daylog: a run of entries with one
             generated summary. A daylog can hold several logs; commands act on
-            the active log -- the latest block. `:DaylogNew` starts a fresh
-            empty log (the new active one); `:DaylogCopy` appends an editable
+            the active log -- the latest block. `:Daylog new` starts a fresh
+            empty log (the new active one); `:Daylog copy` appends an editable
             copy of the active log to iterate toward an outside system's shape.
   entry     One timestamped line, `HH:MM activity ...`. An entry starts an
             interval that the next entry closes.
@@ -55,7 +55,7 @@ Vocabulary (used throughout this help and the source):
   !L        Marks an interval as already logged to an external system;
             `!L<minutes>` also freezes its committed value.
   => alias  Maps an entry to a label it resolves to in the summary, keeping the
-            entry's own description (|daylog-mapping|, |:DaylogMap|).
+            entry's own description (|daylog-mapping|, |:Daylog-map|).
 
 Run `:checkhealth daylog` to verify setup, command registration, help docs,
 and runtime plugin integration.
@@ -131,17 +131,17 @@ Rules:
 - `=> alias` maps the entry to a label it resolves to in the summary: the
   interval counts toward, and is shown as, that target, while the entry keeps
   its own description. The alias may contain spaces; the trailing metadata below
-  follows it (attaching to the entry as usual). Normally written by |:DaylogMap|.
+  follows it (attaching to the entry as usual). Normally written by |:Daylog-map|.
   See |daylog-mapping|.
 - `!L` marks the interval started by that entry as already logged externally.
-  An optional minute count -- `!L<minutes>`, written by |:DaylogLog| -- freezes
+  An optional minute count -- `!L<minutes>`, written by |:Daylog-log| -- freezes
   that row at its committed value, so appending later entries can never restate
   it (see below). Bare `!L` is logged but unfrozen.
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
   |daylog-sticky-metadata|. It is only needed when the clock moves (travel or
   DST) and is invisible otherwise.
 - `round±N` manually rounds this entry's quantization row N q-steps beyond the
-  automatic rounding, to balance a residual; see |:DaylogBalance|. Normally
+  automatic rounding, to balance a residual; see |:Daylog-balance|. Normally
   written by that command rather than by hand.
 - `q=<minutes>` sets the quantization bucket for that log block.
 - If no quantize option is present, quantization defaults to 15 minutes.
@@ -163,13 +163,13 @@ that value and pulled out of that pool: the remaining rounding is shared only
 among the un-frozen rows, the displayed total stays the honest rounded total,
 and a committed value never moves. If a frozen value later stops reconciling
 with its log -- the bucket `q=` changed, an edit altered the logged interval, or
-activity was deleted -- |:DaylogRefresh| warns so you can re-run |:DaylogLog| to
+activity was deleted -- |:Daylog-refresh| warns so you can re-run |:Daylog-log| to
 recommit.
 
 When one activity has several logged intervals, they share a single committed
-value -- |:DaylogLog| writes the same `!L<minutes>` onto every contributing entry.
+value -- |:Daylog-log| writes the same `!L<minutes>` onto every contributing entry.
 If a hand edit leaves them disagreeing, only the first would otherwise count, so
-|:DaylogRefresh| warns instead; re-run |:DaylogLog| on that row to make them agree.
+|:Daylog-refresh| warns instead; re-run |:Daylog-log| on that row to make them agree.
 
 ==============================================================================
 STICKY METADATA                                      *daylog-sticky-metadata*
@@ -295,7 +295,7 @@ GOTCHAS                                                      *daylog-gotchas*
 - The final timestamp closes the previous interval and has no duration of its
   own.
 - Entries use `HH:MM`; ranges, dates, and seconds are not supported.
-- Keep times ordered before summarizing; use `:DaylogOrder` to rewrite blocks.
+- Keep times ordered before summarizing; use `:Daylog order` to rewrite blocks.
 - `#tag` and `@location` are sticky until replaced or cleared with `#-` and
   `@-`. `utc±H` is sticky too, but has no clear token (see
   |daylog-utc-offset|).
@@ -307,393 +307,370 @@ GOTCHAS                                                      *daylog-gotchas*
 - Main summary rows do not split by location; locations are reported
   separately.
 - The active log is the latest `--- log ... ---` block in the file.
-- Stamping the current time (|:DaylogInsert|, |:DaylogRepeat|) into a daybook
+- Stamping the current time (|:Daylog-insert|, |:Daylog-repeat|) into a daybook
   file dated for another day is refused; past-midnight work can instead be
   carried into today's file.
 
 ==============================================================================
 COMMANDS                                                    *daylog-commands*
 
-                                                        *:DaylogToday*
-:DaylogToday [offset]
+Everything is one command, `:Daylog {verb} [args]`, with `<Tab>` completion over
+the verbs (the editing verbs are offered only inside a daylog buffer) and over each
+verb's arguments. A bare `:Daylog` opens today. A bang selects a verb's variant
+(`:Daylog! insert`, `:Daylog! map`, `:Daylog! report`). The same verbs are a Lua API
+and a set of <Plug> mappings -- see |daylog-lua| and |daylog-keymaps|.
 
-Open a daybook file relative to today from
-`require('daylog').setup({ daybook = ... })`.
+Entry-point verbs (`today` / `day` / `next` / `prev` / `report`) work from any
+buffer; the rest act on the daylog buffer you are in.
 
-- `[offset]` is an optional signed day count from today.
-- The path is `{root}/{strftime(directory)}/YYYY-MM-DD.day`.
-- Offset 0 (today) creates the file when missing or empty: it makes the parent
-  directories, writes the first log block from configured defaults, inserts
-  the current time, and appends a summary (which tracks the day live when
-  `auto_summary` is enabled).
-- A nonzero offset is navigation only: it opens that day's file if it exists, or
-  an empty unmodified buffer if it does not. It never creates a directory or file
-  and never writes a header. To create and scaffold an arbitrary day, use
-  |:DaylogInit|.
-- A file that already has content is opened without modification.
-- Leaving today with a nonzero offset is guarded the same way: see the unsaved-changes
-  and broken-today refusals under |:DaylogNextDay|.
-
-                                                        *:DaylogInit*
-:DaylogInit [offset]
-
-Create (or open) the daybook file for a day, scaffolding it when new.
-
-- `[offset]` is an optional signed day count from today (default 0).
-- It makes the parent directories, writes the log block from configured
-  defaults, and appends an empty summary -- a complete, valid log ready to
-  fill in.
-- Unlike |:DaylogToday|, it never stamps the current time, so it is the way to
-  start an arbitrary past or future day (the day-navigation commands only land on
-  days that already have a log).
-- A day that already has content is opened without modification.
-- Leaving a broken today, or a buffer with unsaved changes, is refused the same
-  way as |:DaylogNextDay|.
-
-                                                        *:DaylogNextDay*
-:DaylogNextDay [count]
-
-Jump forward to the next day that has a log, relative to the file in the
-current buffer.
-
-- `[count]` is an optional positive number of logs to step over (default 1).
-- The anchor is the daybook date of the current buffer; when the buffer is not a
-  canonical daybook file, it falls back to today.
-- It skips days with no log and lands on the next day that actually has one,
-  considering both saved files and unsaved new-day buffers. It never creates a
-  file or stamps a time. When no log lies in that direction it warns and stays
-  put. Use |:DaylogInit| to start a day that does not exist yet.
-- It refuses to leave today while today's log has errors (out-of-order entries,
-  an invalid entry, ...): the problems show as diagnostics and must be fixed first. It
-  also refuses to abandon a buffer with unsaved changes when 'hidden' is off. The same
-  guards apply to |:DaylogToday| with a nonzero offset. They guard the plugin's own
-  navigation only -- a raw `:edit` is not blocked.
-
-                                                        *:DaylogPrevDay*
-:DaylogPrevDay [count]
-
-Jump backward to the previous day that has a log, relative to the file in the
-current buffer. Behaves like |:DaylogNextDay| in the opposite direction.
-
-                                                         *:DaylogDays*
-:DaylogDays[!] {range}
-
-Open a scratch report for a span of daybook dates from
-`require('daylog').setup({ daybook = ... })`. There is no separate week command --
-a week is `:DaylogDays monday..` (or `monday..today` to stop at today).
-
-`{range}` is one of:
-- `{count}` -- a positive integer: the last {count} days, through today.
-- `{from}..{to}` -- an inclusive range between two dates.
-- `{from}..` -- from {from} through the latest logged day on file.
-- `..{to}` -- from the earliest logged day on file through {to}.
-- `..` -- every day on file (earliest through latest logged day).
-
-Each `{from}` / `{to}` bound is a `YYYY-MM-DD` date or a named token:
-- `today`, `yesterday`.
+                                                        *daylog-date-tokens*
+A day is named by one shared vocabulary, used by `day` and by `report` bounds:
+- `today`, `yesterday`, `tomorrow`.
 - A weekday (`monday`..`sunday`, or `mon`..`sun`) -- its most recent occurrence on
   or before today, so `friday` on a Friday is today and `monday` is this week's
   Monday.
+- A signed day offset `+N` / `-N` from today (a bare number is never an offset --
+  it is a `report` day count).
+- A `YYYY-MM-DD` date.
+
+                                                *:Daylog* *:Daylog-today*
+:Daylog [today]
+
+Open today's daybook file from `require('daylog').setup({ daybook = ... })`,
+creating it when missing -- the daily "start logging" ritual; a bare `:Daylog` does
+this too.
+- The path is `{root}/{strftime(directory)}/YYYY-MM-DD.day`.
+- A fresh today is created with the parent directories, the first log block from
+  configured `defaults`, the current time, and a summary (which tracks the day live
+  when `auto_summary` is enabled).
+- A today that already has content is opened without modification (no new stamp).
+
+                                                        *:Daylog-day*
+:Daylog day [when]
+
+Open the daybook day named by `[when]` (a |daylog-date-tokens| value; default
+today), creating and scaffolding it when new.
+- It makes the parent directories, writes the log block from configured `defaults`,
+  and appends an empty summary -- a complete, valid log ready to fill in.
+- Unlike `today`, it never stamps the current time, so it is how to backfill a past
+  day (`:Daylog day -1`, `:Daylog day monday`) or pre-create a future one
+  (`:Daylog day +1`). It is the only way to start a day that does not exist yet.
+- A day that already has content is opened without modification.
+- Leaving a broken today, or a buffer with unsaved changes, is refused the same way
+  as |:Daylog-next|.
+
+                                                *:Daylog-next* *:Daylog-prev*
+:Daylog next [count]
+:Daylog prev [count]
+
+Jump forward (`next`) or backward (`prev`) to a day that has a log, relative to the
+file in the current buffer.
+- `[count]` is an optional positive number of logs to step over (default 1).
+- The anchor is the daybook date of the current buffer; when the buffer is not a
+  canonical daybook file, it falls back to today.
+- They skip days with no log and land on the next/previous day that actually has
+  one, considering both saved files and unsaved new-day buffers. They never create a
+  file or stamp a time. When no log lies in that direction they warn and stay put.
+  Use `:Daylog day` to start a day that does not exist yet.
+- They refuse to leave today while today's log has errors (out-of-order entries, an
+  invalid entry, ...): the problems show as diagnostics and must be fixed first. They
+  also refuse to abandon a buffer with unsaved changes when 'hidden' is off. The same
+  guards apply to `:Daylog day`. They guard the plugin's own navigation only -- a raw
+  `:edit` is not blocked.
+
+                                                        *:Daylog-report*
+:Daylog[!] report {range}
+
+Open a scratch report for a span of daybook dates. There is no separate week command
+-- a week is `:Daylog report monday..` (or `monday..today` to stop at today).
+
+`{range}` is one of:
+- `{count}` -- a positive integer: the last {count} days, through today.
+- `{from}..{to}` -- an inclusive range between two |daylog-date-tokens| bounds.
+- `{from}..` -- from {from} through the latest logged day on file.
+- `..{to}` -- from the earliest logged day on file through {to}.
+- `..` -- every day on file (earliest through latest logged day).
 
 An open end reaches the data's extent, future-dated files included: `monday..` runs
 to the latest log even if that is days ahead, while `monday..today` stops at today.
 
 - A reversed or unparseable range is reported and the report is not opened.
 - The range is taken by calendar date, so a boundary that lands on a day with no
-  file is fine; missing, empty, or notes-only days anywhere in the span are
-  skipped. If the whole span has no logs, that is reported instead.
+  file is fine; missing, empty, or notes-only days anywhere in the span are skipped.
+  If the whole span has no logs, that is reported instead.
 - The buffer name uses the requested calendar bounds (e.g. `2026-05-10..2026-05-20`),
   fixed when the report opens. The aggregate (range) headers instead show the resolved
   span -- the first and last days that actually held a log -- and a `(N found)` count,
   e.g. `--- range summary 2026-05-12..2026-05-18 (3 found) ---`.
-- The range scans oldest to newest.
-- Each included day is recomputed from that file's latest log block, or from
-  an open buffer for it (reflecting unsaved changes).
-- Existing rendered summaries are ignored.
-- The report shows each included day's summary first, then one range summary
-  built by summing those daily results.
-- Each day's summary header carries that day's own `q=` bucket (e.g.
-  `--- day summary 2026-05-18 q=30 ---`), so a period mixing different quanta
-  stays legible. The range summary header has no bucket token.
-- While open, the report refreshes as its source files and buffers change,
-  following `auto_summary` (see |daylog-auto-summary|).
-- With `!`, the scratch buffer omits the per-day review sections and shows only
-  the range aggregate summary.
-- The report is read-only, but |:DaylogRename| acts on it: a row renames the
-  item across the period (aggregate row) or in one day (per-day row).
+- The range scans oldest to newest. Each included day is recomputed from that file's
+  latest log block, or from an open buffer for it (reflecting unsaved changes);
+  existing rendered summaries are ignored.
+- The report shows each included day's summary first, then one range summary built by
+  summing those daily results. Each day's summary header carries that day's own `q=`
+  bucket (e.g. `--- day summary 2026-05-18 q=30 ---`); the range summary header has no
+  bucket token.
+- While open, the report refreshes as its source files and buffers change, following
+  `auto_summary` (see |daylog-auto-summary|).
+- `:Daylog! report` (bang) omits the per-day review sections and shows only the range
+  aggregate summary.
+- The report is read-only, but `:Daylog rename` acts on it: a row renames the item
+  across the period (aggregate row) or in one day (per-day row).
 - Non-empty invalid daybook files abort the report instead of producing partial
   totals.
 
-                                                         *:DaylogInsert*
-:DaylogInsert[!] [source]
+                                                        *:Daylog-insert*
+:Daylog[!] insert [source]
 
 Insert the current time into the log block under the cursor.
-
 - The cursor must be inside a log block or on its header.
-- The new timestamp is inserted in chronological order.
-- Equal timestamps stay grouped together.
-- Insert mode starts on the new line.
+- The new timestamp is inserted in chronological order; equal timestamps stay
+  grouped. Insert mode starts on the new line.
 
 With a `[source]` argument (a configured source name, see |daylog-sources|), it
 instead opens a picker of that source's work items and inserts the chosen one as
 `{id} {title}` at the current time. With Telescope installed and a source that
-supports live search, this is a search-as-you-type Telescope picker (see
-|daylog-sources|). Otherwise it is `vim.ui.select`, which Telescope, fzf-lua,
-snacks, or mini.pick take over when installed. Cancelling the picker falls
-back to the plain bare timestamp.
+supports live search, this is a search-as-you-type Telescope picker; otherwise it is
+`vim.ui.select` (which Telescope, fzf-lua, snacks, or mini.pick take over when
+installed). Cancelling the picker falls back to the plain bare timestamp.
 
-With a bang (`:DaylogInsert!`) it opens the unified "what to log" picker: one
-fuzzy, offline list pooling every configured source's cached work items together
-with your recent logged activities, ranked by the same worklog frecency as the
-source picker (see |daylog-picker|) and de-duplicated, so an activity that matches
-a tracked item appears once. Pick a row to insert it, type a fresh activity to
-insert that, or cancel for a bare timestamp. With no sources configured it is just
-your recent activities; with nothing to offer it falls back to a bare timestamp.
+With a bang (`:Daylog! insert`) it opens the unified "what to log" picker: one fuzzy,
+offline list pooling every configured source's cached work items together with your
+recent logged activities, ranked by worklog frecency (see |daylog-picker|) and
+de-duplicated. Pick a row to insert it, type a fresh activity to insert that, or
+cancel for a bare timestamp.
 
-When the buffer is a daybook file (see |daylog-config|) dated for a day other
-than today, inserting the current time is refused, since stamping "now" into
-another day's log is meaningless. The guard stays silent on buffers that
-are not daybook files, so the plugin still works on arbitrary `.day` files.
+When the buffer is a daybook file dated for a day other than today, inserting the
+current time is refused (stamping "now" into another day's log is meaningless); the
+guard stays silent on buffers that are not daybook files.
 
-As a special case, when the buffer is yesterday's daybook file and a task was
-still running at its end, the command offers to carry that task past midnight:
-it closes yesterday at `24:00`, opens (creating if needed) today's daybook
-file, continues the running task from `00:00`, then inserts the current time
-there. Decline the prompt to leave both files untouched.
+As a special case, when the buffer is yesterday's daybook file and a task was still
+running at its end, the command offers to carry that task past midnight: it closes
+yesterday at `24:00`, opens (creating if needed) today's daybook file, continues the
+running task from `00:00`, then inserts the current time there. Decline to leave both
+files untouched.
 
-                                                        *:DaylogRepeat*
-:DaylogRepeat
+                                                        *:Daylog-repeat*
+:Daylog repeat
 
 Repeat the activity under the cursor at the current time.
-
-- The cursor must be on a timestamped entry, or on a main summary row.
-- On a main summary row, the latest source entry that produced the row is
-  repeated, so an activity can be resumed straight from the summary. Tag, location,
-  and other total rows are not eligible.
-- The entry is inserted in chronological order.
-- Sticky tag and location meaning are preserved.
-- Clear tokens are emitted when needed.
-- The following entry keeps its tag and location when the inserted entry changes
-  the sticky state.
+- The cursor must be on a timestamped entry, or on a main summary row (the latest
+  source entry that produced the row is repeated, so an activity can be resumed
+  straight from the summary; tag, location, and total rows are not eligible).
+- The entry is inserted in chronological order; sticky tag and location meaning are
+  preserved, with clear tokens emitted when needed.
 
 On another day's daybook file, the entry under the cursor is brought into today
 instead of refused: today's file is opened (created if needed), the activity is
 inserted at the current time, and the window switches to today; the browsed day is
-left unchanged. The past-midnight carryover still applies on yesterday's file with
-a still-running task, but only while today does not exist yet (the task continues
-from `00:00`); once today already exists, the entry is brought into it like any
-other day. |:DaylogInsert| still refuses on another day's file.
+left unchanged. `:Daylog insert` still refuses on another day's file.
 
-                                                        *:DaylogNew*
-:DaylogNew
+                                                        *:Daylog-new*
+:Daylog new
 
 Scaffold a fresh, empty log into the current buffer and make it the active log.
+- When the buffer is empty (or whitespace only) the header is written in place;
+  otherwise a new `--- log ---` block is appended after the existing content, and the
+  cursor lands on it.
+- The header is built from the configured `defaults` (q=, d=, #tag, @location, utc),
+  the same scaffold `:Daylog day` uses. It writes only the header -- no entries and no
+  summary -- so start logging with `:Daylog insert`.
+- Unlike `:Daylog day`, it does not navigate to a daybook file or stamp the current
+  time; it acts on whatever buffer you are in. Use it to start a new daylog without
+  copy/pasting a header.
 
-- When the buffer is empty (or whitespace only), the header is written in place;
-  otherwise a new `--- log ---` block is appended after the existing content, and
-  the cursor lands on it.
-- The header is built from the configured `defaults` (q=, d=, #tag, @location,
-  utc), the same scaffold |:DaylogInit| uses. It writes only the header -- no
-  entries and no summary -- so start logging with |:DaylogInsert|.
-- Unlike |:DaylogInit|, it does not navigate to a daybook file or stamp the
-  current time; it acts on whatever buffer you are in. Use it to start a new
-  daylog without copy/pasting a header or |:DaylogCopy|-and-delete.
+                                                        *:Daylog-copy*
+:Daylog copy
 
-                                                        *:DaylogCopy*
-:DaylogCopy
+Append a normalized editable copy of the active log (the latest `--- log ... ---`
+block), followed by a summary of the copy so it is self-describing immediately. The
+copy preserves the meaning of the source block while removing unnecessary repeated
+metadata.
 
-Append a normalized editable copy of the active log, followed by a summary
-of the copy so it is self-describing immediately.
-
-The active log is the latest `--- log ... ---` block in the buffer.
-
-The copied block preserves the meaning of the source block while removing
-unnecessary repeated metadata.
-
-                                                        *:DaylogOrder*
-:DaylogOrder
+                                                        *:Daylog-order*
+:Daylog order
 
 Rewrite all log blocks in chronological order.
-
-- Timestamped entries are sorted by time.
-- Equal timestamps preserve their relative order.
-- Notes move with their entry.
+- Timestamped entries are sorted by time; equal timestamps preserve their relative
+  order; notes move with their entry.
 - Clear tokens are emitted when needed to preserve sticky metadata meaning.
-- A warning lists any entry whose tag or location was set from its original
-  order, so order-dependent meaning is never changed silently.
+- A warning lists any entry whose tag or location was set from its original order, so
+  order-dependent meaning is never changed silently.
 
-                                                        *:DaylogLog*
-:DaylogLog
+                                                        *:Daylog-log*
+:Daylog log
 
 Toggle the logged state of the main summary row under the cursor.
-
-- The cursor must be on a main summary row inside the summary section of the
-  active log.
-- The active log summary is recomputed from source; the rendered row acts
-  only as a selector.
-- The logged state is toggled: an unlogged row's source intervals gain a
-  trailing `!L<minutes>` -- freezing the row at its currently displayed
-  duration -- and an already logged row's source intervals lose it. The summary
-  section is regenerated afterwards.
-- Tag, location, logged, and total rows are not eligible.
-- `#ooo` rows are refused, since out-of-office time cannot be logged.
+- The cursor must be on a main summary row inside the summary section of the active
+  log. The summary is recomputed from source; the rendered row acts only as a
+  selector.
+- The logged state is toggled: an unlogged row's source intervals gain a trailing
+  `!L<minutes>` -- freezing the row at its currently displayed duration -- and an
+  already logged row's lose it. The summary section is regenerated afterwards.
+- Tag, location, logged, and total rows are not eligible; `#ooo` rows are refused.
 - Summary rows that no longer match the recomputed summary are refused; run
-  |:DaylogRefresh| (or let `auto_summary` refresh) to bring them current.
+  `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
 
-                                                        *:DaylogRename*
-:DaylogRename [name|source]
+                                                        *:Daylog-rename*
+:Daylog rename [name|source]
 
 Rename what the cursor sits on -- a single entry's activity text, or a `#tag` /
-`@location` -- propagating into the log and rebuilding its summary. It does NOT
-rename an activity summary row: that row groups entries that resolve to one string by
+`@location` -- propagating into the log and rebuilding its summary. It does NOT rename
+an activity summary row: that row groups entries that resolve to one string by
 different means (a bare entry's description, or a mapped entry's `=> alias`), so a
-bulk rename through it is ambiguous and would overwrite the distinct descriptions a
-mapping deliberately keeps. Relabel an activity for the report with |:DaylogMap|
-(non-destructive -- your journal text stays); fix journal text by renaming the entries.
+bulk rename through it is ambiguous. Relabel an activity for the report with
+`:Daylog map` (non-destructive); fix journal text by renaming the entries.
 
 - On an entry line, only that one entry's text is renamed -- its same-named siblings,
   and a same-named closing entry, are left alone. With no argument a picker opens (the
-  same unified pool as |:DaylogInsert!|: your recent activities plus configured
-  sources' items, ranked by worklog frecency); picking renames the entry to it. A
-  `[name]` argument renames directly, and a `{source}` name (tab-completed) scopes the
-  picker to that one tracker.
-- On a tag-total row, that `#tag` is renamed everywhere it is effective -- the log
-  header and the explicit tokens that named it; entries that only inherited the tag
-  follow automatically. On a location-total row, the `@location` the same way.
+  same unified pool as `:Daylog! insert`); picking renames the entry to it. A `[name]`
+  argument renames directly, and a `{source}` name (tab-completed) scopes the picker
+  to that one tracker.
+- On a tag-total row, that `#tag` is renamed everywhere it is effective; entries that
+  only inherited the tag follow automatically. A location-total row, the `@location`
+  the same way.
 - An activity summary row, the logged / totals rows, and the `(untagged)` /
-  `(no location)` placeholder groups are not renamable.
+  `(no location)` placeholders are not renamable.
 - Renaming a tag or location to one that already exists merges the two. A tag or
   location name must be letters, digits, underscores, or hyphens; activity text is
   sanitized so a rename can never grow trailing metadata.
 - The cursor must be on the active log; a summary row that no longer matches the
-  recomputed summary is refused (run |:DaylogRefresh| first).
-- From a |:DaylogDays| report you can rename a `#tag` / `@location` across days: on an
-  aggregate (period) row in every day, on a per-day row in that one day's file.
-  Activities are not renamed from a report. After a confirmation listing the affected
-  files, each is rewritten -- in its open buffer if one exists (save it yourself),
-  otherwise on disk -- and the report rebuilds.
+  recomputed summary is refused (run `:Daylog refresh` first).
+- From a |:Daylog-report| report you can rename a `#tag` / `@location` across days: on
+  an aggregate (period) row in every day, on a per-day row in that one day's file.
+  After a confirmation listing the affected files, each is rewritten -- in its open
+  buffer if one exists (save it yourself), otherwise on disk -- and the report
+  rebuilds.
 
-                                        *:DaylogMap* *daylog-mapping*
-:[range]DaylogMap[!] [label|source]
+                                        *:Daylog-map* *daylog-mapping*
+:[range]Daylog[!] map [label|source]
 
 Map entries to a label they resolve to in the summary, without changing what you
-wrote. An entry with `=> alias` keeps its own description but counts toward, and
-is shown as, the alias; several entries (even with different descriptions) that
-share an alias fold into one row. This is a non-destructive alternative to
-renaming or to copying-and-cleaning a log for reporting: the day file stays your
-own journal while the summary reads in canonical terms.
+wrote. An entry with `=> alias` keeps its own description but counts toward, and is
+shown as, the alias; several entries (even with different descriptions) that share an
+alias fold into one row. This is a non-destructive alternative to renaming or to
+copying-and-cleaning a log for reporting.
 
-- With the cursor on an entry, that one entry is mapped -- so you can map some
-  entries of an activity and not others, or map two same-named entries apart.
-- With the cursor on a main summary row, every entry feeding it -- including a
-  final closing entry that shares its activity -- is mapped.
-- With a visual selection (then `:`, which fills in the `'<,'>` range) -- or an
-  explicit `:N,M` range -- every entry line in the selection is mapped (or cleared)
-  at once. Non-entry lines (the header, blanks, the summary) are ignored, the
-  selection is scoped to the active log, and if any selected entry is logged the
-  whole map is refused (exclude it, or unlog it first).
-- `:DaylogMap {label}` sets the alias to that (possibly multi-word) label. The
-  trailing metadata (`#tag`, `!L`, ...) stays on the entry and follows the alias.
-- With no argument the same unified pool as |:DaylogInsert!| / |:DaylogRename|
-  opens -- your recent activities and every source's work items -- and the chosen
-  value becomes the alias (a work item maps onto `{id} {title}`); with nothing to
-  pick, a prompt seeded with the current alias. Naming a source scopes the picker to
-  that one tracker (live-searched with `search = true`), exactly like |:DaylogInsert|
-  {source}.
-- `:DaylogMap!` (bang) clears the mapping on the cursor's target.
-- A logged entry (`!L`) is refused: its committed value is tied to its current
-  identity. Unlog it, map it, then log again.
-- |:DaylogRename| and `:DaylogMap` are complementary: rename fixes the journal text
-  of a single entry (or a `#tag`/`@location`), map sets how an activity is reported.
-  An activity summary row is relabeled only with map -- rename does not act on it.
-  Splitting an aliased row drops the alias on its parts, and a repeat keeps it.
-- The label is sanitized so it can never grow trailing metadata, and a literal
-  ` => ` typed inside a description is read as the alias separator.
+- With the cursor on an entry, that one entry is mapped -- so you can map some entries
+  of an activity and not others.
+- With the cursor on a main summary row, every entry feeding it -- including a final
+  closing entry that shares its activity -- is mapped.
+- With a visual selection (then `:`, which fills in `'<,'>`) -- or an explicit `:N,M`
+  range -- every entry line in the selection is mapped (or cleared) at once. Non-entry
+  lines are ignored, the selection is scoped to the active log, and if any selected
+  entry is logged the whole map is refused.
+- `:Daylog map {label}` sets the alias to that (possibly multi-word) label; trailing
+  metadata (`#tag`, `!L`, ...) stays on the entry and follows the alias.
+- With no argument the same unified pool as `:Daylog! insert` / `:Daylog rename` opens;
+  the chosen value becomes the alias (a work item maps onto `{id} {title}`). Naming a
+  source scopes the picker to that one tracker, like `:Daylog insert {source}`.
+- `:Daylog! map` (bang) clears the mapping on the cursor's target (or the range).
+- A logged entry (`!L`) is refused: unlog it, map it, then log again.
+- `:Daylog rename` and `:Daylog map` are complementary: rename fixes the journal text
+  of a single entry (or a `#tag`/`@location`), map sets how an activity is reported. An
+  activity summary row is relabeled only with map. Splitting an aliased row drops the
+  alias on its parts; a repeat keeps it.
+- The label is sanitized so it can never grow trailing metadata, and a literal ` => `
+  typed inside a description is read as the alias separator.
 
-                                        *:DaylogBalance* *daylog-balance*
-:DaylogBalance [steps]
+                                        *:Daylog-balance* *daylog-balance*
+:Daylog balance [steps]
 
-Manually balance summary rounding by [steps] q-steps (a signed integer; default
-`+1`, `0` clears). Quantization rounds each row to the block's `q=` bucket by
-largest remainder, so residuals can leave a day -- and therefore a week -- a step
-or two short of a clean total (for example `39.75h (+15m)` when the true total is
-`40.00h`). This nudges the rounding to land it, while every section stays a
+Manually balance summary rounding by [steps] q-steps (a signed integer; default `+1`,
+`0` clears). Quantization rounds each row to the block's `q=` bucket by largest
+remainder, so residuals can leave a day -- and a week -- a step or two short of a
+clean total. This nudges the rounding to land it, while every section stays a
 partition that foots to its total.
 
-- With the cursor on a summary row, the best contributing entry is rounded
-  [steps] buckets further -- the least-error choice, the same principle the
-  rounding algorithm uses. The workday or activity total scopes all its work, a
-  main row its own activity, and a tag / location / logged total that group.
-  Rounding a line up also lifts every total that contains it.
+- With the cursor on a summary row, the best contributing entry is rounded [steps]
+  buckets further -- the least-error choice. The workday or activity total scopes all
+  its work, a main row its own activity, and a tag / location / logged total that
+  group. Rounding a line up also lifts every total that contains it.
 - With the cursor on an entry, that entry is nudged directly.
-- The chosen entries gain a `round±N` marker; the one summary is rebuilt and the
-  marker is shown on every affected summary row so it stays visible and
-  adjustable. Run the command again to add more, with the opposite sign to undo,
-  or with `0` to clear the cursor target's nudge.
-- A multi-day report (|:DaylogDays|) sums its days without re-rounding, so balancing
-  one day reconciles the period total automatically -- adjust whichever day is
-  still open while the earlier ones stay put.
-- The displayed times, durations elsewhere, and the rounding of other rows are
-  untouched; only the nudged row's displayed duration and residual change.
-- Frozen logged rows (`!L<minutes>`) are fixed and never selected, so a balance
-  always lands on an un-frozen row. If the only candidates left are logged --
-  because a round-down drove every other row to zero, or because the scope is all
-  logged -- the command refuses rather than touch a committed value.
+- The chosen entries gain a `round±N` marker; the summary is rebuilt and the marker is
+  shown on every affected summary row. Run again to add more, with the opposite sign
+  to undo, or `0` to clear the cursor target's nudge.
+- A multi-day report (|:Daylog-report|) sums its days without re-rounding, so balancing
+  one day reconciles the period total automatically.
+- Frozen logged rows (`!L<minutes>`) are fixed and never selected. If the only
+  candidates left are logged, the command refuses rather than touch a committed value.
 - The cursor must be on the active log's summary or one of its entries.
 
-                                                        *:DaylogSplit*
-:DaylogSplit [w1 w2 ...]
+                                                        *:Daylog-split*
+:Daylog split [w1 w2 ...]
 
-Split the activity on the summary row under the cursor into several
-sub-activities, named `foo (1)`, `foo (2)`, ..., dividing its time by an
-(unnormalized) weight vector. The arguments are the weights and their count is the
-number of parts; with no arguments the activity is split evenly in two. The
-original total time is preserved -- only the breakdown changes -- so the day still
-foots.
+Split the activity on the summary row under the cursor into several sub-activities,
+named `foo (1)`, `foo (2)`, ..., dividing its time by an (unnormalized) weight vector.
+The arguments are the weights and their count is the number of parts; with no
+arguments the activity is split evenly in two. The original total time is preserved.
 
-- Each of the activity's intervals is cut into consecutive sub-intervals: the
-  starting entry is renamed `foo (1)` and the rest are inserted at interior times,
-  all inheriting its tag, location, and utc offset. The next entry closes the last
-  part.
-- Time is split by whole minutes. An interval too short to give every part a minute
-  splits into fewer parts; the unmet share is compensated in the activity's longer
-  intervals, so each sub-activity's total across the day stays as close as possible
-  to its weighted share. A part whose total share rounds to zero does not appear.
-- Logged activities cannot be split (their time is committed to an external
-  system); the command refuses. `#ooo` activities can be split.
-- The summary is rebuilt, showing the new sub-activities in place of the original.
-- The cursor must be on a main summary row of the active log.
+- Each of the activity's intervals is cut into consecutive sub-intervals, all
+  inheriting its tag, location, and utc offset.
+- Time is split by whole minutes; a part whose total share rounds to zero does not
+  appear. Logged activities cannot be split (the command refuses); `#ooo` can.
+- The summary is rebuilt. The cursor must be on a main summary row of the active log.
 
-                                                        *:DaylogRefresh*
-:DaylogRefresh
+                                                        *:Daylog-refresh*
+:Daylog refresh
 
-Rebuild every summary in the buffer so it matches its log's entries, and
-create one for any valid log that has none.
+Rebuild every summary in the buffer so it matches its log's entries, and create one
+for any valid log that has none.
+- Updates every log that has a summary, and adds one to a valid log that lacks it
+  (not just the active log), so a deleted summary comes back. Never removes a summary.
+- Skips a log that is currently invalid rather than churn it, and reports the problem
+  (e.g. out-of-order timestamps) as a buffer diagnostic.
+- Is a no-op for summaries that are already up to date. Can be run automatically via
+  `auto_summary` (see below).
 
-- Updates every log that has a summary, and adds one to a valid log that
-  lacks it (not just the active log), so a deleted summary comes back.
-- Never removes a summary.
-- Skips a log that is currently invalid rather than churn it, and reports
-  the problem (for example out-of-order timestamps) as a buffer diagnostic.
-- Is a no-op for summaries that are already up to date.
-- Can be run automatically via the `auto_summary` option (see below).
+                                                        *:Daylog-sync*
+:Daylog sync [source]
 
-                                                        *:DaylogSync*
-:DaylogSync [source]
-
-Refresh the local cache for a source, or for every configured source when no
-name is given, by fetching from the tracker. See |daylog-sources|.
-
+Refresh the local cache for a source, or for every configured source when no name is
+given, by fetching from the tracker. See |daylog-sources|.
 - Sync is the only networked operation and uses `curl`.
-- Picking with |:DaylogInsert| already refreshes the cache in the background
-  when it is older than the source's `ttl`, so a manual sync is mainly for
-  pulling in brand-new work items immediately.
+- Picking with `:Daylog insert` already refreshes the cache in the background when it
+  is older than the source's `ttl`, so a manual sync is mainly for pulling in
+  brand-new work items immediately.
+
+                                                        *daylog-keymaps*
+Mappings ~
+
+The plugin sets no keys by default. It ships a <Plug> mapping per frequent verb so
+you can bind your own, and an opt-in default set.
+
+`<Plug>(daylog-{name})` (normal mode), for `{name}` one of: `today`, `next-day`,
+`prev-day`, `insert`, `insert-pick`, `repeat`, `new`, `copy`, `order`, `log`,
+`balance-up`, `balance-down`, `split`, `map`, `map-clear`, `rename`, `refresh`,
+`sync`. For example: >
+    vim.keymap.set("n", "<leader>dt", "<Plug>(daylog-today)")
+<
+`setup({ keymaps = true })` applies a documented default set, buffer-locally in daylog
+files so it never touches your global keys:
+- `]d` / `[d` -> next / previous day (a deliberate, buffer-local override of the
+  built-in diagnostic jumps inside daylog buffers).
+- `<localleader>` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy,
+  `o` order, `l` log, `R` refresh.
+
+`setup({ keymaps = { ["<lhs>"] = "<rhs>", ... } })` applies your own buffer-local set
+instead of the default one (an `<rhs>` is typically a `<Plug>(daylog-*)` mapping).
+
+                                                        *daylog-lua*
+Lua API ~
+
+Every verb is a function on `require("daylog")`, so commands, <Plug> maps, and your
+own config all call the same code:
+- `today()`, `day(when)`, `next_day(count)`, `prev_day(count)`, `report(range, agg)`.
+- `insert(opts)` (`opts.source` / `opts.pick`), `repeat_()`, `new_log()`, `copy()`.
+- `order()`, `log()`, `balance(steps)`, `split(weights)`, `map(opts)`
+  (`opts.value` / `opts.source` / `opts.clear` / `opts.range`), `rename(opts)`.
+- `refresh()`, `sync(source)`.
+
+`when` and `range` accept the same strings the command does (|daylog-date-tokens|).
 
 ==============================================================================
 SOURCES                                                        *daylog-sources*
 
 Sources pull work items from an external tracker into an entry. Azure
-DevOps is built in. Configure one or more named sources, then run |:DaylogInsert|
+DevOps is built in. Configure one or more named sources, then run |:Daylog-insert|
 with a source name to pick a work item and insert it.
 
 Configure sources in `setup{}`:
@@ -721,8 +698,8 @@ Configure sources in `setup{}`:
   })
 <
 
-- The source name (`ADO` above) is what you pass to |:DaylogInsert| and
-  |:DaylogSync|, and is the cache filename, so keep it to letters, digits,
+- The source name (`ADO` above) is what you pass to |:Daylog-insert| and
+  |:Daylog-sync|, and is the cache filename, so keep it to letters, digits,
   underscores, and hyphens.
 - `token` is a function returning a Personal Access Token. It is called only
   when syncing and is never written to the cache, so keep no secret in plain
@@ -750,10 +727,10 @@ troubleshooting -- see the guide at docs/azure-devops.md in the repository.
 Picking is offline and instant: it reads a per-source cache at
 `stdpath('cache')/daylog/sources/<name>.json` and filters it locally. The cache
 refreshes in the background when older than `ttl` (default 1800 seconds) and on
-|:DaylogSync|. Syncing requires the `curl` executable; pick-time needs no
+|:Daylog-sync|. Syncing requires the `curl` executable; pick-time needs no
 network.
 
-With Telescope installed, |:DaylogInsert| {source} opens a Telescope picker over
+With Telescope installed, |:Daylog-insert| {source} opens a Telescope picker over
 your cached items with client-side fuzzy filtering; without it, the offline
 `vim.ui.select` cache picker (so fzf-lua / snacks / mini.pick work too). Either
 way picking is offline.
@@ -803,7 +780,7 @@ You can register your own source (e.g. Jira, GitHub Issues) with:
 
   source.search(query, cb)   (optional)
       Live search. When present and Telescope is installed, it is called as you
-      type in |:DaylogInsert| {source}, with the same cb(items, err) shape as
+      type in |:Daylog-insert| {source}, with the same cb(items, err) shape as
       fetch. cb may take an optional third argument -- the total number of
       matches before any local cap -- so the picker can flag a truncated set.
       Omit search (the offline-first default) to filter only the cached items.
@@ -824,7 +801,7 @@ cross-source query knob, because query languages differ. The design rationale
 and a per-tracker comparison (Jira, GitHub, Linear) live in docs/integrations.md.
 
 A registered source gets the same cache, background refresh, live search, picker,
-completion, and |:checkhealth| listing as a built-in, and |:DaylogSync| {name}
+completion, and |:checkhealth| listing as a built-in, and |:Daylog-sync| {name}
 works on it. You supply its data, and so its own HTTP, JSON, and auth; you may
 reuse the `daylog.sources.http` helper (curl `request(opts, cb)`).
 
@@ -853,7 +830,7 @@ Example:
   require('daylog.sources.registry').register('MyTasks', source)
 <
 
-Then |:DaylogInsert| MyTasks opens a picker of your items.
+Then |:Daylog-insert| MyTasks opens a picker of your items.
 
 ==============================================================================
 CONFIGURATION                                                  *daylog-config*
@@ -880,8 +857,8 @@ Configure `daylog.nvim` with:
   })
 <
 
-`defaults` are used for the initial log header created by |:DaylogToday|
-and |:DaylogInit|.
+`defaults` are used for the initial log header created by |:Daylog-today|
+and |:Daylog-day|.
 
 `defaults.utc` pins a base UTC offset into that header (see |daylog-utc-offset|),
 overriding the automatic one. It is either a signed offset string (`'+2'`, `'-4'`,
@@ -891,8 +868,8 @@ system offset anyway -- see |daylog-auto-timezone|.
 
 `daybook` is optional:
 
-- `root` is the base directory used by |:DaylogToday|, |:DaylogInit|,
-  |:DaylogNextDay|, |:DaylogPrevDay|, and |:DaylogDays|.
+- `root` is the base directory used by |:Daylog-today|, |:Daylog-day|,
+  |:Daylog-next|, |:Daylog-prev|, and |:Daylog-report|.
 - `directory` is an optional `strftime` template under that root.
 - The filename is always `YYYY-MM-DD.day`.
 
@@ -931,7 +908,7 @@ opens:
 `directory` uses `strftime`, so `%G/%V` may fit ISO week-based trees better
 than `%Y/%V` around new year boundaries.
 
-|:DaylogDays| uses the same daybook settings to scan a span of dates (a count, a
+|:Daylog-report| uses the same daybook settings to scan a span of dates (a count, a
 date range, or named tokens like `monday..`), oldest to newest. It recomputes each
 included day's summary from the latest log block in that file (or an open buffer
 for it, including unsaved edits), shows those daily sections in a scratch buffer,
@@ -940,14 +917,14 @@ is open it refreshes as those sources change, following `auto_summary`.
 
                                                         *daylog-auto-summary*
 `auto_summary` controls when existing summaries refresh automatically (see
-|:DaylogRefresh|). It is optional and defaults to `change`:
+|:Daylog-refresh|). It is optional and defaults to `change`:
 
 - `change` (default) - shortly after edits settle (debounced).
 - `idle` - when you pause or leave insert mode.
 - `save` - on write (`:w`).
-- `off` (or `false`) - never automatically; run |:DaylogRefresh| yourself.
+- `off` (or `false`) - never automatically; run |:Daylog-refresh| yourself.
 
-Open |:DaylogDays| reports follow the same setting, rebuilding in place as their
+Open |:Daylog-report| reports follow the same setting, rebuilding in place as their
 source days change.
 
 >
@@ -986,7 +963,7 @@ two ways:
 
 - A new day's header gets the current offset as a baseline (`--- log utc+2 ---`),
   unless you pinned one with `defaults.utc` (which still wins).
-- Every command that stamps the current time (|:DaylogInsert|, |:DaylogRepeat|, and
+- Every command that stamps the current time (|:Daylog-insert|, |:Daylog-repeat|, and
   the past-midnight / cross-day variants) compares the live offset to the one in
   effect; if it has drifted -- a DST switch or travel -- the new entry records the
   new offset as a `utc±N` token, and you get a one-line `daylog: UTC offset ... ->
@@ -995,7 +972,7 @@ two ways:
 
 The check only adds a token when the day already carries an offset baseline (a
 header offset), so an older offset-naive log is never disturbed. A bare
-|:DaylogInsert| at a drift writes `HH:MM  utc±N`; type the activity in the gap
+|:Daylog-insert| at a drift writes `HH:MM  utc±N`; type the activity in the gap
 before the token. When the platform reports no numeric offset, the feature is a
 no-op. Set `auto_timezone = false` to record offsets only when you type them.
 
