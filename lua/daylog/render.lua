@@ -140,24 +140,12 @@ local function location_text(item)
   return "@" .. item.location
 end
 
-local function tag_line(prefix, item)
-  return string.format("%s %s", prefix, tag_text(item))
-end
-
-local function location_line(prefix, item)
-  return string.format("%s %s", prefix, location_text(item))
-end
-
 local function logged_text(item)
   if item.logged then
     return "logged"
   end
 
   return "unlogged"
-end
-
-local function logged_line(prefix, item)
-  return string.format("%s %s", prefix, logged_text(item))
 end
 
 local function extend_lines(target, source)
@@ -220,16 +208,21 @@ local function section_headers(format, options)
   }
 end
 
-local function summary_item_line(item, duration_str, show_tag)
-  return summary_line(
-    string.format("%s (%+dm)", duration_str, item.error_minutes or 0),
-    item,
-    show_tag
-  )
+-- A duration string with its quantization rounding marker appended ("1.00h (+5m)"): every
+-- summary row shows the minutes it gained or lost to bucket rounding.
+local function duration_with_error(duration_str, error_minutes)
+  return string.format("%s (%+dm)", duration_str, error_minutes or 0)
 end
 
-local function metadata_line(item, duration_str, line_builder)
-  return line_builder(string.format("%s (%+dm)", duration_str, item.error_minutes or 0), item)
+local function summary_item_line(item, duration_str, show_tag)
+  return summary_line(duration_with_error(duration_str, item.error_minutes), item, show_tag)
+end
+
+-- A metadata row (#tag / @location / logged total): the duration + marker, then the row's
+-- label (`label_fn(item)`, never empty for these), joined.
+local function metadata_line(item, duration_str, label_fn)
+  local prefix = duration_with_error(duration_str, item.error_minutes)
+  return string.format("%s %s", prefix, label_fn(item))
 end
 
 -- Append the manual rounding-balance marker (round±N) when a row or total carries a
@@ -247,7 +240,7 @@ end
 -- Append one flat metadata section -- tag, location, or logged totals -- to the
 -- layout when `opts.present`: its header, a duration-footed row per item (carrying
 -- any nudge marker), and a trailing blank. The sections differ only in their kind /
--- header / label builder (`line_fn`) and footing base (`total` is the activity total
+-- header / label builder (`label_fn`) and footing base (`total` is the activity total
 -- for tag/location, the workday total for logged), so they share this one shape.
 local function append_metadata_section(layout, items, opts)
   if not opts.present then
@@ -261,12 +254,24 @@ local function append_metadata_section(layout, items, opts)
     table.insert(layout, {
       kind = opts.kind,
       section = opts.section,
-      line = with_nudge(metadata_line(item, durations[i], opts.line_fn), item.nudge),
+      line = with_nudge(metadata_line(item, durations[i], opts.label_fn), item.nudge),
       item = item,
     })
   end
 
   table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
+end
+
+-- A totals row ("3.00h (+1m) workday"): the duration + rounding marker, the label, and any
+-- footing nudge. The activity and workday totals differ only in label / total / error / nudge.
+local function total_layout_row(label, total, error_minutes, nudge, format)
+  local prefix = duration_with_error(duration_string(total, format), error_minutes)
+  return {
+    kind = LAYOUT_KIND.TOTAL,
+    section = "total",
+    total = label,
+    line = with_nudge(string.format("%s %s", prefix, label), nudge),
+  }
 end
 
 -- Build a structured summary layout that records both rendered text and the
@@ -309,7 +314,7 @@ local function build_summary_layout(summary, duration_format, options)
     header = headers.tag,
     total = summary.activity_total,
     format = format,
-    line_fn = tag_line,
+    label_fn = tag_text,
   })
 
   append_metadata_section(layout, summary.location_totals, {
@@ -319,7 +324,7 @@ local function build_summary_layout(summary, duration_format, options)
     header = headers.location,
     total = summary.activity_total,
     format = format,
-    line_fn = location_line,
+    label_fn = location_text,
   })
 
   append_metadata_section(layout, summary.logged_totals, {
@@ -329,40 +334,34 @@ local function build_summary_layout(summary, duration_format, options)
     header = headers.logged,
     total = summary.workday_total,
     format = format,
-    line_fn = logged_line,
+    label_fn = logged_text,
   })
 
   table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "total", line = headers.total })
 
   if has_workday_excluded_items(summary.summary_items) then
-    table.insert(layout, {
-      kind = LAYOUT_KIND.TOTAL,
-      section = "total",
-      total = "activity",
-      line = with_nudge(
-        string.format(
-          "%s (%+dm) activity",
-          duration_string(summary.activity_total, format),
-          summary.activity_error_minutes or 0
-        ),
-        summary.activity_nudge
-      ),
-    })
+    table.insert(
+      layout,
+      total_layout_row(
+        "activity",
+        summary.activity_total,
+        summary.activity_error_minutes,
+        summary.activity_nudge,
+        format
+      )
+    )
   end
 
-  table.insert(layout, {
-    kind = LAYOUT_KIND.TOTAL,
-    section = "total",
-    total = "workday",
-    line = with_nudge(
-      string.format(
-        "%s (%+dm) workday",
-        duration_string(summary.workday_total, format),
-        summary.workday_error_minutes or 0
-      ),
-      summary.workday_nudge
-    ),
-  })
+  table.insert(
+    layout,
+    total_layout_row(
+      "workday",
+      summary.workday_total,
+      summary.workday_error_minutes,
+      summary.workday_nudge,
+      format
+    )
+  )
 
   return layout
 end
