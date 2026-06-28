@@ -187,7 +187,7 @@ function M.insert_unified()
 end
 
 -- Refresh the on-disk cache for one source, or every configured source.
-function M.sync_source(name)
+function M.sync(name)
   if name and name ~= "" then
     if not sources_registry.get(name) then
       warn("daylog: unknown source '" .. name .. "'")
@@ -218,7 +218,7 @@ function M.insert_now()
   apply_insert_time(os.date("%H:%M"), live_offset())
 end
 
-function M.append_copy()
+function M.copy()
   run_buffer_usecase(append_copy.run)
 end
 
@@ -228,7 +228,7 @@ function M.new_log()
   insert_new_log()
 end
 
-function M.repeat_current()
+function M.repeat_()
   if guard_current_time("repeat") then
     return
   end
@@ -236,7 +236,7 @@ function M.repeat_current()
   run_buffer_usecase(repeat_current.run, cursor_row(), os.date("%H:%M"), live_offset())
 end
 
-function M.order_logs()
+function M.order()
   local result, err = order_logs.run(buffer_lines())
   if not result then
     warn(err)
@@ -253,7 +253,7 @@ function M.order_logs()
   end
 end
 
-function M.log_current()
+function M.log()
   run_buffer_usecase(log_current.run, cursor_row())
 end
 
@@ -414,6 +414,79 @@ function M.init_day(offset)
   apply_refresh(false)
 end
 
+-- Public verb API (require("daylog").<verb>) -- the canonical interface the :Daylog
+-- command and <Plug> maps dispatch to. The day verbs build on the same shell helpers as
+-- the (transitional) open_today/init_day above; the unified date grammar lets day() absorb
+-- both backfill (the old :DaylogInit) and offset navigation (the old :DaylogToday offset).
+
+-- Open today's daybook file -- creating it scaffolded when new -- and stamp the current time
+-- on a fresh day. The daily "start logging" ritual; bare :Daylog targets this.
+function M.today()
+  local settings = expanded_daybook_settings()
+  if settings == nil then
+    warn("daylog: daybook.root is not configured")
+    return
+  end
+
+  if not can_abandon_current_buffer() then
+    warn("daylog: current buffer has unsaved changes")
+    return
+  end
+
+  local now = os.time()
+  local ok, was_initialized = open_daybook_file(settings, daybook.offset_date(now, 0))
+  if not ok or not was_initialized then
+    return
+  end
+
+  apply_insert_time(os.date("%H:%M", now))
+  apply_refresh(false)
+end
+
+-- Open the daybook day named by `when` -- a resolve_date token (today / yesterday / tomorrow /
+-- a weekday / +N / -N / YYYY-MM-DD; default today) -- creating it scaffolded when new. Unlike
+-- today() it never stamps the time, so it is how to backfill a past day or pre-create a future
+-- one.
+function M.day(when)
+  local settings = expanded_daybook_settings()
+  if settings == nil then
+    warn("daylog: daybook.root is not configured")
+    return
+  end
+
+  if not can_abandon_current_buffer() then
+    warn("daylog: current buffer has unsaved changes")
+    return
+  end
+
+  if refuse_when_today_has_errors(settings) then
+    return
+  end
+
+  local date = daybook.resolve_date((when == nil or when == "") and "today" or when, os.time())
+  if not date then
+    warn("daylog: unknown day '" .. tostring(when) .. "' -- try today, monday, -1, +2, 2026-05-10")
+    return
+  end
+
+  local ok, was_initialized = open_daybook_file(settings, date)
+  if not ok or not was_initialized then
+    return
+  end
+
+  apply_refresh(false)
+end
+
+-- Browse to the n-th existing log after (next_day) / before (prev_day) the current day,
+-- skipping days with no log; never creates or stamps. n defaults to 1.
+function M.next_day(count)
+  M.open_relative_day(count or 1)
+end
+
+function M.prev_day(count)
+  M.open_relative_day(-(count or 1))
+end
+
 -- One end of a `:DaylogDays` range: a named token (`today`, `monday`, ...) or a `YYYY-MM-DD`
 -- literal resolved against `now`; or, when the bound is omitted, the daybook extreme that
 -- `fallback` returns (earliest for the start, latest for the end). Returns ts, or nil + err.
@@ -462,10 +535,11 @@ local function resolve_range_dates(request)
   return daybook.range_dates(from_ts, to_ts)
 end
 
--- `request` is a normalized days request from the command: `{ count = N }` for the
--- trailing form, or `{ from = <str|nil>, to = <str|nil> }` for an explicit/open-ended
--- range. The resolved date list is pinned in the spec so the report keeps its span.
-function M.open_days(request, aggregate_only)
+-- Open a multi-day report. `request` is a normalized days request: `{ count = N }` for the
+-- trailing form, or `{ from = <str|nil>, to = <str|nil> }` for an explicit/open-ended range.
+-- `aggregate_only` shows only the period total. The resolved date list is pinned in the spec
+-- so the report keeps its span.
+function M.report(request, aggregate_only)
   local dates, err
   if request.count then
     dates = daybook.trailing_dates(os.time(), request.count)

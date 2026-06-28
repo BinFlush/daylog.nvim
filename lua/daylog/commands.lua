@@ -164,14 +164,14 @@ function M.register(api)
       return
     end
 
-    api.open_days(request, args.bang)
+    api.report(request, args.bang)
   end, {
     bang = true,
     nargs = 1,
   })
 
   ensure_user_command("DaylogRepeat", function()
-    api.repeat_current()
+    api.repeat_()
   end)
 
   -- A lone argument that names a configured source opens the unified picker (recent activities +
@@ -221,11 +221,11 @@ function M.register(api)
   })
 
   ensure_user_command("DaylogOrder", function()
-    api.order_logs()
+    api.order()
   end)
 
   ensure_user_command("DaylogCopy", function()
-    api.append_copy()
+    api.copy()
   end)
 
   ensure_user_command("DaylogNew", function()
@@ -233,7 +233,7 @@ function M.register(api)
   end)
 
   ensure_user_command("DaylogLog", function()
-    api.log_current()
+    api.log()
   end)
 
   ensure_user_command("DaylogBalance", function(args)
@@ -253,7 +253,7 @@ function M.register(api)
   end)
 
   ensure_user_command("DaylogSync", function(args)
-    api.sync_source(args.fargs[1])
+    api.sync(args.fargs[1])
   end, {
     nargs = "?",
     complete = function(arglead)
