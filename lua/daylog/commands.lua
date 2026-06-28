@@ -33,30 +33,6 @@ local function parse_positive_integer(value)
   return number
 end
 
--- Parse the :Daylog report argument into a normalized request: a trailing day count, or a
--- FROM..TO range (each side a YYYY-MM-DD string; an omitted side becomes nil, resolved
--- later to the earliest logged day or today). The date strings are validated downstream.
-local function parse_days_request(value)
-  if type(value) == "string" and value:match("^%d+$") then
-    local count, err = parse_positive_integer(value)
-    if not count then
-      return nil, err
-    end
-    return { count = count }
-  end
-
-  local from, to = (value or ""):match("^(.-)%.%.(.-)$")
-  if from then
-    return {
-      from = from ~= "" and from or nil,
-      to = to ~= "" and to or nil,
-    }
-  end
-
-  return nil,
-    "daylog: expected a day count or a FROM..TO range (e.g. 2026-05-10..2026-05-20, monday.., ..today)"
-end
-
 -- An optional positive day-step count; an empty argument defaults to 1.
 local function parse_step_count(value)
   if value == nil or value == "" then
@@ -64,23 +40,6 @@ local function parse_step_count(value)
   end
 
   return parse_positive_integer(value)
-end
-
-local function parse_day_offset(value)
-  if value == nil or value == "" then
-    return 0
-  end
-
-  if type(value) ~= "string" or value:match("^[+-]?%d+$") == nil then
-    return nil, "daylog: day offset must be an integer"
-  end
-
-  local number = tonumber(value)
-  if number == nil then
-    return nil, "daylog: day offset must be an integer"
-  end
-
-  return number
 end
 
 -- Command-line completion over configured source names (first argument only).
@@ -271,30 +230,11 @@ local VERBS = {
   end,
 }
 
--- Register a command whose single optional argument is parsed, warned-on, then
--- dispatched. `parse(args.args) -> value | nil, err`; on a successful (non-nil) parse
--- `dispatch(value)` runs, else the error is warned. The day-navigation commands share
--- this shape -- the `== nil` check (not `not value`) keeps a 0 day-offset from being
--- swallowed.
-local function register_parsed_command(name, parse, dispatch)
-  ensure_user_command(name, function(args)
-    local value, err = parse(args.args)
-    if value == nil then
-      warn(err)
-      return
-    end
-
-    dispatch(value)
-  end, {
-    nargs = "?",
-  })
-end
-
--- Register every :Daylog* / :Daylog* command, wiring its thin handler to the public
--- verb on `api` (the init module's M).
+-- Register the single :Daylog command, wiring its verb dispatch to the public verbs on `api`
+-- (the init module's M, passed in to avoid a require cycle).
 function M.register(api)
-  -- The single :Daylog <verb> command (bare :Daylog opens today). Dispatches through VERBS; the
-  -- per-verb :Daylog* commands below are transitional and retire after the test migration.
+  -- Bare :Daylog opens today; :Daylog <verb> dispatches through VERBS; :Daylog! <verb> selects
+  -- the verb's variant; a range applies to map.
   ensure_user_command("Daylog", function(args)
     local verb = args.fargs[1]
     if not verb then
@@ -314,138 +254,6 @@ function M.register(api)
     bang = true,
     range = true,
     complete = daylog_complete,
-  })
-
-  ensure_user_command("DaylogInsert", function(args)
-    if args.bang then
-      api.insert_unified()
-      return
-    end
-
-    local name = args.fargs[1]
-    if not name then
-      api.insert_now()
-      return
-    end
-
-    api.insert_from_source(name)
-  end, {
-    bang = true,
-    nargs = "?",
-    complete = function(arglead)
-      return source_complete(arglead)
-    end,
-  })
-
-  register_parsed_command("DaylogToday", parse_day_offset, api.open_today)
-  register_parsed_command("DaylogInit", parse_day_offset, api.init_day)
-  register_parsed_command("DaylogNextDay", parse_step_count, api.open_relative_day)
-  register_parsed_command("DaylogPrevDay", parse_step_count, function(count)
-    api.open_relative_day(-count)
-  end)
-
-  ensure_user_command("DaylogDays", function(args)
-    local request, err = parse_days_request(args.args)
-    if not request then
-      warn(err)
-      return
-    end
-
-    api.report(request, args.bang)
-  end, {
-    bang = true,
-    nargs = 1,
-  })
-
-  ensure_user_command("DaylogRepeat", function()
-    api.repeat_()
-  end)
-
-  -- A lone argument that names a configured source opens the unified picker (recent activities +
-  -- every source's items) to rename into; any other argument is the new value to rename to
-  -- directly; no argument opens the picker.
-  ensure_user_command("DaylogRename", function(args)
-    local kind = classify_source_arg(args.args)
-    if kind == "source" then
-      api.rename_summary(nil, args.args)
-    elseif kind == "value" then
-      api.rename_summary(args.args)
-    else
-      api.rename_summary()
-    end
-  end, {
-    nargs = "*",
-    complete = source_complete,
-  })
-
-  -- Map the cursor's entry (or every entry of a summary row) to a label it resolves to
-  -- in the summary. A lone argument that names a configured source opens the unified picker; any
-  -- other argument is the label to map to directly; no argument opens the picker/prompt.
-  -- The bang (`:Daylog! map`) clears the mapping instead.
-  ensure_user_command("DaylogMap", function(args)
-    -- A visual selection (or :N,M) supplies a line range; a bare :Daylog map has range == 0
-    -- and maps the cursor entry / summary row as before.
-    local range = args.range > 0 and { args.line1, args.line2 } or nil
-
-    if args.bang then
-      api.map_clear(range)
-      return
-    end
-
-    local kind = classify_source_arg(args.args)
-    if kind == "source" then
-      api.map_summary(nil, args.args, range)
-    elseif kind == "value" then
-      api.map_summary(args.args, nil, range)
-    else
-      api.map_summary(nil, nil, range)
-    end
-  end, {
-    nargs = "*",
-    bang = true,
-    range = true,
-    complete = source_complete,
-  })
-
-  ensure_user_command("DaylogOrder", function()
-    api.order()
-  end)
-
-  ensure_user_command("DaylogCopy", function()
-    api.copy()
-  end)
-
-  ensure_user_command("DaylogNew", function()
-    api.new_log()
-  end)
-
-  ensure_user_command("DaylogLog", function()
-    api.log()
-  end)
-
-  ensure_user_command("DaylogBalance", function(args)
-    api.balance(args.args)
-  end, {
-    nargs = "?",
-  })
-
-  ensure_user_command("DaylogSplit", function(args)
-    api.split(args.fargs)
-  end, {
-    nargs = "*",
-  })
-
-  ensure_user_command("DaylogRefresh", function()
-    api.refresh()
-  end)
-
-  ensure_user_command("DaylogSync", function(args)
-    api.sync(args.fargs[1])
-  end, {
-    nargs = "?",
-    complete = function(arglead)
-      return source_complete(arglead)
-    end,
   })
 end
 

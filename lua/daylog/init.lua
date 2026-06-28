@@ -302,50 +302,6 @@ function M.refresh()
   apply_refresh(false)
 end
 
-function M.open_today(day_offset)
-  local settings = expanded_daybook_settings()
-  if settings == nil then
-    warn("daylog: daybook.root is not configured")
-    return
-  end
-
-  if not can_abandon_current_buffer() then
-    warn("daylog: current buffer has unsaved changes")
-    return
-  end
-
-  local now = os.time()
-  local offset = day_offset or 0
-  local target_date = daybook.offset_date(now, offset)
-
-  -- Only opening today creates and stamps a file. Other offsets are navigation:
-  -- open the day if it exists, otherwise an empty unmodified buffer (no file
-  -- created).
-  if offset ~= 0 then
-    if refuse_when_today_has_errors(settings) then
-      return
-    end
-
-    edit_daybook_file(settings, target_date)
-    return
-  end
-
-  local ok, was_initialized = open_daybook_file(settings, target_date)
-  if not ok then
-    return
-  end
-
-  if not was_initialized then
-    return
-  end
-
-  -- A freshly created today file gets the current time and a summary, so it tracks
-  -- the day from the start (live when auto_summary is enabled). The summary refresh
-  -- creates it the same way it would self-heal any other summary-less log.
-  apply_insert_time(os.date("%H:%M", now))
-  apply_refresh(false)
-end
-
 -- Jump to the `|step|`-th existing log before (step < 0) or after (step > 0)
 -- the current buffer's day, skipping days that have no log. The anchor falls
 -- back to today when the buffer is not a canonical daybook file. Pure navigation:
@@ -380,44 +336,10 @@ function M.open_relative_day(step)
   edit_daybook_file(settings, target)
 end
 
--- Create (or open) the daybook file `offset` days from today, scaffolding the
--- directory, file, and default header when it is empty. Unlike :Daylog today it
--- never stamps the current time, so it is the way to start an arbitrary past or
--- future day -- the day-navigation commands deliberately only land on days that
--- already have a log.
-function M.init_day(offset)
-  local settings = expanded_daybook_settings()
-  if settings == nil then
-    warn("daylog: daybook.root is not configured")
-    return
-  end
-
-  if not can_abandon_current_buffer() then
-    warn("daylog: current buffer has unsaved changes")
-    return
-  end
-
-  if refuse_when_today_has_errors(settings) then
-    return
-  end
-
-  local ok, was_initialized =
-    open_daybook_file(settings, daybook.offset_date(os.time(), offset or 0))
-  if not ok or not was_initialized then
-    return
-  end
-
-  -- Seed the empty summary so a freshly scaffolded day is a complete, valid
-  -- log from the start -- like a new today, just without the current-time
-  -- entry. refresh_summaries creates the missing summary the same way it self-heals
-  -- any summary-less log.
-  apply_refresh(false)
-end
-
--- Public verb API (require("daylog").<verb>) -- the canonical interface the :Daylog
--- command and <Plug> maps dispatch to. The day verbs build on the same shell helpers as
--- the (transitional) open_today/init_day above; the unified date grammar lets day() absorb
--- both backfill (the old :Daylog day) and offset navigation (the old :Daylog today offset).
+-- Public verb API (require("daylog").<verb>) -- the canonical interface the :Daylog command
+-- and <Plug> maps dispatch to. The day verbs build on the shared daybook_io shell helpers
+-- (open_daybook_file to create/open, edit_daybook_file to navigate) plus the unified date
+-- grammar, which lets day() both backfill a past day and pre-create a future one.
 
 -- Open today's daybook file -- creating it scaffolded when new -- and stamp the current time
 -- on a fresh day. The daily "start logging" ritual; bare :Daylog targets this.
