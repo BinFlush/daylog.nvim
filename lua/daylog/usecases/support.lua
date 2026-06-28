@@ -17,7 +17,7 @@ local M = {}
 -- validation, and edit-building so individual command modules can stay small
 -- and focused on one operation each.
 
-function M.validate_context(ctx)
+local function validate_context(ctx)
   local diagnostic = analyze.find_block_diagnostic(ctx.analysis, ctx.block)
 
   if diagnostic then
@@ -33,7 +33,7 @@ function M.get_validated_active(lines)
     return nil, err
   end
 
-  return M.validate_context(ctx)
+  return validate_context(ctx)
 end
 
 function M.get_validated_at_row(lines, row)
@@ -42,7 +42,7 @@ function M.get_validated_at_row(lines, row)
     return nil, err
   end
 
-  return M.validate_context(ctx)
+  return validate_context(ctx)
 end
 
 -- The block's entry item on `row`, or nil. An entry item's start_row equals its semantic
@@ -334,6 +334,13 @@ local function canonical_edit(nodes, body_end, zone_end, content, trailing)
   }, matches
 end
 
+-- The log's summary zone bounds (tail_start, stop_row): the window past the last
+-- entry, up to the next log / EOF. The create path blasts to `stop_row` so a fresh
+-- summary replaces any stray trailing blanks instead of stacking below them.
+local function summary_zone_bounds(analysis, block)
+  return summary_block.tail_bounds(analysis, block)
+end
+
 -- THE one way a log's summary is written into a buffer: blast its zone -- replace from the
 -- body boundary through the end of the zone with the canonical two-blank separator + the
 -- summary rendered from `modified_entries`. Returns the 0-based edit (and the rebuilt summary,
@@ -351,7 +358,7 @@ function M.summary_zone_edit(analysis, block, modified_entries, allow_create)
     zone_end = region.end_row
   elseif allow_create then
     body_end = body.last_content_row(block)
-    local _, stop = M.summary_zone_bounds(analysis, block)
+    local _, stop = summary_zone_bounds(analysis, block)
     zone_end = stop
   else
     return nil
@@ -393,13 +400,6 @@ function M.apply_entry_overrides(analysis, block, overrides)
 
   local summary_edit, rebuilt, region = M.summary_zone_edit(analysis, block, modified, false)
   return { edits = M.entry_change_edits(summary_edit, source_edits) }, rebuilt, region
-end
-
--- The log's summary zone bounds (tail_start, stop_row): the window past the last
--- entry, up to the next log / EOF. The create path blasts to `stop_row` so a fresh
--- summary replaces any stray trailing blanks instead of stacking below them.
-function M.summary_zone_bounds(analysis, block)
-  return summary_block.tail_bounds(analysis, block)
 end
 
 function M.parse_clock_minutes(time)

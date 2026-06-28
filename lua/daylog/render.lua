@@ -475,9 +475,9 @@ end
 -- aggregate-only) followed by the aggregate section. Each carries the summary and
 -- the labeled headers to render it with; the per-day sections also carry the date
 -- label and source path so the layout can trace a row back to one file.
--- `aggregate_prefix` (`range`) labels the aggregate section's headers, distinct from the
--- per-day sections' `day`.
-local function report_sections(report, options, aggregate_prefix)
+-- The aggregate section's headers use the `range` prefix, distinct from the per-day
+-- sections' `day`.
+local function report_sections(report, options)
   options = options or {}
   local sections = {}
 
@@ -498,16 +498,16 @@ local function report_sections(report, options, aggregate_prefix)
   sections[#sections + 1] = {
     scope = "aggregate",
     summary = report.summary,
-    headers = report_headers(aggregate_prefix, report.period_label, #sections > 0),
+    headers = report_headers("range", report.period_label, #sections > 0),
   }
 
   return sections
 end
 
-local function period_report_lines(report, duration_format, options, aggregate_prefix)
+local function period_report_lines(report, duration_format, options)
   local lines = {}
 
-  for _, section in ipairs(report_sections(report, options, aggregate_prefix)) do
+  for _, section in ipairs(report_sections(report, options)) do
     append_summary_lines(lines, section.summary, duration_format, section.headers)
   end
 
@@ -520,10 +520,10 @@ end
 -- (scope "aggregate"). Built from the same sections as period_report_lines, so the
 -- rows stay in lockstep with what the buffer shows; cursor resolution reads `kind`,
 -- `item`, and `scope` off a row.
-local function period_report_layout(report, duration_format, options, aggregate_prefix)
+local function period_report_layout(report, duration_format, options)
   local rows = {}
 
-  for _, section in ipairs(report_sections(report, options, aggregate_prefix)) do
+  for _, section in ipairs(report_sections(report, options)) do
     for _, row in ipairs(build_summary_layout(section.summary, duration_format, section.headers)) do
       row.scope = section.scope
       row.date_label = section.date_label
@@ -536,11 +536,11 @@ local function period_report_layout(report, duration_format, options, aggregate_
 end
 
 function M.days_report_lines(report, duration_format, options)
-  return period_report_lines(report, duration_format, options, "range")
+  return period_report_lines(report, duration_format, options)
 end
 
 function M.days_report_layout(report, duration_format, options)
-  return period_report_layout(report, duration_format, options, "range")
+  return period_report_layout(report, duration_format, options)
 end
 
 return M

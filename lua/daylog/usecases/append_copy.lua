@@ -30,10 +30,11 @@ function M.run(lines)
   -- Two blank lines separate the body from its generated summary (the canonical
   -- layout the refresh blast emits), so render the summary content-only and prepend
   -- the pair rather than relying on the render's single leading blank.
-  local summary_lines = render.summary_lines(computed, ctx.block.duration_format, {
-    leading_blank = false,
-    quantize_minutes = ctx.block.quantize_minutes,
-  })
+  local summary_lines = render.summary_lines(
+    computed,
+    ctx.block.duration_format,
+    support.summary_render_options(ctx.block)
+  )
   table.insert(rendered, "")
   table.insert(rendered, "")
   for _, line in ipairs(summary_lines) do
