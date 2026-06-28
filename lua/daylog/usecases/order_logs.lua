@@ -61,7 +61,7 @@ function M.run(lines)
 
   local summary_edits = {}
   for _, block in ipairs(work_analysis.log_blocks) do
-    local edit = support.summary_zone_edit(work, work_analysis, block, block.entries, false)
+    local edit = support.summary_zone_edit(work_analysis, block, block.entries, false)
     if edit then
       summary_edits[#summary_edits + 1] = edit
     end

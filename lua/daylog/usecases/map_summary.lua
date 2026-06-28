@@ -126,8 +126,7 @@ local function apply_alias(ctx, rows, alias)
     end
   end)
 
-  local region = support.locate_summary(ctx.analysis, ctx.block)
-  local summary_edit = support.summary_edit(ctx.block, modified, region)
+  local summary_edit = support.summary_zone_edit(ctx.analysis, ctx.block, modified, false)
 
   return { edits = support.entry_change_edits(summary_edit, source_edits) }
 end

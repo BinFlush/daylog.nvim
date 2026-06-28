@@ -268,9 +268,9 @@ function M.run(lines)
   table.sort(recover_edits, function(a, b)
     return a.start_index > b.start_index
   end)
-  local work, work_analysis = lines, analysis
+  local work_analysis = analysis
   if #recover_edits > 0 then
-    work = support.apply_edits(lines, recover_edits)
+    local work = support.apply_edits(lines, recover_edits)
     work_analysis = analyze.analyze(document.parse(work))
   end
 
@@ -301,7 +301,7 @@ function M.run(lines)
 
       -- Rebuild this valid log's summary from its entries -- creating one when missing --
       -- through the one canonical zone writer. An already-canonical zone yields no edit.
-      local edit = support.summary_zone_edit(work, work_analysis, block, block.entries, true)
+      local edit = support.summary_zone_edit(work_analysis, block, block.entries, true)
       if edit then
         table.insert(summary_edits, edit)
       end

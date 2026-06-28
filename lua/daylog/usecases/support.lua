@@ -202,28 +202,6 @@ function M.locate_summary(analysis, block)
   return region, computed, rendered
 end
 
--- The replace-edit that rebuilds a block's EXISTING summary from its (already-modified)
--- entries: render the projection over `modified_entries` into `region`. `region` is the
--- located summary region (from `locate_summary`, or a cursor resolution that already found
--- it); nil region means the block has no summary yet, so there is nothing to rebuild --
--- creating one stays refresh_summaries' job. This is the one place the entry-changing
--- commands derive their summary edit, so "the summary belongs to its entries" is implemented
--- once. Also returns the rebuilt summary so a caller can follow a row to its new line
--- (balance). See docs/architecture.md, Summary model.
-function M.summary_edit(block, modified_entries, region)
-  if not region then
-    return nil
-  end
-
-  local rebuilt = summary.summarize_entries(modified_entries, block.quantize_minutes)
-  local edit = {
-    start_index = region.start_row - 1,
-    end_index = region.end_row - 1,
-    lines = render.summary_lines(rebuilt, block.duration_format, M.summary_render_options(block)),
-  }
-  return edit, rebuilt
-end
-
 -- Assemble an entry-changing command's edit list: the rebuilt-summary edit (when there is
 -- one) ahead of the source-entry edits, sorted highest-start-first so applying the summary
 -- rebuild never shifts the lower entry rows as it changes size. `source_edits` is every
@@ -264,10 +242,10 @@ end
 -- summary boundary skipping blanks and generated-shaped lines (separator blanks, stranded
 -- summary rows), floored at the last entry. So authored notes are kept while generated debris
 -- below them is swept into the blast.
-local function body_end_above(lines, block, start_row)
+local function body_end_above(nodes, block, start_row)
   local floor = last_entry_row(block)
   for row = start_row - 1, floor + 1, -1 do
-    local raw = lines[row] or ""
+    local raw = (nodes[row] and nodes[row].raw) or ""
     if
       raw ~= ""
       and not syntax.is_infile_summary_header(raw)
@@ -282,7 +260,7 @@ end
 -- The 0-based edit replacing [body_end .. zone_end) with the canonical separator + content
 -- (+ a trailing separator when another log follows), and whether that zone is already exactly
 -- canonical (so no edit need be emitted).
-local function canonical_edit(lines, body_end, zone_end, content, trailing)
+local function canonical_edit(nodes, body_end, zone_end, content, trailing)
   local want = {}
   for _, line in ipairs(SEPARATOR) do
     want[#want + 1] = line
@@ -299,7 +277,8 @@ local function canonical_edit(lines, body_end, zone_end, content, trailing)
   local matches = (zone_end - 1 - body_end) == #want
   if matches then
     for index, line in ipairs(want) do
-      if lines[body_end + index] ~= line then
+      local node = nodes[body_end + index]
+      if (node and node.raw) ~= line then
         matches = false
         break
       end
@@ -320,12 +299,13 @@ end
 -- has no summary and `allow_create` is false. Only the refresh pass creates a missing summary
 -- (`allow_create`); an entry-changing command rebuilds an existing one. The body never owns
 -- the separator, so a command may restructure the body freely. See docs/architecture.md.
-function M.summary_zone_edit(lines, analysis, block, modified_entries, allow_create)
+function M.summary_zone_edit(analysis, block, modified_entries, allow_create)
   local region = M.locate_summary(analysis, block)
+  local nodes = analysis.document.nodes
 
   local body_end, zone_end
   if region then
-    body_end = body_end_above(lines, block, region.start_row)
+    body_end = body_end_above(nodes, block, region.start_row)
     zone_end = region.end_row
   elseif allow_create then
     body_end = body.last_content_row(block)
@@ -338,12 +318,12 @@ function M.summary_zone_edit(lines, analysis, block, modified_entries, allow_cre
   local rebuilt = summary.summarize_entries(modified_entries, block.quantize_minutes)
   local content =
     render.summary_lines(rebuilt, block.duration_format, M.summary_render_options(block))
-  local trailing = zone_end <= #lines
-  local edit, already_canonical = canonical_edit(lines, body_end, zone_end, content, trailing)
+  local trailing = zone_end <= analysis.document.row_count
+  local edit, already_canonical = canonical_edit(nodes, body_end, zone_end, content, trailing)
   if already_canonical then
     return nil
   end
-  return edit, rebuilt
+  return edit, rebuilt, region
 end
 
 -- The log's summary zone bounds (tail_start, stop_row): the window past the last

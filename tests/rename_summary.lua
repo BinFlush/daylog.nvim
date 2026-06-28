@@ -79,7 +79,7 @@ return function(t)
 
     -- The trailing #urgent is parenthesized so it cannot become entry metadata.
     t.eq(out[2], "08:00 deploy (#urgent)")
-    t.eq(out[6], "1.00h (+0m) deploy (#urgent)")
+    t.eq(out[7], "1.00h (+0m) deploy (#urgent)")
   end)
 
   t.test("rename a tag row renames the header token and explicit entries", function()
@@ -109,6 +109,7 @@ return function(t)
       "08:00 planning",
       "10:00 meeting #internal",
       "11:00 done #Globex",
+      "",
       "",
       "--- summary q=15 d=dec ---",
       "2.00h (+0m) planning",
@@ -156,6 +157,7 @@ return function(t)
       "10:00 test",
       "11:00 done",
       "",
+      "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) setup",
       "1.00h (+0m) build",
@@ -195,6 +197,7 @@ return function(t)
       "10:00 implementation @home",
       "11:00 done",
       "",
+      "",
       "--- summary q=15 d=dec ---",
       "2.00h (+0m) planning",
       "1.00h (+0m) implementation",
@@ -232,6 +235,7 @@ return function(t)
       "08:00 plan #b",
       "09:00 build #b",
       "10:00 done",
+      "",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) plan",
@@ -466,7 +470,7 @@ return function(t)
     }, 2, "investigate timeout")
 
     t.eq(out[2], "08:00 investigate timeout => BUG-1")
-    t.eq(out[6], "1.00h (+0m) BUG-1")
+    t.eq(out[7], "1.00h (+0m) BUG-1")
   end)
 
   local function rename_by_value(lines, target, new_value)
@@ -498,7 +502,7 @@ return function(t)
 
     t.eq(out[2], "08:00 coding")
     t.eq(out[4], "10:00 coding")
-    t.eq(out[8], "2.00h (+0m) coding")
+    t.eq(out[9], "2.00h (+0m) coding")
   end)
 
   t.test("run_by_value renames a tag everywhere it is effective", function()
@@ -518,7 +522,7 @@ return function(t)
     }, { kind = "tag", current = "ClientA" }, "ClientB")
 
     t.eq(out[1], "--- log #ClientB ---")
-    t.eq(out[9], "1.00h (+0m) #ClientB")
+    t.eq(out[10], "1.00h (+0m) #ClientB")
   end)
 
   t.test("run_by_value returns nil with no error when the value is absent", function()

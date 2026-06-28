@@ -214,7 +214,7 @@ function M.run(lines, cursor_row, weights)
     end
   end
 
-  local summary_edit = support.summary_edit(block, modified, result.region)
+  local summary_edit = support.summary_zone_edit(result.ctx.analysis, block, modified, false)
 
   return { edits = support.entry_change_edits(summary_edit, source_edits) }
 end

@@ -322,8 +322,7 @@ local function build_edits(analysis, block, entry_changes, target_row)
     end
   end)
 
-  local region = support.locate_summary(analysis, block)
-  local summary_edit, rebuilt = support.summary_edit(block, modified, region)
+  local summary_edit, rebuilt, region = support.summary_zone_edit(analysis, block, modified, false)
 
   local result = { edits = support.entry_change_edits(summary_edit, source_edits) }
 

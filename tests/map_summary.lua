@@ -13,8 +13,12 @@ return function(t)
     for _, line in ipairs(log_lines) do
       out[#out + 1] = line
     end
+    -- The canonical two-blank separator owns the gap between body and summary.
+    out[#out + 1] = ""
+    out[#out + 1] = ""
     for _, line in
       ipairs(render.summary_lines(summary.summarize_block(block), block.duration_format, {
+        leading_blank = false,
         quantize_minutes = block.quantize_minutes,
       }))
     do

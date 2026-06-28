@@ -78,7 +78,7 @@ local function frozen_values(block, target_rows)
   return frozen
 end
 
--- The block's semantic entries with `logged` toggled in memory; support.summary_edit rebuilds
+-- The block's semantic entries with `logged` toggled in memory; support.summary_zone_edit rebuilds
 -- the summary from these. On mark, every entry the merge touches (in `frozen` -- the newly
 -- logged rows and any already-logged row they absorb) takes the combined value; on unmark the
 -- target entries clear both fields so no stale value lingers.
@@ -157,7 +157,7 @@ function M.run(lines, cursor_row)
   end)
 
   local modified = logged_entries(block, target_rows, target_logged, frozen)
-  local summary_edit = support.summary_edit(block, modified, result.region)
+  local summary_edit = support.summary_zone_edit(result.ctx.analysis, block, modified, false)
 
   return { edits = support.entry_change_edits(summary_edit, source_edits) }
 end

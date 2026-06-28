@@ -276,7 +276,7 @@ end
 -- the one summary in place. `item` is the recomputed summary item the rename acts
 -- on and `region` is its summary's location; `target.kind` selects the rename mode.
 -- Shared by the cursor-driven M.run and the value-driven M.run_by_value.
-local function build_rename(block, region, item, target, new_value)
+local function build_rename(analysis, block, item, target, new_value)
   local ops = {
     rename_tag = identity,
     rename_loc = identity,
@@ -377,7 +377,7 @@ local function build_rename(block, region, item, target, new_value)
   -- Rebuild the one summary from the renamed entries (a nil region is a renamed single entry
   -- in a log with no summary yet -- a later refresh creates it, and only the source edit
   -- applies). `edits` here is the source + header edits this rename makes.
-  local summary_edit = support.summary_edit(block, renamed_entrys, region)
+  local summary_edit = support.summary_zone_edit(analysis, block, renamed_entrys, false)
 
   return { edits = support.entry_change_edits(summary_edit, edits) }
 end
@@ -417,7 +417,13 @@ function M.run(lines, cursor_row, new_value)
     return nil, err
   end
 
-  return build_rename(context.ctx.block, context.region, context.item, context.target, new_value)
+  return build_rename(
+    context.ctx.analysis,
+    context.ctx.block,
+    context.item,
+    context.target,
+    new_value
+  )
 end
 
 -- Rename by value rather than by cursor: act on the active log's summary item
@@ -441,7 +447,7 @@ function M.run_by_value(lines, target, new_value)
     return nil, nil
   end
 
-  return build_rename(ctx.block, region, item, target, new_value)
+  return build_rename(ctx.analysis, ctx.block, item, target, new_value)
 end
 
 return M

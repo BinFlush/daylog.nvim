@@ -697,9 +697,11 @@ return function(t)
     t.eq(result, {
       edits = {
         {
-          start_index = 4,
+          start_index = 3,
           end_index = 6,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) implementation !L",
             "",
@@ -732,9 +734,11 @@ return function(t)
     t.eq(result, {
       edits = {
         {
-          start_index = 4,
+          start_index = 3,
           end_index = 6,
           lines = {
+            "",
+            "",
             "--- summary q=30 d=dec ---",
             "1.00h (+0m) implementation !L",
             "",
@@ -770,9 +774,11 @@ return function(t)
     t.eq(result, {
       edits = {
         {
-          start_index = 6,
+          start_index = 5,
           end_index = 9,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "2.00h (+0m) implementation !L",
             "1.00h (+0m) meeting",
@@ -813,9 +819,11 @@ return function(t)
     t.eq(result, {
       edits = {
         {
-          start_index = 5,
+          start_index = 4,
           end_index = 7,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) implementation !L",
             "",
@@ -848,9 +856,11 @@ return function(t)
     t.eq(result, {
       edits = {
         {
-          start_index = 4,
+          start_index = 3,
           end_index = 6,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) plan !L",
             "",
@@ -971,9 +981,11 @@ return function(t)
     t.eq(result, {
       edits = {
         {
-          start_index = 4,
+          start_index = 3,
           end_index = 6,
           lines = {
+            "",
+            "",
             "--- summary q=15 d=dec ---",
             "1.00h (+0m) implementation",
             "",
@@ -1139,9 +1151,11 @@ return function(t)
       t.eq(result, {
         edits = {
           {
-            start_index = 5,
+            start_index = 4,
             end_index = 17,
             lines = {
+              "",
+              "",
               "--- summary q=15 d=dec ---",
               "2.00h (+0m) planning !L",
               "1.00h (+0m) review",
@@ -1207,9 +1221,11 @@ return function(t)
       t.eq(result, {
         edits = {
           {
-            start_index = 9,
+            start_index = 8,
             end_index = 23,
             lines = {
+              "",
+              "",
               "--- summary q=15 d=dec ---",
               "2.00h (-8m) versions",
               "0.75h (-1m) Q1 features !L",
@@ -1267,6 +1283,7 @@ return function(t)
         "    what is he talking about    ",
         "10:17 Q1 features !L45",
         "11:01 versions",
+        "",
         "",
         "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",

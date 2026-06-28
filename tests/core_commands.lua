@@ -469,7 +469,7 @@ return function(t)
     local lines = t.get_lines()
     t.eq(lines[1], "--- log #Globex @office ---")
     t.eq(lines[4], "11:00 done #Globex")
-    t.eq(lines[11], "2.00h (+0m) #Globex")
+    t.eq(lines[12], "2.00h (+0m) #Globex")
   end)
 
   t.test("rename an entry with no arg prompts with its text as the default", function()
@@ -491,7 +491,7 @@ return function(t)
     end)
 
     t.eq(t.get_lines()[2], "08:00 coding")
-    t.eq(t.get_lines()[6], "1.00h (+0m) coding")
+    t.eq(t.get_lines()[7], "1.00h (+0m) coding")
   end)
 
   t.test("rename merges into a picked candidate via the fallback picker", function()
@@ -529,7 +529,7 @@ return function(t)
     end
 
     t.eq(t.get_lines()[2], "08:00 plan #b")
-    t.eq(t.get_lines()[11], "2.00h (+0m) #b")
+    t.eq(t.get_lines()[12], "2.00h (+0m) #b")
   end)
 
   t.test("rename accepts a multi-word name as a command argument on an entry", function()
@@ -549,7 +549,7 @@ return function(t)
     vim.cmd("DaylogRename fix the build")
 
     t.eq(t.get_lines()[2], "08:00 fix the build")
-    t.eq(t.get_lines()[6], "1.00h (+0m) fix the build")
+    t.eq(t.get_lines()[7], "1.00h (+0m) fix the build")
   end)
 
   t.test("rename from an entry line renames only that entry", function()
@@ -915,6 +915,7 @@ return function(t)
       "08:00 implementation !L60",
       "09:00 done",
       "",
+      "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation !L",
       "",
@@ -944,6 +945,7 @@ return function(t)
       "08:00 implementation !L60",
       "09:00 done",
       "",
+      "",
       "--- summary q=30 d=dec ---",
       "1.00h (+0m) implementation !L",
       "",
@@ -972,6 +974,7 @@ return function(t)
       "--- log ---",
       "08:00 implementation",
       "09:00 done",
+      "",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
@@ -1183,6 +1186,7 @@ return function(t)
         "    what is he talking about    ",
         "10:17 Q1 features !L45",
         "11:01 versions",
+        "",
         "",
         "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",
