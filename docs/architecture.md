@@ -72,7 +72,7 @@ some entries, or fold heterogeneous descriptions onto one label — the report t
 three the same. No command may assume an activity row is "really" a mapping or "really" a
 bare description; both are first-class. (This is why renaming an entry may target a source
 item, and why renaming an activity _row_ — a group that may mix both — is refused; rename
-edits one entry's text, `:DaylogMap` relabels the report.)
+edits one entry's text, `:Daylog map` relabels the report.)
 
 ## Module overview
 
@@ -117,8 +117,8 @@ ftplugin/daylog.lua -> shell: attach the highlighter to daylog buffers
 
 A log has at most one summary. The summary is a **pure projection** of the
 log's entries: it stores no authored content and is always safe to rebuild
-from source. It is created with the log (`:DaylogToday` and `:DaylogCopy`
-append one) and kept current by the refresh below; `:DaylogLog` marks the
+from source. It is created with the log (`:Daylog today` and `:Daylog copy`
+append one) and kept current by the refresh below; `:Daylog log` marks the
 contributing source entries `!L` and rebuilds it. Annotations belong on entries
 (canonical, surviving copy/order), not in the summary.
 
@@ -150,38 +150,38 @@ into a buffer: `support.summary_zone_edit` finds the body boundary, renders the 
 over the (possibly modified) entries, and replaces `[boundary .. zone end)` with the
 canonical *two blank lines + content* — a no-op when the zone is already canonical. Every
 entry-changing command rebuilds its log's **existing** summary through it: the in-place
-commands (`:DaylogBalance`/`:DaylogSplit`/`:DaylogLog`/`:DaylogMap`/`:DaylogRename`) emit it
+commands (`:Daylog balance`/`:Daylog split`/`:Daylog log`/`:Daylog map`/`:Daylog rename`) emit it
 in their own edit, so the change is atomic, instant, and independent of `auto_summary`;
-`:DaylogOrder` runs it per reordered log after re-analysing the sorted bodies; and
+`:Daylog order` runs it per reordered log after re-analysing the sorted bodies; and
 `refresh_summaries` uses it to rebuild every log and *create* the missing ones. The
-field-changing commands (`:DaylogMap`/`:DaylogBalance`/`:DaylogLog`) derive both halves of their
+field-changing commands (`:Daylog map`/`:Daylog balance`/`:Daylog log`) derive both halves of their
 edit — the source-line rewrite and this summary rebuild — from one per-entry override map
 (`support.apply_entry_overrides`), so the written line and the recomputed projection can never
 disagree about a change. Because the
 two-blank separator belongs to the **zone** — emitted by the writer, never authored, never
-owned by the body — a command may restructure the body freely (`:DaylogOrder` re-sorts and
+owned by the body — a command may restructure the body freely (`:Daylog order` re-sorts and
 re-spaces it) and the separator is re-established canonically on the rebuild. The lone
-exception is the *mid-entry* commands (`:DaylogInsert`/`:DaylogRepeat`): they insert an entry
+exception is the *mid-entry* commands (`:Daylog insert`/`:Daylog repeat`): they insert an entry
 and `startinsert`, so the entry is unfinished and they leave the rebuild to `auto_summary`.
 
-`:DaylogRefresh` and the optional `auto_summary` autocmds in `init.lua` are thin
+`:Daylog refresh` and the optional `auto_summary` autocmds in `init.lua` are thin
 shells over it — the trigger (`off` / `change` / `idle` / `save`) is configurable,
 and the shell adds only undo-join, a re-entrancy guard, and cursor preservation.
 The warnings are published as buffer diagnostics (a `vim.diagnostic` namespace),
 which is what makes them clear when fixed however the fix happened: each refresh
 replaces the namespace's diagnostics, so a now-valid log publishes an empty
 set. Because programmatic edits do not fire the change autocmds, the
-buffer-editing commands republish diagnostics after applying (so `:DaylogOrder`
+buffer-editing commands republish diagnostics after applying (so `:Daylog order`
 clears its own warning). Diagnostics also render inline in any mode, so there is
 no insert-mode timing to manage. The reporting core (`summary.lua`, `render.lua`)
-stays pure so the daybook reports (`:DaylogDays`) share it
+stays pure so the daybook reports (`:Daylog report`) share it
 unchanged; an open report re-derives on the same `auto_summary` autocmds,
 rebuilding from a spec stored on its buffer so it tracks its source days the way
 an in-file summary tracks its entries. Each day section in a report labels its
 header with that day's own `q=` bucket (`week.lua` carries `quantize_minutes`
 per day; the aggregate header stays bare).
 
-The report is read-only but is now an actionable surface: `:DaylogRename` on it
+The report is read-only but is now an actionable surface: `:Daylog rename` on it
 renames an item across days. `render.*_report_layout` exposes the report as a flat
 layout (one row per rendered line, tagged with its section scope), so
 `usecases/report_cursor` maps the cursor to a target and the file scope (an
@@ -285,7 +285,7 @@ totals.
 ### Manual rounding balance (`round±N`)
 
 Largest-remainder rounding can leave an aggregate (a day, hence a week) a step or
-two off a clean total. `:DaylogBalance` lets the cursor on a summary row — or a
+two off a clean total. `:Daylog balance` lets the cursor on a summary row — or a
 entry — shift the rounding by `±N` `q`-steps, recorded as a **non-sticky**
 per-entry `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round_nudge`).
 
@@ -355,7 +355,7 @@ straight from the parse. Summary rows -- derived output, not source -- are
 recognized by the shapes `render.lua` emits (a leading duration, `(+Nm)` markers,
 trailing metadata); a summary section runs from a generated section header to the
 blank line that ends it, and the same predicate matches the labeled multi-day
-report headers (`--- day summary <date> q=N ---`), so the `:DaylogDays`
+report headers (`--- day summary <date> q=N ---`), so the `:Daylog report`
 reports highlight too. Whole-line "base" spans (a header, a note)
 sit at a lower priority than the narrower token spans layered over them, so a
 `#tag` inside a header wins at its own cells.
@@ -405,7 +405,7 @@ source providers, and the highlighter -- stays pure. See below.
 
 ## Sources
 
-External work-item sources (e.g. Azure DevOps) let `:DaylogInsert <source>` pick a
+External work-item sources (e.g. Azure DevOps) let `:Daylog insert <source>` pick a
 tracker item and insert it, while keeping the same pure-core discipline: the
 provider logic is pure and only IO/UI is shell.
 
@@ -432,8 +432,8 @@ sources/cache.lua         pure   cache envelope codec + TTL staleness
 sources/picker.lua        pure   live-search helpers (align / merge / display / should_query)
 sources/azure_devops.lua  pure   the ADO provider (pure via injected deps)
 sources/http.lua          shell  the only networked file: curl via jobstart
-sources/sync.lua          shell  on-disk cache + lazy-TTL / :DaylogSync refresh
-telescope.lua             shell  optional live picker (top-level; :DaylogInsert + :DaylogRename)
+sources/sync.lua          shell  on-disk cache + lazy-TTL / :Daylog sync refresh
+telescope.lua             shell  optional live picker (top-level; :Daylog insert + :Daylog rename)
 ```
 
 The ADO provider stays pure through **dependency injection**: `init.lua` hands it
@@ -443,7 +443,7 @@ injected deps and the provider is unit-tested offline with a fake transport.
 Pick-time is offline and synchronous: read the per-source JSON cache
 (`stdpath('cache')/daylog/sources/<name>.json`) and open the picker. The cache is
 refreshed only by the occasional sync (in the background when stale, or via
-`:DaylogSync`), never in the hot path. The PAT is resolved lazily by
+`:Daylog sync`), never in the hot path. The PAT is resolved lazily by
 `token_resolver` and never written to the cache.
 
 Insertion still flows through the pure `usecases/insert_entry` + an edit script, and
@@ -451,7 +451,7 @@ Insertion still flows through the pure `usecases/insert_entry` + an edit script,
 never inject trailing `#tag` / `@location` / `!L` metadata -- no source has to
 remember to do it.
 
-Telescope is optional. `:DaylogInsert <source>` uses `vim.ui.select` (which any
+Telescope is optional. `:Daylog insert <source>` uses `vim.ui.select` (which any
 ui-select provider upgrades) by default; when Telescope is installed and the source
 implements `search`, it opens the live picker that searches the whole tracker as you
 type. Live whole-project search is the only Telescope-exclusive capability --

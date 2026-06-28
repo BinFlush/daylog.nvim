@@ -42,6 +42,11 @@ happen, but they are called out clearly in this changelog.
 - **One date vocabulary everywhere.** `:Daylog day` and `:Daylog report` bounds share the same
   tokens -- `today` / `yesterday` / `tomorrow`, weekday names, signed `+N` / `-N` offsets, and
   `YYYY-MM-DD` -- so `:Daylog day monday` and `:Daylog report -7..today` both work.
+- **`:Daylog day` creates the target day.** Where `:DaylogToday <offset>` *navigated* to a day
+  without creating it, `:Daylog day <when>` opens or **creates and scaffolds** it (the old
+  `:DaylogInit` behaviour), and takes a *signed* offset -- `:Daylog day +1` / `-3`, not a bare
+  `1` (a bare number is a `:Daylog report` day count). Move between existing logged days with
+  `:Daylog next` / `:Daylog prev`.
 - **A Lua API and `<Plug>` mappings.** Every verb is a `require("daylog").<verb>()` function and
   a `<Plug>(daylog-*)` mapping; `setup({ keymaps = true })` applies an opt-in, buffer-local
   default key set (`]d` / `[d` plus a `<localleader>` cluster), or pass a `{ lhs = rhs }` table.

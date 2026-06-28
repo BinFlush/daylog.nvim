@@ -266,7 +266,7 @@ function M.balance(arg)
   if arg ~= nil and arg ~= "" then
     delta = tonumber(arg)
     if delta == nil or delta ~= math.floor(delta) then
-      warn("daylog: DaylogBalance expects an integer step count, e.g. +1, -2, or 0 to clear")
+      warn("daylog: balance expects an integer step count, e.g. +1, -2, or 0 to clear")
       return
     end
   end
@@ -290,7 +290,7 @@ function M.split(fargs)
   end
 
   if #weights == 1 then
-    warn("daylog: DaylogSplit needs at least two weights, or none for an even split")
+    warn("daylog: split needs at least two weights, or none for an even split")
     return
   end
 

@@ -1,7 +1,7 @@
 # Azure DevOps setup
 
 This guide sets up the optional **Azure DevOps** work-item source so
-`:DaylogInsert ADO` can pull a work item straight into your log.
+`:Daylog insert ADO` can pull a work item straight into your log.
 
 > **You only need this for the Azure DevOps integration.** The core of
 > `daylog.nvim` needs no Personal Access Token and no `curl` — skip this entirely
@@ -112,7 +112,7 @@ require("daylog").setup({
   },
 })
 
-vim.keymap.set("n", "<leader>wa", "<cmd>DaylogInsert ADO<cr>", { desc = "Daylog insert ADO item" })
+vim.keymap.set("n", "<leader>wa", "<cmd>Daylog insert ADO<cr>", { desc = "Daylog insert ADO item" })
 ```
 
 By default the source lists work items that **involve you** — assigned to or created
@@ -146,9 +146,9 @@ raw `query`.
 
 1. `:checkhealth daylog` — under **Sources**, confirms `curl` is on `PATH`, that the
    `ADO` source is configured, and whether its cache is populated.
-2. `:DaylogSync ADO` — fetches the work-item cache over the network. This is the
+2. `:Daylog sync ADO` — fetches the work-item cache over the network. This is the
    only step that uses `curl` and the token.
-3. `:DaylogInsert ADO` — pick an item; it is inserted as `{id} {title}` at the
+3. `:Daylog insert ADO` — pick an item; it is inserted as `{id} {title}` at the
    current time. With Telescope installed you can type to search the whole tracker.
 
 ### Troubleshooting

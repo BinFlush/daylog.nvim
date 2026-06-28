@@ -129,7 +129,7 @@ container-optional) and the **item shape**, never the query mechanism.
 - [x] **ADO scope** — the default fetch and the live search both use `involves me` (assigned
   or created) + active + recent; `project`/`projects` are optional and the default is org-wide,
   and search carries the same scope. `query`/`query_id` remain the per-source override.
-- [x] **Unified insert picker** (`:DaylogInsert!`) — `rank.build_insert_pool` (pure) merges every
+- [x] **Unified insert picker** (`:Daylog! insert`) — `rank.build_insert_pool` (pure) merges every
   source's cached items with the leftover recent activities (usage keys no item claims) into one
   frecency-ranked, deduped list; `pick.insert` / `telescope.insert_pick` show it offline (no live
   search). All-source caches are read synchronously (+ background `refresh_if_stale`) so it opens
