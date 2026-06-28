@@ -188,18 +188,15 @@ function M.summary_render_options(block)
   return { leading_blank = false, quantize_minutes = block.quantize_minutes }
 end
 
--- Locate a log block's existing summary region, returning it alongside the
--- freshly computed summary and its rendered (in-file) lines. The region is found by
--- rendering the current summary and matching it against the block's tail (see
--- summary_block). Returns nil region when no summary exists yet; callers reuse
--- whichever values they need -- the summary-acting usecases the region, refresh the
--- computed/rendered to rewrite or create.
+-- Locate a log block's existing summary region, returning it alongside the freshly
+-- recomputed summary. The region is found from the summary banner in the block's tail
+-- (see summary_block.find), not by aligning a rendered summary. Returns nil region when
+-- no summary exists yet. Callers take what they need -- summary_zone_edit the region to
+-- blast, summary_cursor / rename the recomputed summary to map a cursor onto a row.
 function M.locate_summary(analysis, block)
   local computed = summary.summarize_block(block)
-  local rendered =
-    render.summary_lines(computed, block.duration_format, M.summary_render_options(block))
-  local region = summary_block.find(analysis, block, rendered)
-  return region, computed, rendered
+  local region = summary_block.find(analysis, block)
+  return region, computed
 end
 
 -- Assemble an entry-changing command's edit list: the rebuilt-summary edit (when there is
