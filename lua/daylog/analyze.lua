@@ -178,8 +178,8 @@ local function analyze_entry_items(block, diagnostics)
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.UNORDERED_TIMESTAMPS,
         severity = "error",
-        row = entry_items[i - 1].row or entry_items[i - 1].start_row,
-        row2 = entry_items[i].row or entry_items[i].start_row,
+        row = entry_items[i - 1].start_row,
+        row2 = entry_items[i].start_row,
         message = "timestamps are not in non-decreasing order",
       })
       break
@@ -193,7 +193,7 @@ local function analyze_entry_items(block, diagnostics)
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.MIDNIGHT_NOT_FINAL,
         severity = "error",
-        row = entry_items[i].row or entry_items[i].start_row,
+        row = entry_items[i].start_row,
         message = "24:00 must be the final entry in a log block",
       })
       break
@@ -211,7 +211,7 @@ local function analyze_entry_items(block, diagnostics)
       push_diagnostic(diagnostics, {
         code = syntax.DIAGNOSTIC.MIXED_OFFSET,
         severity = "error",
-        row = entry_items[i].row or entry_items[i].start_row,
+        row = entry_items[i].start_row,
         message = "a utc offset here follows offset-free entries; put the offset on the log "
           .. "header (or remove it) so the whole log is timezone-consistent",
       })

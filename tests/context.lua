@@ -20,8 +20,8 @@ return function(t)
       "11:00",
     })
 
-    t.eq(ctx.header_tag, "internal")
-    t.eq(ctx.header_location, "home")
+    t.eq(ctx.block.header_tag, "internal")
+    t.eq(ctx.block.header_location, "home")
     t.eq(ctx.block.start_row, 8)
     t.eq(ctx.block.body_start_row, 9)
     t.eq(ctx.block.end_row, 11)
@@ -56,8 +56,8 @@ return function(t)
       "09:00 done",
     })
 
-    t.eq(ctx.header_tag, nil)
-    t.eq(ctx.header_location, nil)
+    t.eq(ctx.block.header_tag, nil)
+    t.eq(ctx.block.header_location, nil)
     t.eq(ctx.block.start_row, 1)
   end)
 

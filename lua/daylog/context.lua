@@ -7,8 +7,8 @@ local M = {}
 -- Daylog context selection.
 --
 -- Commands ask this module for the active log or the log under the
--- cursor. The returned context keeps only the semantic analysis, selected
--- block, and the block's sticky header metadata.
+-- cursor. The returned context keeps the semantic analysis and the selected
+-- block (whose header carries the sticky tag/location metadata).
 
 local function build_context(analysis, block)
   if not block then
@@ -18,8 +18,6 @@ local function build_context(analysis, block)
   return {
     analysis = analysis,
     block = block,
-    header_tag = block.header_tag,
-    header_location = block.header_location,
   }
 end
 
