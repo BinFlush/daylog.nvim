@@ -16,8 +16,7 @@ local M = {}
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
 local cursor_row = buffer.cursor_row
-local apply_result = buffer.apply_result
-local buffer_changed = buffer.buffer_changed
+local run_pinned_usecase = buffer.run_pinned_usecase
 
 local function in_report()
   local ok, spec = pcall(vim.api.nvim_buf_get_var, 0, "log_report")
@@ -47,17 +46,7 @@ local function peek(range, row)
 end
 
 local function apply(target_buf, label, do_run)
-  if buffer_changed(target_buf, "map") then
-    return
-  end
-
-  local result, err = do_run(buffer_lines(), label)
-  if not result then
-    warn(err)
-    return
-  end
-
-  apply_result(result)
+  run_pinned_usecase(target_buf, "map", do_run, label)
 end
 
 -- Clear the alias on the cursor's target, or every entry in a visual range (`:DaylogMap!`).

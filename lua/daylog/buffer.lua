@@ -312,6 +312,16 @@ local function buffer_changed(target_buf, op)
   return true
 end
 
+-- run_buffer_usecase for an async callback (a picker selection that may arrive after the user
+-- moved away): abort with a warning when the current buffer is no longer `target_buf` (`op`
+-- names it), otherwise run-and-apply. The synchronous twin of run_buffer_usecase.
+local function run_pinned_usecase(target_buf, op, run, ...)
+  if buffer_changed(target_buf, op) then
+    return false
+  end
+  return run_buffer_usecase(run, ...)
+end
+
 -- Rebuild every log's existing summary to match its entries, and publish the
 -- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
 -- are already current. `join` merges the edit into the previous undo block, used
@@ -351,6 +361,7 @@ M.render_stray = render_stray
 M.publish_diagnostics = publish_diagnostics
 M.apply_result = apply_result
 M.run_buffer_usecase = run_buffer_usecase
+M.run_pinned_usecase = run_pinned_usecase
 M.with_preserved_cursor = with_preserved_cursor
 M.buffer_changed = buffer_changed
 M.apply_refresh = apply_refresh

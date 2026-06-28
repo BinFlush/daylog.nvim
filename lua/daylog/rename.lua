@@ -23,8 +23,8 @@ local M = {}
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
 local cursor_row = buffer.cursor_row
-local apply_result = buffer.apply_result
 local buffer_changed = buffer.buffer_changed
+local run_pinned_usecase = buffer.run_pinned_usecase
 local highlight_buffer = buffer.highlight_buffer
 local daybook_lines = daybook_io.daybook_lines
 local loaded_buffer_for_path = daybook_io.loaded_buffer_for_path
@@ -74,16 +74,7 @@ function M.summary(new_value, source_name)
     if value == nil or value == "" or value == target.current then
       return
     end
-    if buffer_changed(target_buf, "rename") then
-      return
-    end
-
-    local result, run_err = rename_summary.run(buffer_lines(), row, value)
-    if not result then
-      warn(run_err)
-      return
-    end
-    apply_result(result)
+    run_pinned_usecase(target_buf, "rename", rename_summary.run, row, value)
   end
 
   if new_value ~= nil then

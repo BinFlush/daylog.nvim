@@ -21,6 +21,7 @@ local buffer_lines = buffer.buffer_lines
 local cursor_row = buffer.cursor_row
 local apply_result = buffer.apply_result
 local apply_refresh = buffer.apply_refresh
+local run_buffer_usecase = buffer.run_buffer_usecase
 local can_abandon_current_buffer = daybook_io.can_abandon_current_buffer
 local current_buffer_daybook_date = daybook_io.current_buffer_daybook_date
 local expanded_daybook_settings = daybook_io.expanded_daybook_settings
@@ -30,30 +31,14 @@ local open_daybook_file = daybook_io.open_daybook_file
 local live_offset = daybook_io.live_offset
 
 local function apply_insert_time(time, auto_offset)
-  local lines = buffer_lines()
-  local row = cursor_row()
-  local result, err = insert_now.run(lines, row, time, auto_offset)
-  if not result then
-    warn(err)
-    return false
-  end
-
-  apply_result(result)
-  return true
+  return run_buffer_usecase(insert_now.run, cursor_row(), time, auto_offset)
 end
 
 -- Insert a fully-resolved "HH:MM <text>" entry at the cursor's log and enter
 -- insert mode. Mirrors apply_insert_time but carries an activity string (the text
 -- is built and sanitized by the source layer before it gets here).
 local function apply_insert_entry(time, entry_text, auto_offset)
-  local result, err = insert_entry.run(buffer_lines(), cursor_row(), time, entry_text, auto_offset)
-  if not result then
-    warn(err)
-    return false
-  end
-
-  apply_result(result)
-  return true
+  return run_buffer_usecase(insert_entry.run, cursor_row(), time, entry_text, auto_offset)
 end
 
 -- Roll a task that ran across midnight into today: close the previous day at
