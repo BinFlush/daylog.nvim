@@ -54,10 +54,8 @@ local function resolve_targets(lines, cursor_row)
     return nil, nil, ctx_err or M.NOT_MAPPABLE
   end
 
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.start_row == cursor_row then
-      return ctx, { cursor_row }, nil
-    end
+  if support.entry_item_at_row(ctx.block, cursor_row) then
+    return ctx, { cursor_row }, nil
   end
 
   return nil, nil, M.NOT_MAPPABLE

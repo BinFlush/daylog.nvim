@@ -52,13 +52,7 @@ local function item_at_row(lines, row)
     return nil
   end
 
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.entry.row == row then
-      return item
-    end
-  end
-
-  return nil
+  return support.entry_item_at_row(ctx.block, row)
 end
 
 -- The activity of the entry on the given row, used to repeat it after the

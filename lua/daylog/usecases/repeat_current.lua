@@ -26,14 +26,7 @@ function M.run(lines, row, time, auto_offset)
     end
   end
 
-  local current_item = nil
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.entry.row == row then
-      current_item = item
-      break
-    end
-  end
-
+  local current_item = support.entry_item_at_row(ctx.block, row)
   if not current_item then
     return nil, "daylog: current line is not a valid entry"
   end

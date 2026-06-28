@@ -45,6 +45,18 @@ function M.get_validated_at_row(lines, row)
   return M.validate_context(ctx)
 end
 
+-- The block's entry item on `row`, or nil. An entry item's start_row equals its semantic
+-- entry's row (a timestamped entry is a single line), so this is the one lookup the call
+-- sites spelled either way (`item.start_row` or `item.entry.row`).
+function M.entry_item_at_row(block, row)
+  for _, item in ipairs(block.entry_items) do
+    if item.start_row == row then
+      return item
+    end
+  end
+  return nil
+end
+
 function M.get_insert_index(block, minutes)
   return body.insert_index(block, minutes)
 end

@@ -156,21 +156,20 @@ local function resolve_context(lines, cursor_row)
     return nil, ctx_err or M.NOT_A_ROW
   end
 
-  for _, entry_item in ipairs(ctx.block.entry_items) do
-    if entry_item.start_row == cursor_row then
-      local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
-      return {
-        ctx = ctx,
-        region = region,
-        recomputed = recomputed,
-        item = {
-          text = entry_item.text,
-          tag = entry_item.tag,
-          source_entry_rows = { cursor_row },
-        },
-        target = { kind = "item", current = entry_item.text or "", tag = entry_item.tag },
-      }
-    end
+  local entry_item = support.entry_item_at_row(ctx.block, cursor_row)
+  if entry_item then
+    local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
+    return {
+      ctx = ctx,
+      region = region,
+      recomputed = recomputed,
+      item = {
+        text = entry_item.text,
+        tag = entry_item.tag,
+        source_entry_rows = { cursor_row },
+      },
+      target = { kind = "item", current = entry_item.text or "", tag = entry_item.tag },
+    }
   end
 
   return nil, M.NOT_A_ROW
