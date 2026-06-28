@@ -407,47 +407,45 @@ function M.init_day(offset)
   apply_refresh(false)
 end
 
--- Resolve a `:DaylogDays` range request into a concrete, pinned list of dates. Each bound
--- is a named token (`today`, `monday`, ...) or a `YYYY-MM-DD` literal; an omitted start
--- resolves to the earliest logged day on file and an omitted end to the latest (so an open
--- end reaches as far as the data goes, future-dated files included). An explicit reversed
--- range is rejected, and a span with no logs falls through to the "no daybook logs found"
--- warning when the report is built.
+-- One end of a `:DaylogDays` range: a named token (`today`, `monday`, ...) or a `YYYY-MM-DD`
+-- literal resolved against `now`; or, when the bound is omitted, the daybook extreme that
+-- `fallback` returns (earliest for the start, latest for the end). Returns ts, or nil + err.
+local function resolve_range_bound(token, now, fallback)
+  if token then
+    local ts = daybook.resolve_date(token, now)
+    if not ts then
+      return nil, "daylog: invalid date: " .. token
+    end
+    return ts
+  end
+
+  local settings = expanded_daybook_settings()
+  if settings == nil then
+    return nil, "daylog: daybook.root is not configured"
+  end
+  local ts = fallback(settings)
+  if not ts then
+    return nil, "daylog: no daybook logs found"
+  end
+  return ts
+end
+
+-- Resolve a `:DaylogDays` range request into a concrete, pinned list of dates. Each bound is a
+-- named token or a `YYYY-MM-DD` literal; an omitted start resolves to the earliest logged day on
+-- file and an omitted end to the latest (so an open end reaches as far as the data goes,
+-- future-dated files included). An explicit reversed range is rejected, and a span with no logs
+-- falls through to the "no daybook logs found" warning when the report is built.
 local function resolve_range_dates(request)
   local now = os.time()
 
-  local from_ts
-  if request.from then
-    from_ts = daybook.resolve_date(request.from, now)
-    if not from_ts then
-      return nil, "daylog: invalid date: " .. request.from
-    end
-  else
-    local settings = expanded_daybook_settings()
-    if settings == nil then
-      return nil, "daylog: daybook.root is not configured"
-    end
-    from_ts = daybook_io.earliest_daybook_date(settings)
-    if not from_ts then
-      return nil, "daylog: no daybook logs found"
-    end
+  local from_ts, from_err = resolve_range_bound(request.from, now, daybook_io.earliest_daybook_date)
+  if not from_ts then
+    return nil, from_err
   end
 
-  local to_ts
-  if request.to then
-    to_ts = daybook.resolve_date(request.to, now)
-    if not to_ts then
-      return nil, "daylog: invalid date: " .. request.to
-    end
-  else
-    local settings = expanded_daybook_settings()
-    if settings == nil then
-      return nil, "daylog: daybook.root is not configured"
-    end
-    to_ts = daybook_io.latest_daybook_date(settings)
-    if not to_ts then
-      return nil, "daylog: no daybook logs found"
-    end
+  local to_ts, to_err = resolve_range_bound(request.to, now, daybook_io.latest_daybook_date)
+  if not to_ts then
+    return nil, to_err
   end
 
   if request.from and request.to and from_ts > to_ts then
