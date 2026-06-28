@@ -143,7 +143,7 @@ end
 -- overrides the copied source offset so the entry records the zone it is happening in now,
 -- attaching the `offset_change` the shell needs. `source` is any copy_fields-compatible
 -- activity (an entry item, or a hand-built carryover activity); its tag/location/offset
--- drive the sticky placement. Shared by :DaylogRepeat and the cross-day carryover seed.
+-- drive the sticky placement. Shared by :Daylog repeat and the cross-day carryover seed.
 function M.fresh_entry_edit(block, source, minutes, auto_offset)
   local state = M.get_insert_state(block, minutes)
 
@@ -378,8 +378,8 @@ end
 -- Apply a per-entry field override across both halves of an entry-changing command: rewrite
 -- each overridden entry's source line AND rebuild the summary from the same overrides, so the
 -- two walks cannot disagree (the divergence class the code has been bitten by). `overrides`
--- maps a semantic entry row to a table of field overrides ({ alias = v } for :DaylogMap,
--- { nudge = n } for :DaylogBalance); the row's source edit and its projected entry both take
+-- maps a semantic entry row to a table of field overrides ({ alias = v } for :Daylog map,
+-- { nudge = n } for :Daylog balance); the row's source edit and its projected entry both take
 -- exactly those fields. Returns the assembled edits (summary rebuild ahead of the source edits)
 -- plus the rebuilt summary and region, for a caller that follows a row to its new line (balance).
 -- A nil-clearing override (log_current's unmark) cannot ride a pairs()-applied table, so it

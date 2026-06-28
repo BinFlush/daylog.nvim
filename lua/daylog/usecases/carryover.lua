@@ -58,7 +58,7 @@ end
 -- The activity of the entry on the given row, used to repeat it after the
 -- buffer has switched to the new day. The cursor may instead be on a main summary
 -- row, in which case it is mapped back to the source entry it summarizes, so
--- cross-day :DaylogRepeat works from the summary too.
+-- cross-day :Daylog repeat works from the summary too.
 function M.entry_at_row(lines, row)
   local item = item_at_row(lines, row)
   if item then

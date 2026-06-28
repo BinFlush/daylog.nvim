@@ -46,7 +46,7 @@ end
 -- originating command at the current time. Returns true when it took over the
 -- request (carried over, declined, or intentionally refused), false when this is
 -- not a carryover situation -- leaving guard_current_time to fall back to the
--- cross-day repeat (:DaylogRepeat) or to hard-block (:DaylogInsert).
+-- cross-day repeat (:Daylog repeat) or to hard-block (:Daylog insert).
 local function run_carryover(settings, command, now)
   local lines = buffer_lines()
 
@@ -67,17 +67,17 @@ local function run_carryover(settings, command, now)
   end
 
   -- A today that already holds content has no room for a fresh 00:00 carry-over.
-  -- For :DaylogRepeat, decline (return false) so guard_current_time falls through
+  -- For :Daylog repeat, decline (return false) so guard_current_time falls through
   -- to the normal cross-day repeat, inserting the cursor activity into the existing
   -- today -- exactly as repeating from any other day does. There is nothing to
-  -- carry for :DaylogInsert, so it still points the user at :DaylogToday.
+  -- carry for :Daylog insert, so it still points the user at :Daylog today.
   local today_path = daybook.path_for_date(settings, now)
   if daybook_path_has_content(today_path) then
     if command == "repeat" then
       return false
     end
 
-    warn("daylog: today's log already exists; open it with :DaylogToday")
+    warn("daylog: today's log already exists; open it with :Daylog today")
     return true
   end
 
@@ -131,7 +131,7 @@ local function run_carryover(settings, command, now)
 end
 
 -- Bring the activity under the cursor into today's log at the current time,
--- used when :DaylogRepeat runs on another day's file. The browsed day is left
+-- used when :Daylog repeat runs on another day's file. The browsed day is left
 -- untouched; today is opened (created if needed) and the window switches to it.
 local function run_cross_day_repeat(settings, now)
   -- Capture the activity before open_daybook_file switches the buffer away.
@@ -211,8 +211,8 @@ local function guard_current_time(command)
     return true
   end
 
-  -- :DaylogRepeat on any other day brings the cursor activity into today instead
-  -- of refusing; :DaylogInsert still refuses (there is no activity to carry).
+  -- :Daylog repeat on any other day brings the cursor activity into today instead
+  -- of refusing; :Daylog insert still refuses (there is no activity to carry).
   if command == "repeat" then
     run_cross_day_repeat(settings, now)
     return true

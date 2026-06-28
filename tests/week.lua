@@ -262,7 +262,7 @@ return function(t)
     t.eq(report, nil)
     t.eq(
       err,
-      "daylog: /tmp/2026-05-18.day: unordered timestamps near lines 2 and 3; fix manually or run :DaylogOrder"
+      "daylog: /tmp/2026-05-18.day: unordered timestamps near lines 2 and 3; fix manually or run :Daylog order"
     )
   end)
 

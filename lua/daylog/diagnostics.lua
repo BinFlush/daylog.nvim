@@ -15,7 +15,7 @@ end
 
 function M.unordered_error(diagnostic)
   return string.format(
-    "daylog: unordered timestamps near lines %d and %d; fix manually or run :DaylogOrder",
+    "daylog: unordered timestamps near lines %d and %d; fix manually or run :Daylog order",
     diagnostic.row,
     diagnostic.row2
   )

@@ -54,7 +54,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogToday")
+        vim.cmd("Daylog today")
       end)
 
       local expected_dir = root .. "/" .. os.date("%Y/%V", now)
@@ -91,21 +91,21 @@ return function(t)
 
       with_mocked_time(now, function()
         -- Seed today, then leave it unsaved.
-        vim.cmd("DaylogToday")
+        vim.cmd("Daylog today")
         local seeded = t.get_lines()
 
         -- Navigate away (the unsaved buffer survives because hidden is set) and
         -- back: reopening today must reuse that buffer, not append a duplicate.
-        -- DaylogToday -1 is an exact jump (PrevDay would find no earlier log).
-        vim.cmd("DaylogToday -1")
-        vim.cmd("DaylogToday")
+        -- day -1 jumps to (and seeds) yesterday -- just a way to navigate off today.
+        vim.cmd("Daylog day -1")
+        vim.cmd("Daylog today")
 
         t.eq(t.get_lines(), seeded)
       end)
     end)
   end)
 
-  t.test("today zero offset behaves like today", function()
+  t.test("today opens today's dated daybook file", function()
     local root = vim.fn.tempname()
     local now = os.time({
       year = 2026,
@@ -126,7 +126,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogToday 0")
+        vim.cmd("Daylog today")
       end)
 
       t.eq(
@@ -144,98 +144,6 @@ return function(t)
         "0.00h (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
-    end)
-  end)
-
-  t.test("today negative offset opens yesterday's dated daybook file", function()
-    local root = vim.fn.tempname()
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 18,
-      hour = 8,
-      min = 45,
-      sec = 0,
-    })
-    local yesterday = os.time({
-      year = 2026,
-      month = 5,
-      day = 17,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-
-    with_daylog_setup({
-      daybook = {
-        root = root,
-        directory = "%Y",
-      },
-    }, function()
-      vim.cmd("enew!")
-      vim.bo.modified = false
-
-      with_mocked_time(now, function()
-        vim.cmd("DaylogToday -1")
-      end)
-
-      local path = root
-        .. "/"
-        .. os.date("%Y", yesterday)
-        .. "/"
-        .. os.date("%Y-%m-%d", yesterday)
-        .. ".day"
-      t.eq(vim.api.nvim_buf_get_name(0), path)
-      -- Navigation only: an empty, unmodified buffer with nothing written to disk.
-      t.eq(t.get_lines(), { "" })
-      t.eq(vim.bo.modified, false)
-      t.eq(vim.fn.filereadable(path), 0)
-    end)
-  end)
-
-  t.test("today positive offset opens tomorrow's dated daybook file", function()
-    local root = vim.fn.tempname()
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 18,
-      hour = 8,
-      min = 45,
-      sec = 0,
-    })
-    local tomorrow = os.time({
-      year = 2026,
-      month = 5,
-      day = 19,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-
-    with_daylog_setup({
-      daybook = {
-        root = root,
-        directory = "%Y",
-      },
-    }, function()
-      vim.cmd("enew!")
-      vim.bo.modified = false
-
-      with_mocked_time(now, function()
-        vim.cmd("DaylogToday +1")
-      end)
-
-      local path = root
-        .. "/"
-        .. os.date("%Y", tomorrow)
-        .. "/"
-        .. os.date("%Y-%m-%d", tomorrow)
-        .. ".day"
-      t.eq(vim.api.nvim_buf_get_name(0), path)
-      -- Navigation only: an empty, unmodified buffer with nothing written to disk.
-      t.eq(t.get_lines(), { "" })
-      t.eq(vim.bo.modified, false)
-      t.eq(vim.fn.filereadable(path), 0)
     end)
   end)
 
@@ -261,12 +169,12 @@ return function(t)
         vim.cmd("edit " .. vim.fn.fnameescape(today_path))
 
         -- The out-of-order entries keep navigation on today.
-        vim.cmd("DaylogPrevDay")
+        vim.cmd("Daylog prev")
         t.eq(vim.api.nvim_buf_get_name(0), today_path)
 
         -- Fixing the order releases the guard; navigation skips to the prior log.
         vim.api.nvim_buf_set_lines(0, 1, 3, false, { "08:00 earlier", "09:00 later" })
-        vim.cmd("DaylogPrevDay")
+        vim.cmd("Daylog prev")
         t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
       end)
     end)
@@ -293,7 +201,7 @@ return function(t)
         vim.bo.modified = false
 
         with_mocked_time(now, function()
-          vim.cmd("DaylogToday")
+          vim.cmd("Daylog today")
         end)
 
         t.eq(
@@ -330,7 +238,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogToday")
+        vim.cmd("Daylog today")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
@@ -344,53 +252,6 @@ return function(t)
         "--- totals ---",
         "0.00h (+0m) workday",
       })
-    end)
-  end)
-
-  t.test("today nonzero offset opens an existing empty daybook file without writing", function()
-    local root = vim.fn.tempname()
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 18,
-      hour = 8,
-      min = 45,
-      sec = 0,
-    })
-    local tomorrow = os.time({
-      year = 2026,
-      month = 5,
-      day = 19,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-    local expected_dir = root .. "/" .. os.date("%Y", tomorrow)
-    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", tomorrow) .. ".day"
-
-    vim.fn.mkdir(expected_dir, "p")
-    vim.fn.writefile({}, expected_path)
-
-    with_daylog_setup({
-      defaults = {
-        tag = "ClientA",
-      },
-      daybook = {
-        root = root,
-        directory = "%Y",
-      },
-    }, function()
-      vim.cmd("enew!")
-      vim.bo.modified = false
-
-      with_mocked_time(now, function()
-        vim.cmd("DaylogToday 1")
-      end)
-
-      t.eq(vim.api.nvim_buf_get_name(0), expected_path)
-      -- Navigation only: the existing empty file is opened, not written to.
-      t.eq(t.get_lines(), { "" })
-      t.eq(vim.bo.modified, false)
     end)
   end)
 
@@ -424,58 +285,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogToday")
-      end)
-
-      t.eq(vim.api.nvim_buf_get_name(0), expected_path)
-      t.eq(t.get_lines(), {
-        "--- log ---",
-        "08:00 plan",
-        "09:00 done",
-      })
-      t.ok(not vim.bo.modified)
-    end)
-  end)
-
-  t.test("today nonzero offset opens an existing daybook file without changing it", function()
-    local root = vim.fn.tempname()
-    local now = os.time({
-      year = 2026,
-      month = 5,
-      day = 18,
-      hour = 8,
-      min = 45,
-      sec = 0,
-    })
-    local yesterday = os.time({
-      year = 2026,
-      month = 5,
-      day = 17,
-      hour = 12,
-      min = 0,
-      sec = 0,
-    })
-    local expected_dir = root .. "/" .. os.date("%Y", yesterday)
-    local expected_path = expected_dir .. "/" .. os.date("%Y-%m-%d", yesterday) .. ".day"
-
-    vim.fn.mkdir(expected_dir, "p")
-    vim.fn.writefile({
-      "--- log ---",
-      "08:00 plan",
-      "09:00 done",
-    }, expected_path)
-
-    with_daylog_setup({
-      daybook = {
-        root = root,
-        directory = "%Y",
-      },
-    }, function()
-      vim.cmd("enew!")
-      vim.bo.modified = false
-
-      with_mocked_time(now, function()
-        vim.cmd("DaylogToday -1")
+        vim.cmd("Daylog today")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), expected_path)
@@ -494,44 +304,10 @@ return function(t)
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
       vim.bo.modified = false
 
-      vim.cmd("DaylogToday")
+      vim.cmd("Daylog today")
 
       t.eq(vim.api.nvim_buf_get_name(0), "")
       t.eq(t.get_lines(), { "scratch" })
-    end)
-  end)
-
-  t.test("today rejects invalid day offsets and leaves the current buffer unchanged", function()
-    local root = vim.fn.tempname()
-
-    with_daylog_setup({
-      daybook = {
-        root = root,
-        directory = "%Y",
-      },
-    }, function()
-      t.reset({ "scratch" })
-
-      for _, command in ipairs({
-        "DaylogToday nope",
-        "DaylogToday 1.5",
-        "DaylogToday --1",
-        "DaylogToday +",
-      }) do
-        with_captured_notify(function(messages)
-          vim.cmd(command)
-
-          t.eq(messages, {
-            {
-              message = "daylog: day offset must be an integer",
-              level = vim.log.levels.WARN,
-            },
-          })
-        end)
-
-        t.eq(vim.api.nvim_buf_get_name(0), "")
-        t.eq(t.get_lines(), { "scratch" })
-      end
     end)
   end)
 
@@ -564,7 +340,7 @@ return function(t)
         vim.cmd("enew!")
         vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
 
-        vim.cmd("DaylogToday")
+        vim.cmd("Daylog today")
 
         t.eq(vim.api.nvim_buf_get_name(0), "")
         t.eq(t.get_lines(), { "scratch" })
@@ -622,7 +398,7 @@ return function(t)
           vim.api.nvim_buf_set_lines(0, 0, -1, false, { "scratch" })
 
           with_mocked_time(now, function()
-            vim.cmd("DaylogToday -1")
+            vim.cmd("Daylog day -1")
           end)
 
           t.eq(vim.api.nvim_buf_get_name(0), "")
@@ -665,7 +441,7 @@ return function(t)
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
-      vim.cmd("DaylogNextDay")
+      vim.cmd("Daylog next")
 
       local path = root
         .. "/"
@@ -699,7 +475,7 @@ return function(t)
       vim.cmd("edit " .. vim.fn.fnameescape(open_path))
       vim.bo.modified = false
 
-      vim.cmd("DaylogPrevDay 2")
+      vim.cmd("Daylog prev 2")
 
       local path = root
         .. "/"
@@ -731,7 +507,7 @@ return function(t)
 
       -- The only log is the open one: there is nothing later or earlier.
       with_captured_notify(function(messages)
-        vim.cmd("DaylogNextDay")
+        vim.cmd("Daylog next")
         t.eq(messages, {
           { message = "daylog: no later log", level = vim.log.levels.WARN },
         })
@@ -739,7 +515,7 @@ return function(t)
       t.eq(vim.api.nvim_buf_get_name(0), open_path)
 
       with_captured_notify(function(messages)
-        vim.cmd("DaylogPrevDay")
+        vim.cmd("Daylog prev")
         t.eq(messages, {
           { message = "daylog: no earlier log", level = vim.log.levels.WARN },
         })
@@ -777,7 +553,7 @@ return function(t)
       with_mocked_time(now, function()
         -- Anchored on today (the scratch buffer is not a daybook file), the prior
         -- log three days back is found.
-        vim.cmd("DaylogPrevDay")
+        vim.cmd("Daylog prev")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), earlier_path)
@@ -822,7 +598,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogNextDay")
+        vim.cmd("Daylog next")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), today_path)
@@ -852,7 +628,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogInit -2")
+        vim.cmd("Daylog day -2")
       end)
 
       local path = root
@@ -895,7 +671,7 @@ return function(t)
       vim.bo.modified = false
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogInit 2")
+        vim.cmd("Daylog day +2")
       end)
 
       t.eq(vim.api.nvim_buf_get_name(0), existing_path)
@@ -904,7 +680,7 @@ return function(t)
     end)
   end)
 
-  t.test("init rejects a non-integer offset and leaves the current buffer unchanged", function()
+  t.test("day rejects an unknown token and leaves the current buffer unchanged", function()
     local root = vim.fn.tempname()
 
     with_daylog_setup({
@@ -916,10 +692,13 @@ return function(t)
       t.reset({ "scratch" })
 
       with_captured_notify(function(messages)
-        vim.cmd("DaylogInit nope")
+        vim.cmd("Daylog day nope")
 
         t.eq(messages, {
-          { message = "daylog: day offset must be an integer", level = vim.log.levels.WARN },
+          {
+            message = "daylog: unknown day 'nope' -- try today, monday, -1, +2, 2026-05-10",
+            level = vim.log.levels.WARN,
+          },
         })
       end)
 
@@ -940,10 +719,10 @@ return function(t)
       t.reset({ "scratch" })
 
       for _, command in ipairs({
-        "DaylogNextDay nope",
-        "DaylogPrevDay 0",
-        "DaylogNextDay 1.5",
-        "DaylogPrevDay -1",
+        "Daylog next nope",
+        "Daylog prev 0",
+        "Daylog next 1.5",
+        "Daylog prev -1",
       }) do
         with_captured_notify(function(messages)
           vim.cmd(command)
@@ -994,7 +773,7 @@ return function(t)
       t.ok(vim.bo.modified)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogDays 2026-05-18..2026-05-22")
+        vim.cmd("Daylog report 2026-05-18..2026-05-22")
       end)
 
       local has_two_hours, has_one_hour = false, false
@@ -1054,7 +833,7 @@ return function(t)
         t.reset({ "notes" })
 
         with_mocked_time(now, function()
-          vim.cmd("DaylogDays 2026-05-18..2026-05-22")
+          vim.cmd("Daylog report 2026-05-18..2026-05-22")
         end)
 
         t.eq(
@@ -1068,29 +847,27 @@ return function(t)
     end)
   end)
 
-  t.test("days rejects malformed arguments", function()
+  t.test("report rejects malformed arguments", function()
     with_daylog_setup({}, function()
       t.reset({ "scratch" })
 
-      local ok, err = pcall(vim.cmd, "DaylogDays")
-      t.ok(not ok)
-      t.ok(tostring(err):match("E471") ~= nil)
+      -- One unified message covers every malformed form, including no argument at all (a bare
+      -- date is not a range, 0 is not a positive count, an offset is not a count).
+      local range_error = "daylog: report expects a day count or a FROM..TO range "
+        .. "(e.g. 7, monday..today, ..today)"
 
-      local range_error = "daylog: expected a day count or a FROM..TO range "
-        .. "(e.g. 2026-05-10..2026-05-20, monday.., ..today)"
-      local count_error = "daylog: days count must be a positive integer"
-
-      for _, case in ipairs({
-        { "DaylogDays nope", range_error },
-        { "DaylogDays 0", count_error },
-        { "DaylogDays -1", range_error },
-        { "DaylogDays 1.5", range_error },
-        { "DaylogDays 2026-05-10", range_error },
+      for _, command in ipairs({
+        "Daylog report",
+        "Daylog report nope",
+        "Daylog report 0",
+        "Daylog report -1",
+        "Daylog report 1.5",
+        "Daylog report 2026-05-10",
       }) do
         with_captured_notify(function(messages)
-          vim.cmd(case[1])
+          vim.cmd(command)
 
-          t.eq(messages, { { message = case[2], level = vim.log.levels.WARN } })
+          t.eq(messages, { { message = range_error, level = vim.log.levels.WARN } })
         end)
 
         t.eq(t.get_lines(), { "scratch" })
@@ -1165,7 +942,7 @@ return function(t)
       t.reset({ "notes" })
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogDays 4")
+        vim.cmd("Daylog report 4")
       end)
 
       t.eq(
@@ -1259,7 +1036,7 @@ return function(t)
     -- the requested range, while the aggregate headers resolve to the span of days found
     -- (05-18..05-20) and carry a found-day count on every header.
     with_range_daybook(os.time({ year = 2026, month = 5, day = 22, hour = 12 }), function()
-      vim.cmd("DaylogDays! 2026-05-17..2026-05-20")
+      vim.cmd("Daylog! report 2026-05-17..2026-05-20")
 
       t.eq(report_name(), "daylog-days-summary-2026-05-17..2026-05-20.day")
       t.eq(t.get_lines(), {
@@ -1283,22 +1060,22 @@ return function(t)
     -- The daybook has logs on 05-18 and 05-20 only; today (05-22) carries none.
     with_range_daybook(os.time({ year = 2026, month = 5, day = 22, hour = 12 }), function()
       -- FROM.. runs through the latest day on file (not today).
-      vim.cmd("DaylogDays! 2026-05-20..")
+      vim.cmd("Daylog! report 2026-05-20..")
       t.eq(report_name(), "daylog-days-summary-2026-05-20..2026-05-20.day")
 
       -- ..TO starts at the earliest logged day on file.
       vim.cmd("enew")
-      vim.cmd("DaylogDays! ..2026-05-19")
+      vim.cmd("Daylog! report ..2026-05-19")
       t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-19.day")
 
       -- .. spans the earliest through the latest day on file.
       vim.cmd("enew")
-      vim.cmd("DaylogDays! ..")
+      vim.cmd("Daylog! report ..")
       t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-20.day")
 
       -- A named token resolves: monday.. is the week's Monday through the latest log.
       vim.cmd("enew")
-      vim.cmd("DaylogDays! monday..")
+      vim.cmd("Daylog! report monday..")
       t.eq(report_name(), "daylog-days-summary-2026-05-18..2026-05-20.day")
     end)
   end)
@@ -1319,7 +1096,7 @@ return function(t)
       vim.cmd("silent! only!")
       t.reset({ "notes" })
       with_mocked_time(ts(22), function()
-        vim.cmd("DaylogDays! 2026-05-20..")
+        vim.cmd("Daylog! report 2026-05-20..")
       end)
       t.eq(report_name(), "daylog-days-summary-2026-05-20..2026-05-25.day")
       vim.cmd("silent! only!")
@@ -1329,10 +1106,10 @@ return function(t)
   t.test("days rejects reversed, invalid, and empty ranges", function()
     with_range_daybook(os.time({ year = 2026, month = 5, day = 22, hour = 12 }), function()
       local cases = {
-        { "DaylogDays 2026-05-20..2026-05-18", "daylog: range start is after end" },
-        { "DaylogDays 2026-13-01..2026-05-20", "daylog: invalid date: 2026-13-01" },
-        { "DaylogDays 2026-05-18..2026-99-99", "daylog: invalid date: 2026-99-99" },
-        { "DaylogDays ..2026-05-10", "daylog: no daybook logs found" },
+        { "Daylog report 2026-05-20..2026-05-18", "daylog: range start is after end" },
+        { "Daylog report 2026-13-01..2026-05-20", "daylog: invalid date: 2026-13-01" },
+        { "Daylog report 2026-05-18..2026-99-99", "daylog: invalid date: 2026-99-99" },
+        { "Daylog report ..2026-05-10", "daylog: no daybook logs found" },
       }
 
       for _, case in ipairs(cases) do
@@ -1383,7 +1160,7 @@ return function(t)
       t.reset({ "notes" })
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogDays! 3")
+        vim.cmd("Daylog! report 3")
       end)
 
       t.eq(
@@ -1430,7 +1207,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("DaylogDays 3")
+          vim.cmd("Daylog report 3")
         end)
 
         t.eq(#vim.api.nvim_tabpage_list_wins(0), 1)
@@ -1480,7 +1257,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("DaylogDays 3")
+          vim.cmd("Daylog report 3")
         end)
 
         t.eq(vim.api.nvim_buf_get_name(0), "")
@@ -1489,7 +1266,7 @@ return function(t)
           {
             message = "daylog: "
               .. bad_path
-              .. ": unordered timestamps near lines 2 and 3; fix manually or run :DaylogOrder",
+              .. ": unordered timestamps near lines 2 and 3; fix manually or run :Daylog order",
             level = vim.log.levels.WARN,
           },
         })
@@ -1520,7 +1297,7 @@ return function(t)
       local source_win = vim.api.nvim_get_current_win()
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogDays 2")
+        vim.cmd("Daylog report 2")
       end)
       local report_buf = vim.api.nvim_get_current_buf()
 
@@ -1568,7 +1345,7 @@ return function(t)
 
         with_captured_notify(function(messages)
           with_mocked_time(now, function()
-            vim.cmd("DaylogInsert")
+            vim.cmd("Daylog insert")
           end)
 
           t.eq(messages, {
@@ -1613,7 +1390,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("DaylogInsert")
+          vim.cmd("Daylog insert")
         end)
 
         t.eq(messages, {
@@ -1646,7 +1423,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("DaylogInsert")
+          vim.cmd("Daylog insert")
         end)
 
         t.eq(messages, {})
@@ -1678,7 +1455,7 @@ return function(t)
 
       with_captured_notify(function(messages)
         with_mocked_time(now, function()
-          vim.cmd("DaylogInsert")
+          vim.cmd("Daylog insert")
         end)
 
         t.eq(messages, {})
@@ -1724,7 +1501,7 @@ return function(t)
 
       with_mocked_confirm(1, function()
         with_mocked_time(now, function()
-          vim.cmd("DaylogInsert")
+          vim.cmd("Daylog insert")
         end)
       end)
 
@@ -1761,7 +1538,7 @@ return function(t)
 
       with_mocked_confirm(1, function()
         with_mocked_time(now, function()
-          vim.cmd("DaylogInsert")
+          vim.cmd("Daylog insert")
         end)
       end)
 
@@ -1812,7 +1589,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       -- Switched to a fresh today, with the activity at the current time.
@@ -1860,7 +1637,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       -- deep work is inserted at 10:00, after the existing entries.
@@ -1890,7 +1667,7 @@ return function(t)
       t.set_cursor(1, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       -- Stayed on the browsed day, unchanged.
@@ -1928,7 +1705,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       -- Stayed on the browsed day rather than being switched onto the broken today.
@@ -1956,7 +1733,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       -- The whitespace today is initialized fresh, with the header on line 1.
@@ -1987,7 +1764,7 @@ return function(t)
 
       with_mocked_confirm(1, function()
         with_mocked_time(now, function()
-          vim.cmd("DaylogRepeat")
+          vim.cmd("Daylog repeat")
         end)
       end)
 
@@ -2039,7 +1816,7 @@ return function(t)
 
       with_mocked_confirm(2, function()
         with_mocked_time(now, function()
-          vim.cmd("DaylogInsert")
+          vim.cmd("Daylog insert")
         end)
       end)
 
@@ -2074,13 +1851,13 @@ return function(t)
       with_captured_notify(function(messages)
         with_mocked_confirm(1, function()
           with_mocked_time(now, function()
-            vim.cmd("DaylogInsert")
+            vim.cmd("Daylog insert")
           end)
         end)
 
         t.eq(messages, {
           {
-            message = "daylog: today's log already exists; open it with :DaylogToday",
+            message = "daylog: today's log already exists; open it with :Daylog today",
             level = vim.log.levels.WARN,
           },
         })
@@ -2120,13 +1897,13 @@ return function(t)
       with_captured_notify(function(messages)
         with_mocked_confirm(1, function()
           with_mocked_time(now, function()
-            vim.cmd("DaylogInsert")
+            vim.cmd("Daylog insert")
           end)
         end)
 
         t.eq(messages, {
           {
-            message = "daylog: today's log already exists; open it with :DaylogToday",
+            message = "daylog: today's log already exists; open it with :Daylog today",
             level = vim.log.levels.WARN,
           },
         })
@@ -2168,7 +1945,7 @@ return function(t)
       -- No confirm is mocked: the carryover prompt must never appear, since this is
       -- a plain cross-day repeat into the existing today.
       with_mocked_time(now, function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       -- Switched to today, with the cursor entry brought in at the current time.
@@ -2216,7 +1993,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_time(now, function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       -- Switched to the unsaved today buffer, with the entry inserted there.

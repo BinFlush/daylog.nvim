@@ -241,7 +241,7 @@ return function(t)
   end)
 
   t.test("refresh of a grown summary keeps the entries", function()
-    -- A fresh log's empty summary, after a same-time :DaylogInsert added a second
+    -- A fresh log's empty summary, after a same-time :Daylog insert added a second
     -- entry, must be replaced in place -- not swallow the entries above it. The blast
     -- starts at the body end (after the second entry), leaving the two entries untouched.
     local result = refresh_summaries.run({
@@ -603,7 +603,7 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "daylog: unordered timestamps near lines 2 and 3; fix manually or run :DaylogOrder",
+          message = "daylog: unordered timestamps near lines 2 and 3; fix manually or run :Daylog order",
         },
       },
     })
@@ -622,7 +622,7 @@ return function(t)
       warnings = {
         {
           row = 2,
-          message = "daylog: unordered timestamps near lines 2 and 3; fix manually or run :DaylogOrder",
+          message = "daylog: unordered timestamps near lines 2 and 3; fix manually or run :Daylog order",
         },
       },
     })
@@ -673,7 +673,7 @@ return function(t)
         },
         {
           row = 3,
-          message = "daylog: unordered timestamps near lines 3 and 4; fix manually or run :DaylogOrder",
+          message = "daylog: unordered timestamps near lines 3 and 4; fix manually or run :Daylog order",
         },
       },
     })

@@ -89,16 +89,16 @@ return function(t)
 
   -- Command wiring: the live offset is polled from os.date("%z"). with_mocked_utc_offset
   -- answers "%z" while with_mocked_date answers "%H:%M" (and with_mocked_time fixes the
-  -- daybook date for the DaylogToday cases).
+  -- daybook date for the today cases).
 
-  t.test("DaylogInsert records an offset change and notifies", function()
+  t.test("Daylog insert records an offset change and notifies", function()
     with_daylog_setup({}, function()
       t.reset({ "--- log utc+2 ---", "08:00 standup", "10:00 done" })
 
       with_captured_notify(function(messages)
         with_mocked_date("11:00", function()
           with_mocked_utc_offset("+0100", function()
-            vim.cmd("DaylogInsert")
+            vim.cmd("Daylog insert")
           end)
         end)
 
@@ -110,14 +110,14 @@ return function(t)
     end)
   end)
 
-  t.test("DaylogInsert adds nothing and stays silent when the zone is unchanged", function()
+  t.test("Daylog insert adds nothing and stays silent when the zone is unchanged", function()
     with_daylog_setup({}, function()
       t.reset({ "--- log utc+2 ---", "08:00 standup", "10:00 done" })
 
       with_captured_notify(function(messages)
         with_mocked_date("11:00", function()
           with_mocked_utc_offset("+0200", function()
-            vim.cmd("DaylogInsert")
+            vim.cmd("Daylog insert")
           end)
         end)
 
@@ -133,7 +133,7 @@ return function(t)
 
       with_mocked_date("11:00", function()
         with_mocked_utc_offset("+0100", function()
-          vim.cmd("DaylogInsert")
+          vim.cmd("Daylog insert")
         end)
       end)
 
@@ -154,7 +154,7 @@ return function(t)
       vim.bo.modified = false
       with_mocked_time(now, function()
         with_mocked_utc_offset(offset_string, function()
-          vim.cmd("DaylogToday")
+          vim.cmd("Daylog today")
         end)
       end)
       header = t.get_lines()[1]
@@ -163,7 +163,7 @@ return function(t)
     return header
   end
 
-  t.test("DaylogToday stamps the live offset into a new header by default", function()
+  t.test("today stamps the live offset into a new header by default", function()
     t.eq(today_header({}, "+0200"), "--- log utc+2 ---")
   end)
 

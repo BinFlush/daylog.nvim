@@ -2,7 +2,7 @@ local M = {}
 
 -- Split apportionment math. PURE.
 --
--- :DaylogSplit cuts each of an activity's time intervals into N weighted
+-- :Daylog split cuts each of an activity's time intervals into N weighted
 -- sub-activities by whole minutes. The interval endpoints are fixed, so each
 -- interval's parts must sum exactly to its length (a row sum), while each
 -- sub-activity's total across all the activity's intervals should track its weighted

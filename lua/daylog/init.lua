@@ -84,7 +84,7 @@ end
 -- current time. Offline-first: reads the source's local cache and opens
 -- vim.ui.select (Telescope/fzf/snacks take over if installed). On pick the
 -- configured "{id} {title}" template is inserted; cancelling falls back to a bare
--- timestamp, exactly like :DaylogInsert with no argument.
+-- timestamp, exactly like :Daylog insert with no argument.
 function M.insert_from_source(name)
   if guard_current_time("insert") then
     return
@@ -97,7 +97,7 @@ function M.insert_from_source(name)
   end
 
   -- Refuse a cursor outside a log now, before opening the async picker
-  -- (cache read, optional network, a UI round trip), exactly as :DaylogInsert
+  -- (cache read, optional network, a UI round trip), exactly as :Daylog insert
   -- with no argument refuses up front. insert_entry re-validates at apply time
   -- too, since the buffer can change under the picker -- this is the fail-fast.
   local cursor_ctx, cursor_err = support.get_validated_at_row(buffer_lines(), cursor_row())
@@ -125,7 +125,7 @@ function M.insert_from_source(name)
 
   -- The scoped source picker: type-as-you-search across the whole tracker when the source
   -- supports it (cached items show at an empty prompt), else the offline cache. Cancelling
-  -- leaves a bare timestamp, like a plain :DaylogInsert.
+  -- leaves a bare timestamp, like a plain :Daylog insert.
   pick.source(source, name, {
     prompt = "Daylog: " .. name,
     prompt_fallback = "Daylog: pick " .. name .. " item",
@@ -136,9 +136,9 @@ function M.insert_from_source(name)
   })
 end
 
--- The unified "what to log" picker (`:DaylogInsert!`): pool every configured source's cached
+-- The unified "what to log" picker (`:Daylog! insert`): pool every configured source's cached
 -- items plus your recent logged activities into one ranked, deduped, offline fuzzy list. Picking
--- a row inserts it at the current time; cancelling leaves a bare timestamp, like :DaylogInsert.
+-- a row inserts it at the current time; cancelling leaves a bare timestamp, like :Daylog insert.
 function M.insert_unified()
   if guard_current_time("insert") then
     return
@@ -283,7 +283,7 @@ function M.split(fargs)
   for _, arg in ipairs(fargs or {}) do
     local w = tonumber(arg)
     if w == nil or w <= 0 then
-      warn("daylog: split weights must be positive numbers, e.g. :DaylogSplit 2 1 1")
+      warn("daylog: split weights must be positive numbers, e.g. :Daylog split 2 1 1")
       return
     end
     weights[#weights + 1] = w
@@ -350,7 +350,7 @@ end
 -- the current buffer's day, skipping days that have no log. The anchor falls
 -- back to today when the buffer is not a canonical daybook file. Pure navigation:
 -- it never inserts the current time, even when it lands on today, and it never
--- creates a file (use :DaylogInit to start an arbitrary day). When no log
+-- creates a file (use :Daylog day to start an arbitrary day). When no log
 -- exists in that direction it warns and stays put.
 function M.open_relative_day(step)
   local settings = expanded_daybook_settings()
@@ -381,7 +381,7 @@ function M.open_relative_day(step)
 end
 
 -- Create (or open) the daybook file `offset` days from today, scaffolding the
--- directory, file, and default header when it is empty. Unlike :DaylogToday it
+-- directory, file, and default header when it is empty. Unlike :Daylog today it
 -- never stamps the current time, so it is the way to start an arbitrary past or
 -- future day -- the day-navigation commands deliberately only land on days that
 -- already have a log.
@@ -417,7 +417,7 @@ end
 -- Public verb API (require("daylog").<verb>) -- the canonical interface the :Daylog
 -- command and <Plug> maps dispatch to. The day verbs build on the same shell helpers as
 -- the (transitional) open_today/init_day above; the unified date grammar lets day() absorb
--- both backfill (the old :DaylogInit) and offset navigation (the old :DaylogToday offset).
+-- both backfill (the old :Daylog day) and offset navigation (the old :Daylog today offset).
 
 -- Open today's daybook file -- creating it scaffolded when new -- and stamp the current time
 -- on a fresh day. The daily "start logging" ritual; bare :Daylog targets this.
@@ -518,7 +518,7 @@ function M.rename(opts)
   return M.rename_summary(opts.value, opts.source)
 end
 
--- One end of a `:DaylogDays` range: a named token (`today`, `monday`, ...) or a `YYYY-MM-DD`
+-- One end of a `:Daylog report` range: a named token (`today`, `monday`, ...) or a `YYYY-MM-DD`
 -- literal resolved against `now`; or, when the bound is omitted, the daybook extreme that
 -- `fallback` returns (earliest for the start, latest for the end). Returns ts, or nil + err.
 local function resolve_range_bound(token, now, fallback)
@@ -541,7 +541,7 @@ local function resolve_range_bound(token, now, fallback)
   return ts
 end
 
--- Resolve a `:DaylogDays` range request into a concrete, pinned list of dates. Each bound is a
+-- Resolve a `:Daylog report` range request into a concrete, pinned list of dates. Each bound is a
 -- named token or a `YYYY-MM-DD` literal; an omitted start resolves to the earliest logged day on
 -- file and an omitted end to the latest (so an open end reaches as far as the data goes,
 -- future-dated files included). An explicit reversed range is rejected, and a span with no logs
@@ -623,7 +623,7 @@ function M.report(range, aggregate_only)
 end
 
 -- Wire the autocmds that drive automatic summary refresh for the configured
--- mode. `off` installs nothing (manual :DaylogRefresh still works) but still
+-- mode. `off` installs nothing (manual :Daylog refresh still works) but still
 -- clears any autocmds a previous setup() left behind.
 local function setup_auto_summary(mode)
   local group = vim.api.nvim_create_augroup("DaylogAutoSummary", { clear = true })

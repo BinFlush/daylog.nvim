@@ -100,7 +100,7 @@ end
 
 -- Build a report over an explicit list of dates, labeled by its calendar bounds. The
 -- date list carries the whole period intent (count, range, or open-ended), so this is
--- the single builder behind every `:DaylogDays` form.
+-- the single builder behind every `:Daylog report` form.
 function M.build_dates_report(settings, dates, read_lines)
   local report, err = M.build_daybook_report(settings, dates, read_lines)
   if not report then

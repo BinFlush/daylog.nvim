@@ -14,7 +14,7 @@ local M = {}
 -- row: that row groups entries that resolve to one string by different means (a bare
 -- entry's description, or a mapped entry's `=> alias`), so a bulk rename through it is
 -- ambiguous and would overwrite the distinct descriptions a mapping deliberately keeps.
--- Relabel an activity for the report with :DaylogMap (non-destructive); fix journal text
+-- Relabel an activity for the report with :Daylog map (non-destructive); fix journal text
 -- by renaming the entries. So a cursor resolves to:
 --
 --   * an entry line -> that one entry's activity text;
@@ -29,7 +29,7 @@ local M = {}
 -- untouched. Only lines whose canonical rendering actually changes are edited.
 
 M.NOT_A_ROW = "daylog: put the cursor on an entry, or a tag or location row, to rename it"
-M.REFUSE_ACTIVITY_ROW = "daylog: rename an entry to fix its text, or :DaylogMap to relabel "
+M.REFUSE_ACTIVITY_ROW = "daylog: rename an entry to fix its text, or :Daylog map to relabel "
   .. "an activity for the report"
 M.CANNOT_TOTALS = "daylog: a totals row cannot be renamed"
 M.CANNOT_UNTAGGED = "daylog: the (untagged) group cannot be renamed; tag the entries first"
@@ -41,7 +41,7 @@ M.SAME_NAME = "daylog: the new name matches the current name"
 
 -- Classify a summary layout row into a rename target { kind, current } -- a #tag or
 -- @location total. An activity summary row (SUMMARY_ITEM) is refused: rename does not act
--- on the ambiguous activity grouping (see the module header); :DaylogMap relabels it. This
+-- on the ambiguous activity grouping (see the module header); :Daylog map relabels it. This
 -- is the single chokepoint for both the cursor (resolve_context) and report (report_cursor)
 -- paths; the entry-line branch builds its target without classify, so it is not refused. PURE.
 function M.classify(layout_row)

@@ -14,7 +14,7 @@ local M = {}
 -- needs no note preservation.
 --
 -- The cursor-to-row resolution and its staleness/ambiguity guard are the shared
--- summary_cursor.resolve; :DaylogLog accepts only a main summary_item row (a tag,
+-- summary_cursor.resolve; :Daylog log accepts only a main summary_item row (a tag,
 -- location, logged, or total row is not loggable). Out-of-office rows cannot be
 -- marked, and the contributing entries must already agree on their logged state.
 

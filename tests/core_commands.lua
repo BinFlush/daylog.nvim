@@ -7,7 +7,50 @@ return function(t)
 
   helpers.setup_daylog()
 
-  t.test("DaylogRefresh rebuilds a stale summary and is a no-op when current", function()
+  t.test("bare :Daylog routes to today", function()
+    with_daylog_setup({}, function()
+      with_captured_notify(function(messages)
+        vim.cmd("Daylog")
+        -- today() with no daybook configured warns -- proof the bare command reached it.
+        t.eq(messages, {
+          { message = "daylog: daybook.root is not configured", level = vim.log.levels.WARN },
+        })
+      end)
+    end)
+  end)
+
+  t.test(":Daylog warns on an unknown verb", function()
+    with_captured_notify(function(messages)
+      vim.cmd("Daylog bogus")
+      t.eq(messages, {
+        {
+          message = "daylog: unknown verb 'bogus' -- try :Daylog <Tab>",
+          level = vim.log.levels.WARN,
+        },
+      })
+    end)
+  end)
+
+  t.test(
+    ":Daylog completion offers verbs and hides editing verbs outside a daylog buffer",
+    function()
+      t.reset({ "" })
+
+      vim.bo.filetype = ""
+      local entry = vim.fn.getcompletion("Daylog ", "cmdline")
+      t.ok(vim.tbl_contains(entry, "today"))
+      t.ok(vim.tbl_contains(entry, "report"))
+      t.ok(not vim.tbl_contains(entry, "order"))
+
+      vim.bo.filetype = "daylog"
+      t.ok(vim.tbl_contains(vim.fn.getcompletion("Daylog ", "cmdline"), "order"))
+
+      -- Per-verb argument completion: day offers date tokens.
+      t.ok(vim.tbl_contains(vim.fn.getcompletion("Daylog day ", "cmdline"), "monday"))
+    end
+  )
+
+  t.test("Daylog refresh rebuilds a stale summary and is a no-op when current", function()
     t.reset({
       "--- log ---",
       "08:00 plan",
@@ -20,7 +63,7 @@ return function(t)
       "0.50h (+0m) workday",
     })
 
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
     t.eq(t.get_lines(), {
       "--- log ---",
       "08:00 plan",
@@ -35,7 +78,7 @@ return function(t)
     })
 
     -- Running again leaves the now-current summary untouched.
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
     t.eq(t.get_lines()[7], "2.00h (+0m) plan")
   end)
 
@@ -49,7 +92,7 @@ return function(t)
     return false
   end
 
-  t.test("DaylogRefresh reports an out-of-order log as a diagnostic", function()
+  t.test("Daylog refresh reports an out-of-order log as a diagnostic", function()
     t.reset({
       "--- log ---",
       "09:00 later",
@@ -64,25 +107,25 @@ return function(t)
     })
     local before = t.get_lines()
 
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
     t.ok(has_unordered_diagnostic(), "expected an unordered-timestamps diagnostic")
 
     -- The invalid log's summary is left untouched rather than churned.
     t.eq(t.get_lines(), before)
   end)
 
-  t.test("DaylogRefresh reports an out-of-order log with no summary", function()
+  t.test("Daylog refresh reports an out-of-order log with no summary", function()
     t.reset({
       "--- log ---",
       "08:00 input 1",
       "07:10 input 2",
     })
 
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
     t.ok(has_unordered_diagnostic(), "expected a diagnostic even without a summary")
   end)
 
-  t.test("DaylogOrder clears the out-of-order diagnostic", function()
+  t.test("Daylog order clears the out-of-order diagnostic", function()
     t.reset({
       "--- log ---",
       "09:00 later",
@@ -90,14 +133,14 @@ return function(t)
       "10:00 done",
     })
 
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
     t.ok(has_unordered_diagnostic(), "expected a diagnostic before fixing")
 
-    -- Fixing via :DaylogOrder must clear the diagnostic on its own: a command
+    -- Fixing via :Daylog order must clear the diagnostic on its own: a command
     -- edit does not fire the auto-refresh autocmds, so the command refreshes the
     -- diagnostics itself.
-    vim.cmd("DaylogOrder")
-    t.ok(not has_unordered_diagnostic(), "DaylogOrder should clear the diagnostic")
+    vim.cmd("Daylog order")
+    t.ok(not has_unordered_diagnostic(), "Daylog order should clear the diagnostic")
   end)
 
   t.test("log order rewrites all log blocks", function()
@@ -117,8 +160,8 @@ return function(t)
       "12:00 done #internal @home",
     })
 
-    vim.cmd("DaylogOrder")
-    -- Reordering changes the durations, so :DaylogOrder rebuilds the first log's existing
+    vim.cmd("Daylog order")
+    -- Reordering changes the durations, so :Daylog order rebuilds the first log's existing
     -- summary (the stale `x` placeholder) from the sorted entries -- with the canonical
     -- two-blank separators. The second log has no summary, so it is left summary-less.
     t.eq(t.get_lines(), {
@@ -152,7 +195,7 @@ return function(t)
   t.test("new scaffolds a bare log into an empty buffer", function()
     with_daylog_setup({ auto_timezone = false }, function()
       t.reset({ "" })
-      vim.cmd("DaylogNew")
+      vim.cmd("Daylog new")
       t.eq(t.get_lines(), { "--- log ---" })
       t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
     end)
@@ -171,7 +214,7 @@ return function(t)
         "--- totals ---",
         "1.00h (+0m) workday",
       })
-      vim.cmd("DaylogNew")
+      vim.cmd("Daylog new")
       t.eq(t.get_lines(), {
         "--- log ---",
         "08:00 work",
@@ -194,7 +237,7 @@ return function(t)
       { auto_timezone = false, defaults = { quantize_minutes = 30, duration_format = "hm" } }
     with_daylog_setup(opts, function()
       t.reset({ "" })
-      vim.cmd("DaylogNew")
+      vim.cmd("Daylog new")
       t.eq(t.get_lines(), { "--- log q=30 d=hm ---" })
     end)
   end)
@@ -215,7 +258,7 @@ return function(t)
       "12:00",
     })
 
-    vim.cmd("DaylogCopy")
+    vim.cmd("Daylog copy")
     t.eq(t.get_lines(), {
       "--- log #ProjectOrion @office ---",
       "08:00 first",
@@ -261,7 +304,7 @@ return function(t)
       "12:00",
     })
 
-    vim.cmd("DaylogCopy")
+    vim.cmd("Daylog copy")
     t.eq(t.get_lines(), {
       "--- log #ProjectOrion @office ---",
       "08:00 first",
@@ -298,7 +341,7 @@ return function(t)
       "10:00 done",
     })
 
-    vim.cmd("DaylogCopy")
+    vim.cmd("Daylog copy")
     t.eq(t.get_lines(), {
       "--- log ---",
       "08:00 break #ooo @home",
@@ -338,7 +381,7 @@ return function(t)
       "11:00 done",
     })
 
-    vim.cmd("DaylogCopy")
+    vim.cmd("Daylog copy")
     t.eq(t.get_lines(), {
       "--- log #- @- ---",
       "08:00 plan",
@@ -388,7 +431,7 @@ return function(t)
     t.set_cursor(10, 0)
 
     with_mocked_date("14:37", function()
-      vim.cmd("DaylogRepeat")
+      vim.cmd("Daylog repeat")
     end)
 
     t.eq(t.get_lines()[12], "14:37 tea")
@@ -404,7 +447,7 @@ return function(t)
     t.set_cursor(2, 0)
 
     with_mocked_date("08:30", function()
-      vim.cmd("DaylogRepeat")
+      vim.cmd("Daylog repeat")
     end)
 
     t.eq(t.get_lines(), {
@@ -425,7 +468,7 @@ return function(t)
     t.set_cursor(2, 0)
 
     with_mocked_date("08:30", function()
-      vim.cmd("DaylogRepeat")
+      vim.cmd("Daylog repeat")
     end)
 
     t.eq(t.get_lines(), {
@@ -448,7 +491,7 @@ return function(t)
       t.set_cursor(2, 0)
 
       with_mocked_date("08:30", function()
-        vim.cmd("DaylogRepeat")
+        vim.cmd("Daylog repeat")
       end)
 
       t.eq(t.get_lines(), {
@@ -485,7 +528,7 @@ return function(t)
     t.set_cursor(8, 0) -- the "implementation" main summary row
 
     with_mocked_date("11:30", function()
-      vim.cmd("DaylogRepeat")
+      vim.cmd("Daylog repeat")
     end)
 
     -- The repeated entry is inserted into the log body, after "11:00 done".
@@ -515,7 +558,7 @@ return function(t)
     })
     t.set_cursor(11, 0) -- the "#ClientA" tag total
 
-    vim.cmd("DaylogRename Globex")
+    vim.cmd("Daylog rename Globex")
 
     local lines = t.get_lines()
     t.eq(lines[1], "--- log #Globex @office ---")
@@ -538,7 +581,7 @@ return function(t)
     t.set_cursor(2, 0) -- the "implementation" entry (an empty pool falls back to the prompt)
 
     with_mocked_input("coding", function()
-      vim.cmd("DaylogRename")
+      vim.cmd("Daylog rename")
     end)
 
     t.eq(t.get_lines()[2], "08:00 coding")
@@ -565,14 +608,14 @@ return function(t)
     })
     t.set_cursor(11, 0) -- the "#a" tag total; its only merge candidate is "b"
 
-    -- No Telescope in the test env, so :DaylogRename uses vim.ui.select; pick the
+    -- No Telescope in the test env, so :Daylog rename uses vim.ui.select; pick the
     -- first offered candidate ("b") to merge #a into #b.
     local old_select = vim.ui.select
     vim.ui.select = function(items, _, on_choice)
       on_choice(items[1])
     end
     local ok, err = pcall(function()
-      vim.cmd("DaylogRename")
+      vim.cmd("Daylog rename")
     end)
     vim.ui.select = old_select
     if not ok then
@@ -597,7 +640,7 @@ return function(t)
     })
     t.set_cursor(2, 0)
 
-    vim.cmd("DaylogRename fix the build")
+    vim.cmd("Daylog rename fix the build")
 
     t.eq(t.get_lines()[2], "08:00 fix the build")
     t.eq(t.get_lines()[7], "1.00h (+0m) fix the build")
@@ -618,14 +661,14 @@ return function(t)
     })
     t.set_cursor(2, 0) -- the first "alpha" entry, not a summary row
 
-    vim.cmd("DaylogRename beta")
+    vim.cmd("Daylog rename beta")
 
     -- Only the cursor's entry is renamed; its sibling is untouched.
     t.eq(t.get_lines()[2], "08:00 beta")
     t.eq(t.get_lines()[3], "09:00 alpha")
   end)
 
-  t.test("DaylogMap over a line range maps every entry in the selection", function()
+  t.test("Daylog map over a line range maps every entry in the selection", function()
     t.reset({
       "--- log q=1 d=hm ---",
       "09:00 alpha",
@@ -633,10 +676,10 @@ return function(t)
       "10:00 gamma",
       "10:30 done",
     })
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
     -- :N,M is what a visual selection sends; map all the entries in those lines at once.
-    vim.cmd("2,4DaylogMap WORK-1")
+    vim.cmd("2,4Daylog map WORK-1")
 
     t.eq(t.get_lines()[2], "09:00 alpha => WORK-1")
     t.eq(t.get_lines()[3], "09:30 beta => WORK-1")
@@ -652,32 +695,32 @@ return function(t)
     t.ok(folded, "the three entries fold under the one alias")
   end)
 
-  t.test("DaylogMap! over a line range clears every mapping in the selection", function()
+  t.test("Daylog! map over a line range clears every mapping in the selection", function()
     t.reset({
       "--- log q=1 d=hm ---",
       "09:00 alpha => WORK-1",
       "09:30 beta => WORK-1",
       "10:00 done",
     })
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
-    vim.cmd("2,3DaylogMap!")
+    vim.cmd("2,3Daylog! map")
 
     t.eq(t.get_lines()[2], "09:00 alpha")
     t.eq(t.get_lines()[3], "09:30 beta")
   end)
 
-  t.test("DaylogMap over a range refuses when the selection includes a logged entry", function()
+  t.test("Daylog map over a range refuses when the selection includes a logged entry", function()
     t.reset({
       "--- log q=1 d=hm ---",
       "09:00 alpha",
       "09:30 deploy !L30",
       "10:00 done",
     })
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
     with_captured_notify(function(messages)
-      vim.cmd("2,3DaylogMap BUG-1")
+      vim.cmd("2,3Daylog map BUG-1")
       local refused = false
       for _, message in ipairs(messages) do
         if message.message:find("logged", 1, true) then
@@ -697,7 +740,7 @@ return function(t)
       "09:00 beta",
       "11:00 done",
     })
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
     -- Put the cursor on the "alpha" summary row (below "beta") at a non-zero column.
     local alpha_row
@@ -708,7 +751,7 @@ return function(t)
     end
     t.set_cursor(alpha_row, 3)
 
-    vim.cmd("DaylogBalance +2") -- alpha becomes 3h and jumps above beta
+    vim.cmd("Daylog balance +2") -- alpha becomes 3h and jumps above beta
 
     local cursor = vim.api.nvim_win_get_cursor(0)
     t.ok(cursor[1] < alpha_row, "the cursor moved up to the row's new line")
@@ -728,7 +771,7 @@ return function(t)
     t.set_cursor(2, 0)
     local before = #t.get_lines()
 
-    vim.cmd("DaylogCopy")
+    vim.cmd("Daylog copy")
 
     -- The cursor jumps into the appended copy, onto its log header (so the window
     -- scrolls to it).
@@ -747,7 +790,7 @@ return function(t)
     t.set_cursor(1, 0)
 
     with_mocked_date("08:00", function()
-      vim.cmd("DaylogInsert")
+      vim.cmd("Daylog insert")
     end)
 
     t.eq(t.get_lines(), {
@@ -772,7 +815,7 @@ return function(t)
     t.set_cursor(5, 0)
 
     with_mocked_date("10:30", function()
-      vim.cmd("DaylogInsert")
+      vim.cmd("Daylog insert")
     end)
 
     t.eq(t.get_lines(), {
@@ -794,7 +837,7 @@ return function(t)
     })
     t.set_cursor(1, 0)
 
-    vim.cmd("DaylogInsert")
+    vim.cmd("Daylog insert")
     t.eq(t.get_lines(), {
       "08:00 raw",
       "09:00 done",
@@ -812,7 +855,7 @@ return function(t)
     })
     t.set_cursor(5, 0)
 
-    vim.cmd("DaylogRepeat")
+    vim.cmd("Daylog repeat")
     t.eq(t.get_lines(), {
       "--- log #ProjectOrion @office ---",
       "08:00 task",
@@ -830,7 +873,7 @@ return function(t)
       "09:00 done",
     })
 
-    vim.cmd("DaylogCopy")
+    vim.cmd("Daylog copy")
     t.eq(t.get_lines(), {
       "--- log #ProjectOrion @office ---",
       "08:00 plan #sales #meeting",
@@ -846,7 +889,7 @@ return function(t)
     })
 
     with_captured_notify(function(messages)
-      vim.cmd("DaylogOrder")
+      vim.cmd("Daylog order")
 
       t.eq(messages, {
         {
@@ -874,7 +917,7 @@ return function(t)
     })
 
     with_captured_notify(function(messages)
-      vim.cmd("DaylogOrder")
+      vim.cmd("Daylog order")
 
       t.eq(messages, {
         {
@@ -891,7 +934,7 @@ return function(t)
     })
   end)
 
-  t.test("DaylogSplit splits the activity under the cursor and rebuilds the summary", function()
+  t.test("Daylog split splits the activity under the cursor and rebuilds the summary", function()
     t.reset({
       "--- log q=1 d=hm ---",
       "08:00 meeting",
@@ -905,7 +948,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("DaylogSplit 3 1")
+    vim.cmd("Daylog split 3 1")
 
     local out = t.get_lines()
     t.eq(out[2], "08:00 meeting (1)")
@@ -924,7 +967,7 @@ return function(t)
     t.ok(has("2:00 (+0m) workday"), "the workday total is preserved")
   end)
 
-  t.test("DaylogSplit warns on a bad weight without editing", function()
+  t.test("Daylog split warns on a bad weight without editing", function()
     t.reset({
       "--- log q=1 d=hm ---",
       "08:00 meeting",
@@ -940,7 +983,7 @@ return function(t)
     local before = t.get_lines()
 
     with_captured_notify(function(messages)
-      vim.cmd("DaylogSplit 2 0")
+      vim.cmd("Daylog split 2 0")
       t.eq(#messages, 1)
       t.ok(messages[1].message:match("split weights must be positive"), "warns on the zero weight")
     end)
@@ -959,7 +1002,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("DaylogLog")
+    vim.cmd("Daylog log")
 
     t.eq(t.get_lines(), {
       "--- log ---",
@@ -989,7 +1032,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("DaylogLog")
+    vim.cmd("Daylog log")
 
     t.eq(t.get_lines(), {
       "--- log q=30 ---",
@@ -1019,7 +1062,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("DaylogLog")
+    vim.cmd("Daylog log")
 
     t.eq(t.get_lines(), {
       "--- log ---",
@@ -1045,7 +1088,7 @@ return function(t)
       "09:00 build",
       "10:00 done",
     })
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
     local function find(pred)
       local lines = t.get_lines()
@@ -1065,7 +1108,7 @@ return function(t)
     t.ok(unlogged_row ~= nil, "expected a separate unlogged build summary row")
 
     t.set_cursor(unlogged_row, 0)
-    vim.cmd("DaylogLog")
+    vim.cmd("Daylog log")
 
     local out = t.get_lines()
     t.eq(out[2], "08:00 build !L120")
@@ -1103,7 +1146,7 @@ return function(t)
     })
     t.set_cursor(7, 0)
 
-    vim.cmd("DaylogLog")
+    vim.cmd("Daylog log")
 
     local out = t.get_lines()
     t.eq(out[2], "08:00 build")
@@ -1130,7 +1173,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("DaylogLog")
+    vim.cmd("Daylog log")
     -- The source entry is frozen at its committed 60 minutes (1.00h).
     t.eq(t.get_lines()[2], "00:00 logged item !L60")
 
@@ -1139,7 +1182,7 @@ return function(t)
     local lines = t.get_lines()
     table.insert(lines, 4, "01:09 new task")
     t.set_lines(lines)
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
     local out = t.get_lines()
     local function has(needle)
@@ -1155,14 +1198,14 @@ return function(t)
     t.ok(has("1.25h (-6m) workday"), "the total stays the honest rounded value")
   end)
 
-  t.test("DaylogRefresh warns when a frozen !L value no longer fits the bucket", function()
+  t.test("Daylog refresh warns when a frozen !L value no longer fits the bucket", function()
     t.reset({
       "--- log ---",
       "08:00 plan !L7",
       "09:00 done",
     })
 
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
     local found = false
     for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
@@ -1173,7 +1216,7 @@ return function(t)
     t.ok(found, "expected a frozen-drift diagnostic for a non-bucket !L value")
   end)
 
-  t.test("DaylogRefresh warns when same-row logged entries disagree on their !L value", function()
+  t.test("Daylog refresh warns when same-row logged entries disagree on their !L value", function()
     t.reset({
       "--- log ---",
       "08:00 build !L60",
@@ -1181,7 +1224,7 @@ return function(t)
       "10:00 done",
     })
 
-    vim.cmd("DaylogRefresh")
+    vim.cmd("Daylog refresh")
 
     local found = false
     for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
@@ -1195,7 +1238,7 @@ return function(t)
   t.test(
     "log log regression: multi-edit summary-refresh applies correctly through the real command path",
     function()
-      -- Exercises the full :DaylogLog -> apply_result path with the reported
+      -- Exercises the full :Daylog log -> apply_result path with the reported
       -- bug case. The fix returns a summary-group refresh edit (higher rows)
       -- before source-entry edits (lower rows); this test proves apply_result
       -- applies them in that order without index drift.
@@ -1226,7 +1269,7 @@ return function(t)
       })
       t.set_cursor(12, 0)
 
-      vim.cmd("DaylogLog")
+      vim.cmd("Daylog log")
 
       t.eq(t.get_lines(), {
         "--- log #someproject @office ---",

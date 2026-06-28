@@ -123,7 +123,7 @@ end
 -- (offline, instant), then refresh in the background when stale. The first-ever
 -- use with no cache fetches once before opening. `on_unavailable` (optional) is called
 -- when there is no cache and that initial fetch fails -- callers that have a local
--- fallback (e.g. :DaylogRename's merge candidates) use it to open anyway.
+-- fallback (e.g. :Daylog rename's merge candidates) use it to open anyway.
 function M.ensure_fresh(name, ttl, on_ready, on_unavailable)
   local decoded = M.read_cache(name)
 
@@ -158,8 +158,8 @@ function M.refresh_if_stale(name, ttl)
 end
 
 -- Read every configured source's cached items (offline, instant), each refreshed in the
--- background when stale -- the spec list the unified picker pools across :DaylogInsert! /
--- :DaylogRename / :DaylogMap. Returns { { name, source, items }, ... }; empty with no sources.
+-- background when stale -- the spec list the unified picker pools across :Daylog! insert /
+-- :Daylog rename / :Daylog map. Returns { { name, source, items }, ... }; empty with no sources.
 function M.read_specs()
   local sources_cfg = config.get().sources or {}
   local specs = {}

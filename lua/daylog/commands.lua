@@ -33,7 +33,7 @@ local function parse_positive_integer(value)
   return number
 end
 
--- Parse the :DaylogDays argument into a normalized request: a trailing day count, or a
+-- Parse the :Daylog report argument into a normalized request: a trailing day count, or a
 -- FROM..TO range (each side a YYYY-MM-DD string; an omitted side becomes nil, resolved
 -- later to the earliest logged day or today). The date strings are validated downstream.
 local function parse_days_request(value)
@@ -94,7 +94,7 @@ local function source_complete(arglead)
   return matches
 end
 
--- Classify a command argument the source-aware way :DaylogRename and :DaylogMap share:
+-- Classify a command argument the source-aware way :Daylog rename and :Daylog map share:
 -- "source" when it names a configured source (open that source's picker), "value" for any
 -- other non-empty argument (act on it directly), or "none" for no argument (default picker).
 local function classify_source_arg(arg)
@@ -381,9 +381,9 @@ function M.register(api)
   -- Map the cursor's entry (or every entry of a summary row) to a label it resolves to
   -- in the summary. A lone argument that names a configured source opens the unified picker; any
   -- other argument is the label to map to directly; no argument opens the picker/prompt.
-  -- The bang (`:DaylogMap!`) clears the mapping instead.
+  -- The bang (`:Daylog! map`) clears the mapping instead.
   ensure_user_command("DaylogMap", function(args)
-    -- A visual selection (or :N,M) supplies a line range; a bare :DaylogMap has range == 0
+    -- A visual selection (or :N,M) supplies a line range; a bare :Daylog map has range == 0
     -- and maps the cursor entry / summary row as before.
     local range = args.range > 0 and { args.line1, args.line2 } or nil
 

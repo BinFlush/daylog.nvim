@@ -123,7 +123,7 @@ function M.offset_date(now, offset_days)
   return midday_time(anchor.year, anchor.month, anchor.day + offset)
 end
 
--- Named-date tokens usable wherever a range bound goes (:DaylogDays). A weekday resolves
+-- Named-date tokens usable wherever a range bound goes (:Daylog report). A weekday resolves
 -- to its most recent occurrence on or before today (latest match): `friday` on a Friday is
 -- today, and a weekday later in the week than today is last week's. Case-insensitive, full
 -- names and 3-letter abbreviations.

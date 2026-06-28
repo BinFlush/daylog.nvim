@@ -59,7 +59,7 @@ return function(t)
   t.test("report_cursor refuses an activity row (aggregate and per-day)", function()
     local layout = render.days_report_layout(sample_report(), "dec", {})
 
-    -- An activity row is not renamable (use :DaylogMap); both scopes refuse, so a report
+    -- An activity row is not renamable (use :Daylog map); both scopes refuse, so a report
     -- rename never reaches a day file.
     for _, scope in ipairs({ "aggregate", "day" }) do
       local index = find(layout, function(row)

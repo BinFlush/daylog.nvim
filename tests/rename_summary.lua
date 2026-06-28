@@ -44,7 +44,7 @@ return function(t)
     return false
   end
 
-  t.test("rename refuses an activity summary row -- :DaylogMap relabels for the report", function()
+  t.test("rename refuses an activity summary row -- :Daylog map relabels for the report", function()
     local _, err = rename_summary.run({
       "--- log ---",
       "08:00 implementation",
@@ -552,27 +552,30 @@ return function(t)
     t.ok(err ~= nil, "an invalid log yields an error")
   end)
 
-  t.test("rename refuses a mapped activity row (descriptions kept; :DaylogMap relabels)", function()
-    local lines = {
-      "--- log ---",
-      "08:00 fix login => BUG-1",
-      "09:00 done",
-      "",
-      "--- summary q=15 d=dec ---",
-      "1.00h (+0m) BUG-1",
-      "",
-      "--- totals ---",
-      "1.00h (+0m) workday",
-    }
+  t.test(
+    "rename refuses a mapped activity row (descriptions kept; :Daylog map relabels)",
+    function()
+      local lines = {
+        "--- log ---",
+        "08:00 fix login => BUG-1",
+        "09:00 done",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) BUG-1",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      }
 
-    -- The row is labeled by the alias BUG-1; a rename (which edits descriptions) would
-    -- silently overwrite "fix login", so the row is refused. Both run and resolve refuse.
-    local _, run_err = rename_summary.run(lines, 6, "investigate timeout")
-    t.eq(run_err, rename_summary.REFUSE_ACTIVITY_ROW)
+      -- The row is labeled by the alias BUG-1; a rename (which edits descriptions) would
+      -- silently overwrite "fix login", so the row is refused. Both run and resolve refuse.
+      local _, run_err = rename_summary.run(lines, 6, "investigate timeout")
+      t.eq(run_err, rename_summary.REFUSE_ACTIVITY_ROW)
 
-    local _, resolve_err = rename_summary.resolve(lines, 6)
-    t.eq(resolve_err, rename_summary.REFUSE_ACTIVITY_ROW)
-  end)
+      local _, resolve_err = rename_summary.resolve(lines, 6)
+      t.eq(resolve_err, rename_summary.REFUSE_ACTIVITY_ROW)
+    end
+  )
 
   t.test("rename on an entry leaves a same-named closing entry untouched", function()
     -- The closing "10:00 alpha" shares the cursor entry's text but is a different entry;

@@ -62,15 +62,27 @@ local function has_help_tag(name)
   return false
 end
 
-local function check_command(name)
-  if has_command(name) then
-    ok(":" .. name .. " is available")
-  else
-    report_error(":" .. name .. " is missing", {
-      "Run require('daylog').setup() during startup.",
-    })
-  end
-end
+-- The verbs the single :Daylog command dispatches; health lists each so a user can confirm
+-- the surface is wired (they all live behind one command now).
+local VERBS = {
+  "today",
+  "day",
+  "next",
+  "prev",
+  "report",
+  "insert",
+  "repeat",
+  "new",
+  "copy",
+  "order",
+  "log",
+  "balance",
+  "split",
+  "map",
+  "rename",
+  "refresh",
+  "sync",
+}
 
 function M.check()
   start("daylog.nvim")
@@ -98,22 +110,16 @@ function M.check()
   -- live configuration and refresh autocmds. The command checks below verify
   -- that setup has already been run.
   start("Commands")
-  check_command("DaylogInsert")
-  check_command("DaylogToday")
-  check_command("DaylogInit")
-  check_command("DaylogNextDay")
-  check_command("DaylogPrevDay")
-  check_command("DaylogDays")
-  check_command("DaylogRepeat")
-  check_command("DaylogCopy")
-  check_command("DaylogOrder")
-  check_command("DaylogLog")
-  check_command("DaylogRename")
-  check_command("DaylogMap")
-  check_command("DaylogBalance")
-  check_command("DaylogSplit")
-  check_command("DaylogRefresh")
-  check_command("DaylogSync")
+  -- One :Daylog command dispatches every verb; confirm it exists, then list the verbs.
+  if has_command("Daylog") then
+    for _, verb in ipairs(VERBS) do
+      ok(":Daylog " .. verb .. " is available")
+    end
+  else
+    report_error(":Daylog is missing", {
+      "Run require('daylog').setup() during startup.",
+    })
+  end
 
   start("Filetype")
   if vim.filetype.match({ filename = "example.day" }) == "daylog" then
@@ -175,12 +181,12 @@ function M.check()
           ok(string.format("source %s cache is readable (%d items)", name, #(cache.items or {})))
         else
           warn(string.format("source %s cache is unreadable or corrupt", name), {
-            "Run :DaylogSync " .. name .. " to rebuild it.",
+            "Run :Daylog sync " .. name .. " to rebuild it.",
           })
         end
       else
         warn(string.format("source %s has no cache yet", name), {
-          "Run :DaylogSync " .. name .. " or pick from it once.",
+          "Run :Daylog sync " .. name .. " or pick from it once.",
         })
       end
     end

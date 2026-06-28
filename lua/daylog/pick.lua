@@ -106,7 +106,7 @@ function M.item(source, opts)
   end)
 end
 
--- Open the scoped picker for one named source (`:DaylogInsert/:DaylogRename/:DaylogMap <source>`):
+-- Open the scoped picker for one named source (`:Daylog insert/:Daylog rename/:Daylog map <source>`):
 -- load/refresh its cache, then hand its items to M.item -- which live-searches the tracker as you
 -- type when the source supports it, else filters the offline cache. The chosen item goes to
 -- opts.on_pick(item); cancelling calls opts.on_cancel. Items only; the unified pool (M.unified) is
@@ -127,7 +127,7 @@ function M.source(source, name, opts)
   end)
 end
 
--- The general mixed-row picker (shared by :DaylogInsert!, :DaylogRename, :DaylogMap). Each row
+-- The general mixed-row picker (shared by :Daylog! insert, :Daylog rename, :Daylog map). Each row
 -- carries `.display` and `.text` (what gets chosen). Telescope when installed, else vim.ui.select
 -- with a type-new sentinel. Choosing a row yields its `.text`; <C-e> (Telescope) yields the typed
 -- value via on_create; the type-new row (fallback) calls on_type_new. An empty row set calls

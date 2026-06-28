@@ -29,7 +29,7 @@ local M = {}
 -- cannot foot a bucket), and the frozen values together cannot exceed the log's
 -- rounded activity total (else there is no budget left for the un-frozen rows). When
 -- either breaks -- a q change, an edit inside a logged interval, deleted activity --
--- warn so the user re-runs :DaylogLog to recommit. The summary still renders (the
+-- warn so the user re-runs :Daylog log to recommit. The summary still renders (the
 -- quantizer re-foots honestly around the stale value); this only surfaces the drift.
 local function frozen_drift_warnings(block)
   local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
@@ -50,7 +50,7 @@ local function frozen_drift_warnings(block)
           warnings[#warnings + 1] = {
             row = at,
             message = string.format(
-              "daylog: a frozen !L value no longer fits q=%d; re-run :DaylogLog to recommit",
+              "daylog: a frozen !L value no longer fits q=%d; re-run :Daylog log to recommit",
               bucket_minutes
             ),
           }
@@ -62,7 +62,7 @@ local function frozen_drift_warnings(block)
   if frozen_total > quantize.round_to_nearest_bucket(activity_total, bucket_minutes) then
     warnings[#warnings + 1] = {
       row = block.start_row,
-      message = "daylog: frozen !L values exceed this log's rounded total; re-run :DaylogLog to recommit",
+      message = "daylog: frozen !L values exceed this log's rounded total; re-run :Daylog log to recommit",
     }
   end
 
@@ -142,7 +142,7 @@ function M.run(lines)
         warnings[#warnings + 1] = {
           row = conflict.row,
           message = "daylog: logged entries for this activity disagree on their "
-            .. "!L value; re-run :DaylogLog to recommit",
+            .. "!L value; re-run :Daylog log to recommit",
         }
       end
 

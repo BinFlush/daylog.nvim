@@ -170,7 +170,7 @@ function M.live_pick(source, opts)
 
       -- Closing the prompt (pick or cancel) marks the picker done so a late search
       -- response stops refreshing/notifying. Cancelling also leaves a bare timestamp,
-      -- matching :DaylogInsert.
+      -- matching :Daylog insert.
       vim.api.nvim_create_autocmd("BufWipeout", {
         buffer = prompt_bufnr,
         once = true,
@@ -198,7 +198,7 @@ function M.live_pick(source, opts)
   controller.picker:find()
 end
 
--- The general mixed-row picker (shared by :DaylogInsert!, :DaylogRename, :DaylogMap): pre-ranked,
+-- The general mixed-row picker (shared by :Daylog! insert, :Daylog rename, :Daylog map): pre-ranked,
 -- display-ready rows each carrying a `.text` (what gets chosen). Offline -- no live search. <CR>
 -- chooses the highlighted row's text; <C-e> (or <CR> with nothing selected) yields what you typed;
 -- closing without a pick calls on_cancel.
