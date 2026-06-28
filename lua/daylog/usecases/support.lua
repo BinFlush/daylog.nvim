@@ -45,6 +45,18 @@ function M.get_validated_at_row(lines, row)
   return M.validate_context(ctx)
 end
 
+-- The block's entry item on `row`, or nil. An entry item's start_row equals its semantic
+-- entry's row (a timestamped entry is a single line), so this is the one lookup the call
+-- sites spelled either way (`item.start_row` or `item.entry.row`).
+function M.entry_item_at_row(block, row)
+  for _, item in ipairs(block.entry_items) do
+    if item.start_row == row then
+      return item
+    end
+  end
+  return nil
+end
+
 function M.get_insert_index(block, minutes)
   return body.insert_index(block, minutes)
 end
@@ -124,6 +136,39 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
   }
 end
 
+-- Build the edit for a fresh entry repeating a `source` activity at `minutes`: copy the
+-- source's metadata (its alias included, when it has one) but take the new time, dropping
+-- any logged / round±N marker -- a repeat or a carryover is a new entry, not a continuation
+-- of the source's commitment. A drifted live offset (`auto_offset`, from auto_timezone)
+-- overrides the copied source offset so the entry records the zone it is happening in now,
+-- attaching the `offset_change` the shell needs. `source` is any copy_fields-compatible
+-- activity (an entry item, or a hand-built carryover activity); its tag/location/offset
+-- drive the sticky placement. Shared by :DaylogRepeat and the cross-day carryover seed.
+function M.fresh_entry_edit(block, source, minutes, auto_offset)
+  local state = M.get_insert_state(block, minutes)
+
+  local fields = analyze.copy_fields(source)
+  fields.minutes = minutes
+  fields.logged = false
+  fields.nudge = nil
+
+  local stamp = M.offset_stamp(state.offset, auto_offset)
+  local ins_offset = source.offset
+  if stamp ~= nil then
+    fields.offset = stamp
+    ins_offset = stamp
+  end
+
+  local line = entry.format(fields, state.tag, state.location, state.offset)
+  local result = M.insert_entry_edit(block, minutes, line, source.tag, source.location, ins_offset)
+
+  if stamp ~= nil then
+    result.offset_change = { from = state.offset, to = stamp }
+  end
+
+  return result
+end
+
 -- Clone a block's semantic entries through the canonical field set (restoring the
 -- source row that copy_fields deliberately drops) and apply `mutate(copy)` to each,
 -- returning the new list. The summary-writing usecases recompute a summary from
@@ -188,18 +233,15 @@ function M.summary_render_options(block)
   return { leading_blank = false, quantize_minutes = block.quantize_minutes }
 end
 
--- Locate a log block's existing summary region, returning it alongside the
--- freshly computed summary and its rendered (in-file) lines. The region is found by
--- rendering the current summary and matching it against the block's tail (see
--- summary_block). Returns nil region when no summary exists yet; callers reuse
--- whichever values they need -- the summary-acting usecases the region, refresh the
--- computed/rendered to rewrite or create.
+-- Locate a log block's existing summary region, returning it alongside the freshly
+-- recomputed summary. The region is found from the summary banner in the block's tail
+-- (see summary_block.find), not by aligning a rendered summary. Returns nil region when
+-- no summary exists yet. Callers take what they need -- summary_zone_edit the region to
+-- blast, summary_cursor / rename the recomputed summary to map a cursor onto a row.
 function M.locate_summary(analysis, block)
   local computed = summary.summarize_block(block)
-  local rendered =
-    render.summary_lines(computed, block.duration_format, M.summary_render_options(block))
-  local region = summary_block.find(analysis, block, rendered)
-  return region, computed, rendered
+  local region = summary_block.find(analysis, block)
+  return region, computed
 end
 
 -- Assemble an entry-changing command's edit list: the rebuilt-summary edit (when there is
@@ -324,6 +366,33 @@ function M.summary_zone_edit(analysis, block, modified_entries, allow_create)
     return nil
   end
   return edit, rebuilt, region
+end
+
+-- Apply a per-entry field override across both halves of an entry-changing command: rewrite
+-- each overridden entry's source line AND rebuild the summary from the same overrides, so the
+-- two walks cannot disagree (the divergence class the code has been bitten by). `overrides`
+-- maps a semantic entry row to a table of field overrides ({ alias = v } for :DaylogMap,
+-- { nudge = n } for :DaylogBalance); the row's source edit and its projected entry both take
+-- exactly those fields. Returns the assembled edits (summary rebuild ahead of the source edits)
+-- plus the rebuilt summary and region, for a caller that follows a row to its new line (balance).
+-- A nil-clearing override (log_current's unmark) cannot ride a pairs()-applied table, so it
+-- stays bespoke.
+function M.apply_entry_overrides(analysis, block, overrides)
+  local source_edits = M.rewrite_entry_lines(block, function(item)
+    return overrides[item.start_row]
+  end)
+
+  local modified = M.modified_entries(block, function(copy)
+    local override = overrides[copy.row]
+    if override then
+      for key, value in pairs(override) do
+        copy[key] = value
+      end
+    end
+  end)
+
+  local summary_edit, rebuilt, region = M.summary_zone_edit(analysis, block, modified, false)
+  return { edits = M.entry_change_edits(summary_edit, source_edits) }, rebuilt, region
 end
 
 -- The log's summary zone bounds (tail_start, stop_row): the window past the last

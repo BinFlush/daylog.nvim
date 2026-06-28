@@ -1,5 +1,3 @@
-local analyze = require("daylog.analyze")
-local entry = require("daylog.entry")
 local summary_cursor = require("daylog.usecases.summary_cursor")
 local support = require("daylog.usecases.support")
 local syntax = require("daylog.syntax")
@@ -54,13 +52,7 @@ local function item_at_row(lines, row)
     return nil
   end
 
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.entry.row == row then
-      return item
-    end
-  end
-
-  return nil
+  return support.entry_item_at_row(ctx.block, row)
 end
 
 -- The activity of the entry on the given row, used to repeat it after the
@@ -99,32 +91,7 @@ function M.seed_edit(lines, activity, minutes, auto_offset)
     return nil, err
   end
 
-  local state = support.get_insert_state(ctx.block, minutes)
-
-  -- A carried/closing entry is fresh: it copies the activity's sticky metadata but
-  -- takes the boundary/continuation time and never inherits a logged or round±N marker.
-  local fields = analyze.copy_fields(activity)
-  fields.minutes = minutes
-  fields.logged = false
-  fields.nudge = nil
-
-  local stamp = support.offset_stamp(state.offset, auto_offset)
-  local ins_offset = activity.offset
-  if stamp ~= nil then
-    fields.offset = stamp
-    ins_offset = stamp
-  end
-
-  local line = entry.format(fields, state.tag, state.location, state.offset)
-
-  local result =
-    support.insert_entry_edit(ctx.block, minutes, line, activity.tag, activity.location, ins_offset)
-
-  if stamp ~= nil then
-    result.offset_change = { from = state.offset, to = stamp }
-  end
-
-  return result
+  return support.fresh_entry_edit(ctx.block, activity, minutes, auto_offset)
 end
 
 -- Append a bare 24:00 entry that closes the active log's final task at the

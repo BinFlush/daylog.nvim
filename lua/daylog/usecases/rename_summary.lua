@@ -65,13 +65,14 @@ function M.classify(layout_row)
   return nil, M.CANNOT_TOTALS
 end
 
--- The other same-kind values in the recomputed summary, in display order, as merge
--- targets for the rename picker: renaming to one of them folds the two together
--- (rename and merge are the same value substitution). Tags and locations offer the
--- other tag/location totals; an activity offers the other activity texts under the
--- same tag (so picking one actually merges -- the rename keeps the tag). The current
--- value and the placeholder buckets (nil tag/location) are excluded.
-local function merge_candidates(recomputed, kind, current, current_tag)
+-- The other same-kind values in a summary (an in-file recompute, or a report aggregate), in
+-- display order, as merge targets for the rename picker: renaming to one of them folds the two
+-- together (rename and merge are the same value substitution). Tags and locations offer the
+-- other tag/location totals; an activity offers the other activity texts under the same tag (so
+-- picking one actually merges -- the rename keeps the tag). The current value and the placeholder
+-- buckets (nil tag/location) are excluded. Exported so the report-rename shell shares this
+-- candidate logic instead of keeping a second copy.
+function M.merge_candidates(summary, kind, current, current_tag)
   local seen = {}
   local candidates = {}
 
@@ -83,15 +84,15 @@ local function merge_candidates(recomputed, kind, current, current_tag)
   end
 
   if kind == "tag" then
-    for _, item in ipairs(recomputed.tag_totals or {}) do
+    for _, item in ipairs(summary.tag_totals or {}) do
       add(item.tag)
     end
   elseif kind == "location" then
-    for _, item in ipairs(recomputed.location_totals or {}) do
+    for _, item in ipairs(summary.location_totals or {}) do
       add(item.location)
     end
   else
-    for _, item in ipairs(recomputed.summary_items or {}) do
+    for _, item in ipairs(summary.summary_items or {}) do
       if item.tag == current_tag then
         add(item.text)
       end
@@ -130,8 +131,15 @@ end
 -- scoped to just it. Returns { ctx, region, recomputed, item, target } or nil, err. `item`
 -- carries `source_entry_rows`; `target` is { kind, current, tag? }.
 local function resolve_context(lines, cursor_row)
-  local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
-  if result then
+  -- A stale/ambiguous row or an invalid log surfaces as `err` (resolve_or_entry does not
+  -- reinterpret an in-summary cursor as an entry); a valid log the cursor is not on a summary
+  -- row of yields the entry under it (or nil) to rename in place.
+  local result, resolve_err = summary_cursor.resolve_or_entry(lines, cursor_row)
+  if not result then
+    return nil, resolve_err or M.NOT_A_ROW
+  end
+
+  if result.layout_row then
     local target, classify_err = M.classify(result.layout_row)
     if not target then
       return nil, classify_err
@@ -145,32 +153,20 @@ local function resolve_context(lines, cursor_row)
     }
   end
 
-  -- In the summary region but not on a selectable row -- surface that, don't reinterpret
-  -- the cursor as an entry.
-  if resolve_err then
-    return nil, resolve_err
-  end
-
-  local ctx, ctx_err = support.get_validated_active(lines)
-  if not ctx then
-    return nil, ctx_err or M.NOT_A_ROW
-  end
-
-  for _, entry_item in ipairs(ctx.block.entry_items) do
-    if entry_item.start_row == cursor_row then
-      local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
-      return {
-        ctx = ctx,
-        region = region,
-        recomputed = recomputed,
-        item = {
-          text = entry_item.text,
-          tag = entry_item.tag,
-          source_entry_rows = { cursor_row },
-        },
-        target = { kind = "item", current = entry_item.text or "", tag = entry_item.tag },
-      }
-    end
+  local entry_item = result.entry_item
+  if entry_item then
+    local region, recomputed = support.locate_summary(result.ctx.analysis, result.ctx.block)
+    return {
+      ctx = result.ctx,
+      region = region,
+      recomputed = recomputed,
+      item = {
+        text = entry_item.text,
+        tag = entry_item.tag,
+        source_entry_rows = { cursor_row },
+      },
+      target = { kind = "item", current = entry_item.text or "", tag = entry_item.tag },
+    }
   end
 
   return nil, M.NOT_A_ROW
@@ -196,7 +192,8 @@ function M.resolve(lines, cursor_row)
     end
   end
 
-  target.candidates = merge_candidates(context.recomputed, target.kind, target.current, target.tag)
+  target.candidates =
+    M.merge_candidates(context.recomputed, target.kind, target.current, target.tag)
   return target
 end
 

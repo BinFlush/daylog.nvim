@@ -208,10 +208,9 @@ end
 -- Locate `log_block`'s generated summary region, returning { start_row, end_row }
 -- (1-based, end_row exclusive) covering the whole summary zone -- from the banner
 -- (the body/summary boundary) to the next log / EOF -- or nil when no summary is
--- recognizable and one must be created fresh. `expected_lines` is unused by the blast
--- design (kept for the caller's signature); the zone is found from the banner, not by
--- aligning the rendered summary.
-function M.find(analysis, log_block, _expected_lines)
+-- recognizable and one must be created fresh. The zone is found from the banner, not by
+-- aligning a rendered summary.
+function M.find(analysis, log_block)
   local tail_start, stop_row = tail_bounds(analysis, log_block)
   if not tail_start then
     return nil

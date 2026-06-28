@@ -23,8 +23,8 @@ local M = {}
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
 local cursor_row = buffer.cursor_row
-local apply_result = buffer.apply_result
 local buffer_changed = buffer.buffer_changed
+local run_pinned_usecase = buffer.run_pinned_usecase
 local highlight_buffer = buffer.highlight_buffer
 local daybook_lines = daybook_io.daybook_lines
 local loaded_buffer_for_path = daybook_io.loaded_buffer_for_path
@@ -53,8 +53,8 @@ function M.summary(new_value, source_name)
   -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
   -- per-day row; the rename fans out across the relevant day files instead of the
   -- current buffer.
-  local is_report, report_spec = pcall(vim.api.nvim_buf_get_var, 0, "log_report")
-  if is_report and type(report_spec) == "table" then
+  local report_spec = report_buffers.spec_for()
+  if report_spec then
     rename_from_report(report_spec, new_value, source_name)
     return
   end
@@ -74,16 +74,7 @@ function M.summary(new_value, source_name)
     if value == nil or value == "" or value == target.current then
       return
     end
-    if buffer_changed(target_buf, "rename") then
-      return
-    end
-
-    local result, run_err = rename_summary.run(buffer_lines(), row, value)
-    if not result then
-      warn(run_err)
-      return
-    end
-    apply_result(result)
+    run_pinned_usecase(target_buf, "rename", rename_summary.run, row, value)
   end
 
   if new_value ~= nil then
@@ -164,38 +155,6 @@ local function report_target_paths(report, resolved)
     paths[#paths + 1] = day.path
   end
   return paths
-end
-
--- The other same-kind values in the aggregate summary, as merge targets for the
--- report rename picker (mirrors rename_summary's in-file merge candidates).
-local function report_merge_candidates(report, target)
-  local aggregate = report.summary
-  local seen, candidates = {}, {}
-
-  local function add(value)
-    if value ~= nil and value ~= target.current and not seen[value] then
-      seen[value] = true
-      candidates[#candidates + 1] = value
-    end
-  end
-
-  if target.kind == "tag" then
-    for _, item in ipairs(aggregate.tag_totals or {}) do
-      add(item.tag)
-    end
-  elseif target.kind == "location" then
-    for _, item in ipairs(aggregate.location_totals or {}) do
-      add(item.location)
-    end
-  else
-    for _, item in ipairs(aggregate.summary_items or {}) do
-      if item.tag == target.tag then
-        add(item.text)
-      end
-    end
-  end
-
-  return candidates
 end
 
 -- Write a day file's new content: into its open buffer when one exists (so the user
@@ -351,7 +310,9 @@ rename_from_report = function(spec, new_value, source_name)
     return
   end
 
-  prompt_report_rename(target, report_merge_candidates(report, target), apply)
+  local candidates =
+    rename_summary.merge_candidates(report.summary, target.kind, target.current, target.tag)
+  prompt_report_rename(target, candidates, apply)
 end
 
 return M

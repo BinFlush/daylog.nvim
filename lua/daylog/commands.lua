@@ -94,6 +94,19 @@ local function source_complete(arglead)
   return matches
 end
 
+-- Classify a command argument the source-aware way :DaylogRename and :DaylogMap share:
+-- "source" when it names a configured source (open that source's picker), "value" for any
+-- other non-empty argument (act on it directly), or "none" for no argument (default picker).
+local function classify_source_arg(arg)
+  if arg == "" then
+    return "none"
+  end
+  if sources_registry.get(arg) then
+    return "source"
+  end
+  return "value"
+end
+
 -- Register a command whose single optional argument is parsed, warned-on, then
 -- dispatched. `parse(args.args) -> value | nil, err`; on a successful (non-nil) parse
 -- `dispatch(value)` runs, else the error is warned. The day-navigation commands share
@@ -165,11 +178,11 @@ function M.register(api)
   -- every source's items) to rename into; any other argument is the new value to rename to
   -- directly; no argument opens the picker.
   ensure_user_command("DaylogRename", function(args)
-    local arg = args.args
-    if arg ~= "" and sources_registry.get(arg) then
-      api.rename_summary(nil, arg)
-    elseif arg ~= "" then
-      api.rename_summary(arg)
+    local kind = classify_source_arg(args.args)
+    if kind == "source" then
+      api.rename_summary(nil, args.args)
+    elseif kind == "value" then
+      api.rename_summary(args.args)
     else
       api.rename_summary()
     end
@@ -192,11 +205,11 @@ function M.register(api)
       return
     end
 
-    local arg = args.args
-    if arg ~= "" and sources_registry.get(arg) then
-      api.map_summary(nil, arg, range)
-    elseif arg ~= "" then
-      api.map_summary(arg, nil, range)
+    local kind = classify_source_arg(args.args)
+    if kind == "source" then
+      api.map_summary(nil, args.args, range)
+    elseif kind == "value" then
+      api.map_summary(args.args, nil, range)
     else
       api.map_summary(nil, nil, range)
     end

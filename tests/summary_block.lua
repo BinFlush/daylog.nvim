@@ -1,27 +1,16 @@
 return function(t)
   local analyze = require("daylog.analyze")
   local document = require("daylog.document")
-  local render = require("daylog.render")
-  local summary = require("daylog.summary")
   local summary_block = require("daylog.summary_block")
 
   local function analyze_lines(lines)
     return analyze.analyze(document.parse(lines))
   end
 
-  -- The expected summary `find` is given (kept for the caller's signature; the blast
-  -- design does not align against it). Content-only, matching an in-buffer summary.
-  local function expected_for(block)
-    return render.summary_lines(summary.summarize_block(block), block.duration_format, {
-      leading_blank = false,
-      quantize_minutes = block.quantize_minutes,
-    })
-  end
-
   local function locate(lines)
     local analysis = analyze_lines(lines)
     local block = analyze.get_active_log(analysis)
-    return summary_block.find(analysis, block, expected_for(block))
+    return summary_block.find(analysis, block)
   end
 
   -- Direct tests of the character-level edit distance the mangled-banner search uses.
@@ -279,7 +268,7 @@ return function(t)
     })
     local first, second = analysis.log_blocks[1], analysis.log_blocks[2]
     -- The first log's zone stops at the second log's header (row 11).
-    t.eq(summary_block.find(analysis, first, expected_for(first)), { start_row = 5, end_row = 11 })
-    t.eq(summary_block.find(analysis, second, expected_for(second)), nil)
+    t.eq(summary_block.find(analysis, first), { start_row = 5, end_row = 11 })
+    t.eq(summary_block.find(analysis, second), nil)
   end)
 end

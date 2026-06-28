@@ -41,7 +41,9 @@ local SELECTABLE = {
 --
 -- The result carries the active-log context, the located region, the
 -- recomputed summary, the full layout, and the single matched layout row so
--- callers can read its `kind`/`item` and rebuild the summary in place.
+-- callers can read its `kind`/`item` and rebuild the summary in place. On the
+-- fall-through (nil, nil) a third value carries the validated active-log context
+-- when one was found, so resolve_or_entry reaches an entry without re-analyzing.
 function M.resolve(lines, cursor_row)
   if type(cursor_row) ~= "number" or cursor_row < 1 or cursor_row > #lines then
     return nil, nil
@@ -54,14 +56,14 @@ function M.resolve(lines, cursor_row)
 
   local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
   if not region then
-    return nil, nil
+    return nil, nil, ctx
   end
 
   -- The region spans the whole rendered summary (every section) within the active
   -- log's tail, so a summary owned by an earlier log falls outside it and
   -- is correctly not selectable here.
   if cursor_row < region.start_row or cursor_row >= region.end_row then
-    return nil, nil
+    return nil, nil, ctx
   end
 
   local cursor_line = lines[cursor_row]
@@ -91,6 +93,36 @@ function M.resolve(lines, cursor_row)
     layout = layout,
     layout_row = matches[1],
   }
+end
+
+-- The shared prologue of the entry-changing summary commands: resolve the cursor to a
+-- summary row OR an entry of the active log, parsing the log once. Returns
+--   * the full resolve result (carrying `layout_row`) -- cursor on a selectable summary row;
+--   * { ctx, entry_item = <item or nil> } -- a valid active log whose summary row the cursor
+--     is not on (entry_item is the entry under the cursor, or nil when on neither);
+--   * nil, err -- a stale/ambiguous row, or no valid active log (the precise validation error).
+-- Callers branch on `layout_row` vs `entry_item` and supply their own "cursor on neither"
+-- message, so the resolve / validate / fall-back skeleton lives here once.
+function M.resolve_or_entry(lines, cursor_row)
+  local result, err, ctx = M.resolve(lines, cursor_row)
+  if result then
+    return result
+  end
+  if err then
+    return nil, err
+  end
+
+  -- resolve declined without an error: the cursor is not on a summary row. It threaded the
+  -- validated active log when it had one; otherwise re-validate to surface the precise reason.
+  if not ctx then
+    local ctx_err
+    ctx, ctx_err = support.get_validated_active(lines)
+    if not ctx then
+      return nil, ctx_err
+    end
+  end
+
+  return { ctx = ctx, entry_item = support.entry_item_at_row(ctx.block, cursor_row) }
 end
 
 M.ONLY_MAIN_ROW = "daylog: only a main summary row can be repeated"

@@ -21,17 +21,6 @@ local M = {}
 local REFUSE_OOO = "daylog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 
--- Everything that decides which summary row an interval folds into, except `logged`,
--- so an about-to-be-logged row can find the already-logged row it will merge with.
-local function activity_key(row)
-  return table.concat({
-    row.text or "",
-    row.tag or "",
-    row.location or "",
-    row.workday_excluded and "1" or "0",
-  }, "\0")
-end
-
 -- The frozen committed value to stamp on each source entry when marking !L. Marking a
 -- row logged merges it with any already-logged row of the same activity, so the new
 -- commitment is the SUM of the two rows' currently displayed durations -- and, because
@@ -45,7 +34,7 @@ local function frozen_values(block, target_rows)
   local logged_by_key = {}
   for _, row in ipairs(rows) do
     if row.logged then
-      logged_by_key[activity_key(row)] = row
+      logged_by_key[summary.activity_identity_key(row)] = row
     end
   end
 
@@ -61,7 +50,7 @@ local function frozen_values(block, target_rows)
       end
 
       if is_target then
-        local existing = logged_by_key[activity_key(row)]
+        local existing = logged_by_key[summary.activity_identity_key(row)]
         local combined = row.duration + (existing and existing.duration or 0)
         for _, source_row in ipairs(row.source_entry_rows or {}) do
           frozen[source_row] = combined
@@ -78,41 +67,15 @@ local function frozen_values(block, target_rows)
   return frozen
 end
 
--- The block's semantic entries with `logged` toggled in memory; support.summary_zone_edit rebuilds
--- the summary from these. On mark, every entry the merge touches (in `frozen` -- the newly
--- logged rows and any already-logged row they absorb) takes the combined value; on unmark the
--- target entries clear both fields so no stale value lingers.
-local function logged_entries(block, target_rows, target_logged, frozen)
-  return support.modified_entries(block, function(copy)
-    if target_logged then
-      if frozen[copy.row] ~= nil then
-        copy.logged = true
-        copy.logged_minutes = frozen[copy.row]
-      end
-    elseif target_rows[copy.row] then
-      copy.logged = false
-      copy.logged_minutes = nil
-    end
-  end)
-end
-
 function M.run(lines, cursor_row)
-  local result, err = summary_cursor.resolve(lines, cursor_row)
+  local result, err = summary_cursor.resolve_or_entry(lines, cursor_row)
   if not result then
-    -- resolve surfaces STALE/AMBIGUOUS directly. On a silent decline -- the cursor is
-    -- not on the active log's summary, or that log is invalid -- surface the
-    -- precise reason (a block diagnostic when present), else the generic stale message.
-    if err then
-      return nil, err
-    end
-
-    local _, validate_err = support.get_validated_active(lines)
-    return nil, validate_err or summary_cursor.STALE
+    return nil, err
   end
 
-  -- Only a main summary row carries loggable source entries; a tag / location /
-  -- logged / total row is not loggable.
-  if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
+  -- Only a main summary row carries loggable source entries; an entry, a tag /
+  -- location / logged / total row, or the cursor on nothing is not loggable.
+  if not result.layout_row or result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
     return nil, summary_cursor.STALE
   end
 
@@ -144,22 +107,24 @@ function M.run(lines, cursor_row)
 
   local frozen = target_logged and frozen_values(block, target_rows) or {}
 
-  local source_edits = support.rewrite_entry_lines(block, function(entry_item)
-    if target_logged then
-      -- `frozen` covers every entry in the merged row: the target entries and any
-      -- already-logged entries absorbed into it, all stamped with the combined total.
-      if frozen[entry_item.start_row] ~= nil then
-        return { logged = true, logged_minutes = frozen[entry_item.start_row] }
-      end
-    elseif target_rows[entry_item.start_row] then
-      return { logged = false }
+  -- One override per affected entry drives both the source-line rewrite and the summary rebuild,
+  -- so they cannot disagree. On mark, every entry the merge touches (`frozen` -- the newly logged
+  -- rows and any already-logged row they absorb) takes the combined committed total; on unmark the
+  -- target entries drop their !L marker (build_intervals nils a non-logged interval's
+  -- logged_minutes, so clearing `logged` alone suffices).
+  local overrides = {}
+  if target_logged then
+    for row, minutes in pairs(frozen) do
+      overrides[row] = { logged = true, logged_minutes = minutes }
     end
-  end)
+  else
+    for row in pairs(target_rows) do
+      overrides[row] = { logged = false }
+    end
+  end
 
-  local modified = logged_entries(block, target_rows, target_logged, frozen)
-  local summary_edit = support.summary_zone_edit(result.ctx.analysis, block, modified, false)
-
-  return { edits = support.entry_change_edits(summary_edit, source_edits) }
+  local edits = support.apply_entry_overrides(result.ctx.analysis, block, overrides)
+  return edits
 end
 
 return M

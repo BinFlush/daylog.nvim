@@ -24,8 +24,12 @@ M.NO_RANGE_ENTRIES = "daylog: no entries in the selection to map"
 -- The target entry rows for the cursor: a main summary row's source entries, or a single
 -- entry under the cursor. Returns ctx, rows, err.
 local function resolve_targets(lines, cursor_row)
-  local result, resolve_err = summary_cursor.resolve(lines, cursor_row)
-  if result then
+  local result, resolve_err = summary_cursor.resolve_or_entry(lines, cursor_row)
+  if not result then
+    return nil, nil, resolve_err or M.NOT_MAPPABLE
+  end
+
+  if result.layout_row then
     if result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
       return nil, nil, M.NOT_MAPPABLE
     end
@@ -45,19 +49,8 @@ local function resolve_targets(lines, cursor_row)
     return result.ctx, rows, nil
   end
 
-  if resolve_err then
-    return nil, nil, resolve_err
-  end
-
-  local ctx, ctx_err = support.get_validated_active(lines)
-  if not ctx then
-    return nil, nil, ctx_err or M.NOT_MAPPABLE
-  end
-
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.start_row == cursor_row then
-      return ctx, { cursor_row }, nil
-    end
+  if result.entry_item then
+    return result.ctx, { result.entry_item.start_row }, nil
   end
 
   return nil, nil, M.NOT_MAPPABLE
@@ -98,37 +91,24 @@ local function first_alias(ctx, rows)
 end
 
 -- Set `alias` (empty clears) on every entry in `rows`, refusing the whole edit if any is
--- logged, then rebuild the one summary. The target set drives both the source-line rewrite
--- and the recomputed projection.
+-- logged. The override map then drives both the source-line rewrite and the rebuilt
+-- projection through support.apply_entry_overrides, so they agree by construction.
 local function apply_alias(ctx, rows, alias)
   local value = entry.sanitize_alias(alias)
 
-  local target = {}
+  local overrides = {}
   for _, row in ipairs(rows) do
-    target[row] = true
+    overrides[row] = { alias = value }
   end
 
   for _, item in ipairs(ctx.block.entry_items) do
-    if target[item.start_row] and item.logged then
+    if overrides[item.start_row] and item.logged then
       return nil, M.REFUSE_LOGGED
     end
   end
 
-  local source_edits = support.rewrite_entry_lines(ctx.block, function(item)
-    if target[item.start_row] then
-      return { alias = value }
-    end
-  end)
-
-  local modified = support.modified_entries(ctx.block, function(copy)
-    if target[copy.row] then
-      copy.alias = value
-    end
-  end)
-
-  local summary_edit = support.summary_zone_edit(ctx.analysis, ctx.block, modified, false)
-
-  return { edits = support.entry_change_edits(summary_edit, source_edits) }
+  local result = support.apply_entry_overrides(ctx.analysis, ctx.block, overrides)
+  return result
 end
 
 -- Validate the cursor is on a mappable target and report the current alias of its first

@@ -12,9 +12,8 @@ local M = {}
 -- buffers). Distinct from the pure daybook.lua, which is only path/date math.
 
 local warn = buffer.warn
-local buffer_lines = buffer.buffer_lines
 local buffer_is_empty = buffer.buffer_is_empty
-local apply_result = buffer.apply_result
+local run_buffer_usecase = buffer.run_buffer_usecase
 
 -- The system's current UTC offset in signed minutes, parsed from os.date("%z")
 -- ("+0200", "-0400", "+0530"). Returns nil when the platform does not report a
@@ -69,15 +68,7 @@ local function resolve_log_defaults(defaults)
 end
 
 local function apply_new_log(defaults)
-  local lines = buffer_lines()
-  local result, err = new_log.run(lines, resolve_log_defaults(defaults))
-  if not result then
-    warn(err)
-    return false
-  end
-
-  apply_result(result)
-  return true
+  return run_buffer_usecase(new_log.run, resolve_log_defaults(defaults))
 end
 
 -- A loaded, file-backed buffer whose name resolves to `path`, or nil. Report
@@ -118,17 +109,8 @@ end
 -- True when a daybook day already holds log content, considering a loaded
 -- (possibly unsaved) buffer before falling back to the file on disk.
 local function daybook_path_has_content(path)
-  local buf = loaded_buffer_for_path(path)
-  if buf then
-    return not text.is_empty(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
-  end
-
-  if vim.fn.filereadable(path) == 0 then
-    return false
-  end
-
-  -- Match the loaded-buffer branch: a whitespace-only file is empty, not content.
-  return not text.is_empty(vim.fn.readfile(path))
+  local lines = daybook_lines(path)
+  return lines ~= nil and not text.is_empty(lines)
 end
 
 -- Every daybook day that actually holds a daylog: dated `.day` files under the

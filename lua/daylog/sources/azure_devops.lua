@@ -18,6 +18,8 @@ local MAX_ITEMS = 200
 -- watching are not queryable). Shared by the default fetch and the live search, so both
 -- stay scoped to your work.
 local INVOLVES_ME = "([System.AssignedTo] = @Me OR [System.CreatedBy] = @Me)"
+local STATE_OPEN = "[System.State] <> 'Closed' AND [System.State] <> 'Removed'"
+local ORDER_NEWEST = "ORDER BY [System.ChangedDate] DESC, [System.Id] DESC"
 
 local function encode_segment(segment)
   return (
@@ -62,11 +64,11 @@ function M.new(_name, cfg, deps)
   local default_wiql = table.concat({
     "SELECT [System.Id] FROM WorkItems",
     "WHERE " .. INVOLVES_ME,
-    "AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'",
+    "AND " .. STATE_OPEN,
     "AND [System.ChangedDate] >= @Today - 30" .. project_filter,
     -- Id is a tiebreaker so the 200-item cap is deterministic when several items
     -- (possibly from different projects) share a ChangedDate.
-    "ORDER BY [System.ChangedDate] DESC, [System.Id] DESC",
+    ORDER_NEWEST,
   }, " ")
 
   local source = {}
@@ -142,6 +144,17 @@ function M.new(_name, cfg, deps)
     end)
   end
 
+  -- The WIQL POST request for a query string, shared by fetch (default / raw query) and search.
+  local function wiql_post(auth, query)
+    return {
+      method = "POST",
+      url = string.format("%s/wiql?api-version=%s", base, api_version),
+      auth = auth,
+      headers = { ["Content-Type"] = "application/json" },
+      body = json.encode({ query = query }),
+    }
+  end
+
   -- Resolve the token, run a WIQL request built by `build_request(auth)`, then
   -- hydrate the matching ids into items. Shared by fetch and search.
   local function collect(cb, build_request)
@@ -198,13 +211,7 @@ function M.new(_name, cfg, deps)
         }
       end
 
-      return {
-        method = "POST",
-        url = string.format("%s/wiql?api-version=%s", base, api_version),
-        auth = auth,
-        headers = { ["Content-Type"] = "application/json" },
-        body = json.encode({ query = cfg.query or default_wiql }),
-      }
+      return wiql_post(auth, cfg.query or default_wiql)
     end)
   end
 
@@ -218,21 +225,17 @@ function M.new(_name, cfg, deps)
         .. "WHERE [System.Title] CONTAINS WORDS '%s' "
         .. "AND "
         .. INVOLVES_ME
-        .. " AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'"
+        .. " AND "
+        .. STATE_OPEN
         .. "%s"
-        .. " ORDER BY [System.ChangedDate] DESC, [System.Id] DESC",
+        .. " "
+        .. ORDER_NEWEST,
       escaped,
       project_filter
     )
 
     collect(cb, function(auth)
-      return {
-        method = "POST",
-        url = string.format("%s/wiql?api-version=%s", base, api_version),
-        auth = auth,
-        headers = { ["Content-Type"] = "application/json" },
-        body = json.encode({ query = wiql }),
-      }
+      return wiql_post(auth, wiql)
     end)
   end
 

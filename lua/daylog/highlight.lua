@@ -143,15 +143,7 @@ end
 -- summary rows, so a run the parser rejects is never reached.
 local function push_trailing_metadata(spans, row, line)
   local tokens = document.tokens(line)
-
-  local first = #tokens + 1
-  for i = #tokens, 1, -1 do
-    if control_group(tokens[i].text) then
-      first = i
-    else
-      break
-    end
-  end
+  local first = document.trailing_metadata_start(tokens)
 
   for i = first, #tokens do
     push(
@@ -250,14 +242,14 @@ end
 
 -- Pure: the active log's line span (body + summary), for the margin indicator. The
 -- active log is the last one (analyze.get_active_log); being last, it runs to EOF.
--- Returns nil when there's no log. log_count gates the indicator to >= 2 logs.
+-- Returns nil when there's no log.
 function M.active_region(lines)
   local analysis = analyze.analyze(document.parse(lines))
   local active = analyze.get_active_log(analysis)
   if not active then
     return nil
   end
-  return { start_row = active.start_row, end_row = #lines, log_count = #analysis.log_blocks }
+  return { start_row = active.start_row, end_row = #lines }
 end
 
 return M

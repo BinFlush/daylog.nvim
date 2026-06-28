@@ -106,6 +106,16 @@ local function parse_log_tokens(text)
   return result
 end
 
+-- At most one trailing token of each kind is allowed; a second of the same kind is the one
+-- rule, with this per-kind message. Keyed by syntax.TOKEN_KIND.
+local DUPLICATE_METADATA = {
+  [syntax.TOKEN_KIND.TAG] = "multiple trailing tags are not allowed",
+  [syntax.TOKEN_KIND.LOCATION] = "multiple trailing locations are not allowed",
+  [syntax.TOKEN_KIND.OFFSET] = "multiple trailing utc offsets are not allowed",
+  [syntax.TOKEN_KIND.NUDGE] = "multiple trailing round markers are not allowed",
+  [syntax.TOKEN_KIND.LOGGED] = "duplicate trailing !L markers are not allowed",
+}
+
 local function parse_entry_metadata(text)
   local tokens = {}
   local result = {
@@ -119,12 +129,6 @@ local function parse_entry_metadata(text)
     logged = nil,
     logged_minutes = nil,
   }
-  local has_tag = false
-  local has_location = false
-  local has_offset = false
-  local has_nudge = false
-  local has_logged = false
-
   if text == "" then
     return result
   end
@@ -145,45 +149,26 @@ local function parse_entry_metadata(text)
     split_index = split_index - 1
   end
 
+  local seen = {}
   for i = split_index + 1, #tokens do
     local kind, value, clear = parse_entry_control_token(tokens[i])
 
-    if kind == syntax.TOKEN_KIND.TAG then
-      if has_tag then
-        return nil, "multiple trailing tags are not allowed"
-      end
+    if seen[kind] then
+      return nil, DUPLICATE_METADATA[kind]
+    end
+    seen[kind] = true
 
-      has_tag = true
+    if kind == syntax.TOKEN_KIND.TAG then
       result.explicit_tag = value
       result.explicit_tag_clear = clear or nil
     elseif kind == syntax.TOKEN_KIND.LOCATION then
-      if has_location then
-        return nil, "multiple trailing locations are not allowed"
-      end
-
-      has_location = true
       result.explicit_location = value
       result.explicit_location_clear = clear or nil
     elseif kind == syntax.TOKEN_KIND.OFFSET then
-      if has_offset then
-        return nil, "multiple trailing utc offsets are not allowed"
-      end
-
-      has_offset = true
       result.explicit_offset = value
     elseif kind == syntax.TOKEN_KIND.NUDGE then
-      if has_nudge then
-        return nil, "multiple trailing round markers are not allowed"
-      end
-
-      has_nudge = true
       result.nudge = value
     elseif kind == syntax.TOKEN_KIND.LOGGED then
-      if has_logged then
-        return nil, "duplicate trailing !L markers are not allowed"
-      end
-
-      has_logged = true
       result.logged = true
       result.logged_minutes = value
     end
@@ -374,6 +359,22 @@ function M.tokens(line)
   return result
 end
 
+-- The 1-based index where a line's trailing run of metadata tokens (#tag / @location / utc /
+-- round / !L, any order) begins, scanning backward over `tokens` (from M.tokens); #tokens + 1
+-- when the line ends in no metadata. The parser peels this run off the end and the highlighter
+-- colors it -- one definition of where the trailing metadata starts, for both.
+function M.trailing_metadata_start(tokens)
+  local start = #tokens + 1
+  for i = #tokens, 1, -1 do
+    if parse_entry_control_token(tokens[i].text) then
+      start = i
+    else
+      break
+    end
+  end
+  return start
+end
+
 -- The byte span of an entry's ` => label` alias -- from the `=>` token through the last
 -- label word, excluding the trailing metadata run that follows it -- as 0-based
 -- { col_start, col_end } (end exclusive), or nil when the line has no alias. Mirrors the
@@ -383,14 +384,7 @@ function M.alias_span(line)
   local tokens = M.tokens(line)
 
   -- The trailing run of metadata tokens is not part of the alias.
-  local last_label = #tokens
-  for i = #tokens, 1, -1 do
-    if parse_entry_control_token(tokens[i].text) then
-      last_label = i - 1
-    else
-      break
-    end
-  end
+  local last_label = M.trailing_metadata_start(tokens) - 1
 
   -- The alias opens at the last `=>` token at or before the final label word.
   local arrow
