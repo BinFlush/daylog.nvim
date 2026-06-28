@@ -123,7 +123,7 @@ function M.offset_date(now, offset_days)
   return midday_time(anchor.year, anchor.month, anchor.day + offset)
 end
 
--- Named-date tokens usable wherever a range bound goes (:DaylogDays). A weekday resolves
+-- Named-date tokens usable wherever a range bound goes (:Daylog report). A weekday resolves
 -- to its most recent occurrence on or before today (latest match): `friday` on a Friday is
 -- today, and a weekday later in the week than today is last week's. Case-insensitive, full
 -- names and 3-letter abbreviations.
@@ -144,8 +144,11 @@ local WEEKDAYS = {
   sun = 7,
 }
 
--- Resolve a date token to a midday timestamp, or nil when it is neither a known name nor a
--- valid `YYYY-MM-DD` literal.
+-- Resolve a date token to a midday timestamp, or nil when it is none of: a known name
+-- (`today` / `yesterday` / `tomorrow` / a weekday), a SIGNED relative day offset (`+N` / `-N`),
+-- or a `YYYY-MM-DD` literal. A bare (unsigned) number is deliberately NOT an offset -- it is a
+-- day count in the report grammar -- so the one vocabulary stays unambiguous across navigation
+-- and reports.
 function M.resolve_date(token, now)
   if type(token) ~= "string" then
     return nil
@@ -156,11 +159,17 @@ function M.resolve_date(token, now)
     return M.offset_date(now, 0)
   elseif key == "yesterday" then
     return M.offset_date(now, -1)
+  elseif key == "tomorrow" then
+    return M.offset_date(now, 1)
   end
 
   local weekday = WEEKDAYS[key]
   if weekday then
     return M.offset_date(now, -((iso_weekday(now) - weekday) % 7))
+  end
+
+  if token:match("^[+-]%d+$") then
+    return M.offset_date(now, tonumber(token))
   end
 
   return M.parse_date(token)

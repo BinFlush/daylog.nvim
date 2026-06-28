@@ -53,39 +53,44 @@ Restart Neovim and run `:Lazy sync`. Everything is optional — see
 [Configuration](#configuration) or `:help daylog-config`. Needs Neovim 0.8+ (and
 `curl`, only if you use external [sources](#sources)).
 
-Daylog sets no keymaps; map the commands you use. The examples use a `<leader>d`
-prefix for the mnemonic, but it often collides with buffer maps — swap in whatever
-prefix is free in your config:
+Daylog binds nothing by default. The quickest start is the built-in set:
 
 ```lua
--- global
-vim.keymap.set("n", "<leader>dt", "<cmd>DaylogToday<cr>",   { desc = "Daylog: today" })
-vim.keymap.set("n", "<leader>di", "<cmd>DaylogInsert<cr>",     { desc = "Daylog: insert time" })
-vim.keymap.set("n", "<leader>dI", "<cmd>DaylogInsert!<cr>",    { desc = "Daylog: what to log" })
-vim.keymap.set("n", "<leader>dw", "<cmd>DaylogDays monday..<cr>", { desc = "Daylog: week report" })
-vim.keymap.set("n", "<leader>dc", "<cmd>DaylogCopy<cr>",    { desc = "Daylog: copy block" })
-vim.keymap.set("n", "<leader>do", "<cmd>DaylogOrder<cr>",   { desc = "Daylog: order entries" })
-vim.keymap.set("n", "<leader>df", "<cmd>DaylogRefresh<cr>", { desc = "Daylog: refresh summaries" })
-vim.keymap.set("n", "]d",         "<cmd>DaylogNextDay<cr>", { desc = "Daylog: next day" })
-vim.keymap.set("n", "[d",         "<cmd>DaylogPrevDay<cr>", { desc = "Daylog: prev day" })
+require("daylog").setup({ keymaps = true })
+```
+
+That applies, buffer-locally in `.day` files: `]d` / `[d` to step between days, and a
+`<localleader>` cluster — `i` insert, `I` what-to-log, `r` repeat, `n` new, `c` copy,
+`o` order, `l` toggle-logged, `R` refresh. Pass a `{ lhs = rhs }` table instead to
+choose your own keys.
+
+Prefer to wire keys yourself? Every verb is a `<Plug>(daylog-*)` mapping (and a
+`require("daylog").<verb>()` function):
+
+```lua
+vim.keymap.set("n", "<leader>dt", "<Plug>(daylog-today)",       { desc = "Daylog: today" })
+vim.keymap.set("n", "<leader>di", "<Plug>(daylog-insert)",      { desc = "Daylog: insert time" })
+vim.keymap.set("n", "<leader>dI", "<Plug>(daylog-insert-pick)", { desc = "Daylog: what to log" })
+vim.keymap.set("n", "]d",         "<Plug>(daylog-next-day)",    { desc = "Daylog: next day" })
+vim.keymap.set("n", "[d",         "<Plug>(daylog-prev-day)",    { desc = "Daylog: prev day" })
 
 -- with the cursor on a summary row or an entry
-vim.keymap.set("n", "<leader>dr", "<cmd>DaylogRepeat<cr>",     { desc = "Daylog: repeat activity" })
-vim.keymap.set("n", "<leader>dR", "<cmd>DaylogRename<cr>",     { desc = "Daylog: rename" })
-vim.keymap.set("n", "<leader>dm", "<cmd>DaylogMap<cr>",        { desc = "Daylog: map to label" })
-vim.keymap.set("n", "<leader>ds", "<cmd>DaylogSplit<cr>",      { desc = "Daylog: split activity" })
-vim.keymap.set("n", "<leader>dl", "<cmd>DaylogLog<cr>",        { desc = "Daylog: toggle logged" })
-vim.keymap.set("n", "<leader>d+", "<cmd>DaylogBalance +1<cr>", { desc = "Daylog: round up a step" })
-vim.keymap.set("n", "<leader>d-", "<cmd>DaylogBalance -1<cr>", { desc = "Daylog: round down a step" })
+vim.keymap.set("n", "<leader>dr", "<Plug>(daylog-repeat)",       { desc = "Daylog: repeat activity" })
+vim.keymap.set("n", "<leader>dm", "<Plug>(daylog-map)",          { desc = "Daylog: map to label" })
+vim.keymap.set("n", "<leader>d+", "<Plug>(daylog-balance-up)",   { desc = "Daylog: round up a step" })
+vim.keymap.set("n", "<leader>d-", "<Plug>(daylog-balance-down)", { desc = "Daylog: round down a step" })
 
--- visual mode: map every entry in the selection at once. The `:` inserts the `'<,'>`
--- range, so this must be ":DaylogMap<cr>" (a "<cmd>DaylogMap<cr>" map would pass no range).
-vim.keymap.set("x", "<leader>dm", ":DaylogMap<cr>",           { desc = "Daylog: map selection" })
+-- visual mode maps every entry in the selection at once; the `:` inserts the `'<,'>`
+-- range, so map the command form (a `<Plug>`/`<cmd>` map would pass no range).
+vim.keymap.set("x", "<leader>dm", ":Daylog map<cr>",            { desc = "Daylog: map selection" })
 ```
+
+The argument-taking verbs stay typed commands: `:Daylog report monday..` for the
+week, `:Daylog day -1` to backfill yesterday.
 
 ## A typical day
 
-**Start the day — `:DaylogToday`.** Opens (or creates) today's file, stamps the
+**Start the day — `:Daylog today`.** Opens (or creates) today's file, stamps the
 time, and drops you into insert mode. Type what you're starting on:
 
 ```text
@@ -93,7 +98,7 @@ time, and drops you into insert mode. Type what you're starting on:
 09:00 planning
 ```
 
-**Switch tasks — `:DaylogInsert`.** Stamps the current time on a new line for the
+**Switch tasks — `:Daylog insert`.** Stamps the current time on a new line for the
 next task. You never type durations; the gap between two lines is how long the
 first one took.
 
@@ -103,20 +108,20 @@ first one took.
 10:30 fixing the login bug
 ```
 
-**Repeat something — `:DaylogRepeat`.** Put the cursor on an earlier entry (or on
+**Repeat something — `:Daylog repeat`.** Put the cursor on an earlier entry (or on
 its main summary row) and run it to copy that activity to now — handy for recurring
 work like a standup or a client call.
 
 **Stop the clock.** The last timestamp just closes the task before it, so end the
-day with `:DaylogInsert` and type `done`.
+day with `:Daylog insert` and type `done`.
 
-**Mark what you've reported — `:DaylogLog`.** Once you've entered a block of time
+**Mark what you've reported — `:Daylog log`.** Once you've entered a block of time
 into another system, put the cursor on its summary row and run it. Daylog marks
 the underlying entries with `!L` so you can see what's already logged; run it again
 to unmark.
 
-**Review — `:DaylogDays`.** A read-only multi-day report — `:DaylogDays monday..`
-for the week, `:DaylogDays 7` for the last seven days, or any date range. It stays
+**Review — `:Daylog report`.** A read-only multi-day report — `:Daylog report monday..`
+for the week, `:Daylog report 7` for the last seven days, or any date range. It stays
 live as you edit the days it covers.
 
 In short: open today, `Insert` / `Repeat` as you work, watch the live summary,
@@ -145,36 +150,37 @@ the `!L` marker, the `=> alias` report label, the `d=hm` duration format) is in
 
 | Command | Effect |
 | --- | --- |
-| `:DaylogToday [offset]` | Open today's daylog (creating it on first use); a nonzero offset only navigates |
-| `:DaylogNextDay` / `:DaylogPrevDay [count]` | Step between days |
-| `:DaylogInsert[!] [source]` | Stamp the current time; with a source name, pick one of its work items; with `!`, a unified fuzzy picker of your recent activities + every source's items (see [Sources](#sources)) |
-| `:DaylogRepeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
-| `:DaylogDays[!] {range}` | Open a multi-day report — a count, a date range, or named tokens like `monday..` (`!` for totals only) |
-| `:DaylogLog` | Toggle the logged (`!L`) state of the summary row under the cursor |
-| `:DaylogBalance [steps]` | Nudge the rounding of the summary row (or entry) under the cursor by ±N q-steps to land a residual (`0` clears) |
-| `:DaylogRename [name\|source]` | Rename the entry's text, or a `#tag`/`@location`, under the cursor (an entry opens the unified picker; tag/location merge into an existing one). Not for activity summary rows — use `:DaylogMap` to relabel an activity for the report |
-| `:[range]DaylogMap[!] [label\|source]` | Map the entry, every entry of a summary row, or every entry in a visual selection, to a report label (`=> alias`) — your text stays, the summary reads canonically; `!` clears it, or name a source to map onto a work item |
-| `:DaylogSplit [w1 w2 …]` | Split the activity on the summary row under the cursor into weighted sub-activities (`foo (1)`, `foo (2)`, …), preserving its total time |
-| `:DaylogCopy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |
-| `:DaylogOrder` | Rewrite the log in chronological order |
-| `:DaylogRefresh` | Rebuild every summary to match its entries |
-| `:DaylogSync [source]` | Refresh a source's cached work items |
+| `:Daylog` / `:Daylog today` | Open today's daylog, creating and stamping it on first use |
+| `:Daylog day [when]` | Open/create a specific day (no time stamp) — `monday`, `-1`, `+2`, `2026-05-10` |
+| `:Daylog next` / `:Daylog prev [count]` | Step between days |
+| `:Daylog insert[!] [source]` | Stamp the current time; with a source name, pick one of its work items; with `!`, a unified fuzzy picker of your recent activities + every source's items (see [Sources](#sources)) |
+| `:Daylog repeat` | Repeat the activity under the cursor (an entry or its main summary row) at the current time |
+| `:Daylog report[!] {range}` | Open a multi-day report — a count, a date range, or named tokens like `monday..` (`!` for totals only) |
+| `:Daylog log` | Toggle the logged (`!L`) state of the summary row under the cursor |
+| `:Daylog balance [steps]` | Nudge the rounding of the summary row (or entry) under the cursor by ±N q-steps to land a residual (`0` clears) |
+| `:Daylog rename [name\|source]` | Rename the entry's text, or a `#tag`/`@location`, under the cursor (an entry opens the unified picker; tag/location merge into an existing one). Not for activity summary rows — use `:Daylog map` to relabel an activity for the report |
+| `:[range]Daylog[!] map [label\|source]` | Map the entry, every entry of a summary row, or every entry in a visual selection, to a report label (`=> alias`) — your text stays, the summary reads canonically; `!` clears it, or name a source to map onto a work item |
+| `:Daylog split [w1 w2 …]` | Split the activity on the summary row under the cursor into weighted sub-activities (`foo (1)`, `foo (2)`, …), preserving its total time |
+| `:Daylog copy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |
+| `:Daylog order` | Rewrite the log in chronological order |
+| `:Daylog refresh` | Rebuild every summary to match its entries |
+| `:Daylog sync [source]` | Refresh a source's cached work items |
 
 The exact rules for each are in `:help daylog-commands`.
 
 ## Reports and live summaries
 
-`:DaylogToday` and `:DaylogCopy` start a log with its summary attached, and
+`:Daylog today` and `:Daylog copy` start a log with its summary attached, and
 by default it stays live as you type (`auto_summary = "change"`). The same setting
-keeps open `:DaylogDays` reports current. Prefer to refresh by
-hand? Set `auto_summary = "off"` and use `:DaylogRefresh`. More in
+keeps open `:Daylog report` reports current. Prefer to refresh by
+hand? Set `auto_summary = "off"` and use `:Daylog refresh`. More in
 `:help daylog-summaries`.
 
 ## Sources
 
 Pull work items straight from a tracker into an entry. **Azure DevOps** is built
-in: configure a named source, then `:DaylogInsert <name>` opens a picker and
-inserts the chosen item as `{id} {title}`. Or `:DaylogInsert!` opens one fuzzy
+in: configure a named source, then `:Daylog insert <name>` opens a picker and
+inserts the chosen item as `{id} {title}`. Or `:Daylog! insert` opens one fuzzy
 list pooling every source's items together with your recent activities, ranked by
 what you actually work on.
 
@@ -193,7 +199,7 @@ require("daylog").setup({
 })
 ```
 
-Picking is offline and instant — it reads a local cache, and only `:DaylogSync`
+Picking is offline and instant — it reads a local cache, and only `:Daylog sync`
 touches the network. With Telescope you get a fuzzy picker over the cache;
 otherwise `vim.ui.select`, so fzf-lua / snacks / mini.pick work too. Live
 as-you-type search of the whole tracker is opt-in — set `search = true` on the
@@ -219,7 +225,7 @@ require("daylog").setup({
 ```
 
 Everything is optional. `defaults` seed each new day's header; `daybook.root` is
-where `:DaylogToday` and the reports look (files are always `YYYY-MM-DD.day`).
+where `:Daylog today` and the reports look (files are always `YYYY-MM-DD.day`).
 `auto_timezone` (on by default) records the UTC offset so a clock change while you
 work — DST or travel — never skews a duration; `:help daylog-auto-timezone`. Full
 reference: `:help daylog-config`.

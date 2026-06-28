@@ -80,7 +80,7 @@ return function(t)
     )
 
     with_mocked_time(week_time, function()
-      vim.cmd("DaylogDays 2026-05-18..2026-05-20")
+      vim.cmd("Daylog report 2026-05-18..2026-05-20")
     end)
 
     return p1, p2
@@ -100,7 +100,7 @@ return function(t)
     end
   end
 
-  t.test("rename refuses an activity row in a report -- :DaylogMap relabels it", function()
+  t.test("rename refuses an activity row in a report -- :Daylog map relabels it", function()
     vim.g._entry_root = vim.fn.tempname()
 
     with_daylog_setup({
@@ -109,11 +109,11 @@ return function(t)
       local p1, p2 = open_report()
 
       -- Both an aggregate row and a per-day row of an activity refuse, leaving every file
-      -- untouched (rename a single entry, or :DaylogMap, to act on an activity).
+      -- untouched (rename a single entry, or :Daylog map, to act on an activity).
       for _, aggregate in ipairs({ true, false }) do
         vim.api.nvim_win_set_cursor(0, { activity_row("implementation", aggregate), 0 })
         with_captured_notify(function(messages)
-          vim.cmd("DaylogRename coding")
+          vim.cmd("Daylog rename coding")
           t.ok(#messages == 1 and messages[1].message:match("^daylog:"), "one daylog warning")
         end)
       end
@@ -136,7 +136,7 @@ return function(t)
       vim.api.nvim_win_set_cursor(0, { row, 0 })
 
       with_mocked_confirm(1, function()
-        vim.cmd("DaylogRename ClientB")
+        vim.cmd("Daylog rename ClientB")
       end)
 
       -- A tag is a single unambiguous token, so a cross-day rename applies to it.
@@ -158,7 +158,7 @@ return function(t)
       vim.api.nvim_win_set_cursor(0, { 1, 0 })
 
       with_captured_notify(function(messages)
-        vim.cmd("DaylogRename coding")
+        vim.cmd("Daylog rename coding")
         t.ok(#messages == 1, "one warning")
         t.ok(messages[1].message:match("^daylog:"), "log-prefixed warning")
       end)

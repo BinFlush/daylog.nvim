@@ -74,7 +74,7 @@ end
 -- Scaffold a fresh log into the current buffer on demand, using the configured header defaults:
 -- an empty/whitespace buffer is initialized in place, otherwise a new log block is appended as
 -- the active log (see new_log.run), the cursor landing on the new header. The on-demand twin of
--- the empty-day auto-init below; reached through :DaylogNew.
+-- the empty-day auto-init below; reached through :Daylog new.
 function M.insert_new_log()
   return apply_new_log(config.get().defaults)
 end

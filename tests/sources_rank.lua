@@ -151,7 +151,7 @@ return function(t)
     t.eq(ids(out), { "logged", "fresh" })
   end)
 
-  t.test("with no worklog signal, active leads done and newer-updated leads", function()
+  t.test("with no daylog signal, active leads done and newer-updated leads", function()
     local items = {
       { id = "done", active = false, updated = "2026-06-01" },
       { id = "open_old", active = true, updated = "2026-01-01" },

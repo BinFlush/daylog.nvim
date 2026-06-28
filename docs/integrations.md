@@ -12,7 +12,7 @@ See also `docs/architecture.md` (the overall pure-core / thin-shell design) and
 
 **Sources fetch; the core ranks.** A source returns *your relevant work* as a flat list of
 items; daylog caches it on disk, fuzzy-filters it client-side at pick time, and (the design
-goal) ranks it by your own worklog. The network is quarantined to a periodic sync, so picking
+goal) ranks it by your own daylog. The network is quarantined to a periodic sync, so picking
 is offline and instant.
 
 ## The contract
@@ -37,7 +37,7 @@ A source is a plain table that never touches the Neovim API:
 
 | field | req | meaning |
 |---|---|---|
-| `id` | ✓ | Stable id. The cache-dedup key **and** the worklog-ranking key. |
+| `id` | ✓ | Stable id. The cache-dedup key **and** the daylog-ranking key. |
 | `title` | ✓ | Display + the seed for `to_entry_text`. |
 | `type?` | | e.g. `Bug`/`Task`/`Story`. Some trackers (GitHub, Linear) have none. |
 | `state?` | | Raw status name — display only. |
@@ -99,7 +99,7 @@ Reference queries:
   its closest net — Linear's caps at assigned+created).
 - **Container optional everywhere.** All four support org-wide queries, so this is a general
   capability, not an ADO patch.
-- **The core ranks by your worklog.** Frecency keyed on the universal `id` needs zero source
+- **The core ranks by your daylog.** Frecency keyed on the universal `id` needs zero source
   cooperation and is the one truly cross-source relevance signal — so it lives in the core,
   not in any source.
 - **Offline-first, reinforced by the APIs themselves.** GitHub's 1000+30/min, Jira's
@@ -116,7 +116,7 @@ container-optional) and the **item shape**, never the query mechanism.
 ## Roadmap
 
 - [x] **Lock the contract** — item shape (`active`, `updated`), fetch conventions, this record.
-- [x] **Core worklog-frecency ranker** — `lua/daylog/sources/rank.lua` (pure) scores the cached
+- [x] **Core daylog-frecency ranker** — `lua/daylog/sources/rank.lua` (pure) scores the cached
   set by a **standard Mozilla-style frecency** over your recent daylogs: each logged entry is a
   "visit", and an activity scores its total visit count times the average recency weight
   (100/70/50/30/10 by 4/14/31/90 days) of its most recent (≤10) visits — folding recency and

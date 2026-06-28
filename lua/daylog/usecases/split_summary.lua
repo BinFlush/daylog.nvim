@@ -16,7 +16,7 @@ local M = {}
 -- (each interval sums to its own length while each sub-activity's total tracks its
 -- weighted share) lives in split.lua; this use case turns that into entry edits and a
 -- rebuilt summary, sharing the cursor-resolution and summary-rebuild patterns with
--- :DaylogLog. A logged activity is frozen against an external system and cannot be split.
+-- :Daylog log. A logged activity is frozen against an external system and cannot be split.
 
 M.REFUSE_LOGGED = "daylog: refusing to split a logged activity"
 M.REFUSE_OFFSET =

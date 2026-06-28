@@ -47,7 +47,7 @@ local rename_from_report
 -- `source_name`, when given, replaces an activity with a work item from that
 -- source: the picker also lists (and live-searches) the source's items, and a
 -- chosen item renames the activity to its `to_entry_text` (sanitized), exactly like
--- :DaylogInsert. A source only applies to an activity row, and with one source
+-- :Daylog insert. A source only applies to an activity row, and with one source
 -- configured it is offered automatically.
 function M.summary(new_value, source_name)
   -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
@@ -92,7 +92,7 @@ function M.summary(new_value, source_name)
   end
 
   -- A named source replaces an activity with one of its work items, scoped to that source and
-  -- live-searchable (`search = true`) -- exactly like :DaylogInsert <source>. It only applies to
+  -- live-searchable (`search = true`) -- exactly like :Daylog insert <source>. It only applies to
   -- an activity row; on a tag/location it is reported, then the normal merge picker opens.
   if source_name then
     local source = sources_registry.get(source_name)
@@ -128,7 +128,7 @@ function M.summary(new_value, source_name)
     type_new_label = "✎ Type a new name…",
   }
 
-  -- An activity renames into the same unified pool as :DaylogInsert! -- recent logged activities
+  -- An activity renames into the same unified pool as :Daylog! insert -- recent logged activities
   -- across days plus every source's items, ranked and deduped. A tag/location has no pool, so it
   -- offers the other same-kind totals (the in-summary merge targets).
   if target.kind == "item" then

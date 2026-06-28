@@ -66,7 +66,7 @@ end
 -- summary item's `source_entry_rows` -- yet it still carries an activity identity. Return its row
 -- when it WOULD group into `item` were another entry to follow it: same resolved text, tag, #ooo
 -- exclusion, and logged state that `build_intervals`/`summarize_items` key on. Lets identity edits
--- (:DaylogMap / :DaylogRename) reach a same-activity entry that currently happens to close the log.
+-- (:Daylog map / :Daylog rename) reach a same-activity entry that currently happens to close the log.
 -- Returns nil when there is no entry or it does not match. `entries` is the block's `entries` list
 -- (its `.row` equals the entry item's `start_row`, the coordinate the target sets use).
 function M.closing_entry_row_for(entries, item)
@@ -384,7 +384,7 @@ end
 -- The activity-identity key of a fine-grained row or interval, EXCLUDING its logged state:
 -- the resolved text, tag, location, and #ooo exclusion that decide which fine-grained row an
 -- interval folds into. Logged is deliberately omitted, so an about-to-be-logged row finds the
--- already-logged row of the same activity it will merge with (:DaylogLog), and a logged-value
+-- already-logged row of the same activity it will merge with (:Daylog log), and a logged-value
 -- conflict scan groups across the logged/unlogged divide. One definition keeps the merge key
 -- and the conflict key from drifting. (Distinct from the summary-item key, which carries
 -- logged but not location.) PURE.
@@ -398,7 +398,7 @@ function M.activity_identity_key(row)
 end
 
 -- Every logged interval that folds into one fine-grained row must carry the same
--- frozen value: :DaylogLog writes the row's committed total onto each contributing
+-- frozen value: :Daylog log writes the row's committed total onto each contributing
 -- entry. The fold (build_fine_grained_rows) keeps logged_minutes as a first-seen
 -- field, so disagreeing values -- from a hand edit or a partial operation -- would be
 -- silently collapsed to one. This finds every such row instead, keyed by

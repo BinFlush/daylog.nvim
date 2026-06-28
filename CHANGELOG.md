@@ -24,27 +24,43 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
-- **`:DaylogNew` scaffolds a fresh log into the current buffer.** It writes a new `--- log ---`
+- **`:Daylog new` scaffolds a fresh log into the current buffer.** It writes a new `--- log ---`
   header (from your configured `defaults`) in place when the buffer is empty, or appends it as a
   new active log after existing content, with the cursor on the new header. It writes only the
   header -- no entries, no summary -- so starting a new daylog no longer needs a copy/pasted
-  header or a `:DaylogCopy`-then-delete; begin logging with `:DaylogInsert`.
+  header or a `:Daylog copy`-then-delete; begin logging with `:Daylog insert`.
+
+### Changed
+
+- **All commands are now one `:Daylog <verb>` command (breaking).** The 17 `:Daylog*` commands
+  are replaced by a single `:Daylog` with verb completion: `:DaylogToday` -> `:Daylog` /
+  `:Daylog today`, `:DaylogInsert` -> `:Daylog insert`, `:DaylogDays` -> `:Daylog report`,
+  `:DaylogNextDay` / `:DaylogPrevDay` -> `:Daylog next` / `:Daylog prev`, and so on; `:DaylogInit`
+  and `:DaylogToday`'s offset both fold into `:Daylog day <when>`. A bang selects a verb's
+  variant (`:Daylog! insert` / `map` / `report`) and a bare `:Daylog` opens today. Update your
+  config and any mappings.
+- **One date vocabulary everywhere.** `:Daylog day` and `:Daylog report` bounds share the same
+  tokens -- `today` / `yesterday` / `tomorrow`, weekday names, signed `+N` / `-N` offsets, and
+  `YYYY-MM-DD` -- so `:Daylog day monday` and `:Daylog report -7..today` both work.
+- **A Lua API and `<Plug>` mappings.** Every verb is a `require("daylog").<verb>()` function and
+  a `<Plug>(daylog-*)` mapping; `setup({ keymaps = true })` applies an opt-in, buffer-local
+  default key set (`]d` / `[d` plus a `<localleader>` cluster), or pass a `{ lhs = rhs }` table.
 
 ### Fixed
 
-- **`:DaylogBalance` no longer over-rounds an entry below zero.** Running a round-down on an
+- **`:Daylog balance` no longer over-rounds an entry below zero.** Running a round-down on an
   entry directly (cursor on the `HH:MM` line) ignored the floor the summary-row path already
-  enforces, so e.g. `:DaylogBalance -50` on a one-hour activity wrote a bogus `round-50`
+  enforces, so e.g. `:Daylog balance -50` on a one-hour activity wrote a bogus `round-50`
   marker and rendered the row as `0.00h (+60m)`. The entry path now refuses with the same
   "cannot round down further" message once a step would take the displayed duration below
-  zero, matching `:DaylogBalance` on a summary row.
+  zero, matching `:Daylog balance` on a summary row.
 - **An out-of-range `round±N` marker now raises a diagnostic.** A `round-N` typed by hand (or
   left stale by an edit that shrank the activity) large enough to round an item below zero was
   honored silently — the row rendered `0.00h` with the marker intact. Refresh now flags it
   (`daylog: round-N rounds this item below zero; clear or reduce the nudge`) at the offending
   entry so the undefined marker is surfaced and corrected; the summary still renders the
   clamped row.
-- **`:DaylogSplit` gives a clearer error off an activity row.** With the cursor on an entry or
+- **`:Daylog split` gives a clearer error off an activity row.** With the cursor on an entry or
   a totals row it reported the misleading "summary row does not match the active log;
   regenerate the summary"; it now says to put the cursor on an activity summary row, reserving
   the regenerate message for a genuine summary/log mismatch.
@@ -69,8 +85,8 @@ happen, but they are called out clearly in this changelog.
   generated-row predicate accepted an optional sign, so a hand-written note like `lunch (5m)
   break` sitting just above the summary could be swept as generated debris on a refresh.
   Generated rows always sign the marker, so the sign is now required.
-- **`:DaylogOrder` rebuilds each reordered log's summary.** Reordering changes the intervals,
-  and so the durations, so `:DaylogOrder` now regenerates each affected log's existing summary
+- **`:Daylog order` rebuilds each reordered log's summary.** Reordering changes the intervals,
+  and so the durations, so `:Daylog order` now regenerates each affected log's existing summary
   from the sorted entries in the same edit — instant and independent of `auto_summary`, like
   the other editing commands — instead of leaving it stale for a later refresh. A log with no
   summary is left untouched. (The `order_notes_and_clears` v0.1.0 compat fixture's derived

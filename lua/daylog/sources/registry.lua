@@ -24,7 +24,7 @@ local M = {}
 -- for display, and a source may carry its own extra domain fields (e.g. azure_devops adds
 -- `project`) for its format_item/template.
 ---@class DaylogItem
----@field id string|number Stable work-item id (required). Cache-dedup key and worklog-ranking key.
+---@field id string|number Stable work-item id (required). Cache-dedup key and daylog-ranking key.
 ---@field title string Work-item title (required).
 ---@field type? string e.g. "Bug"/"Task" (optional; shown in the picker).
 ---@field state? string Raw status name (optional; shown in the picker).

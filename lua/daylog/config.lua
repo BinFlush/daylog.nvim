@@ -7,6 +7,7 @@ local current = {
   auto_summary = "change",
   active_indicator = true,
   auto_timezone = true,
+  keymaps = false,
 }
 
 local AUTO_SUMMARY_MODES = {
@@ -193,6 +194,31 @@ local function normalize_auto_timezone(value)
   return value
 end
 
+-- `keymaps` is off (false) by default, `true` to apply the documented default set, or a
+-- { lhs = rhs } table to map your own keys (replacing the default set). The maps are applied
+-- buffer-locally in daylog files; rhs is typically a <Plug>(daylog-*) mapping.
+local function normalize_keymaps(value)
+  if value == nil then
+    return false
+  end
+
+  if type(value) == "boolean" then
+    return value
+  end
+
+  if type(value) ~= "table" then
+    error("daylog: keymaps must be a boolean or a table of { lhs = rhs }")
+  end
+
+  for lhs, rhs in pairs(value) do
+    if type(lhs) ~= "string" or type(rhs) ~= "string" then
+      error("daylog: keymaps entries must map a string lhs to a string rhs")
+    end
+  end
+
+  return value
+end
+
 local SOURCE_DEFAULT_TTL = 1800
 local SOURCE_DEFAULT_TEMPLATE = "{id} {title}"
 local SOURCE_DEFAULT_MIN_QUERY = 3
@@ -340,7 +366,7 @@ local function normalize_sources(sources)
 end
 
 -- Cross-source picker behavior (not per-source): how a source's cached items are ranked in
--- the picker. The built-in ranker scores each item by a standard Mozilla-style worklog frecency.
+-- the picker. The built-in ranker scores each item by a standard Mozilla-style daylog frecency.
 -- `rank` overrides it wholesale (same signature, fn(items, ctx) -> items); `frecency_days` is
 -- the daybook look-back window scanned. Defaults are applied at use time (pick.lua).
 local function normalize_picker(picker)
@@ -382,6 +408,7 @@ local function normalize_config(options)
     auto_summary = normalize_auto_summary(options.auto_summary),
     active_indicator = normalize_active_indicator(options.active_indicator),
     auto_timezone = normalize_auto_timezone(options.auto_timezone),
+    keymaps = normalize_keymaps(options.keymaps),
   }
 
   local daybook = normalize_daybook(options.daybook)

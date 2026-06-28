@@ -29,6 +29,7 @@ return function(t)
       auto_summary = "change",
       active_indicator = true,
       auto_timezone = true,
+      keymaps = false,
     })
 
     config.setup()
@@ -37,6 +38,7 @@ return function(t)
       auto_summary = "change",
       active_indicator = true,
       auto_timezone = true,
+      keymaps = false,
     })
   end)
 
@@ -127,6 +129,7 @@ return function(t)
       auto_summary = "change",
       active_indicator = true,
       auto_timezone = true,
+      keymaps = false,
     })
 
     config.setup()

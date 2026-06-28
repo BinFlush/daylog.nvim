@@ -261,7 +261,7 @@ end
 -- (`!L60`): the row is held at that exact duration and excluded from the
 -- largest-remainder pool, so an external commitment never moves when later entries
 -- are appended. Bare `!L` stays "logged but unfrozen" (current behavior); only
--- :DaylogLog writes the number. The minutes ride on the marker itself rather than a
+-- :Daylog log writes the number. The minutes ride on the marker itself rather than a
 -- separate token, so `round±N` remains the only free-standing rounding knob.
 
 -- Parse a `!L` / `!L<minutes>` marker. Returns (true, minutes) for a frozen marker,

@@ -32,9 +32,9 @@ end
 local DEFAULT_FRECENCY_DAYS = 30
 
 -- Scan the last `days` daylogs for what you have logged (buffer-aware, so today's unsaved
--- entries count too) and build the worklog-usage map the frecency ranker keys on. Empty when no
+-- entries count too) and build the daylog-usage map the frecency ranker keys on. Empty when no
 -- daybook is configured.
-local function worklog_usage(days)
+local function daylog_usage(days)
   local settings = daybook_io.expanded_daybook_settings()
   if not settings then
     return {}
@@ -51,7 +51,7 @@ local function worklog_usage(days)
 end
 
 -- Reorder a source's items so the ones you have recently logged lead -- the built-in
--- worklog-frecency ranker, or a user-supplied picker.rank. Source items only; with no
+-- daylog-frecency ranker, or a user-supplied picker.rank. Source items only; with no
 -- source (a candidate-only rename) or an empty list it is a no-op.
 local function ranked(source, items)
   if not source or #items == 0 then
@@ -61,7 +61,7 @@ local function ranked(source, items)
   local picker = config.get().picker or {}
   local order = picker.rank or rank.order
   return order(items, {
-    usage = worklog_usage(picker.frecency_days or DEFAULT_FRECENCY_DAYS),
+    usage = daylog_usage(picker.frecency_days or DEFAULT_FRECENCY_DAYS),
     key_of = function(item)
       return entry.sanitize_text(source.to_entry_text(item))
     end,
@@ -106,7 +106,7 @@ function M.item(source, opts)
   end)
 end
 
--- Open the scoped picker for one named source (`:DaylogInsert/:DaylogRename/:DaylogMap <source>`):
+-- Open the scoped picker for one named source (`:Daylog insert/:Daylog rename/:Daylog map <source>`):
 -- load/refresh its cache, then hand its items to M.item -- which live-searches the tracker as you
 -- type when the source supports it, else filters the offline cache. The chosen item goes to
 -- opts.on_pick(item); cancelling calls opts.on_cancel. Items only; the unified pool (M.unified) is
@@ -127,7 +127,7 @@ function M.source(source, name, opts)
   end)
 end
 
--- The general mixed-row picker (shared by :DaylogInsert!, :DaylogRename, :DaylogMap). Each row
+-- The general mixed-row picker (shared by :Daylog! insert, :Daylog rename, :Daylog map). Each row
 -- carries `.display` and `.text` (what gets chosen). Telescope when installed, else vim.ui.select
 -- with a type-new sentinel. Choosing a row yields its `.text`; <C-e> (Telescope) yields the typed
 -- value via on_create; the type-new row (fallback) calls on_type_new. An empty row set calls
@@ -196,13 +196,13 @@ function M.choose(rows, opts)
   end)
 end
 
--- Build the unified pool from already-read source caches plus the recent worklog activities, rank
--- it (the same worklog frecency), and open the picker over it. `specs` = { { name, source,
+-- Build the unified pool from already-read source caches plus the recent daylog activities, rank
+-- it (the same daylog frecency), and open the picker over it. `specs` = { { name, source,
 -- items }, ... }. Every row carries the text it would be logged as (an item's to_entry_text, an
 -- activity's text), so on_choose receives that directly. `opts` is passed through to M.choose.
 function M.unified(specs, opts)
   local picker = config.get().picker or {}
-  local usage = worklog_usage(picker.frecency_days or DEFAULT_FRECENCY_DAYS)
+  local usage = daylog_usage(picker.frecency_days or DEFAULT_FRECENCY_DAYS)
 
   local sources = {}
   for _, spec in ipairs(specs) do
