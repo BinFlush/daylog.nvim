@@ -104,6 +104,17 @@ local function open_report(spec)
   vim.api.nvim_buf_set_var(0, "log_report", spec)
 end
 
+-- The report spec stored on `buf` (the current buffer when nil), or nil when that buffer is
+-- not a daylog report. open_report owns writing the var, so this owns the read; the shells ask
+-- here instead of repeating the pcall + type-check against the "log_report" key.
+function M.spec_for(buf)
+  local ok, spec = pcall(vim.api.nvim_buf_get_var, buf or 0, "log_report")
+  if ok and type(spec) == "table" then
+    return spec
+  end
+  return nil
+end
+
 -- Rebuild every open report buffer from its stored spec, mirroring how the
 -- in-file summaries refresh. A build failure (e.g. a dependent day is mid-edit
 -- and invalid) leaves the last good report untouched rather than flicker, and
@@ -113,9 +124,9 @@ local function refresh_report_windows()
 
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local buf = vim.api.nvim_win_get_buf(win)
-    local ok, spec = pcall(vim.api.nvim_buf_get_var, buf, "log_report")
+    local spec = M.spec_for(buf)
 
-    if ok and type(spec) == "table" and not refreshed[buf] then
+    if spec and not refreshed[buf] then
       refreshed[buf] = true
       local lines = build_report_lines(spec)
 

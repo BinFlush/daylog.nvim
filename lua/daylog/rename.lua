@@ -53,8 +53,8 @@ function M.summary(new_value, source_name)
   -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
   -- per-day row; the rename fans out across the relevant day files instead of the
   -- current buffer.
-  local is_report, report_spec = pcall(vim.api.nvim_buf_get_var, 0, "log_report")
-  if is_report and type(report_spec) == "table" then
+  local report_spec = report_buffers.spec_for()
+  if report_spec then
     rename_from_report(report_spec, new_value, source_name)
     return
   end

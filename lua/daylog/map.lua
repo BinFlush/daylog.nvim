@@ -1,5 +1,6 @@
 local buffer = require("daylog.buffer")
 local pick = require("daylog.pick")
+local report = require("daylog.report")
 local map_summary = require("daylog.usecases.map_summary")
 local sources_registry = require("daylog.sources.registry")
 local sources_sync = require("daylog.sources.sync")
@@ -19,8 +20,7 @@ local cursor_row = buffer.cursor_row
 local run_pinned_usecase = buffer.run_pinned_usecase
 
 local function in_report()
-  local ok, spec = pcall(vim.api.nvim_buf_get_var, 0, "log_report")
-  return ok and type(spec) == "table"
+  return report.spec_for() ~= nil
 end
 
 -- A usecase call bound to the cursor entry/row, or to a `{ r1, r2 }` line range -- the
