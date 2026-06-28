@@ -392,18 +392,10 @@ local function normalize_picker(picker)
 end
 
 local function normalize_config(options)
-  if options == nil then
-    return {
-      defaults = {},
-      auto_summary = "change",
-      active_indicator = true,
-      auto_timezone = true,
-    }
-  end
-
-  if type(options) ~= "table" then
+  if options ~= nil and type(options) ~= "table" then
     error("daylog: setup options must be a table")
   end
+  options = options or {}
 
   local result = {
     defaults = normalize_defaults(options.defaults),
