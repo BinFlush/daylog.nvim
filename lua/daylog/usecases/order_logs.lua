@@ -3,13 +3,16 @@ local body = require("daylog.body")
 local diagnostics = require("daylog.diagnostics")
 local document = require("daylog.document")
 local entry = require("daylog.entry")
+local support = require("daylog.usecases.support")
 local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Build the edit script for rewriting every log body in sorted order.
--- The use case preserves existing rendering rules while taking structural and
--- invalid-entry diagnostics from semantic analysis.
+-- Rewrite every log body in sorted order, then -- because reordering changes the intervals and
+-- so every duration -- rebuild each log's existing summary from the sorted bodies (the rule: a
+-- command that changes a log's entries rebuilds that log's summary; see docs/architecture.md).
+-- A log with no summary is left alone (creation stays refresh's job). The summary zone writer
+-- owns the body/summary separator, so the body rewrite need not preserve it.
 
 function M.run(lines)
   local analysis = analyze.analyze(document.parse(lines))
@@ -18,7 +21,8 @@ function M.run(lines)
     return nil, err
   end
 
-  local edits = {}
+  -- Body edits, highest block first so they stay valid as earlier ones change line counts.
+  local body_edits = {}
   local warnings = {}
 
   for i = #analysis.log_blocks, 1, -1 do
@@ -34,18 +38,44 @@ function M.run(lines)
         table.insert(warnings, entry.minutes_string(changed.minutes) .. " " .. changed.text)
       end
 
-      table.insert(edits, {
+      table.insert(body_edits, {
         start_index = block.body_start_row - 1,
         end_index = block.end_row - 1,
         lines = body.sorted_lines(block, entry.format),
       })
     else
-      table.insert(edits, {
+      table.insert(body_edits, {
         start_index = block.body_start_row - 1,
         end_index = block.end_row - 1,
         lines = body.normalized_lines(block, entry.format),
       })
     end
+  end
+
+  -- The body edits change line counts, so rebuild the summaries in the post-reorder
+  -- coordinates: apply the body edits to an in-memory copy, re-analyze, then blast each
+  -- existing summary zone. The shell applies the list in order, so every body edit lands
+  -- before any summary edit, keeping both coordinate systems valid.
+  local work = support.apply_edits(lines, body_edits)
+  local work_analysis = analyze.analyze(document.parse(work))
+
+  local summary_edits = {}
+  for _, block in ipairs(work_analysis.log_blocks) do
+    local edit = support.summary_zone_edit(work, work_analysis, block, block.entries, false)
+    if edit then
+      summary_edits[#summary_edits + 1] = edit
+    end
+  end
+  table.sort(summary_edits, function(a, b)
+    return a.start_index > b.start_index
+  end)
+
+  local edits = {}
+  for _, edit in ipairs(body_edits) do
+    edits[#edits + 1] = edit
+  end
+  for _, edit in ipairs(summary_edits) do
+    edits[#edits + 1] = edit
   end
 
   local result = { edits = edits }

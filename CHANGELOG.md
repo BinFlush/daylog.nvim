@@ -61,6 +61,12 @@ happen, but they are called out clearly in this changelog.
   generated-row predicate accepted an optional sign, so a hand-written note like `lunch (5m)
   break` sitting just above the summary could be swept as generated debris on a refresh.
   Generated rows always sign the marker, so the sign is now required.
+- **`:DaylogOrder` rebuilds each reordered log's summary.** Reordering changes the intervals,
+  and so the durations, so `:DaylogOrder` now regenerates each affected log's existing summary
+  from the sorted entries in the same edit — instant and independent of `auto_summary`, like
+  the other editing commands — instead of leaving it stale for a later refresh. A log with no
+  summary is left untouched. (The `order_notes_and_clears` v0.1.0 compat fixture's derived
+  output is updated to match.)
 
 ## 0.12.0 - 2026-06-25
 

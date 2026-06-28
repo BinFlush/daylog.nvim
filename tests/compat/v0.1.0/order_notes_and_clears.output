@@ -3,8 +3,20 @@
 note b
 08:30 later #ProjectOrion
 note a
---- summary exact ---
-x
+
+
+--- summary q=15 d=dec ---
+0.50h (+0m) earlier
+
+--- tags ---
+0.50h (+0m) #sales
+
+--- locations ---
+0.50h (+0m) @office
+
+--- totals ---
+0.50h (+0m) workday
+
 
 --- log #internal @home ---
 10:00 coffee @client

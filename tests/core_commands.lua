@@ -117,14 +117,29 @@ return function(t)
     })
 
     vim.cmd("DaylogOrder")
+    -- Reordering changes the durations, so :DaylogOrder rebuilds the first log's existing
+    -- summary (the stale `x` placeholder) from the sorted entries -- with the canonical
+    -- two-blank separators. The second log has no summary, so it is left summary-less.
     t.eq(t.get_lines(), {
       "--- log #ProjectOrion @office ---",
       "08:00 earlier #sales",
       "note b",
       "08:30 later #ProjectOrion",
       "note a",
+      "",
+      "",
       "--- summary q=15 d=dec ---",
-      "x",
+      "0.50h (+0m) earlier",
+      "",
+      "--- tags ---",
+      "0.50h (+0m) #sales",
+      "",
+      "--- locations ---",
+      "0.50h (+0m) @office",
+      "",
+      "--- totals ---",
+      "0.50h (+0m) workday",
+      "",
       "",
       "--- log #internal @home ---",
       "10:00 coffee @client",
