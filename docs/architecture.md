@@ -153,7 +153,11 @@ entry-changing command rebuilds its log's **existing** summary through it: the i
 commands (`:DaylogBalance`/`:DaylogSplit`/`:DaylogLog`/`:DaylogMap`/`:DaylogRename`) emit it
 in their own edit, so the change is atomic, instant, and independent of `auto_summary`;
 `:DaylogOrder` runs it per reordered log after re-analysing the sorted bodies; and
-`refresh_summaries` uses it to rebuild every log and *create* the missing ones. Because the
+`refresh_summaries` uses it to rebuild every log and *create* the missing ones. The
+field-changing commands (`:DaylogMap`/`:DaylogBalance`/`:DaylogLog`) derive both halves of their
+edit — the source-line rewrite and this summary rebuild — from one per-entry override map
+(`support.apply_entry_overrides`), so the written line and the recomputed projection can never
+disagree about a change. Because the
 two-blank separator belongs to the **zone** — emitted by the writer, never authored, never
 owned by the body — a command may restructure the body freely (`:DaylogOrder` re-sorts and
 re-spaces it) and the separator is re-established canonically on the rebuild. The lone
