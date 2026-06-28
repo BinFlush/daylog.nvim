@@ -250,14 +250,14 @@ end
 
 -- Pure: the active log's line span (body + summary), for the margin indicator. The
 -- active log is the last one (analyze.get_active_log); being last, it runs to EOF.
--- Returns nil when there's no log. log_count gates the indicator to >= 2 logs.
+-- Returns nil when there's no log.
 function M.active_region(lines)
   local analysis = analyze.analyze(document.parse(lines))
   local active = analyze.get_active_log(analysis)
   if not active then
     return nil
   end
-  return { start_row = active.start_row, end_row = #lines, log_count = #analysis.log_blocks }
+  return { start_row = active.start_row, end_row = #lines }
 end
 
 return M
