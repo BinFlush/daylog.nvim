@@ -48,6 +48,7 @@ local open_daybook_file = daybook_io.open_daybook_file
 local edit_daybook_file = daybook_io.edit_daybook_file
 local current_buffer_daybook_date = daybook_io.current_buffer_daybook_date
 local live_offset = daybook_io.live_offset
+local insert_new_log = daybook_io.insert_new_log
 
 -- Report buffers, rebound as locals.
 local open_report = report_buffers.open_report
@@ -219,6 +220,12 @@ end
 
 function M.append_copy()
   run_buffer_usecase(append_copy.run)
+end
+
+-- Scaffold a fresh, empty log into the current buffer (the active log when appended). The
+-- scaffold and its config defaults live in daybook_io, shared with the empty-day auto-init.
+function M.new_log()
+  insert_new_log()
 end
 
 function M.repeat_current()

@@ -71,6 +71,14 @@ local function apply_new_log(defaults)
   return run_buffer_usecase(new_log.run, resolve_log_defaults(defaults))
 end
 
+-- Scaffold a fresh log into the current buffer on demand, using the configured header defaults:
+-- an empty/whitespace buffer is initialized in place, otherwise a new log block is appended as
+-- the active log (see new_log.run), the cursor landing on the new header. The on-demand twin of
+-- the empty-day auto-init below; reached through :DaylogNew.
+function M.insert_new_log()
+  return apply_new_log(config.get().defaults)
+end
+
 -- A loaded, file-backed buffer whose name resolves to `path`, or nil. Report
 -- buffers (buftype "nofile", e.g. "daylog-week-2026-W21.day") are skipped so
 -- they can never shadow a real daybook file.

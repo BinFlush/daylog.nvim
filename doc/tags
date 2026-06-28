@@ -5,6 +5,7 @@
 :DaylogInsert	daylog.txt	/*:DaylogInsert*
 :DaylogLog	daylog.txt	/*:DaylogLog*
 :DaylogMap	daylog.txt	/*:DaylogMap*
+:DaylogNew	daylog.txt	/*:DaylogNew*
 :DaylogNextDay	daylog.txt	/*:DaylogNextDay*
 :DaylogOrder	daylog.txt	/*:DaylogOrder*
 :DaylogPrevDay	daylog.txt	/*:DaylogPrevDay*

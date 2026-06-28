@@ -228,6 +228,10 @@ function M.register(api)
     api.append_copy()
   end)
 
+  ensure_user_command("DaylogNew", function()
+    api.new_log()
+  end)
+
   ensure_user_command("DaylogLog", function()
     api.log_current()
   end)

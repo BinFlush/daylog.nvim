@@ -22,6 +22,14 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- **`:DaylogNew` scaffolds a fresh log into the current buffer.** It writes a new `--- log ---`
+  header (from your configured `defaults`) in place when the buffer is empty, or appends it as a
+  new active log after existing content, with the cursor on the new header. It writes only the
+  header -- no entries, no summary -- so starting a new daylog no longer needs a copy/pasted
+  header or a `:DaylogCopy`-then-delete; begin logging with `:DaylogInsert`.
+
 ### Fixed
 
 - **`:DaylogBalance` no longer over-rounds an entry below zero.** Running a round-down on an

@@ -3,6 +3,7 @@ return function(t)
   local with_captured_notify = helpers.with_captured_notify
   local with_mocked_date = helpers.with_mocked_date
   local with_mocked_input = helpers.with_mocked_input
+  local with_daylog_setup = helpers.with_daylog_setup
 
   helpers.setup_daylog()
 
@@ -146,6 +147,56 @@ return function(t)
       "11:00 tea @home",
       "12:00 done",
     })
+  end)
+
+  t.test("new scaffolds a bare log into an empty buffer", function()
+    with_daylog_setup({ auto_timezone = false }, function()
+      t.reset({ "" })
+      vim.cmd("DaylogNew")
+      t.eq(t.get_lines(), { "--- log ---" })
+      t.eq(vim.api.nvim_win_get_cursor(0), { 1, 0 })
+    end)
+  end)
+
+  t.test("new appends a fresh active log after existing content", function()
+    with_daylog_setup({ auto_timezone = false }, function()
+      t.reset({
+        "--- log ---",
+        "08:00 work",
+        "09:00 done",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) work",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      })
+      vim.cmd("DaylogNew")
+      t.eq(t.get_lines(), {
+        "--- log ---",
+        "08:00 work",
+        "09:00 done",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) work",
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+        "",
+        "--- log ---",
+      })
+      t.eq(vim.api.nvim_win_get_cursor(0), { 11, 0 })
+    end)
+  end)
+
+  t.test("new applies the configured header defaults", function()
+    local opts =
+      { auto_timezone = false, defaults = { quantize_minutes = 30, duration_format = "hm" } }
+    with_daylog_setup(opts, function()
+      t.reset({ "" })
+      vim.cmd("DaylogNew")
+      t.eq(t.get_lines(), { "--- log q=30 d=hm ---" })
+    end)
   end)
 
   t.test("copy uses latest active log and normalizes items", function()

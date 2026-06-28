@@ -40,9 +40,9 @@ Vocabulary (used throughout this help and the source):
   daylog    One calendar day's file, `YYYY-MM-DD.day` -- and the plugin itself.
   log       A `--- log ---` block in a daylog: a run of entries with one
             generated summary. A daylog can hold several logs; commands act on
-            the active log -- the latest block. `:DaylogCopy` appends an
-            editable copy (the new active log) so you can iterate a log toward
-            an outside system's shape.
+            the active log -- the latest block. `:DaylogNew` starts a fresh
+            empty log (the new active one); `:DaylogCopy` appends an editable
+            copy of the active log to iterate toward an outside system's shape.
   entry     One timestamped line, `HH:MM activity ...`. An entry starts an
             interval that the next entry closes.
   interval  The span between two consecutive entries; durations come from these.
@@ -483,6 +483,21 @@ left unchanged. The past-midnight carryover still applies on yesterday's file wi
 a still-running task, but only while today does not exist yet (the task continues
 from `00:00`); once today already exists, the entry is brought into it like any
 other day. |:DaylogInsert| still refuses on another day's file.
+
+                                                        *:DaylogNew*
+:DaylogNew
+
+Scaffold a fresh, empty log into the current buffer and make it the active log.
+
+- When the buffer is empty (or whitespace only), the header is written in place;
+  otherwise a new `--- log ---` block is appended after the existing content, and
+  the cursor lands on it.
+- The header is built from the configured `defaults` (q=, d=, #tag, @location,
+  utc), the same scaffold |:DaylogInit| uses. It writes only the header -- no
+  entries and no summary -- so start logging with |:DaylogInsert|.
+- Unlike |:DaylogInit|, it does not navigate to a daybook file or stamp the
+  current time; it acts on whatever buffer you are in. Use it to start a new
+  daylog without copy/pasting a header or |:DaylogCopy|-and-delete.
 
                                                         *:DaylogCopy*
 :DaylogCopy
