@@ -6,6 +6,7 @@ local entry = require("daylog.entry")
 local render = require("daylog.render")
 local summary = require("daylog.summary")
 local summary_block = require("daylog.summary_block")
+local syntax = require("daylog.syntax")
 
 local M = {}
 
@@ -239,6 +240,110 @@ function M.entry_change_edits(summary_edit, source_edits)
     return a.start_index > b.start_index
   end)
   return edits
+end
+
+-- The summary zone's separator: exactly two blank lines between the body and the rendered
+-- content. The blanks belong to the zone (emitted by the zone writer below, never by render
+-- or the body), so the separator is normalized however an edit mangled it; a following log
+-- gets the same two blanks as a trailing separator, at EOF none.
+local SEPARATOR = { "", "" }
+
+-- The block's last timestamped entry row, or its header when entry-less: the hard floor for
+-- the body/summary boundary search, so the boundary never sweeps past it into an entry.
+local function last_entry_row(block)
+  local row = block.start_row
+  for _, node in ipairs(block.body_nodes or {}) do
+    if node.kind == syntax.NODE_KIND.ENTRY then
+      row = node.row
+    end
+  end
+  return row
+end
+
+-- The body's last authored (prose or entry) line above the summary, scanned upward from the
+-- summary boundary skipping blanks and generated-shaped lines (separator blanks, stranded
+-- summary rows), floored at the last entry. So authored notes are kept while generated debris
+-- below them is swept into the blast.
+local function body_end_above(lines, block, start_row)
+  local floor = last_entry_row(block)
+  for row = start_row - 1, floor + 1, -1 do
+    local raw = lines[row] or ""
+    if
+      raw ~= ""
+      and not syntax.is_infile_summary_header(raw)
+      and not syntax.is_summary_row(raw)
+    then
+      return row
+    end
+  end
+  return floor
+end
+
+-- The 0-based edit replacing [body_end .. zone_end) with the canonical separator + content
+-- (+ a trailing separator when another log follows), and whether that zone is already exactly
+-- canonical (so no edit need be emitted).
+local function canonical_edit(lines, body_end, zone_end, content, trailing)
+  local want = {}
+  for _, line in ipairs(SEPARATOR) do
+    want[#want + 1] = line
+  end
+  for _, line in ipairs(content) do
+    want[#want + 1] = line
+  end
+  if trailing then
+    for _, line in ipairs(SEPARATOR) do
+      want[#want + 1] = line
+    end
+  end
+
+  local matches = (zone_end - 1 - body_end) == #want
+  if matches then
+    for index, line in ipairs(want) do
+      if lines[body_end + index] ~= line then
+        matches = false
+        break
+      end
+    end
+  end
+
+  return {
+    start_index = body_end,
+    end_index = zone_end - 1,
+    lines = want,
+  }, matches
+end
+
+-- THE one way a log's summary is written into a buffer: blast its zone -- replace from the
+-- body boundary through the end of the zone with the canonical two-blank separator + the
+-- summary rendered from `modified_entries`. Returns the 0-based edit (and the rebuilt summary,
+-- for a caller that follows a row), or nil when the zone is already canonical, or when the log
+-- has no summary and `allow_create` is false. Only the refresh pass creates a missing summary
+-- (`allow_create`); an entry-changing command rebuilds an existing one. The body never owns
+-- the separator, so a command may restructure the body freely. See docs/architecture.md.
+function M.summary_zone_edit(lines, analysis, block, modified_entries, allow_create)
+  local region = M.locate_summary(analysis, block)
+
+  local body_end, zone_end
+  if region then
+    body_end = body_end_above(lines, block, region.start_row)
+    zone_end = region.end_row
+  elseif allow_create then
+    body_end = body.last_content_row(block)
+    local _, stop = M.summary_zone_bounds(analysis, block)
+    zone_end = stop
+  else
+    return nil
+  end
+
+  local rebuilt = summary.summarize_entries(modified_entries, block.quantize_minutes)
+  local content =
+    render.summary_lines(rebuilt, block.duration_format, M.summary_render_options(block))
+  local trailing = zone_end <= #lines
+  local edit, already_canonical = canonical_edit(lines, body_end, zone_end, content, trailing)
+  if already_canonical then
+    return nil
+  end
+  return edit, rebuilt
 end
 
 -- The log's summary zone bounds (tail_start, stop_row): the window past the last

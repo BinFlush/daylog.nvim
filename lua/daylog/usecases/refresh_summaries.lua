@@ -1,5 +1,4 @@
 local analyze = require("daylog.analyze")
-local body = require("daylog.body")
 local diagnostics = require("daylog.diagnostics")
 local document = require("daylog.document")
 local quantize = require("daylog.quantize")
@@ -25,84 +24,6 @@ local M = {}
 -- a broken or absent header, out-of-order timestamps, an invalid entry, 24:00 not
 -- final -- whether or not a summary exists yet. Each warning is { row, message };
 -- the shell publishes them as buffer diagnostics so they clear when fixed.
-
--- The blast layout: the body, then exactly two blank separator lines, then the
--- content-only summary render. The two blanks are emitted by the blast (not by the
--- render), so the separator is normalized however a border edit mangled it. When
--- another log follows, the same two blanks are emitted as a trailing separator so
--- stacked logs stay two blanks apart; at EOF none are added.
-local SEPARATOR = { "", "" }
-
--- The block's last timestamped entry row, or its header row when entry-less. The hard
--- floor for the body/summary boundary search: everything below the last entry is
--- either a note or generated summary, so the boundary never sweeps past it into a
--- entry, even when a deleted banner left the summary rows parsed as body notes (which
--- would push body.last_content_row down into the generated zone).
-local function last_entry_row(block)
-  local row = block.start_row
-  for _, node in ipairs(block.body_nodes or {}) do
-    if node.kind == syntax.NODE_KIND.ENTRY then
-      row = node.row
-    end
-  end
-  return row
-end
-
--- The body's last line: the last authored (prose or entry) line above the summary.
--- Scanned UPWARD from just above the summary boundary, skipping blank lines and
--- generated-shaped lines (the separator blanks, and any stranded summary row -- e.g. a
--- yanked row pasted flush under the last entry). So the body keeps every authored note,
--- whether it sits flush under an entry or is separated from it by a blank, while blanks
--- and stranded generated debris below the last note are swept into the blast. Floored
--- at the last entry row, so an entry is never crossed even when a deleted banner left
--- summary rows parsed as body notes.
-local function body_end_above(lines, block, start_row)
-  local floor = last_entry_row(block)
-  for row = start_row - 1, floor + 1, -1 do
-    local raw = lines[row] or ""
-    if
-      raw ~= ""
-      and not syntax.is_infile_summary_header(raw)
-      and not syntax.is_summary_row(raw)
-    then
-      return row
-    end
-  end
-  return floor
-end
-
--- The 0-based edit replacing [body_end .. zone_end) with the canonical separator +
--- content, true when that zone is already exactly canonical (so no edit is emitted).
-local function canonical_edit(lines, body_end, zone_end, content, trailing)
-  local want = {}
-  for _, line in ipairs(SEPARATOR) do
-    want[#want + 1] = line
-  end
-  for _, line in ipairs(content) do
-    want[#want + 1] = line
-  end
-  if trailing then
-    for _, line in ipairs(SEPARATOR) do
-      want[#want + 1] = line
-    end
-  end
-
-  local matches = (zone_end - 1 - body_end) == #want
-  if matches then
-    for index, line in ipairs(want) do
-      if lines[body_end + index] ~= line then
-        matches = false
-        break
-      end
-    end
-  end
-
-  return {
-    start_index = body_end,
-    end_index = zone_end - 1,
-    lines = want,
-  }, matches
-end
 
 -- Read log-header parameters from a (possibly corrupted) header line: q=, d=,
 -- #tag, @location, utc±H -- in any order, ignoring damaged dashes/keyword and junk
@@ -378,29 +299,10 @@ function M.run(lines)
         }
       end
 
-      local region, _, content = support.locate_summary(work_analysis, block)
-
-      local body_end, zone_end
-      if region then
-        -- Blast the located zone, sweeping trailing body blanks above its boundary
-        -- into the replacement so the separator is regenerated canonically too.
-        body_end = body_end_above(work, block, region.start_row)
-        zone_end = region.end_row
-      else
-        -- No summary yet: create one after the body. The log block spans its
-        -- trailing blanks, so blast from the last content line to the block end and
-        -- re-emit the separator + summary, replacing any stray trailing blanks.
-        body_end = body.last_content_row(block)
-        local _, stop = support.summary_zone_bounds(work_analysis, block)
-        zone_end = stop
-      end
-
-      -- Another log follows when the zone ends at its header rather than EOF
-      -- (zone_end points past the last line only at EOF). Keep the canonical two-blank
-      -- separator between this summary and that next log.
-      local trailing = zone_end <= #work
-      local edit, already_canonical = canonical_edit(work, body_end, zone_end, content, trailing)
-      if not already_canonical then
+      -- Rebuild this valid log's summary from its entries -- creating one when missing --
+      -- through the one canonical zone writer. An already-canonical zone yields no edit.
+      local edit = support.summary_zone_edit(work, work_analysis, block, block.entries, true)
+      if edit then
         table.insert(summary_edits, edit)
       end
     end
