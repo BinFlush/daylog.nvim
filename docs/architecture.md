@@ -145,6 +145,21 @@ see — a broken or absent header, out-of-order timestamps, an invalid entry —
 whether or not the log has a summary, and even for a structurally broken
 document (which produces no edits).
 
+**One writer owns the zone.** That blast is the single way a log's summary is written
+into a buffer: `support.summary_zone_edit` finds the body boundary, renders the projection
+over the (possibly modified) entries, and replaces `[boundary .. zone end)` with the
+canonical *two blank lines + content* — a no-op when the zone is already canonical. Every
+entry-changing command rebuilds its log's **existing** summary through it: the in-place
+commands (`:DaylogBalance`/`:DaylogSplit`/`:DaylogLog`/`:DaylogMap`/`:DaylogRename`) emit it
+in their own edit, so the change is atomic, instant, and independent of `auto_summary`;
+`:DaylogOrder` runs it per reordered log after re-analysing the sorted bodies; and
+`refresh_summaries` uses it to rebuild every log and *create* the missing ones. Because the
+two-blank separator belongs to the **zone** — emitted by the writer, never authored, never
+owned by the body — a command may restructure the body freely (`:DaylogOrder` re-sorts and
+re-spaces it) and the separator is re-established canonically on the rebuild. The lone
+exception is the *mid-entry* commands (`:DaylogInsert`/`:DaylogRepeat`): they insert an entry
+and `startinsert`, so the entry is unfinished and they leave the rebuild to `auto_summary`.
+
 `:DaylogRefresh` and the optional `auto_summary` autocmds in `init.lua` are thin
 shells over it — the trigger (`off` / `change` / `idle` / `save`) is configurable,
 and the shell adds only undo-join, a re-entrancy guard, and cursor preservation.
