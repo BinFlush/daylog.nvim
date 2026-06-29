@@ -20,6 +20,25 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Changed
+
+- **`:Daylog` registers at plugin load.** The command is available the moment daylog is installed --
+  any plugin manager, no `setup()` call -- so `setup()` is now purely optional configuration (the
+  daybook, sources, keymaps). `:Daylog today` warns until you set `daybook.root`, while the editing
+  verbs and highlighting work on any `.day` file with no config. The dispatch lazy-loads the
+  implementation, so registering at startup stays cheap.
+
+### Removed
+
+- **The `<Plug>(daylog-*)` mappings (breaking).** They were a redundant third interface beside the
+  `:Daylog <verb>` command and the `require("daylog").<verb>()` Lua API, and -- being fixed actions
+  -- could not carry a count or an argument. Bind the command (`<Cmd>Daylog today<CR>`) or the
+  function (`require("daylog").today()`) to your keys instead. `setup({ keymaps = true })` is
+  unchanged (its `]d` / `[d` are now count-aware), and a custom `keymaps = { lhs = rhs }` table now
+  accepts a Lua function as well as a mapping string.
+
 ## 0.13.0 - 2026-06-28
 
 ### Added

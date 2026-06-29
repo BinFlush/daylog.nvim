@@ -317,8 +317,8 @@ COMMANDS                                                    *daylog-commands*
 Everything is one command, `:Daylog {verb} [args]`, with `<Tab>` completion over
 the verbs (the editing verbs are offered only inside a daylog buffer) and over each
 verb's arguments. A bare `:Daylog` opens today. A bang selects a verb's variant
-(`:Daylog! insert`, `:Daylog! map`, `:Daylog! report`). The same verbs are a Lua API
-and a set of <Plug> mappings -- see |daylog-lua| and |daylog-keymaps|.
+(`:Daylog! insert`, `:Daylog! map`, `:Daylog! report`). Every verb is also a Lua API
+function and bindable to a key -- see |daylog-lua| and |daylog-keymaps|.
 
 Entry-point verbs (`today` / `day` / `next` / `prev` / `report`) work from any
 buffer; the rest act on the daylog buffer you are in.
@@ -634,30 +634,33 @@ given, by fetching from the tracker. See |daylog-sources|.
                                                         *daylog-keymaps*
 Mappings ~
 
-The plugin sets no keys by default. It ships a <Plug> mapping per frequent verb so
-you can bind your own, and an opt-in default set.
+The plugin sets no keys by default -- with `:Daylog <Tab>` completion you may not need
+any. Bind the verbs yourself, or opt into a default set.
 
-`<Plug>(daylog-{name})` (normal mode), for `{name}` one of: `today`, `next-day`,
-`prev-day`, `insert`, `insert-pick`, `repeat`, `new`, `copy`, `order`, `log`,
-`balance-up`, `balance-down`, `split`, `map`, `map-clear`, `rename`, `refresh`,
-`sync`. For example: >
-    vim.keymap.set("n", "<leader>dt", "<Plug>(daylog-today)")
+Every verb is both a `:Daylog <verb>` command and a `require("daylog").<verb>()`
+function (|daylog-lua|), so bind either form to any key: >
+    vim.keymap.set("n", "<leader>dt", "<Cmd>Daylog today<CR>")
+    vim.keymap.set("n", "]d", function() require("daylog").next_day(vim.v.count1) end)
 <
+Use the command form for simple actions; use the function form when you want a count
+or an argument. A visual-range `map` needs the command form (`:Daylog map<CR>`) so the
+`'<,'>` range comes through.
+
 `setup({ keymaps = true })` applies a documented default set, buffer-locally in daylog
 files so it never touches your global keys:
-- `]d` / `[d` -> next / previous day (a deliberate, buffer-local override of the
-  built-in diagnostic jumps inside daylog buffers).
+- `]d` / `[d` -> next / previous day, count-aware (a deliberate, buffer-local override
+  of the built-in diagnostic jumps inside daylog buffers).
 - `<localleader>` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy,
   `o` order, `l` log, `R` refresh.
 
 `setup({ keymaps = { ["<lhs>"] = "<rhs>", ... } })` applies your own buffer-local set
-instead of the default one (an `<rhs>` is typically a `<Plug>(daylog-*)` mapping).
+instead of the default one; each `<rhs>` is a mapping string or a Lua function.
 
                                                         *daylog-lua*
 Lua API ~
 
-Every verb is a function on `require("daylog")`, so commands, <Plug> maps, and your
-own config all call the same code:
+Every verb is a function on `require("daylog")`, so the command, your keymaps, and
+your own config all call the same code:
 - `today()`, `day(when)`, `next_day(count)`, `prev_day(count)`, `report(range, agg)`.
 - `insert(opts)` (`opts.source` / `opts.pick`), `repeat_()`, `new_log()`, `copy()`.
 - `order()`, `log()`, `balance(steps)`, `split(weights)`, `map(opts)`

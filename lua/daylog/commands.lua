@@ -1,16 +1,19 @@
-local buffer = require("daylog.buffer")
 local sources_registry = require("daylog.sources.registry")
 
 local M = {}
 
 -- Command surface (shell).
 --
--- Gathers everything about the user-facing commands -- argument parsing, source-name
--- completion, and the :Daylog* / :Daylog* registrations -- in one place. register(api)
--- wires the thin handlers to the public verbs on `api` (the init module's M), which
--- is passed in to avoid a require cycle.
+-- Gathers everything about the :Daylog command -- argument parsing, source-name completion,
+-- the verb dispatch, and registration -- in one place. register() defines the command; its
+-- dispatch lazy-requires the init module (the public verbs) on first use, so this module stays
+-- cheap to require at plugin load (to register :Daylog) and never forms a require cycle.
 
-local warn = buffer.warn
+-- Lazy so requiring this module to register :Daylog does not pull buffer (and the core through
+-- it) until the command is actually used.
+local function warn(message)
+  require("daylog.buffer").warn(message)
+end
 
 local function ensure_user_command(name, callback, options)
   if vim.fn.exists(":" .. name) == 2 then
@@ -230,12 +233,14 @@ local VERBS = {
   end,
 }
 
--- Register the single :Daylog command, wiring its verb dispatch to the public verbs on `api`
--- (the init module's M, passed in to avoid a require cycle).
-function M.register(api)
+-- Register the single :Daylog command. Idempotent (the exists-guard), so both plugin load and
+-- setup() can call it. The dispatch lazy-requires the init module on first invocation, so the
+-- command is available the moment the plugin loads without pulling the implementation at startup.
+function M.register()
   -- Bare :Daylog opens today; :Daylog <verb> dispatches through VERBS; :Daylog! <verb> selects
   -- the verb's variant; a range applies to map.
   ensure_user_command("Daylog", function(args)
+    local api = require("daylog")
     local verb = args.fargs[1]
     if not verb then
       api.today()

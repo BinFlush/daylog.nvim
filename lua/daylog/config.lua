@@ -196,7 +196,8 @@ end
 
 -- `keymaps` is off (false) by default, `true` to apply the documented default set, or a
 -- { lhs = rhs } table to map your own keys (replacing the default set). The maps are applied
--- buffer-locally in daylog files; rhs is typically a <Plug>(daylog-*) mapping.
+-- buffer-locally in daylog files; rhs is a mapping string (e.g. "<Cmd>Daylog today<CR>") or a
+-- Lua function.
 local function normalize_keymaps(value)
   if value == nil then
     return false
@@ -211,8 +212,8 @@ local function normalize_keymaps(value)
   end
 
   for lhs, rhs in pairs(value) do
-    if type(lhs) ~= "string" or type(rhs) ~= "string" then
-      error("daylog: keymaps entries must map a string lhs to a string rhs")
+    if type(lhs) ~= "string" or (type(rhs) ~= "string" and type(rhs) ~= "function") then
+      error("daylog: keymaps entries must map a string lhs to a string or function rhs")
     end
   end
 

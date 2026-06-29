@@ -36,34 +36,28 @@ the rounding difference. The full format lives in `:help daylog.nvim`.
 
 ## Install
 
-Daylog is a standard plugin — install it with any manager, then call `setup` once.
+Install `BinFlush/daylog.nvim` with any plugin manager — `:Daylog` works the moment it loads, no
+`setup()` required. To use the dated-file workflow, point it at a folder once:
 
-With [lazy.nvim](https://github.com/folke/lazy.nvim) (`opts` runs `setup` for you):
+```lua
+require("daylog").setup({ daybook = { root = "~/daylog" } })
+```
+
+With [lazy.nvim](https://github.com/folke/lazy.nvim), `opts` runs that for you:
 
 ```lua
 { "BinFlush/daylog.nvim", opts = { daybook = { root = "~/daylog" } } }
 ```
 
-With any other manager, install the repo and call `setup` in your config:
-
-```lua
--- vim-plug:  Plug 'BinFlush/daylog.nvim'
--- packer:    use 'BinFlush/daylog.nvim'
--- mini.deps: add('BinFlush/daylog.nvim')
-
-require("daylog").setup({ daybook = { root = "~/daylog" } })
-```
-
-`daybook.root` — where your dated files live — is the one setting most people set.
-Leave it out (`opts = {}` / `setup({})`) and Daylog still highlights and edits any
-`.day` file; add it to open and navigate dated files. Needs Neovim 0.8+ (and `curl`,
-only for external [sources](#sources)). Everything else is optional — see
-[Configuration](#configuration) or `:help daylog-config`.
+`daybook.root` — where your dated files live — is the only setting most people need; the rest is
+optional (see [Configuration](#configuration) or `:help daylog-config`). Without it, Daylog still
+highlights and edits any `.day` file. Needs Neovim 0.8+ (and `curl`, only for external
+[sources](#sources)).
 
 ## Keymaps
 
-Daylog binds nothing by default — and with `:Daylog <Tab>` completion you may not
-want any. Otherwise, pick a tier.
+Daylog binds nothing by default — and with `:Daylog <Tab>` completion you may not want any.
+Otherwise, pick a tier.
 
 **A ready-made set.** Opt into a sensible, buffer-local default:
 
@@ -71,29 +65,24 @@ want any. Otherwise, pick a tier.
 require("daylog").setup({ keymaps = true })
 ```
 
-In `.day` files: `]d` / `[d` step between days, and a `<localleader>` cluster — `i`
-insert, `I` what-to-log, `r` repeat, `n` new, `c` copy, `o` order, `l` toggle-logged,
-`R` refresh. Pass `keymaps = { ["<lhs>"] = "<rhs>", ... }` to choose your own instead.
+In `.day` files: `]d` / `[d` step between days (count-aware), and a `<localleader>` cluster — `i`
+insert, `I` what-to-log, `r` repeat, `n` new, `c` copy, `o` order, `l` toggle-logged, `R` refresh.
+Pass `keymaps = { ["<lhs>"] = "<rhs>", ... }` to choose your own.
 
-**Your own keys.** Every verb is a `<Plug>(daylog-*)` map and a
-`require("daylog").<verb>()` function — bind whichever you use (the keys below are
-just examples; swap in your own):
+**Your own keys.** Every verb is both a `:Daylog <verb>` command and a `require("daylog").<verb>()`
+function — bind either form to any key (the keys here are just examples; swap in your own):
 
 ```lua
-vim.keymap.set("n", "<leader>dt", "<Plug>(daylog-today)")                          -- open today
-vim.keymap.set("n", "]d", function() require("daylog").next_day(vim.v.count1) end) -- 3]d -> 3 days on
-vim.keymap.set("n", "<leader>dw", "<cmd>Daylog report monday..<cr>")              -- this week's report
-vim.keymap.set("n", "<leader>da", "<cmd>Daylog insert <source><cr>")              -- pick a tracker item
+vim.keymap.set("n", "<leader>dt", "<Cmd>Daylog today<CR>")                          -- open today
+vim.keymap.set("n", "]d", function() require("daylog").next_day(vim.v.count1) end)  -- 3]d -> 3 days on
+vim.keymap.set("n", "<leader>dw", "<Cmd>Daylog report monday..<CR>")               -- this week's report
+vim.keymap.set("n", "<leader>dm", function() require("daylog").map({}) end)         -- map to a report label
 ```
 
-Verbs: `today` · `next-day` · `prev-day` · `insert` · `insert-pick` · `repeat` ·
-`new` · `copy` · `order` · `log` · `balance-up` · `balance-down` · `split` · `map` ·
-`rename` · `refresh` · `sync`. Full list and the Lua API: `:help daylog-keymaps`,
-`:help daylog-lua`.
-
-Two notes. The argument-taking verbs (`day`, `report`, `insert <source>`) read most
-naturally as typed commands — `:Daylog report monday..`, `:Daylog day -1`. And a
-visual-range `map` needs the command form, so the `'<,'>` range comes through:
+Use the command form for simple actions; use the function form when you want a count
+(`next_day(vim.v.count1)`) or an argument. The verbs are listed under [Commands](#commands) (and
+`:help daylog-keymaps` / `:help daylog-lua`). A visual-range `map` needs the command form, so the
+`'<,'>` range comes through:
 
 ```lua
 vim.keymap.set("x", "<leader>dm", ":Daylog map<cr>") -- relabel every entry in the selection

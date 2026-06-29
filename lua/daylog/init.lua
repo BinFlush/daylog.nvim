@@ -337,7 +337,7 @@ function M.open_relative_day(step)
 end
 
 -- Public verb API (require("daylog").<verb>) -- the canonical interface the :Daylog command
--- and <Plug> maps dispatch to. The day verbs build on the shared daybook_io shell helpers
+-- and any user keymaps dispatch to. The day verbs build on the shared daybook_io shell helpers
 -- (open_daybook_file to create/open, edit_daybook_file to navigate) plus the unified date
 -- grammar, which lets day() both backfill a past day and pre-create a future one.
 
@@ -639,19 +639,39 @@ end
 
 -- The opt-in default key set (setup({ keymaps = true })): buffer-local in daylog files so it
 -- never touches global keys. ]d / [d navigate days (deliberately overriding the diagnostic
--- jumps inside daylog buffers); the editing verbs sit under <localleader>. Each rhs is a
--- <Plug>(daylog-*) mapping defined in plugin/daylog.lua.
+-- jumps inside daylog buffers, and count-aware -- 3]d steps three logged days on); the editing
+-- verbs sit under <localleader>. Each value is a callback over the public verb api.
 local DEFAULT_KEYMAPS = {
-  ["]d"] = "<Plug>(daylog-next-day)",
-  ["[d"] = "<Plug>(daylog-prev-day)",
-  ["<localleader>i"] = "<Plug>(daylog-insert)",
-  ["<localleader>I"] = "<Plug>(daylog-insert-pick)",
-  ["<localleader>r"] = "<Plug>(daylog-repeat)",
-  ["<localleader>n"] = "<Plug>(daylog-new)",
-  ["<localleader>c"] = "<Plug>(daylog-copy)",
-  ["<localleader>o"] = "<Plug>(daylog-order)",
-  ["<localleader>l"] = "<Plug>(daylog-log)",
-  ["<localleader>R"] = "<Plug>(daylog-refresh)",
+  ["]d"] = function()
+    M.next_day(vim.v.count1)
+  end,
+  ["[d"] = function()
+    M.prev_day(vim.v.count1)
+  end,
+  ["<localleader>i"] = function()
+    M.insert()
+  end,
+  ["<localleader>I"] = function()
+    M.insert({ pick = true })
+  end,
+  ["<localleader>r"] = function()
+    M.repeat_()
+  end,
+  ["<localleader>n"] = function()
+    M.new_log()
+  end,
+  ["<localleader>c"] = function()
+    M.copy()
+  end,
+  ["<localleader>o"] = function()
+    M.order()
+  end,
+  ["<localleader>l"] = function()
+    M.log()
+  end,
+  ["<localleader>R"] = function()
+    M.refresh()
+  end,
 }
 
 -- Apply the configured keymaps buffer-locally to a daylog buffer (true -> the default set, a
@@ -696,7 +716,7 @@ function M.setup(options)
   config.setup(options)
   filetype.register()
   instantiate_sources()
-  commands.register(M)
+  commands.register()
 
   setup_auto_summary(config.get().auto_summary)
   setup_keymaps()

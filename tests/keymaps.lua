@@ -2,17 +2,18 @@ return function(t)
   local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
   local with_daylog_setup = helpers.with_daylog_setup
 
-  -- -u NONE does not load plugin/, so source it to define the <Plug> mappings the keymap set
-  -- targets.
-  dofile(vim.fn.getcwd() .. "/plugin/daylog.lua")
+  -- Buffer-local normal-mode maps in the current buffer.
+  local function buffer_maps()
+    return vim.api.nvim_buf_get_keymap(0, "n")
+  end
 
-  -- The set of normal-mode rhs values mapped buffer-locally in the current buffer.
-  local function buffer_rhs()
-    local set = {}
-    for _, map in ipairs(vim.api.nvim_buf_get_keymap(0, "n")) do
-      set[map.rhs or ""] = true
+  local function buffer_map(lhs)
+    for _, map in ipairs(buffer_maps()) do
+      if map.lhs == lhs then
+        return map
+      end
     end
-    return set
+    return nil
   end
 
   local function as_daylog_buffer()
@@ -20,40 +21,34 @@ return function(t)
     vim.bo.filetype = "daylog"
   end
 
-  t.test("<Plug> mappings are defined for the frequent verbs", function()
-    for _, name in ipairs({ "today", "next-day", "prev-day", "insert", "repeat", "order", "log" }) do
-      t.ok(
-        vim.fn.maparg("<Plug>(daylog-" .. name .. ")", "n") ~= "",
-        "<Plug>(daylog-" .. name .. ") should be mapped"
-      )
-    end
-  end)
-
-  t.test("keymaps default off applies no buffer-local daylog maps", function()
+  t.test("keymaps default off applies no buffer-local maps", function()
     with_daylog_setup({}, function()
       as_daylog_buffer()
-      t.ok(not buffer_rhs()["<Plug>(daylog-next-day)"])
+      t.eq(#buffer_maps(), 0)
     end)
   end)
 
-  t.test("keymaps = true applies the default set buffer-locally in daylog files", function()
+  t.test("keymaps = true applies the default set buffer-locally, as callbacks", function()
     with_daylog_setup({ keymaps = true }, function()
       as_daylog_buffer()
-      local rhs = buffer_rhs()
-      t.ok(rhs["<Plug>(daylog-next-day)"])
-      t.ok(rhs["<Plug>(daylog-prev-day)"])
-      t.ok(rhs["<Plug>(daylog-insert)"])
-      t.ok(rhs["<Plug>(daylog-order)"])
+      -- ]d / [d + an 8-key <localleader> cluster = 10 maps, each a Lua callback (not a string).
+      t.eq(#buffer_maps(), 10)
+      local nav = buffer_map("]d")
+      t.ok(nav ~= nil and nav.callback ~= nil, "]d should map to a callback")
+      t.ok(buffer_map("[d") ~= nil, "[d should be mapped")
     end)
   end)
 
-  t.test("a keymaps table replaces the default set", function()
-    with_daylog_setup({ keymaps = { ["<C-n>"] = "<Plug>(daylog-new)" } }, function()
+  t.test("a keymaps table replaces the default set (string or function rhs)", function()
+    with_daylog_setup({
+      keymaps = {
+        ["<C-n>"] = "<Cmd>Daylog new<CR>",
+        ["<C-r>"] = function() end,
+      },
+    }, function()
       as_daylog_buffer()
-      local rhs = buffer_rhs()
-      t.ok(rhs["<Plug>(daylog-new)"])
-      -- the default ]d -> next-day is not applied when a custom table is given
-      t.ok(not rhs["<Plug>(daylog-next-day)"])
+      t.eq(#buffer_maps(), 2)
+      t.ok(buffer_map("]d") == nil, "the default ]d is not applied with a custom table")
     end)
   end)
 
@@ -61,7 +56,7 @@ return function(t)
     with_daylog_setup({ keymaps = true }, function()
       t.reset({ "scratch" })
       vim.bo.filetype = "text"
-      t.ok(not buffer_rhs()["<Plug>(daylog-next-day)"])
+      t.eq(#buffer_maps(), 0)
     end)
   end)
 end
