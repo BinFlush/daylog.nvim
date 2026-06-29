@@ -297,15 +297,119 @@ return function(t)
     t.ok(has(out, "1:30 (+0m) WORK-1"), "the three fold under the alias")
   end)
 
-  t.test("refuses a range that covers no entries", function()
+  t.test("maps a range of summary rows, folding them under one alias", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 fix login",
+      "09:30 chase timeout",
+      "10:00 write tests",
+      "10:30 done",
+    })
+
+    -- Select from the first summary item row through the third -- a selection in the summary,
+    -- not the body. Each row expands to its entry, and they all collapse to the new label.
+    local out = run_range(lines, "(+0m) fix login", "(+0m) write tests", "TICKET-1")
+
+    t.ok(has(out, "09:00 fix login => TICKET-1"), "first activity's entry mapped")
+    t.ok(has(out, "09:30 chase timeout => TICKET-1"), "second activity's entry mapped")
+    t.ok(has(out, "10:00 write tests => TICKET-1"), "third activity's entry mapped")
+    t.ok(has(out, "1:30 (+0m) TICKET-1"), "the three summary rows fold into one")
+  end)
+
+  t.test("maps a range of summary rows with several entries each", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 standup",
+      "09:15 standup",
+      "09:30 review",
+      "09:45 review",
+      "10:00 done",
+    })
+
+    -- Two summary rows, each fed by two entries; selecting both folds all four contributors.
+    local out = run_range(lines, "(+0m) standup", "(+0m) review", "SPRINT-7")
+
+    t.ok(has(out, "09:00 standup => SPRINT-7"), "first standup mapped")
+    t.ok(has(out, "09:15 standup => SPRINT-7"), "second standup mapped")
+    t.ok(has(out, "09:30 review => SPRINT-7"), "first review mapped")
+    t.ok(has(out, "09:45 review => SPRINT-7"), "second review mapped")
+    t.ok(has(out, "1:00 (+0m) SPRINT-7"), "all four fold into one row")
+  end)
+
+  t.test("skips blanks, headers and totals inside a summary-row selection", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 alpha",
+      "09:30 beta",
+      "10:00 done",
+    })
+
+    -- Select from the first summary item line clear through the workday total: the blank, the
+    -- "--- totals ---" header and the total line in between are skipped, not a STALE refusal.
+    local out = run_range(lines, "(+0m) alpha", "workday", "WORK-1")
+
+    t.ok(has(out, "09:00 alpha => WORK-1"), "alpha mapped")
+    t.ok(has(out, "09:30 beta => WORK-1"), "beta mapped")
+    t.ok(has(out, "1:00 (+0m) WORK-1"), "the items fold under the alias")
+  end)
+
+  t.test("maps cross-tag summary rows under one label without merging the tags", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 alpha #teamA",
+      "09:30 beta #teamB",
+      "10:00 done",
+    })
+
+    -- Both rows take the alias, but the tag is an independent grouping dimension, so they
+    -- stay two rows that share the label rather than collapsing into one.
+    local out = run_range(lines, "(+0m) alpha", "(+0m) beta", "Z")
+
+    t.ok(has(out, "09:00 alpha => Z #teamA"), "first entry mapped, tag kept")
+    t.ok(has(out, "09:30 beta => Z #teamB"), "second entry mapped, tag kept")
+    t.ok(has(out, "0:30 (+0m) Z #teamA"), "one row for the teamA tag")
+    t.ok(has(out, "0:30 (+0m) Z #teamB"), "a separate row for the teamB tag")
+  end)
+
+  t.test("clears every mapping across a range of summary rows", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 fix login => BUG-1",
+      "09:30 chase timeout => BUG-2",
+      "10:00 done",
+    })
+
+    -- Two distinct alias rows; selecting both and clearing drops both aliases.
+    local out = run_range(lines, "(+0m) BUG-1", "(+0m) BUG-2", "")
+
+    t.ok(has(out, "09:00 fix login"), "first alias cleared")
+    t.ok(has(out, "09:30 chase timeout"), "second alias cleared")
+    t.ok(not has(out, "09:00 fix login => BUG-1"), "no alias token remains")
+  end)
+
+  t.test("refuses a summary-row range when a contributing entry is logged", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 fix login !L30",
+      "09:30 done",
+    })
+
+    -- The summary row's only contributor is logged, so the whole map is refused.
+    local _, err = run_range(lines, "(+0m) fix login", "(+0m) fix login", "BUG-1")
+
+    t.eq(err, map_summary.REFUSE_LOGGED)
+  end)
+
+  t.test("refuses a range that covers no mappable rows", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
       "09:00 alpha",
       "09:30 done",
     })
 
-    -- A range over only the generated summary row touches no entries.
-    local _, err = run_range(lines, "(+0m) alpha", "(+0m) alpha", "X")
+    -- A range over only the totals section -- its header and the workday total -- has no
+    -- entry and no main summary row to map.
+    local _, err = run_range(lines, "--- total", "workday", "X")
 
     t.eq(err, map_summary.NO_RANGE_ENTRIES)
   end)

@@ -11,8 +11,9 @@ local M = {}
 --
 -- Sets or clears an entry's mapping alias -- the label it resolves to in the summary --
 -- with the cursor on a main summary row (every contributing entry), on a single entry, or
--- over a visual range (every selected entry line). The pure math is in usecases/map_summary;
--- this is the prompt / source-picker / apply shell around it, mirroring the rename shell.
+-- over a visual range (every selected entry line, and every selected summary row's entries).
+-- The pure math is in usecases/map_summary; this is the prompt / source-picker / apply shell
+-- around it, mirroring the rename shell.
 
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
@@ -49,7 +50,8 @@ local function apply(target_buf, label, do_run)
   run_pinned_usecase(target_buf, "map", do_run, label)
 end
 
--- Clear the alias on the cursor's target, or every entry in a visual range (`:Daylog! map`).
+-- Clear the alias on the cursor's target, or across a visual range -- entries and the entries
+-- behind selected summary rows alike (`:Daylog! map`).
 function M.clear(range)
   if in_report() then
     warn("daylog: :Daylog map is not available in a report; map in the day file")

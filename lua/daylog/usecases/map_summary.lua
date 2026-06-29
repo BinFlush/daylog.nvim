@@ -12,14 +12,31 @@ local M = {}
 -- toward, and is shown as, that target, while the entry keeps its descriptive text. This
 -- works at three granularities: with the cursor on a main summary row it maps every
 -- contributing entry (bulk), with the cursor on an entry it maps just that one, and over a
--- line range (a visual selection) it maps every entry line in the range. The mapping rides
--- on the entry, so the summary stays a pure projection. An empty value clears the alias.
--- A logged (`!L`) entry is refused -- its committed value is tied to its current identity;
--- unlog, map, relog.
+-- line range (a visual selection) it maps every entry line in the range and expands every
+-- summary row in the range to the entries feeding it -- so selecting a span of summary rows
+-- collapses those activities under one label. The mapping rides on the entry, so the summary
+-- stays a pure projection. An empty value clears the alias. A logged (`!L`) entry is refused
+-- -- its committed value is tied to its current identity; unlog, map, relog.
 
 M.REFUSE_LOGGED = "daylog: refusing to map a logged entry; unlog it first"
 M.NOT_MAPPABLE = "daylog: put the cursor on a summary row or an entry to map it"
-M.NO_RANGE_ENTRIES = "daylog: no entries in the selection to map"
+M.NO_RANGE_ENTRIES = "daylog: nothing in the selection to map"
+
+-- The source entry rows feeding a main summary row: its interval contributors plus a
+-- same-activity closing entry. The closing entry starts no interval, so it is absent from
+-- source_entry_rows; include it when its activity matches the row, so a same-activity closer
+-- is mapped too.
+local function item_source_rows(block, item)
+  local rows = {}
+  for _, row in ipairs(item.source_entry_rows or {}) do
+    rows[#rows + 1] = row
+  end
+  local closing = summary.closing_entry_row_for(block.entries, item)
+  if closing then
+    rows[#rows + 1] = closing
+  end
+  return rows
+end
 
 -- The target entry rows for the cursor: a main summary row's source entries, or a single
 -- entry under the cursor. Returns ctx, rows, err.
@@ -34,19 +51,7 @@ local function resolve_targets(lines, cursor_row)
       return nil, nil, M.NOT_MAPPABLE
     end
 
-    local item = result.layout_row.item
-    local rows = {}
-    for _, row in ipairs(item.source_entry_rows or {}) do
-      rows[#rows + 1] = row
-    end
-    -- The closing entry contributes no interval, so it is absent from source_entry_rows;
-    -- include it when its activity matches the row, so a same-activity closer is mapped too.
-    local closing = summary.closing_entry_row_for(result.ctx.block.entries, item)
-    if closing then
-      rows[#rows + 1] = closing
-    end
-
-    return result.ctx, rows, nil
+    return result.ctx, item_source_rows(result.ctx.block, result.layout_row.item), nil
   end
 
   if result.entry_item then
@@ -56,9 +61,11 @@ local function resolve_targets(lines, cursor_row)
   return nil, nil, M.NOT_MAPPABLE
 end
 
--- The active log's entry rows whose line falls within [r1, r2] -- a visual selection.
--- Non-entry lines (header, blank, the summary) and entries in any other log are ignored;
--- a selection that covers no active-log entries is refused. Returns ctx, rows, err.
+-- The active log's target entry rows for a [r1, r2] line range -- a visual selection. Each
+-- entry line maps itself; each main summary row in the range expands to the entries feeding
+-- it, so a span of summary rows collapses those activities together. Structural lines
+-- (headers, blanks, total rows) and any other log's lines contribute nothing, and a selection
+-- with no mappable target is refused. Returns ctx, rows, err.
 local function resolve_range_targets(lines, r1, r2)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -66,10 +73,28 @@ local function resolve_range_targets(lines, r1, r2)
   end
 
   local lo, hi = math.min(r1, r2), math.max(r1, r2)
-  local rows = {}
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.start_row >= lo and item.start_row <= hi then
-      rows[#rows + 1] = item.start_row
+  local rows, seen = {}, {}
+  local function add(row)
+    if not seen[row] then
+      seen[row] = true
+      rows[#rows + 1] = row
+    end
+  end
+
+  for row = lo, hi do
+    local item = support.entry_item_at_row(ctx.block, row)
+    if item then
+      add(item.start_row)
+    else
+      -- A summary item row expands to every entry feeding it. A resolve error (STALE for the
+      -- header / blanks inside the region, AMBIGUOUS) means "not a mappable row here", so it
+      -- is skipped exactly like a non-entry body line rather than refusing the whole range.
+      local result = summary_cursor.resolve(lines, row)
+      if result and result.layout_row.kind == render.LAYOUT_KIND.SUMMARY_ITEM then
+        for _, source_row in ipairs(item_source_rows(ctx.block, result.layout_row.item)) do
+          add(source_row)
+        end
+      end
     end
   end
 
@@ -148,7 +173,8 @@ function M.run(lines, cursor_row, alias)
   return apply_alias(ctx, rows, alias)
 end
 
--- M.run over a [r1, r2] line range (a visual selection): map every entry line in the range.
+-- M.run over a [r1, r2] line range (a visual selection): map every entry line in the range,
+-- and collapse every summary row in the range to the entries feeding it.
 function M.run_range(lines, r1, r2, alias)
   local ctx, rows, err = resolve_range_targets(lines, r1, r2)
   if not ctx then

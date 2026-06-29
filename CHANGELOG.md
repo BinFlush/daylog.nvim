@@ -29,6 +29,11 @@ happen, but they are called out clearly in this changelog.
   daybook, sources, keymaps). `:Daylog today` warns until you set `daybook.root`, while the editing
   verbs and highlighting work on any `.day` file with no config. The dispatch lazy-loads the
   implementation, so registering at startup stays cheap.
+- **`:Daylog map` over a visual range now also collapses summary rows.** A visual selection
+  (or an explicit `:N,M` range) that covers main summary rows maps every entry feeding those
+  rows, so selecting a span of summary rows folds those activities under one label -- the same
+  gesture that already worked over a range of entry lines. Structural lines (headers, blanks,
+  totals) in the selection are ignored.
 
 ### Removed
 

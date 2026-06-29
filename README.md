@@ -85,7 +85,7 @@ Use the command form for simple actions; use the function form when you want a c
 `'<,'>` range comes through:
 
 ```lua
-vim.keymap.set("x", "<leader>dm", ":Daylog map<cr>") -- relabel every entry in the selection
+vim.keymap.set("x", "<leader>dm", ":Daylog map<cr>") -- relabel every entry or summary row in the selection
 ```
 
 ## A typical day
@@ -159,7 +159,7 @@ the `!L` marker, the `=> alias` report label, the `d=hm` duration format) is in
 | `:Daylog log` | Toggle the logged (`!L`) state of the summary row under the cursor |
 | `:Daylog balance [steps]` | Nudge the rounding of the summary row (or entry) under the cursor by ±N q-steps to land a residual (`0` clears) |
 | `:Daylog rename [name\|source]` | Rename the entry's text, or a `#tag`/`@location`, under the cursor (an entry opens the unified picker; tag/location merge into an existing one). Not for activity summary rows — use `:Daylog map` to relabel an activity for the report |
-| `:[range]Daylog[!] map [label\|source]` | Map the entry, every entry of a summary row, or every entry in a visual selection, to a report label (`=> alias`) — your text stays, the summary reads canonically; `!` clears it, or name a source to map onto a work item |
+| `:[range]Daylog[!] map [label\|source]` | Map the entry, every entry of a summary row, or every entry and summary row in a visual selection, to a report label (`=> alias`) — your text stays, the summary reads canonically; `!` clears it, or name a source to map onto a work item |
 | `:Daylog split [w1 w2 …]` | Split the activity on the summary row under the cursor into weighted sub-activities (`foo (1)`, `foo (2)`, …), preserving its total time |
 | `:Daylog copy` | Append an editable copy of the active log to iterate on (the copy becomes the new active log) |
 | `:Daylog order` | Rewrite the log in chronological order |

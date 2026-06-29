@@ -555,8 +555,10 @@ copying-and-cleaning a log for reporting.
 - With the cursor on a main summary row, every entry feeding it -- including a final
   closing entry that shares its activity -- is mapped.
 - With a visual selection (then `:`, which fills in `'<,'>`) -- or an explicit `:N,M`
-  range -- every entry line in the selection is mapped (or cleared) at once. Non-entry
-  lines are ignored, the selection is scoped to the active log, and if any selected
+  range -- every entry line in the selection is mapped (or cleared) at once, and every
+  summary row in the selection collapses the entries feeding it, so selecting a span of
+  summary rows folds those activities under one label. Structural lines (headers, blanks,
+  totals) are ignored, the selection is scoped to the active log, and if any selected
   entry is logged the whole map is refused.
 - `:Daylog map {label}` sets the alias to that (possibly multi-word) label; trailing
   metadata (`#tag`, `!L`, ...) stays on the entry and follows the alias.
