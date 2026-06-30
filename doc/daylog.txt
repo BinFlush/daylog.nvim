@@ -654,6 +654,8 @@ with the log) and never overlays the summary; the log window is shortened to mak
 updates live as you edit.
 - A global toggle: it stays on (or off) as you move between daylog files in the daybook;
   `time_bar = true` is the initial state, and `<leader>db` toggles it in the opt-in set.
+- It is a real split window, so it appears in window navigation (`<C-w>`) and the window
+  count; a `:q` in the log window closes the bar along with it.
 - On today's log, when the final entry is in the future (a planned end), a thin marker line
   on the bar shows where the current time falls.
 - Colours come from the `DaylogBar1`..`DaylogBar8` palette (cycled), each overridable with

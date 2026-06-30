@@ -144,12 +144,12 @@ end
 -- re-checking warnings here. Runs on the LIVE highlight pass (every keystroke), so it tracks edits
 -- and is restored whenever an edit drops the signs; `daylog_active_start` (the stray mark's boundary)
 -- is cached alongside.
-local function render_indicator(buf, lines)
+local function render_indicator(buf, lines, analysis)
   vim.fn.sign_unplace("daylog_active", { buffer = buf })
 
   local active_start = nil
   if config.get().active_indicator and vim.b[buf].daylog_clean then
-    local indicator = highlight.indicator_rows(lines)
+    local indicator = highlight.indicator_rows(lines, analysis)
     if indicator.active_start then
       active_start = indicator.active_start
       ensure_activity_signs()
@@ -374,7 +374,7 @@ end
 -- calls this every pass: it refreshes the strip's content in place, creating the split on first show
 -- (shortening the log window) and tearing it down whenever the bar is off or the buffer has no
 -- window. The strip is keyed by the window, so navigating between daylog files reuses it.
-local function render_time_bar(buf, lines)
+local function render_time_bar(buf, lines, analysis)
   local dwin = vim.fn.bufwinid(buf)
   if not time_bar_enabled() or #lines == 0 then
     if dwin ~= -1 then
@@ -390,7 +390,7 @@ local function render_time_bar(buf, lines)
     close_strip(dwin)
     return
   end
-  local entries = highlight.active_entries(lines)
+  local entries = highlight.active_entries(lines, analysis)
   local layout = entries and timebar.layout(entries, width, today_now_minutes(buf))
   if not layout then
     close_strip(dwin)
@@ -462,7 +462,9 @@ local function highlight_buffer(buf)
   vim.api.nvim_buf_clear_namespace(buf, highlight_namespace, 0, -1)
 
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  for _, span in ipairs(highlight.spans(lines)) do
+  -- One parse + analyze for the whole pass, shared by the spans, the indicator, and the bar.
+  local parsed, analysis = highlight.parse_and_analyze(lines)
+  for _, span in ipairs(highlight.spans(lines, parsed, analysis)) do
     vim.api.nvim_buf_set_extmark(buf, highlight_namespace, span.line, span.col_start, {
       end_col = span.col_end,
       hl_group = span.group,
@@ -470,9 +472,9 @@ local function highlight_buffer(buf)
     })
   end
 
-  render_indicator(buf, lines)
+  render_indicator(buf, lines, analysis)
   render_stray(buf)
-  render_time_bar(buf, lines)
+  render_time_bar(buf, lines, analysis)
 end
 
 -- Flip the global time bar on/off and redraw every visible daylog buffer, so the change shows at

@@ -1,4 +1,4 @@
--- Time bar layout (pure).
+-- Time bar layout (PURE).
 --
 -- Turns the active log's intervals into a horizontal, time-proportional bar: each interval is a
 -- segment whose cell width is its share of the real recorded duration, and whose colour is its

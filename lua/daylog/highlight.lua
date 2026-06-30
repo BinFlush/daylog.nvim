@@ -224,10 +224,11 @@ local function push_log_header(spans, row, line)
   end
 end
 
--- Compute the highlight spans for a daylog buffer's lines.
-function M.spans(lines)
-  local parsed = document.parse(lines)
-  local analysis = analyze.analyze(parsed)
+-- Compute the highlight spans for a daylog buffer's lines. `parsed`/`analysis` (one parse + analyze)
+-- may be passed so a render pass shares a single analysis; they are computed when omitted.
+function M.spans(lines, parsed, analysis)
+  parsed = parsed or document.parse(lines)
+  analysis = analysis or analyze.analyze(parsed)
   local in_summary = summary_section_rows(analysis)
   local invalid_headers = invalid_header_rows(analysis)
   local spans = {}
@@ -264,32 +265,29 @@ function M.spans(lines)
   return spans
 end
 
--- Pure: the active log's line span (body + summary), for the margin indicator. The
--- active log is the last one (analyze.get_active_log); being last, it runs to EOF.
--- Returns nil when there's no log.
-function M.active_region(lines)
-  local analysis = analyze.analyze(document.parse(lines))
+-- The active log's semantic entries (alias / tag / offset resolved), or nil when there's no log.
+-- The time bar lays the day's intervals out from these. `analysis` may be passed to share one parse.
+function M.active_entries(lines, analysis)
+  analysis = analysis or analyze.analyze(document.parse(lines))
   local active = analyze.get_active_log(analysis)
-  if not active then
-    return nil
-  end
-  return { start_row = active.start_row, end_row = #lines }
+  return active and active.entries or nil
 end
 
--- The active log's semantic entries (alias / tag / offset resolved), or nil when there's no log.
--- The time bar lays the day's intervals out from these.
-function M.active_entries(lines)
-  local active = analyze.get_active_log(analyze.analyze(document.parse(lines)))
-  return active and active.entries or nil
+-- One parse + analyze for a render pass, returned together so the shell analyses once and shares it
+-- across spans / indicator_rows / active_entries instead of repeating the work per consumer.
+function M.parse_and_analyze(lines)
+  local parsed = document.parse(lines)
+  return parsed, analyze.analyze(parsed)
 end
 
 -- Pure: the left-margin colour indicator for the active log -- a map { buffer_row(1-based) ->
 -- colour_index } colouring each entry (and the notes beneath it, so an activity reads as one
 -- connected run) and each main summary row by its activity (the resolved label), with colours by
--- order of appearance. Also returns the active log's start row, for the stray-cursor mark. The map
--- is empty when there is no log.
-function M.indicator_rows(lines)
-  local analysis = analyze.analyze(document.parse(lines))
+-- order of appearance. Also returns the active log's start row, for the stray-cursor mark. `analysis`
+-- (one parse + analyze) may be passed so a render pass shares a single analysis; it is computed when
+-- omitted. The map is empty when there is no log.
+function M.indicator_rows(lines, analysis)
+  analysis = analysis or analyze.analyze(document.parse(lines))
   local active = analyze.get_active_log(analysis)
   if not active then
     return { rows = {} }
@@ -310,14 +308,18 @@ function M.indicator_rows(lines)
     end
   end
 
-  -- The main summary rows render consecutively right below the located summary banner, in item
-  -- order, so summary_items[j] sits at start_row + j.
+  -- The main summary rows render consecutively right below the summary banner, in item order, so
+  -- summary_items[j] sits at start_row + j. Colour only when the located zone really begins at this
+  -- block's rendered banner -- a zone found by shape (a deleted/mangled banner) is no reliable anchor,
+  -- so it is skipped rather than risk colouring the wrong rows -- and bound each write to the zone.
   local zone = summary_block.find(analysis, active)
-  if zone then
+  local banner = syntax.summary_header(active.quantize_minutes, active.duration_format)
+  if zone and lines[zone.start_row] == banner then
     for j, sitem in ipairs(summary.summarize_block(active).summary_items) do
       local color_index = index[sitem.text]
-      if color_index then
-        rows[zone.start_row + j] = color_index
+      local row = zone.start_row + j
+      if color_index and row < zone.end_row then
+        rows[row] = color_index
       end
     end
   end

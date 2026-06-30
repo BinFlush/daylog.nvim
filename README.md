@@ -28,6 +28,9 @@ type:
 Repeated tasks add up; durations round to buckets (15 min by default, `q=1` for exact). The
 `(+Nm)` is each row's rounding error.
 
+In the editor each activity gets its own color — down the left margin and on its summary row — and
+the optional `:Daylog bar` draws a proportional, color-matched timeline of the day at the bottom.
+
 ## Install
 
 Add `BinFlush/daylog.nvim` with any plugin manager — it highlights and edits `.day` files the
@@ -94,7 +97,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`)
 | `:Daylog refresh` | Rebuild every summary to match its entries |
 | `:Daylog sync [source]` | Refresh a source's cached work items |
 | `:Daylog keys` | Show the daylog keymaps + commands in a popup (also `g?` in `.day` files) |
-| `:Daylog bar` | Toggle a color-coded time bar pinned to the window bottom — the day's activities, sized by time spent |
+| `:Daylog bar` | Toggle a color-coded time bar — a panel at the window's bottom showing the day's activities, sized by time spent |
 
 `:help daylog-commands` has the full rules.
 
