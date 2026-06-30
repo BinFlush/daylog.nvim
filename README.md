@@ -180,8 +180,8 @@ All optional. `defaults` seed each new day's header; `daybook.root` is where dat
 - `:checkhealth daylog` — verify your setup.
 - daylog is pre-1.0; breaking changes are listed in [CHANGELOG.md](CHANGELOG.md). Pin a tag if you
   need stable `.day` parsing.
-- Contributing: `just check` runs the full gate (format, lint, tests, health); see
-  `:help daylog-development`.
+- Contributing: see [CONTRIBUTING.md](CONTRIBUTING.md) — setup, the `just check` gate, and the
+  pre-PR checklist.
 
 ## License
 
