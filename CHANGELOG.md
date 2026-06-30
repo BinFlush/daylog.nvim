@@ -41,15 +41,20 @@ happen, but they are called out clearly in this changelog.
   rows, so selecting a span of summary rows folds those activities under one label -- the same
   gesture that already worked over a range of entry lines. Structural lines (headers, blanks,
   totals) in the selection are ignored.
+- **The `keymaps = true` cluster moved to the `<leader>d` namespace (breaking).** Its editing verbs
+  were under `<localleader>` (which is `\` until you set `maplocalleader`); they now sit under
+  `<leader>d` (`<leader>di` insert, `<leader>dr` repeat, ...), so the set rides whatever `<leader>`
+  you have (gitsigns-style) and shadows a global `<leader>d*` only inside `.day` files. `]d` / `[d`
+  and `g?` are unchanged.
 
 ### Removed
 
 - **The `<Plug>(daylog-*)` mappings (breaking).** They were a redundant third interface beside the
   `:Daylog <verb>` command and the `require("daylog").<verb>()` Lua API, and -- being fixed actions
   -- could not carry a count or an argument. Bind the command (`<Cmd>Daylog today<CR>`) or the
-  function (`require("daylog").today()`) to your keys instead. `setup({ keymaps = true })` is
-  unchanged (its `]d` / `[d` are now count-aware), and a custom `keymaps = { lhs = rhs }` table now
-  accepts a Lua function as well as a mapping string.
+  function (`require("daylog").today()`) to your keys instead. `]d` / `[d` in the opt-in set are now
+  count-aware, and a custom `keymaps = { lhs = rhs }` table now accepts a Lua function as well as a
+  mapping string.
 
 ## 0.13.0 - 2026-06-28
 

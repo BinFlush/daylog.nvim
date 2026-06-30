@@ -655,11 +655,13 @@ or an argument. A visual-range `map` needs the command form (`:Daylog map<CR>`) 
 `'<,'>` range comes through.
 
 `setup({ keymaps = true })` applies a documented default set, buffer-locally in daylog
-files so it never touches your global keys:
+files:
 - `]d` / `[d` -> next / previous day, count-aware (a deliberate, buffer-local override
   of the built-in diagnostic jumps inside daylog buffers).
-- `<localleader>` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy,
-  `o` order, `l` log, `R` refresh.
+- `<leader>d` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy,
+  `o` order, `l` log, `R` refresh. The cluster rides your `<leader>` -- set
+  `mapleader` to taste (e.g. space, for `<Space>d...`); it shadows a global
+  `<leader>d*` only inside daylog buffers.
 - `g?` -> show the keymap cheatsheet (|:Daylog-keys|).
 Each map carries a description, so which-key renders a labelled menu.
 

@@ -105,10 +105,11 @@ daylog sets no keys. For a ready-made set:
 require("daylog").setup({ keymaps = true })
 ```
 
-Buffer-locally in `.day` files: `]d` / `[d` between days (count-aware) and a `<localleader>`
-cluster (`i` insert, `I` pick activity, `r` repeat, `n` new, `c` copy, `o` order, `l` log,
-`R` refresh). Each map is labelled for which-key, and `g?` (or `:Daylog keys`) shows a cheatsheet.
-Pass `{ ["<lhs>"] = "<rhs>", ... }` for your own.
+Buffer-locally in `.day` files: `]d` / `[d` between days (count-aware) and a `<leader>d` cluster
+(`di` insert, `dI` pick activity, `dr` repeat, `dn` new, `dc` copy, `do` order, `dl` log,
+`dR` refresh) — it rides your `<leader>`, so set `mapleader` to taste (space → `<Space>di`). Each
+map is labelled for which-key, and `g?` (or `:Daylog keys`) shows a cheatsheet. Pass
+`{ ["<lhs>"] = "<rhs>", ... }` for your own.
 
 To bind keys yourself, every verb is a `:Daylog <verb>` command and a Lua function
 (`:help daylog-lua` lists the names):

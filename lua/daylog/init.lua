@@ -637,10 +637,11 @@ local function instantiate_sources()
   end
 end
 
--- The opt-in default key set (setup({ keymaps = true })): buffer-local in daylog files so it
--- never touches global keys. ]d / [d navigate days (deliberately overriding the diagnostic
--- jumps inside daylog buffers, and count-aware -- 3]d steps three logged days on); the editing
--- verbs sit under <localleader>; g? shows the cheatsheet. Each entry carries a description so
+-- The opt-in default key set (setup({ keymaps = true })): buffer-local in daylog files. ]d / [d
+-- navigate days (deliberately overriding the diagnostic jumps inside daylog buffers, and
+-- count-aware -- 3]d steps three logged days on); the editing verbs sit under the <leader>d
+-- namespace (gitsigns-style: rides whatever <leader> you set, and only shadows a global
+-- <leader>d* inside daylog buffers); g? shows the cheatsheet. Each entry carries a description so
 -- which-key (and :Daylog keys) can label it.
 local DEFAULT_KEYMAPS = {
   {
@@ -658,56 +659,56 @@ local DEFAULT_KEYMAPS = {
     end,
   },
   {
-    lhs = "<localleader>i",
+    lhs = "<leader>di",
     desc = "insert (stamp the current time)",
     rhs = function()
       M.insert()
     end,
   },
   {
-    lhs = "<localleader>I",
+    lhs = "<leader>dI",
     desc = "insert from picker (what to log)",
     rhs = function()
       M.insert({ pick = true })
     end,
   },
   {
-    lhs = "<localleader>r",
+    lhs = "<leader>dr",
     desc = "repeat the activity under the cursor",
     rhs = function()
       M.repeat_()
     end,
   },
   {
-    lhs = "<localleader>n",
+    lhs = "<leader>dn",
     desc = "new log block",
     rhs = function()
       M.new_log()
     end,
   },
   {
-    lhs = "<localleader>c",
+    lhs = "<leader>dc",
     desc = "copy the active log",
     rhs = function()
       M.copy()
     end,
   },
   {
-    lhs = "<localleader>o",
+    lhs = "<leader>do",
     desc = "order entries by time",
     rhs = function()
       M.order()
     end,
   },
   {
-    lhs = "<localleader>l",
+    lhs = "<leader>dl",
     desc = "toggle logged on the summary row",
     rhs = function()
       M.log()
     end,
   },
   {
-    lhs = "<localleader>R",
+    lhs = "<leader>dR",
     desc = "refresh summaries",
     rhs = function()
       M.refresh()
