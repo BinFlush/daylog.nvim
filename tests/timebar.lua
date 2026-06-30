@@ -137,4 +137,37 @@ return function(t)
       t.eq(#vim.api.nvim_list_wins(), 1)
     end)
   end)
+
+  t.test("the bar strip closes when its window stops showing a daylog", function()
+    local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
+    local timebar_ui = require("daylog.timebar_ui")
+    helpers.with_daylog_setup({}, function()
+      t.reset({ "--- log ---", "08:00 a", "10:00 done" })
+      vim.bo.filetype = "daylog"
+      local dwin = vim.api.nvim_get_current_win()
+
+      -- Make sure the bar is on for this test, restoring the global toggle afterwards.
+      local turned_on = not timebar_ui.enabled()
+      if turned_on then
+        require("daylog").bar()
+      end
+      require("daylog").refresh_indicators(0)
+
+      local function strip()
+        for _, w in ipairs(vim.api.nvim_list_wins()) do
+          if w ~= dwin then
+            return w
+          end
+        end
+      end
+      t.ok(strip() ~= nil, "the strip is open with the bar on")
+
+      vim.cmd("enew") -- the window now shows a non-daylog buffer -> BufWinEnter drops the strip
+      t.ok(strip() == nil, "the strip closed when the window left the daylog buffer")
+
+      if turned_on then
+        timebar_ui.toggle()
+      end
+    end)
+  end)
 end

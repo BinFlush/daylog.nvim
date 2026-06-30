@@ -58,4 +58,35 @@ return function(t)
       t.eq(ind.rows[3], 2)
     end)
   end)
+
+  t.test("an aliased activity's summary row is coloured by its target", function()
+    local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
+    helpers.with_daylog_setup({}, function()
+      t.reset({
+        "--- log ---",
+        "08:00 fix bug => Project A",
+        "10:00 review",
+        "10:30 fix bug => Project A",
+        "12:00 done",
+      })
+      vim.bo.filetype = "daylog"
+      vim.cmd("Daylog refresh")
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      local ind = highlight.indicator_rows(lines)
+      t.eq(ind.rows[2], 1) -- the entry resolves to its alias "Project A" -> colour 1
+      t.eq(ind.rows[3], 2) -- review -> 2
+      -- the summary row is labelled by the alias, and carries the same colour
+      for row, line in ipairs(lines) do
+        if row > 5 and line:match("Project A$") then
+          t.eq(ind.rows[row], 1)
+        end
+      end
+    end)
+  end)
+
+  t.test("colours handle degenerate interval lists", function()
+    t.eq(colors.indices({}), {}) -- no intervals -> empty map
+    local index = colors.indices({ { text = "solo" }, { text = "solo" } })
+    t.eq(index.solo, 1) -- a single repeated activity gets one colour
+  end)
 end
