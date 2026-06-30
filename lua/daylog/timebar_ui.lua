@@ -326,6 +326,7 @@ function M.render(buf, lines, analysis)
       first_minutes = entries[1].minutes,
       last_minutes = entries[#entries].minutes,
       segments = layout.segments,
+      bar_row = #content, -- the bar is the last strip row (below the legend); the hover targets it
     }
   else
     close_strip(dwin)
@@ -373,12 +374,12 @@ local function strip_by_win(win)
 end
 
 -- Mouse-move handler, installed buffer-locally in daylog files when `time_bar_hover` is on (and only
--- effective once the user has set `mousemoveevent`). Over a bar strip, it shows the clock time +
--- activity at the hovered column; anywhere else it hides the tooltip.
+-- effective once the user has set `mousemoveevent`). Over the bar row (not the legend), it shows the
+-- clock time + activity at the hovered column; anywhere else it hides the tooltip.
 function M.on_mouse_move()
   local pos = vim.fn.getmousepos()
   local strip = strip_by_win(pos.winid)
-  if not (strip and strip.first_minutes and pos.wincol >= 1) then
+  if not (strip and strip.first_minutes and pos.wincol >= 1 and pos.line == strip.bar_row) then
     hide_hover()
     return
   end
