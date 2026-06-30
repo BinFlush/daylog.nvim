@@ -663,8 +663,10 @@ updates live as you edit.
 - When the legend is wider than the window, long labels are abbreviated to a distinct prefix
   (with a trailing `…`), and the least-fitting are dropped only once even that will not fit;
   the hover tooltip still shows the full name.
-- Colours come from the `DaylogBar1`..`DaylogBar8` palette (cycled), each overridable with
-  your own `:highlight`; the legend names use `DaylogBarLabel`.
+- Each activity's colour is chosen by farthest-point sampling in OkLCH (a perceptually-uniform
+  space), so the colours stay as distinct as possible -- in hue, lightness, and saturation -- as the
+  `DaylogBar{n}` groups; override any with your own `:highlight`. The legend names use
+  `DaylogBarLabel`.
 
                                                         *daylog-keymaps*
 Mappings ~
@@ -992,9 +994,9 @@ any diagnostic hides them so the warnings stand on their own.
   appears once a file holds two or more logs (you cannot stray off a single log).
 - The markers settle like diagnostics (they update on leaving insert / a
   normal-mode edit), so they never flicker mid-edit.
-- The activity colours come from the `DaylogSign1`..`DaylogSign8` palette (the same
-  colours the time bar uses, as a foreground); the red stray mark is `DaylogStraySign`.
-  Override any with your own `:highlight`.
+- The activity colours are the generated wheel colours (the same per activity as the time
+  bar, here as a foreground) in the `DaylogSign{n}` groups; the red stray mark is
+  `DaylogStraySign`. Override any with your own `:highlight`.
 - Set `active_indicator = false` to turn them off.
 
 >

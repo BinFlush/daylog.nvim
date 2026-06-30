@@ -44,6 +44,12 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- **Activity colours are generated in OkLCH instead of a fixed palette.** The old 8-colour palette
+  repeated -- and even aliased different activities to one terminal colour -- once a log had more than
+  8 activities. It is replaced by a generator that picks each activity's colour by farthest-point
+  sampling in OkLCH (a perceptually-uniform space), keeping them as distinct as possible across hue,
+  lightness, and saturation, with no practical limit. The per-activity `DaylogBar{n}` /
+  `DaylogSign{n}` groups (and the colours they cover) are still overridable with your own `:highlight`.
 - **The time bar legend abbreviates instead of dropping labels.** When the legend is wider than the
   window, the longest labels are shortened to a still-distinct prefix (with a trailing `…`, floored at
   three characters) before any are dropped; only once even those minimums do not fit are the

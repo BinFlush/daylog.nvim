@@ -57,27 +57,11 @@ M.GROUPS = {
   DaylogBarLabel = "Comment",
 }
 
--- The activity colour palette: each activity (cycling through it) gets one colour, used by the time
--- bar as a background block (DaylogBarN) and by the left-margin indicator as a foreground bar
--- (DaylogSignN). A fixed, distinct set; both group families are generated from it so the colours
--- stay in step. Each is registered default = true, so a theme or a user's own :highlight still wins.
-local PALETTE = {
-  { "#5b8fb0", 67 },
-  { "#83c092", 108 },
-  { "#dbbc7f", 179 },
-  { "#e67e80", 174 },
-  { "#d699b6", 175 },
-  { "#7fbbb3", 109 },
-  { "#e69875", 173 },
-  { "#a0a8b0", 247 },
-}
-
-M.PALETTE_SIZE = #PALETTE
-
-for i, colour in ipairs(PALETTE) do
-  M.GROUPS["DaylogBar" .. i] = { bg = colour[1], ctermbg = colour[2] }
-  M.GROUPS["DaylogSign" .. i] = { fg = colour[1], ctermfg = colour[2] }
-end
+-- The per-activity colour groups DaylogBar{n} (time-bar block / legend-swatch background) and
+-- DaylogSign{n} (margin-indicator foreground) are generated on demand from `daylog.palette` -- an
+-- OkLCH colour wheel giving one distinct colour per activity index -- and defined lazily by their
+-- shell consumers (timebar_ui / buffer), so there is no fixed palette size to cycle through. Each is
+-- registered default = true, so a theme or a user's own :highlight still wins.
 
 local BASE_PRIORITY = 100
 local TOKEN_PRIORITY = 110

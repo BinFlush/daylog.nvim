@@ -1,6 +1,7 @@
 local config = require("daylog.config")
 local entry = require("daylog.entry")
 local highlight = require("daylog.highlight")
+local palette = require("daylog.palette")
 local timebar = require("daylog.timebar")
 
 local M = {}
@@ -36,9 +37,29 @@ function M.toggle()
   return time_bar_on
 end
 
+-- The highlight group for an activity colour index, defining DaylogBar{i} (a generated wheel colour,
+-- as a background) on first use. Used by both the bar blocks and the legend swatches.
+local bar_groups_defined = {}
+
 local function bar_group(color_index)
-  return "DaylogBar" .. ((color_index - 1) % highlight.PALETTE_SIZE + 1)
+  if not bar_groups_defined[color_index] then
+    local c = palette.color(color_index)
+    vim.api.nvim_set_hl(
+      0,
+      "DaylogBar" .. color_index,
+      { bg = c.gui, ctermbg = c.cterm, default = true }
+    )
+    bar_groups_defined[color_index] = true
+  end
+  return "DaylogBar" .. color_index
 end
+
+-- A colorscheme switch clears our default groups; forget them so the next render re-defines them.
+vim.api.nvim_create_autocmd("ColorScheme", {
+  callback = function()
+    bar_groups_defined = {}
+  end,
+})
 
 -- Owner window id -> { win, buf } for the bar's reserved bottom split (its window + scratch buffer).
 -- Keying by the window the strip sits under (not the buffer) lets navigating between daylog files in
