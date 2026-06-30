@@ -194,6 +194,35 @@ local function normalize_auto_timezone(value)
   return value
 end
 
+-- The colour-coded time bar pinned at the daylog window's bottom (:Daylog bar / <leader>db toggle it
+-- globally). Off by default; this is the initial state until the global toggle is first used.
+local function normalize_time_bar(value)
+  if value == nil then
+    return false
+  end
+
+  if type(value) ~= "boolean" then
+    error("daylog: time_bar must be a boolean")
+  end
+
+  return value
+end
+
+-- The mouse-hover popup over the time bar (the clock time + activity under the pointer). Off by
+-- default. It also needs `:set mousemoveevent` -- daylog never sets that global on your behalf -- and
+-- a terminal that reports mouse motion.
+local function normalize_time_bar_hover(value)
+  if value == nil then
+    return false
+  end
+
+  if type(value) ~= "boolean" then
+    error("daylog: time_bar_hover must be a boolean")
+  end
+
+  return value
+end
+
 -- `keymaps` is off (false) by default, `true` to apply the documented default set, or a
 -- { lhs = rhs } table to map your own keys (replacing the default set). The maps are applied
 -- buffer-locally in daylog files; rhs is a mapping string (e.g. "<Cmd>Daylog today<CR>") or a
@@ -410,6 +439,8 @@ local function normalize_config(options)
     active_indicator = normalize_active_indicator(options.active_indicator),
     auto_timezone = normalize_auto_timezone(options.auto_timezone),
     keymaps = normalize_keymaps(options.keymaps),
+    time_bar = normalize_time_bar(options.time_bar),
+    time_bar_hover = normalize_time_bar_hover(options.time_bar_hover),
   }
 
   local daybook = normalize_daybook(options.daybook)

@@ -31,8 +31,8 @@ return function(t)
   t.test("keymaps = true applies the default set buffer-locally, as callbacks", function()
     with_daylog_setup({ keymaps = true }, function()
       as_daylog_buffer()
-      -- ]d / [d + a 10-key <leader>d cluster + g? = 13 normal maps; dm / dR also bind visual mode.
-      t.eq(#buffer_maps(), 13)
+      -- ]d / [d + an 11-key <leader>d cluster + g? = 14 normal maps; dm / dR also bind visual mode.
+      t.eq(#buffer_maps(), 14)
       local nav = buffer_map("]d")
       t.ok(nav ~= nil and nav.callback ~= nil, "]d should map to a callback")
       t.ok(nav.desc ~= nil and nav.desc:match("next day") ~= nil, "]d should carry a per-key desc")

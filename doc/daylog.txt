@@ -643,6 +643,31 @@ given, by fetching from the tracker. See |daylog-sources|.
 Show a popup cheatsheet of the daylog keymaps active in daylog files, plus how to open
 today and reach the full command set. `g?` runs it too when the default set is enabled.
 
+                                                        *:Daylog-bar*
+:Daylog bar
+
+Toggle the colour-coded time bar at the bottom of the window: a horizontal bar whose
+segments are the active log's intervals -- each width proportional to its real duration,
+each colour its activity (resolved label) -- with a legend. It lives in a small split
+reserved at the bottom of the daylog window, so it is always visible (it does not scroll
+with the log) and never overlays the summary; the log window is shortened to make room. It
+updates live as you edit.
+- A global toggle: it stays on (or off) as you move between daylog files in the daybook;
+  `time_bar = true` is the initial state, and `<leader>db` toggles it in the opt-in set.
+- It is a real split window, so it appears in window navigation (`<C-w>`) and the window
+  count; a `:q` in the log window closes the bar along with it.
+- On today's log, when the final entry is in the future (a planned end), a thin marker line
+  on the bar shows where the current time falls.
+- An optional mouse-hover tooltip (|daylog-time-bar-hover|) shows the clock time and the
+  activity under the pointer.
+- When the legend is wider than the window, long labels are abbreviated to a distinct prefix
+  (with a trailing `…`), and the least-fitting are dropped only once even that will not fit;
+  the hover tooltip still shows the full name.
+- Each activity's colour is chosen by farthest-point sampling in OkLCH (a perceptually-uniform
+  space), so the colours stay as distinct as possible -- in hue, lightness, and saturation -- as the
+  `DaylogBar{n}` groups; override any with your own `:highlight`. The legend names use
+  `DaylogBarLabel`.
+
                                                         *daylog-keymaps*
 Mappings ~
 
@@ -663,7 +688,7 @@ files:
 - `]d` / `[d` -> next / previous day, count-aware (a deliberate, buffer-local override
   of the built-in diagnostic jumps inside daylog buffers).
 - `<leader>d` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy, `o` order,
-  `l` log, `m` map, `R` rename, `f` refresh; `m` / `R` also act on a selection.
+  `l` log, `m` map, `R` rename, `f` refresh, `b` time bar; `m` / `R` also act on a selection.
 - The cluster rides your `<leader>` -- set `mapleader` to taste (e.g. space, for
   `<Space>d...`); it shadows a global `<leader>d*` only inside daylog buffers.
 - `g?` -> show the keymap cheatsheet (|:Daylog-keys|).
@@ -959,21 +984,35 @@ you fix it.
 It is optional and defaults to `true`. They show only while the daylog is clean --
 any diagnostic hides them so the warnings stand on their own.
 
-- A soft-green bar marks the active log (the latest one, the block the commands
-  act on) -- its entries and its generated summary -- on any clean daylog,
-  including a single-log file.
+- A per-activity colour bar marks the active log (the latest one, the block the
+  commands act on): each entry and the notes beneath it carry the activity's colour,
+  and each summary row carries its activity's colour -- so an activity reads as one
+  connected colour down the margin and across to its summary line, matching the time
+  bar (|:Daylog-bar|). Shown on any clean daylog, including a single-log file.
 - A soft-red bar follows the cursor when it sits above the active log, that is, in
   an earlier, non-active log -- a gentle "you are not in the live log" cue. It only
   appears once a file holds two or more logs (you cannot stray off a single log).
 - The markers settle like diagnostics (they update on leaving insert / a
   normal-mode edit), so they never flicker mid-edit.
-- Colors come from the `DaylogActiveSign` (green) and `DaylogStraySign` (red)
-  highlight groups; override either with your own `:highlight`.
+- The activity colours are the generated colours (the same per activity as the time
+  bar, here as a foreground) in the `DaylogSign{n}` groups; the red stray mark is
+  `DaylogStraySign`. Override any with your own `:highlight`.
 - Set `active_indicator = false` to turn them off.
 
 >
   require('daylog').setup({ active_indicator = false })
 <
+
+                                                          *daylog-time-bar*
+`time_bar` sets whether the colour-coded time bar (|:Daylog-bar|) is shown in a daylog
+buffer by default. Optional, defaults to `false`; `:Daylog bar` (or `<leader>db`) then
+toggles it globally, carried across the daybook.
+
+                                                    *daylog-time-bar-hover*
+`time_bar_hover` adds a mouse-hover tooltip on the time bar: moving the pointer over the
+bar shows the clock time at that point and the activity there. Optional, defaults to
+`false`. It also needs Neovim's `mousemoveevent` -- daylog never sets that global for you,
+so add `:set mousemoveevent` yourself -- and a terminal that reports mouse motion.
 
                                                       *daylog-auto-timezone*
 `auto_timezone` keeps your logs honest across a clock change. It is optional and

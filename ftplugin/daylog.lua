@@ -39,4 +39,31 @@ if not vim.b.daylog_highlight_attached then
       daylog.render_stray(args.buf)
     end,
   })
+
+  -- The time bar lives in a reserved bottom split sized to the window's width, so redraw it when the
+  -- buffer is shown in a window and when the terminal is resized, to re-fit its contents.
+  vim.api.nvim_create_autocmd({ "VimResized", "BufWinEnter" }, {
+    buffer = 0,
+    callback = function(args)
+      daylog.highlight_buffer(args.buf)
+    end,
+  })
+
+  -- WinResized (Neovim 0.9+) re-fits the bar after a split resize; pcall keeps the 0.8 floor, where
+  -- the event does not exist and registering it would error.
+  pcall(vim.api.nvim_create_autocmd, "WinResized", {
+    buffer = 0,
+    callback = function(args)
+      daylog.highlight_buffer(args.buf)
+    end,
+  })
+
+  -- Mouse-hover tooltip over the time bar (opt-in via `time_bar_hover`; also needs `:set
+  -- mousemoveevent`, which daylog never sets for you). Buffer-local so it only fires while a daylog
+  -- file is focused; the handler hit-tests the bar strip and shows/hides the time + activity popup.
+  if require("daylog.config").get().time_bar_hover then
+    vim.keymap.set({ "n", "i" }, "<MouseMove>", function()
+      require("daylog.timebar_ui").on_mouse_move()
+    end, { buffer = 0 })
+  end
 end

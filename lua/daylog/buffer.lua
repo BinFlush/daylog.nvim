@@ -1,5 +1,7 @@
+local activity_hl = require("daylog.activity_hl")
 local config = require("daylog.config")
 local highlight = require("daylog.highlight")
+local timebar_ui = require("daylog.timebar_ui")
 local refresh_summaries = require("daylog.usecases.refresh_summaries")
 local syntax = require("daylog.syntax")
 local text = require("daylog.text")
@@ -64,17 +66,8 @@ local function resolve_buf(buf)
   return buf
 end
 
--- The active-log and stray sign defs are registered lazily on first use (mirroring the
--- highlight groups), so they work whether or not setup() ran.
-local active_sign_defined = false
-local function ensure_active_sign()
-  if active_sign_defined then
-    return
-  end
-  vim.fn.sign_define("DaylogActive", { text = "▎", texthl = "DaylogActiveSign" })
-  active_sign_defined = true
-end
-
+-- The stray-cursor sign def is registered lazily on first use (like the highlight groups), so it
+-- works whether or not setup() ran. (The per-activity colours and signs live in daylog.activity_hl.)
 local stray_sign_defined = false
 local function ensure_stray_sign()
   if stray_sign_defined then
@@ -106,6 +99,15 @@ local function ensure_highlight_groups()
   highlight_groups_defined = true
 end
 
+-- A colorscheme switch clears our default highlight groups; forget the cached definitions so the
+-- next render re-creates the static groups. (The per-activity colour groups reset themselves in
+-- daylog.activity_hl.)
+vim.api.nvim_create_autocmd("ColorScheme", {
+  callback = function()
+    highlight_groups_defined = false
+  end,
+})
+
 -- The red "you've strayed off the active log" mark: a soft-red bar on the cursor's line whenever
 -- it sits above the active region (`vim.b.daylog_active_start`, cached by render_active_bar; nil
 -- when there is nothing to mark -- disabled, fewer than two logs, or the file is not clean).
@@ -128,23 +130,29 @@ local function render_stray(buf)
   end
 end
 
--- Place the soft-green active-log bar (its body + summary), gated on the cached `daylog_clean`
--- flag so a diagnostic hides it without re-checking warnings here. This runs on the LIVE
--- highlight pass (every keystroke), so the bar tracks the region as you type and is restored
--- whenever an edit (e.g. the auto-refresh regenerating a summary) drops its signs. The clean
--- flag itself is refreshed only on settle, by refresh_indicators.
-local function render_active_bar(buf, lines)
+-- Place the per-activity colour bar in the left margin: a `▎` coloured by each row's activity (the
+-- entries, the notes beneath them, and the main summary rows), so an activity reads as one connected
+-- colour everywhere. Gated on the cached `daylog_clean` flag so a diagnostic hides it without
+-- re-checking warnings here. Runs on the LIVE highlight pass (every keystroke), so it tracks edits
+-- and is restored whenever an edit drops the signs; `daylog_active_start` (the stray mark's boundary)
+-- is cached alongside.
+local function render_indicator(buf, lines, analysis)
   vim.fn.sign_unplace("daylog_active", { buffer = buf })
 
   local active_start = nil
   if config.get().active_indicator and vim.b[buf].daylog_clean then
-    local region = highlight.active_region(lines)
-    if region then
-      ensure_active_sign()
-      for row = region.start_row, region.end_row do
-        vim.fn.sign_place(0, "daylog_active", "DaylogActive", buf, { lnum = row, priority = 5 })
+    local indicator = highlight.indicator_rows(lines, analysis)
+    if indicator.active_start then
+      active_start = indicator.active_start
+      for row, color_index in pairs(indicator.rows) do
+        vim.fn.sign_place(
+          0,
+          "daylog_active",
+          activity_hl.activity_sign(color_index),
+          buf,
+          { lnum = row, priority = 5 }
+        )
       end
-      active_start = region.start_row
     end
   end
 
@@ -169,7 +177,9 @@ local function highlight_buffer(buf)
   vim.api.nvim_buf_clear_namespace(buf, highlight_namespace, 0, -1)
 
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  for _, span in ipairs(highlight.spans(lines)) do
+  -- One parse + analyze for the whole pass, shared by the spans, the indicator, and the bar.
+  local parsed, analysis = highlight.parse_and_analyze(lines)
+  for _, span in ipairs(highlight.spans(lines, parsed, analysis)) do
     vim.api.nvim_buf_set_extmark(buf, highlight_namespace, span.line, span.col_start, {
       end_col = span.col_end,
       hl_group = span.group,
@@ -177,8 +187,27 @@ local function highlight_buffer(buf)
     })
   end
 
-  render_active_bar(buf, lines)
+  render_indicator(buf, lines, analysis)
   render_stray(buf)
+  timebar_ui.render(buf, lines, analysis)
+end
+
+-- Flip the global time bar on/off (timebar_ui owns the state) and redraw every visible daylog buffer
+-- so the change shows at once across splits (others pick it up via the ftplugin when navigated to).
+local function toggle_time_bar()
+  timebar_ui.toggle()
+  -- Collect the on-screen daylog buffers before redrawing any: a redraw can open or close a strip
+  -- window, which would invalidate a window id still pending in a single combined loop.
+  local daylog_bufs = {}
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local win_buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[win_buf].filetype == "daylog" then
+      daylog_bufs[win_buf] = true
+    end
+  end
+  for win_buf in pairs(daylog_bufs) do
+    highlight_buffer(win_buf)
+  end
 end
 
 -- Refresh the clean/dirty gate (any diagnostic in any log hides the bars) and re-render. The
@@ -358,6 +387,7 @@ M.cursor_row = cursor_row
 M.highlight_buffer = highlight_buffer
 M.refresh_indicators = refresh_indicators
 M.render_stray = render_stray
+M.toggle_time_bar = toggle_time_bar
 M.publish_diagnostics = publish_diagnostics
 M.apply_result = apply_result
 M.run_buffer_usecase = run_buffer_usecase

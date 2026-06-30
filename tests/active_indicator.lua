@@ -1,7 +1,7 @@
--- Shell tests for the active-log awareness layer: refresh_indicators places a soft-green
--- bar down the active log (body + summary) on a clean 2+-log file, and render_stray places a
--- soft-red bar on the cursor's line when it strays above the active log. A diagnostic in any
--- log, a single log, or the disabled option suppresses the whole layer. Drives the
+-- Shell tests for the active-log awareness layer: refresh_indicators places a per-activity colour
+-- bar on the active log's activity rows (entries, their notes, and summary rows), and render_stray
+-- places a soft-red bar on the cursor's line when it strays above the active log. A diagnostic in
+-- any log, a single log, or the disabled option suppresses the whole layer. Drives the
 -- 0 = current-buffer path, guarding the sign_* buffer resolution too.
 return function(t)
   local daylog = require("daylog")
@@ -41,18 +41,21 @@ return function(t)
     "11:00 done",
   }
 
-  t.test("awareness: the green bar spans the active log on a clean 2+-log file", function()
-    config.setup()
-    t.reset(two_logs)
-    daylog.refresh_indicators(0)
-    t.eq(active_lnums(), { 11, 12, 13 })
-  end)
+  t.test(
+    "awareness: the colour bar marks the active log's activity rows on a clean 2+-log file",
+    function()
+      config.setup()
+      t.reset(two_logs)
+      daylog.refresh_indicators(0)
+      t.eq(active_lnums(), { 12 }) -- only the entry row (b); the header and closing carry no activity
+    end
+  )
 
-  t.test("awareness: the green bar marks a single-log file too (no stray possible)", function()
+  t.test("awareness: the colour bar marks a single-log file too (no stray possible)", function()
     config.setup()
     t.reset({ "--- log ---", "08:00 a", "09:00 done" })
     daylog.refresh_indicators(0)
-    t.eq(active_lnums(), { 1, 2, 3 })
+    t.eq(active_lnums(), { 2 }) -- the entry "a"
     t.eq(stray_lnums(), {})
   end)
 
@@ -86,7 +89,7 @@ return function(t)
     t.reset(two_logs)
     t.set_cursor(2) -- inside the first (stale) log
     daylog.refresh_indicators(0)
-    t.eq(active_lnums(), { 11, 12, 13 })
+    t.eq(active_lnums(), { 12 })
     t.eq(stray_lnums(), { 2 })
 
     -- Moving into the active log clears the mark.
@@ -106,14 +109,14 @@ return function(t)
       config.setup()
       t.reset(two_logs)
       daylog.refresh_indicators(0)
-      t.eq(active_lnums(), { 11, 12, 13 })
+      t.eq(active_lnums(), { 12 })
 
       -- An edit (e.g. the auto-refresh regenerating a summary) can drop the bar's signs; the live
       -- highlight pass restores them from the cached clean flag, without re-checking warnings.
       vim.fn.sign_unplace("daylog_active", { buffer = vim.api.nvim_get_current_buf() })
       t.eq(active_lnums(), {})
       daylog.highlight_buffer(0)
-      t.eq(active_lnums(), { 11, 12, 13 })
+      t.eq(active_lnums(), { 12 })
     end
   )
 

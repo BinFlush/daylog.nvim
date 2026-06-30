@@ -24,6 +24,16 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **A color-coded time bar (`:Daylog bar`).** An opt-in horizontal bar at the bottom of the daylog
+  window shows where the day went: each segment is an interval, its width proportional to the real
+  time spent and its colour the activity (resolved label), with a legend. It lives in a reserved
+  split at the bottom of the daylog window (always visible, never overlapping content) and, on
+  today's log with a future-dated final entry, marks where the current time falls. Toggle it globally
+  with `:Daylog bar` or `<leader>db`, or show it by default with `time_bar = true`. The `DaylogBar{n}`
+  groups are overridable.
+- **A mouse-hover tooltip on the time bar (`time_bar_hover`).** With `time_bar_hover = true` (and
+  Neovim's `mousemoveevent` set), hovering the bar shows the clock time at the pointer and the activity
+  there. Opt-in and off by default; daylog never enables `mousemoveevent` for you.
 - **`:Daylog keys` shows a keymap cheatsheet.** A popup (also `g?` in `.day` files when
   `keymaps = true`) lists the daylog keymaps active in the buffer, plus how to open today and reach
   the full command set. The `keymaps = true` default set now also carries per-key descriptions, so
@@ -34,6 +44,23 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- **Activity colours are generated in OkLCH instead of a fixed palette.** The old 8-colour palette
+  repeated -- and even aliased different activities to one terminal colour -- once a log had more than
+  8 activities. It is replaced by a generator that picks each activity's colour by farthest-point
+  sampling in OkLCH (a perceptually-uniform space), keeping them as distinct as possible across hue,
+  lightness, and saturation, with no practical limit. The per-activity `DaylogBar{n}` /
+  `DaylogSign{n}` groups (and the colours they cover) are still overridable with your own `:highlight`.
+- **The time bar legend abbreviates instead of dropping labels.** When the legend is wider than the
+  window, the longest labels are shortened to a still-distinct prefix (with a trailing `…`, floored at
+  three characters) before any are dropped; only once even those minimums do not fit are the
+  least-fitting labels evicted from the end. The hover tooltip (`time_bar_hover`) still shows the full
+  activity name.
+- **The active-log indicator is now per-activity colored.** The uniform green margin bar is replaced
+  by a colour per activity: each entry and the notes beneath it carry the activity's colour, and each
+  summary row carries its activity's colour -- so an activity reads as one connected colour down the
+  margin and across to its summary line, matching the time bar. Colours are assigned by order of
+  first appearance (so they stay stable as the day grows, never reshuffling by duration) and come
+  from the `DaylogSign{n}` groups (the `DaylogActiveSign` group is gone).
 - **`:Daylog` registers at plugin load.** The command is available the moment daylog is installed --
   any plugin manager, no `setup()` call -- so `setup()` is now purely optional configuration (the
   daybook, sources, keymaps). `:Daylog today` warns until you set `daybook.root`, while the editing

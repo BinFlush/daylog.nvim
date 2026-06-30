@@ -741,6 +741,13 @@ local DEFAULT_KEYMAPS = {
     end,
   },
   {
+    lhs = "<leader>db",
+    desc = "toggle the time bar",
+    rhs = function()
+      M.bar()
+    end,
+  },
+  {
     lhs = "g?",
     desc = "show daylog keys",
     rhs = function()
@@ -778,6 +785,16 @@ end
 -- Show the keymap cheatsheet popup (:Daylog keys, and g? in the default set).
 function M.keys()
   require("daylog.keys").show(keymap_help_entries())
+end
+
+-- Toggle the colour-coded time bar; the `time_bar` config sets the initial state. The toggle is
+-- global -- it stays on (or off) as you navigate between daylog files -- not per buffer.
+function M.bar()
+  if vim.bo.filetype ~= "daylog" then
+    warn("daylog: the time bar is shown in daylog files")
+    return
+  end
+  buffer.toggle_time_bar()
 end
 
 -- Apply the configured keymaps buffer-locally to a daylog buffer (true -> the default set, a

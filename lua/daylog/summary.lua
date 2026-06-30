@@ -62,6 +62,9 @@ local function build_intervals(entries)
   return intervals
 end
 
+-- Exported for the time bar, which lays out the raw (real-duration) intervals directly.
+M.build_intervals = build_intervals
+
 -- The block's closing entry (its final entry) starts no interval, so its row never lands in a
 -- summary item's `source_entry_rows` -- yet it still carries an activity identity. Return its row
 -- when it WOULD group into `item` were another entry to follow it: same resolved text, tag, #ooo

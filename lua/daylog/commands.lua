@@ -84,6 +84,7 @@ local EDIT_VERBS = {
   "map",
   "rename",
   "refresh",
+  "bar",
 }
 
 -- Date tokens completion offers for `day`/`report` arguments (signed +N/-N offsets and
@@ -234,6 +235,9 @@ local VERBS = {
   end,
   keys = function(api)
     api.keys()
+  end,
+  bar = function(api)
+    api.bar()
   end,
 }
 
