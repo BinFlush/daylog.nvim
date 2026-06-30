@@ -31,13 +31,29 @@ return function(t)
   t.test("keymaps = true applies the default set buffer-locally, as callbacks", function()
     with_daylog_setup({ keymaps = true }, function()
       as_daylog_buffer()
-      -- ]d / [d + an 8-key <localleader> cluster + g? = 11 maps, each a Lua callback (not a string).
-      t.eq(#buffer_maps(), 11)
+      -- ]d / [d + a 10-key <leader>d cluster + g? = 13 normal maps; dm / dR also bind visual mode.
+      t.eq(#buffer_maps(), 13)
       local nav = buffer_map("]d")
       t.ok(nav ~= nil and nav.callback ~= nil, "]d should map to a callback")
       t.ok(nav.desc ~= nil and nav.desc:match("next day") ~= nil, "]d should carry a per-key desc")
       t.ok(buffer_map("[d") ~= nil, "[d should be mapped")
       t.ok(buffer_map("g?") ~= nil, "g? should open the keys popup")
+
+      -- <leader>d expands with the configured leader, so assert by description, not lhs. rename
+      -- took dR (refresh moved to df); map + rename also bind a visual-mode <leader>d map.
+      local function any_desc(maps, needle)
+        for _, map in ipairs(maps) do
+          if map.desc ~= nil and map.desc:match(needle) ~= nil then
+            return true
+          end
+        end
+        return false
+      end
+      local visual = vim.api.nvim_buf_get_keymap(0, "x")
+      t.ok(any_desc(buffer_maps(), "rename the entry"), "rename is bound on dR")
+      t.eq(#visual, 2)
+      t.ok(any_desc(visual, "map the selection"), "visual map is bound")
+      t.ok(any_desc(visual, "rename the selection"), "visual rename is bound")
     end)
   end)
 

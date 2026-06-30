@@ -511,7 +511,7 @@ Toggle the logged state of the main summary row under the cursor.
   `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
 
                                                         *:Daylog-rename*
-:Daylog rename [name|source]
+:[range]Daylog rename [name|source]
 
 Rename what the cursor sits on -- a single entry's activity text, or a `#tag` /
 `@location` -- propagating into the log and rebuilding its summary. It does NOT rename
@@ -525,6 +525,10 @@ bulk rename through it is ambiguous. Relabel an activity for the report with
   same unified pool as `:Daylog! insert`); picking renames the entry to it. A `[name]`
   argument renames directly, and a `{source}` name (tab-completed) scopes the picker
   to that one tracker.
+- Over a visual range (or an explicit `:N,M` range) every entry line in the selection
+  is set to one new description -- the explicit, ranged counterpart of the per-entry
+  rename (summary and structural lines in the range are skipped). The same picker /
+  `[name]` argument chooses the text.
 - On a tag-total row, that `#tag` is renamed everywhere it is effective; entries that
   only inherited the tag follow automatically. A location-total row, the `@location`
   the same way.
@@ -658,10 +662,10 @@ or an argument. A visual-range `map` needs the command form (`:Daylog map<CR>`) 
 files:
 - `]d` / `[d` -> next / previous day, count-aware (a deliberate, buffer-local override
   of the built-in diagnostic jumps inside daylog buffers).
-- `<leader>d` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy,
-  `o` order, `l` log, `R` refresh. The cluster rides your `<leader>` -- set
-  `mapleader` to taste (e.g. space, for `<Space>d...`); it shadows a global
-  `<leader>d*` only inside daylog buffers.
+- `<leader>d` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy, `o` order,
+  `l` log, `m` map, `R` rename, `f` refresh; `m` / `R` also act on a selection.
+- The cluster rides your `<leader>` -- set `mapleader` to taste (e.g. space, for
+  `<Space>d...`); it shadows a global `<leader>d*` only inside daylog buffers.
 - `g?` -> show the keymap cheatsheet (|:Daylog-keys|).
 Each map carries a description, so which-key renders a labelled menu.
 

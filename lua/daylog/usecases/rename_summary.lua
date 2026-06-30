@@ -38,6 +38,7 @@ M.CANNOT_NO_LOCATION =
 M.INVALID_NAME = "daylog: a tag or location name must be letters, digits, underscores, or hyphens"
 M.EMPTY_TEXT = "daylog: the activity text cannot be empty"
 M.SAME_NAME = "daylog: the new name matches the current name"
+M.NO_ENTRIES_IN_RANGE = "daylog: no entries in the selection to rename"
 
 -- Classify a summary layout row into a rename target { kind, current } -- a #tag or
 -- @location total. An activity summary row (SUMMARY_ITEM) is refused: rename does not act
@@ -445,6 +446,53 @@ function M.run_by_value(lines, target, new_value)
   end
 
   return build_rename(ctx.analysis, ctx.block, item, target, new_value)
+end
+
+-- The active log's entry rows within a [r1, r2] line range (a visual selection), in source order.
+-- Entry lines only -- summary and structural rows are skipped, so a ranged rename acts on the
+-- entries you selected, never the ambiguous activity grouping a summary row stands for.
+local function range_entry_rows(block, r1, r2)
+  local rows = {}
+  for _, item in ipairs(block.entry_items) do
+    if item.start_row >= r1 and item.start_row <= r2 then
+      rows[#rows + 1] = item.start_row
+    end
+  end
+  return rows
+end
+
+-- M.resolve over a [r1, r2] line range: the prompt target for renaming every selected entry to one
+-- description. `current` defaults the prompt to the entries' shared text (nil -> "" when they differ).
+function M.resolve_range(lines, r1, r2)
+  local ctx, err = support.get_validated_active(lines)
+  if not ctx then
+    return nil, err
+  end
+
+  local rows = range_entry_rows(ctx.block, r1, r2)
+  if #rows == 0 then
+    return nil, M.NO_ENTRIES_IN_RANGE
+  end
+
+  return { kind = "item", current = source_description(ctx.block, rows) or "", candidates = {} }
+end
+
+-- M.run over a [r1, r2] line range: rename every selected entry to `new_value`, rebuilding the one
+-- summary. Reuses build_rename's item path (it rewrites exactly source_entry_rows), so distinct
+-- descriptions across the selection all collapse to the new text.
+function M.run_range(lines, r1, r2, new_value)
+  local ctx, err = support.get_validated_active(lines)
+  if not ctx then
+    return nil, err
+  end
+
+  local rows = range_entry_rows(ctx.block, r1, r2)
+  if #rows == 0 then
+    return nil, M.NO_ENTRIES_IN_RANGE
+  end
+
+  local item = { text = "", source_entry_rows = rows }
+  return build_rename(ctx.analysis, ctx.block, item, { kind = "item" }, new_value)
 end
 
 return M

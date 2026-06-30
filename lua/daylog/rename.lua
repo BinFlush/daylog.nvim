@@ -49,7 +49,12 @@ local rename_from_report
 -- chosen item renames the activity to its `to_entry_text` (sanitized), exactly like
 -- :Daylog insert. A source only applies to an activity row, and with one source
 -- configured it is offered automatically.
-function M.summary(new_value, source_name)
+function M.summary(new_value, source_name, range)
+  if range then
+    M.summary_range(new_value, range)
+    return
+  end
+
   -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
   -- per-day row; the rename fans out across the relevant day files instead of the
   -- current buffer.
@@ -141,6 +146,54 @@ function M.summary(new_value, source_name)
     rows[#rows + 1] = { display = candidate, text = candidate }
   end
   pick.choose(rows, choose_opts)
+end
+
+-- Rename every entry line in a [r1, r2] visual selection to one new description -- the ranged
+-- counterpart of the cursor rename, mirroring :Daylog map over a range. Always an active-log item
+-- rename (no report / source path); an empty/cancelled prompt is a no-op.
+function M.summary_range(new_value, range)
+  if report_buffers.spec_for() then
+    warn("daylog: rename a selection in the day file, not a report")
+    return
+  end
+
+  local target, err = rename_summary.resolve_range(buffer_lines(), range[1], range[2])
+  if not target then
+    warn(err)
+    return
+  end
+
+  local target_buf = vim.api.nvim_get_current_buf()
+  local function apply_rename(value)
+    if value == nil or value == "" or value == target.current then
+      return
+    end
+    run_pinned_usecase(target_buf, "rename", function(lines, val)
+      return rename_summary.run_range(lines, range[1], range[2], val)
+    end, value)
+  end
+
+  if new_value ~= nil then
+    apply_rename(new_value)
+    return
+  end
+
+  local function prompt_for_name()
+    apply_rename(vim.fn.input({ prompt = "daylog: rename selection: ", default = target.current }))
+  end
+
+  -- The same unified pool as a single activity rename (recent activities + every source's items),
+  -- so you can fold the selection into an existing label or type a fresh one.
+  pick.unified(sources_sync.read_specs(), {
+    on_choose = apply_rename,
+    on_create = apply_rename,
+    on_type_new = prompt_for_name,
+    on_empty = prompt_for_name,
+    exclude = target.current,
+    prompt = "Daylog: rename selection  (<CR> pick, <C-e> new name)",
+    prompt_fallback = "Daylog: rename selection",
+    type_new_label = "✎ Type a new name…",
+  })
 end
 
 -- The day files a resolved report row acts on: one path for a per-day row, every

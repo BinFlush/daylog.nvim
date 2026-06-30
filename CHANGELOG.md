@@ -28,6 +28,9 @@ happen, but they are called out clearly in this changelog.
   `keymaps = true`) lists the daylog keymaps active in the buffer, plus how to open today and reach
   the full command set. The `keymaps = true` default set now also carries per-key descriptions, so
   which-key renders a labelled menu instead of an unlabelled blob.
+- **`:[range]Daylog rename` renames a selection of entries.** Over a visual range (or `:N,M`), every
+  selected entry line is set to one new description -- the ranged counterpart of the per-entry
+  rename, mirroring ranged `:Daylog map` (summary / structural lines in the range are skipped).
 
 ### Changed
 
@@ -41,11 +44,12 @@ happen, but they are called out clearly in this changelog.
   rows, so selecting a span of summary rows folds those activities under one label -- the same
   gesture that already worked over a range of entry lines. Structural lines (headers, blanks,
   totals) in the selection are ignored.
-- **The `keymaps = true` cluster moved to the `<leader>d` namespace (breaking).** Its editing verbs
-  were under `<localleader>` (which is `\` until you set `maplocalleader`); they now sit under
-  `<leader>d` (`<leader>di` insert, `<leader>dr` repeat, ...), so the set rides whatever `<leader>`
-  you have (gitsigns-style) and shadows a global `<leader>d*` only inside `.day` files. `]d` / `[d`
-  and `g?` are unchanged.
+- **The `keymaps = true` cluster moved to the `<leader>d` namespace and gained map / rename
+  (breaking).** Its editing verbs were under `<localleader>` (which is `\` until you set
+  `maplocalleader`); they now sit under `<leader>d` (gitsigns-style), so the set rides whatever
+  `<leader>` you have and shadows a global `<leader>d*` only inside `.day` files. The cluster now
+  also binds `dm` map and `dR` rename (both normal and visual mode); `dR` is rename (it was refresh,
+  which moved to `df`). `]d` / `[d` and `g?` are unchanged.
 
 ### Removed
 

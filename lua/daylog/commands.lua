@@ -223,6 +223,7 @@ local VERBS = {
     api.rename({
       value = kind == "value" and ctx.rest or nil,
       source = kind == "source" and ctx.rest or nil,
+      range = ctx.range,
     })
   end,
   refresh = function(api)

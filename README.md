@@ -85,7 +85,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`)
 | `:Daylog[!] report {range}` | Open a multi-day report — a count, a date range, or tokens like `monday..` (`!` for the range summary only — drops the per-day sections) |
 | `:Daylog log` | Toggle the logged (`!L`) state of the summary row under the cursor |
 | `:Daylog balance [steps]` | Nudge the rounding of the row (or entry) under the cursor by ±N q-steps (`0` clears) |
-| `:Daylog rename [name\|source]` | Rename the entry's text or a `#tag`/`@location` under the cursor (not activity summary rows — use `map` to relabel an activity for the report) |
+| `:[range]Daylog rename [name\|source]` | Rename the entry's text or a `#tag`/`@location` under the cursor; over a visual range, set every selected entry to one description (not activity summary rows — use `map` for the report label) |
 | `:[range]Daylog[!] map [label\|source]` | Map the entry, a summary row's entries, or a visual selection to a report label (`=> alias`); `!` clears |
 | `:Daylog split [w1 w2 …]` | Split the activity on the summary row into weighted sub-activities, preserving its total |
 | `:Daylog copy` | Append an editable copy of the active log (the copy becomes active) |
@@ -106,10 +106,10 @@ require("daylog").setup({ keymaps = true })
 ```
 
 Buffer-locally in `.day` files: `]d` / `[d` between days (count-aware) and a `<leader>d` cluster
-(`di` insert, `dI` pick activity, `dr` repeat, `dn` new, `dc` copy, `do` order, `dl` log,
-`dR` refresh) — it rides your `<leader>`, so set `mapleader` to taste (space → `<Space>di`). Each
-map is labelled for which-key, and `g?` (or `:Daylog keys`) shows a cheatsheet. Pass
-`{ ["<lhs>"] = "<rhs>", ... }` for your own.
+(`di` insert, `dI` pick activity, `dr` repeat, `dn` new, `dc` copy, `do` order, `dl` log, `dm` map,
+`dR` rename, `df` refresh; `dm` / `dR` also act over a visual selection) — it rides your `<leader>`,
+so set `mapleader` to taste (space → `<Space>di`). Each map is labelled for which-key, and `g?`
+(or `:Daylog keys`) shows a cheatsheet. Pass `{ ["<lhs>"] = "<rhs>", ... }` for your own.
 
 To bind keys yourself, every verb is a `:Daylog <verb>` command and a Lua function
 (`:help daylog-lua` lists the names):

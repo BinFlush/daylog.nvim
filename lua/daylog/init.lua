@@ -437,7 +437,7 @@ end
 -- tracker's picker; neither opens the unified recent+sources picker.
 function M.rename(opts)
   opts = opts or {}
-  return M.rename_summary(opts.value, opts.source)
+  return M.rename_summary(opts.value, opts.source, opts.range)
 end
 
 -- One end of a `:Daylog report` range: a named token (`today`, `monday`, ...) or a `YYYY-MM-DD`
@@ -708,7 +708,33 @@ local DEFAULT_KEYMAPS = {
     end,
   },
   {
+    lhs = "<leader>dm",
+    desc = "map to a report label",
+    rhs = function()
+      M.map({})
+    end,
+  },
+  {
+    lhs = "<leader>dm",
+    desc = "map the selection (visual)",
+    mode = "x",
+    rhs = ":Daylog map<CR>",
+  },
+  {
     lhs = "<leader>dR",
+    desc = "rename the entry / tag / location",
+    rhs = function()
+      M.rename({})
+    end,
+  },
+  {
+    lhs = "<leader>dR",
+    desc = "rename the selection (visual)",
+    mode = "x",
+    rhs = ":Daylog rename<CR>",
+  },
+  {
+    lhs = "<leader>df",
     desc = "refresh summaries",
     rhs = function()
       M.refresh()
@@ -765,7 +791,7 @@ local function apply_keymaps(buf)
   if keymaps == true then
     for _, m in ipairs(DEFAULT_KEYMAPS) do
       vim.keymap.set(
-        "n",
+        m.mode or "n",
         m.lhs,
         m.rhs,
         { buffer = buf, silent = true, desc = "Daylog: " .. m.desc }
