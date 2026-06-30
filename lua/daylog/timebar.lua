@@ -2,44 +2,14 @@
 --
 -- Turns the active log's intervals into a horizontal, time-proportional bar: each interval is a
 -- segment whose cell width is its share of the real recorded duration, and whose colour is its
--- activity (resolved label). Activities are ordered by total real duration (largest first) for a
--- stable colour assignment, and a legend lists them in that order. The shell (buffer.lua) maps the
--- colour index onto a palette highlight group and draws the segments as virtual lines.
+-- activity (resolved label). Colours are assigned by order of first appearance (colors.lua, shared
+-- with the margin indicator and summary), and a legend lists them in that order. The shell
+-- (buffer.lua) maps the colour index onto a palette highlight group and draws the segments.
 
+local colors = require("daylog.colors")
 local summary = require("daylog.summary")
 
 local M = {}
-
--- Assign each distinct resolved label a 1-based colour index, ordered by total real duration
--- (largest first; ties broken by first appearance), so the busiest activity is colour 1.
-local function color_indices(intervals)
-  local totals = {}
-  local order = {}
-  for _, iv in ipairs(intervals) do
-    if totals[iv.text] == nil then
-      totals[iv.text] = 0
-      order[#order + 1] = iv.text
-    end
-    totals[iv.text] = totals[iv.text] + iv.duration
-  end
-
-  local first_seen = {}
-  for i, label in ipairs(order) do
-    first_seen[label] = i
-  end
-  table.sort(order, function(a, b)
-    if totals[a] ~= totals[b] then
-      return totals[a] > totals[b]
-    end
-    return first_seen[a] < first_seen[b]
-  end)
-
-  local index = {}
-  for i, label in ipairs(order) do
-    index[label] = i
-  end
-  return index, order
-end
 
 -- Distribute `width` cells across the intervals proportional to their real duration, with
 -- largest-remainder rounding so the widths sum to exactly `width` (the leftover cells go to the
@@ -97,7 +67,7 @@ function M.layout(entries, width, now_minutes)
     return nil
   end
 
-  local index, order = color_indices(intervals)
+  local index, order = colors.indices(intervals)
   local widths = segment_widths(intervals, total, width)
 
   local segments = {}

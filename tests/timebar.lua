@@ -26,12 +26,12 @@ return function(t)
     end
     t.eq(total, 40) -- fills the width exactly
     t.eq(layout.segments[1].label, "a")
-    t.eq(layout.segments[1].color_index, 1) -- a is busiest -> colour 1
+    t.eq(layout.segments[1].color_index, 1) -- a appears first -> colour 1
     t.eq(layout.segments[2].label, "b")
     t.eq(layout.segments[2].color_index, 2)
   end)
 
-  t.test("the legend lists activities in colour (duration) order", function()
+  t.test("colours are assigned by first appearance, not duration", function()
     local layout = timebar.layout(
       entries({
         "--- log ---",
@@ -41,9 +41,10 @@ return function(t)
       }),
       30
     )
-    t.eq(layout.legend[1].label, "big") -- 150 min > small's 30
+    -- small appears first (even though big is longer), so it keeps colour 1 -- the order is stable.
+    t.eq(layout.legend[1].label, "small")
     t.eq(layout.legend[1].color_index, 1)
-    t.eq(layout.legend[2].label, "small")
+    t.eq(layout.legend[2].label, "big")
     t.eq(layout.legend[2].color_index, 2)
   end)
 

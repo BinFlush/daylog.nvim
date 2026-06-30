@@ -1,5 +1,8 @@
 local analyze = require("daylog.analyze")
+local colors = require("daylog.colors")
 local document = require("daylog.document")
+local summary = require("daylog.summary")
+local summary_block = require("daylog.summary_block")
 local syntax = require("daylog.syntax")
 
 local M = {}
@@ -48,23 +51,33 @@ M.GROUPS = {
   -- A mapping alias (` => label`) -- the target an entry resolves to in the summary.
   DaylogAlias = "String",
   DaylogNote = "Comment",
-  -- The active-log bar is a fixed soft green (a deliberate accent, not a syntax-role
-  -- link); default = true still lets a theme/user override win.
-  DaylogActiveSign = { fg = "#83c092", ctermfg = 108 },
-  -- The stray-cursor bar is a fixed soft red (same idea as DaylogActiveSign), overridable.
+  -- The stray-cursor bar is a fixed soft red (a deliberate accent, not a syntax-role link);
+  -- default = true still lets a theme/user override win.
   DaylogStraySign = { fg = "#d28a8a", ctermfg = 167 },
-  -- The time-bar palette: background swatches assigned to activities by total duration (the
-  -- colour index cycles through these). A fixed, distinct set, each overridable.
-  DaylogBar1 = { bg = "#5b8fb0", ctermbg = 67 },
-  DaylogBar2 = { bg = "#83c092", ctermbg = 108 },
-  DaylogBar3 = { bg = "#dbbc7f", ctermbg = 179 },
-  DaylogBar4 = { bg = "#e67e80", ctermbg = 174 },
-  DaylogBar5 = { bg = "#d699b6", ctermbg = 175 },
-  DaylogBar6 = { bg = "#7fbbb3", ctermbg = 109 },
-  DaylogBar7 = { bg = "#e69875", ctermbg = 173 },
-  DaylogBar8 = { bg = "#a0a8b0", ctermbg = 247 },
   DaylogBarLabel = "Comment",
 }
+
+-- The activity colour palette: each activity (cycling through it) gets one colour, used by the time
+-- bar as a background block (DaylogBarN) and by the left-margin indicator as a foreground bar
+-- (DaylogSignN). A fixed, distinct set; both group families are generated from it so the colours
+-- stay in step. Each is registered default = true, so a theme or a user's own :highlight still wins.
+local PALETTE = {
+  { "#5b8fb0", 67 },
+  { "#83c092", 108 },
+  { "#dbbc7f", 179 },
+  { "#e67e80", 174 },
+  { "#d699b6", 175 },
+  { "#7fbbb3", 109 },
+  { "#e69875", 173 },
+  { "#a0a8b0", 247 },
+}
+
+M.PALETTE_SIZE = #PALETTE
+
+for i, colour in ipairs(PALETTE) do
+  M.GROUPS["DaylogBar" .. i] = { bg = colour[1], ctermbg = colour[2] }
+  M.GROUPS["DaylogSign" .. i] = { fg = colour[1], ctermfg = colour[2] }
+end
 
 local BASE_PRIORITY = 100
 local TOKEN_PRIORITY = 110
@@ -268,6 +281,48 @@ end
 function M.active_entries(lines)
   local active = analyze.get_active_log(analyze.analyze(document.parse(lines)))
   return active and active.entries or nil
+end
+
+-- Pure: the left-margin colour indicator for the active log -- a map { buffer_row(1-based) ->
+-- colour_index } colouring each entry (and the notes beneath it, so an activity reads as one
+-- connected run) and each main summary row by its activity (the resolved label), with colours by
+-- order of appearance. Also returns the active log's start row, for the stray-cursor mark. The map
+-- is empty when there is no log.
+function M.indicator_rows(lines)
+  local analysis = analyze.analyze(document.parse(lines))
+  local active = analyze.get_active_log(analysis)
+  if not active then
+    return { rows = {} }
+  end
+
+  local index = colors.indices(summary.build_intervals(active.entries))
+  local rows = {}
+
+  -- Each entry item spans the entry and the notes/blanks beneath it (up to the next entry), so one
+  -- colour runs down the whole activity.
+  for _, item in ipairs(active.entry_items) do
+    local label = (item.alias ~= nil and item.alias ~= "") and item.alias or item.text
+    local color_index = index[label]
+    if color_index then
+      for row = item.start_row, item.end_row do
+        rows[row] = color_index
+      end
+    end
+  end
+
+  -- The main summary rows render consecutively right below the located summary banner, in item
+  -- order, so summary_items[j] sits at start_row + j.
+  local zone = summary_block.find(analysis, active)
+  if zone then
+    for j, sitem in ipairs(summary.summarize_block(active).summary_items) do
+      local color_index = index[sitem.text]
+      if color_index then
+        rows[zone.start_row + j] = color_index
+      end
+    end
+  end
+
+  return { rows = rows, active_start = active.start_row }
 end
 
 return M

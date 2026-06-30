@@ -975,16 +975,19 @@ you fix it.
 It is optional and defaults to `true`. They show only while the daylog is clean --
 any diagnostic hides them so the warnings stand on their own.
 
-- A soft-green bar marks the active log (the latest one, the block the commands
-  act on) -- its entries and its generated summary -- on any clean daylog,
-  including a single-log file.
+- A per-activity colour bar marks the active log (the latest one, the block the
+  commands act on): each entry and the notes beneath it carry the activity's colour,
+  and each summary row carries its activity's colour -- so an activity reads as one
+  connected colour down the margin and across to its summary line, matching the time
+  bar (|:Daylog-bar|). Shown on any clean daylog, including a single-log file.
 - A soft-red bar follows the cursor when it sits above the active log, that is, in
   an earlier, non-active log -- a gentle "you are not in the live log" cue. It only
   appears once a file holds two or more logs (you cannot stray off a single log).
 - The markers settle like diagnostics (they update on leaving insert / a
   normal-mode edit), so they never flicker mid-edit.
-- Colors come from the `DaylogActiveSign` (green) and `DaylogStraySign` (red)
-  highlight groups; override either with your own `:highlight`.
+- The activity colours come from the `DaylogSign1`..`DaylogSign8` palette (the same
+  colours the time bar uses, as a foreground); the red stray mark is `DaylogStraySign`.
+  Override any with your own `:highlight`.
 - Set `active_indicator = false` to turn them off.
 
 >

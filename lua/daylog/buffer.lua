@@ -67,13 +67,22 @@ end
 
 -- The active-log and stray sign defs are registered lazily on first use (mirroring the
 -- highlight groups), so they work whether or not setup() ran.
-local active_sign_defined = false
-local function ensure_active_sign()
-  if active_sign_defined then
+-- One sign per palette colour: a `▎` in the activity's foreground colour (DaylogSignN). The active
+-- indicator places the matching one on each row, so the margin reads as a per-activity colour bar.
+local activity_signs_defined = false
+local function ensure_activity_signs()
+  if activity_signs_defined then
     return
   end
-  vim.fn.sign_define("DaylogActive", { text = "▎", texthl = "DaylogActiveSign" })
-  active_sign_defined = true
+  for i = 1, highlight.PALETTE_SIZE do
+    vim.fn.sign_define("DaylogActivitySign" .. i, { text = "▌", texthl = "DaylogSign" .. i })
+  end
+  activity_signs_defined = true
+end
+
+-- The activity sign name for a colour index (cycling through the palette).
+local function activity_sign(color_index)
+  return "DaylogActivitySign" .. ((color_index - 1) % highlight.PALETTE_SIZE + 1)
 end
 
 local stray_sign_defined = false
@@ -129,23 +138,30 @@ local function render_stray(buf)
   end
 end
 
--- Place the soft-green active-log bar (its body + summary), gated on the cached `daylog_clean`
--- flag so a diagnostic hides it without re-checking warnings here. This runs on the LIVE
--- highlight pass (every keystroke), so the bar tracks the region as you type and is restored
--- whenever an edit (e.g. the auto-refresh regenerating a summary) drops its signs. The clean
--- flag itself is refreshed only on settle, by refresh_indicators.
-local function render_active_bar(buf, lines)
+-- Place the per-activity colour bar in the left margin: a `▎` coloured by each row's activity (the
+-- entries, the notes beneath them, and the main summary rows), so an activity reads as one connected
+-- colour everywhere. Gated on the cached `daylog_clean` flag so a diagnostic hides it without
+-- re-checking warnings here. Runs on the LIVE highlight pass (every keystroke), so it tracks edits
+-- and is restored whenever an edit drops the signs; `daylog_active_start` (the stray mark's boundary)
+-- is cached alongside.
+local function render_indicator(buf, lines)
   vim.fn.sign_unplace("daylog_active", { buffer = buf })
 
   local active_start = nil
   if config.get().active_indicator and vim.b[buf].daylog_clean then
-    local region = highlight.active_region(lines)
-    if region then
-      ensure_active_sign()
-      for row = region.start_row, region.end_row do
-        vim.fn.sign_place(0, "daylog_active", "DaylogActive", buf, { lnum = row, priority = 5 })
+    local indicator = highlight.indicator_rows(lines)
+    if indicator.active_start then
+      active_start = indicator.active_start
+      ensure_activity_signs()
+      for row, color_index in pairs(indicator.rows) do
+        vim.fn.sign_place(
+          0,
+          "daylog_active",
+          activity_sign(color_index),
+          buf,
+          { lnum = row, priority = 5 }
+        )
       end
-      active_start = region.start_row
     end
   end
 
@@ -158,7 +174,6 @@ end
 -- room). Its segments are the active log's intervals -- width proportional to real duration, colour
 -- per activity. A global on/off (the `time_bar` config is the initial state) carried across every
 -- daylog file; highlight_buffer redraws it on each pass.
-local TIME_BAR_PALETTE = 8
 
 -- Global on/off, so a toggle carries across daylog files rather than being per-buffer (nil = follow
 -- the `time_bar` config default until first toggled).
@@ -172,7 +187,7 @@ local function time_bar_enabled()
 end
 
 local function bar_group(color_index)
-  return "DaylogBar" .. ((color_index - 1) % TIME_BAR_PALETTE + 1)
+  return "DaylogBar" .. ((color_index - 1) % highlight.PALETTE_SIZE + 1)
 end
 
 -- Owner window id -> { win, buf } for the bar's reserved bottom split (its window + scratch buffer).
@@ -455,7 +470,7 @@ local function highlight_buffer(buf)
     })
   end
 
-  render_active_bar(buf, lines)
+  render_indicator(buf, lines)
   render_stray(buf)
   render_time_bar(buf, lines)
 end

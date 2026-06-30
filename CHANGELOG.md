@@ -41,6 +41,12 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- **The active-log indicator is now per-activity colored.** The uniform green margin bar is replaced
+  by a colour per activity: each entry and the notes beneath it carry the activity's colour, and each
+  summary row carries its activity's colour -- so an activity reads as one connected colour down the
+  margin and across to its summary line, matching the time bar. Colours are assigned by order of
+  first appearance (so they stay stable as the day grows, never reshuffling by duration) and come
+  from the `DaylogSign1`..`DaylogSign8` palette (the `DaylogActiveSign` group is gone).
 - **`:Daylog` registers at plugin load.** The command is available the moment daylog is installed --
   any plugin manager, no `setup()` call -- so `setup()` is now purely optional configuration (the
   daybook, sources, keymaps). `:Daylog today` warns until you set `daybook.root`, while the editing
