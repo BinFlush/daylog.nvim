@@ -24,6 +24,13 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **A color-coded time bar (`:Daylog bar`).** An opt-in horizontal bar at the bottom of the daylog
+  window shows where the day went: each segment is an interval, its width proportional to the real
+  time spent and its colour the activity (resolved label), with a legend. It lives in a reserved
+  split at the bottom of the daylog window (always visible, never overlapping content) and, on
+  today's log with a future-dated final entry, marks where the current time falls. Toggle it globally
+  with `:Daylog bar` or `<leader>db`, or show it by default with `time_bar = true`. The `DaylogBar1..8`
+  palette is overridable.
 - **`:Daylog keys` shows a keymap cheatsheet.** A popup (also `g?` in `.day` files when
   `keymaps = true`) lists the daylog keymaps active in the buffer, plus how to open today and reach
   the full command set. The `keymaps = true` default set now also carries per-key descriptions, so

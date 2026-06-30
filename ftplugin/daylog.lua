@@ -39,4 +39,22 @@ if not vim.b.daylog_highlight_attached then
       daylog.render_stray(args.buf)
     end,
   })
+
+  -- The time bar lives in a reserved bottom split sized to the window's width, so redraw it when the
+  -- buffer is shown in a window and when the terminal is resized, to re-fit its contents.
+  vim.api.nvim_create_autocmd({ "VimResized", "BufWinEnter" }, {
+    buffer = 0,
+    callback = function(args)
+      daylog.highlight_buffer(args.buf)
+    end,
+  })
+
+  -- WinResized (Neovim 0.9+) re-fits the bar after a split resize; pcall keeps the 0.8 floor, where
+  -- the event does not exist and registering it would error.
+  pcall(vim.api.nvim_create_autocmd, "WinResized", {
+    buffer = 0,
+    callback = function(args)
+      daylog.highlight_buffer(args.buf)
+    end,
+  })
 end

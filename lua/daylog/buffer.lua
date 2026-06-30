@@ -1,5 +1,6 @@
 local config = require("daylog.config")
 local highlight = require("daylog.highlight")
+local timebar = require("daylog.timebar")
 local refresh_summaries = require("daylog.usecases.refresh_summaries")
 local syntax = require("daylog.syntax")
 local text = require("daylog.text")
@@ -151,6 +152,283 @@ local function render_active_bar(buf, lines)
   vim.b[buf].daylog_active_start = active_start
 end
 
+-- The colour-coded time bar: a legend row above a bar row, shown in a fixed-height split reserved at
+-- the bottom of the daylog window. Reserving real space means it is always visible (it does not
+-- scroll with the log) and never overlays the summary/totals (the log window is shortened to make
+-- room). Its segments are the active log's intervals -- width proportional to real duration, colour
+-- per activity. A global on/off (the `time_bar` config is the initial state) carried across every
+-- daylog file; highlight_buffer redraws it on each pass.
+local TIME_BAR_PALETTE = 8
+
+-- Global on/off, so a toggle carries across daylog files rather than being per-buffer (nil = follow
+-- the `time_bar` config default until first toggled).
+local time_bar_on = nil
+
+local function time_bar_enabled()
+  if time_bar_on == nil then
+    return config.get().time_bar
+  end
+  return time_bar_on
+end
+
+local function bar_group(color_index)
+  return "DaylogBar" .. ((color_index - 1) % TIME_BAR_PALETTE + 1)
+end
+
+-- Owner window id -> { win, buf } for the bar's reserved bottom split (its window + scratch buffer).
+-- Keying by the window the strip sits under (not the buffer) lets navigating between daylog files in
+-- one window reuse the strip. `strip_autocmds_set` guards the one-time lifecycle autocmd setup.
+local bar_strips = {}
+local strip_autocmds_set = false
+
+-- The legend and bar as virtual-line chunk lists ({ {text, hl}, ... } per line), legend above the
+-- bar. The bar is one coloured run of spaces per segment; the legend is a swatch + name per activity
+-- in colour order, stopping before it would overflow `width`.
+local function bar_virt_lines(layout, width)
+  local bar = {}
+  local col = 0
+  for _, seg in ipairs(layout.segments) do
+    local group = bar_group(seg.color_index)
+    -- Split the segment around the "now" marker -- a thin line glyph on the segment's own colour, so
+    -- it reads as a subtle tick rather than a solid block -- when it falls inside the segment.
+    if layout.now_col and layout.now_col > col and layout.now_col <= col + seg.width then
+      local before = layout.now_col - 1 - col
+      if before > 0 then
+        bar[#bar + 1] = { string.rep(" ", before), group }
+      end
+      bar[#bar + 1] = { "▏", group }
+      local after = seg.width - before - 1
+      if after > 0 then
+        bar[#bar + 1] = { string.rep(" ", after), group }
+      end
+    else
+      bar[#bar + 1] = { string.rep(" ", seg.width), group }
+    end
+    col = col + seg.width
+  end
+
+  local legend = {}
+  local used = 0
+  for _, item in ipairs(layout.legend) do
+    local name = " " .. item.label .. "  "
+    if used + 2 + #name > width then
+      break
+    end
+    legend[#legend + 1] = { "  ", bar_group(item.color_index) }
+    legend[#legend + 1] = { name, "DaylogBarLabel" }
+    used = used + 2 + #name
+  end
+
+  local rows = {}
+  if #legend > 0 then
+    rows[#rows + 1] = legend
+  end
+  rows[#rows + 1] = bar
+  return rows
+end
+
+-- The current local time in minutes, but only when `buf` is today's dated daylog file -- so the
+-- "now" marker appears only on the current day. nil for any other day, or a non-dated file.
+local function today_now_minutes(buf)
+  local daybook = require("daylog.daybook")
+  local basename = vim.api.nvim_buf_get_name(buf):match("[^/\\]+$") or ""
+  local file_date = daybook.parse_date_label(basename)
+  if not file_date or not daybook.same_date(file_date, os.time()) then
+    return nil
+  end
+  local clock = os.date("*t")
+  return clock.hour * 60 + clock.min
+end
+
+-- Flatten a virtual-line chunk list ({text, hl}) into a real line string plus its byte-range
+-- highlights, for the strip's scratch buffer. `line` is the 0-based scratch row.
+local function flatten_chunks(chunks, line)
+  local parts = {}
+  local hls = {}
+  local byte = 0
+  for _, chunk in ipairs(chunks) do
+    parts[#parts + 1] = chunk[1]
+    hls[#hls + 1] = { line = line, col_start = byte, col_end = byte + #chunk[1], group = chunk[2] }
+    byte = byte + #chunk[1]
+  end
+  return table.concat(parts), hls
+end
+
+-- Close and forget the strip belonging to window `owner`, if any (restoring its height). pcall'd
+-- because teardown can run while Neovim is mid-close, where a stray failure must not propagate.
+local function close_strip(owner)
+  local strip = bar_strips[owner]
+  if not strip then
+    return
+  end
+  if strip.win and vim.api.nvim_win_is_valid(strip.win) then
+    pcall(vim.api.nvim_win_close, strip.win, true)
+  end
+  if strip.buf and vim.api.nvim_buf_is_valid(strip.buf) then
+    pcall(vim.api.nvim_buf_delete, strip.buf, { force = true })
+  end
+  bar_strips[owner] = nil
+end
+
+-- Lifecycle autocmds for the strips, set up once on first use. A strip is a real window, so it must
+-- not outlive its log window or block :q -- and closing one inside BufWinLeave aborts the quit. So
+-- teardown runs from QuitPre (before a quit) and WinClosed (after any close), never during it.
+local function ensure_strip_autocmds()
+  if strip_autocmds_set then
+    return
+  end
+  strip_autocmds_set = true
+  local group = vim.api.nvim_create_augroup("DaylogTimeBarStrip", { clear = true })
+
+  -- A window closed: drop its strip (its log window went away), or forget a strip closed directly.
+  -- Deferred so the window is closed cleanly first.
+  vim.api.nvim_create_autocmd("WinClosed", {
+    group = group,
+    callback = function(args)
+      local closed = tonumber(args.match)
+      if not closed then
+        return
+      end
+      vim.schedule(function()
+        close_strip(closed)
+        for owner, strip in pairs(bar_strips) do
+          if strip.win == closed then
+            bar_strips[owner] = nil
+            break
+          end
+        end
+      end)
+    end,
+  })
+
+  -- Close the current window's strip before a :q so the strip never blocks the quit.
+  vim.api.nvim_create_autocmd("QuitPre", {
+    group = group,
+    callback = function()
+      close_strip(vim.api.nvim_get_current_win())
+    end,
+  })
+
+  -- A window that owned a strip now shows a non-daylog buffer: drop the strip (a daylog buffer
+  -- instead re-renders through the ftplugin).
+  vim.api.nvim_create_autocmd("BufWinEnter", {
+    group = group,
+    callback = function(args)
+      local win = vim.fn.bufwinid(args.buf)
+      if win ~= -1 and bar_strips[win] and vim.bo[args.buf].filetype ~= "daylog" then
+        close_strip(win)
+      end
+    end,
+  })
+end
+
+-- Open a fixed-height split below `dwin` showing `sbuf` (the bar), without moving the user's focus
+-- or firing autocmds (eventignore guards against recursing back into the highlighter). Returns the
+-- new window or nil.
+local function open_bar_strip(dwin, sbuf, height)
+  if not vim.api.nvim_win_is_valid(dwin) then
+    return nil
+  end
+  local saved = vim.o.eventignore
+  vim.o.eventignore = "all"
+  local strip_win
+  pcall(function()
+    local cur = vim.api.nvim_get_current_win()
+    vim.api.nvim_set_current_win(dwin)
+    vim.cmd("belowright " .. height .. "split")
+    strip_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(strip_win, sbuf)
+    vim.api.nvim_win_set_height(strip_win, height)
+    local wo = vim.wo[strip_win]
+    wo.winfixheight = true
+    wo.number = false
+    wo.relativenumber = false
+    wo.signcolumn = "no"
+    wo.foldcolumn = "0"
+    wo.cursorline = false
+    wo.list = false
+    wo.wrap = false
+    wo.statusline = " "
+    vim.api.nvim_set_current_win(cur)
+  end)
+  vim.o.eventignore = saved
+  return strip_win
+end
+
+-- Render the time bar for `buf` into a reserved split at the bottom of its window. highlight_buffer
+-- calls this every pass: it refreshes the strip's content in place, creating the split on first show
+-- (shortening the log window) and tearing it down whenever the bar is off or the buffer has no
+-- window. The strip is keyed by the window, so navigating between daylog files reuses it.
+local function render_time_bar(buf, lines)
+  local dwin = vim.fn.bufwinid(buf)
+  if not time_bar_enabled() or #lines == 0 then
+    if dwin ~= -1 then
+      close_strip(dwin)
+    end
+    return
+  end
+  if dwin == -1 then
+    return
+  end
+  local width = vim.api.nvim_win_get_width(dwin)
+  if width < 1 then
+    close_strip(dwin)
+    return
+  end
+  local entries = highlight.active_entries(lines)
+  local layout = entries and timebar.layout(entries, width, today_now_minutes(buf))
+  if not layout then
+    close_strip(dwin)
+    return
+  end
+
+  ensure_strip_autocmds()
+
+  local content, hls = {}, {}
+  for i, row in ipairs(bar_virt_lines(layout, width)) do
+    local line_text, row_hls = flatten_chunks(row, i - 1)
+    content[i] = line_text
+    for _, h in ipairs(row_hls) do
+      hls[#hls + 1] = h
+    end
+  end
+
+  local strip = bar_strips[dwin]
+  local sbuf = strip and strip.buf
+  if not (sbuf and vim.api.nvim_buf_is_valid(sbuf)) then
+    sbuf = vim.api.nvim_create_buf(false, true)
+    vim.bo[sbuf].bufhidden = "hide"
+  end
+  vim.bo[sbuf].modifiable = true
+  vim.api.nvim_buf_set_lines(sbuf, 0, -1, false, content)
+  vim.bo[sbuf].modifiable = false
+  vim.api.nvim_buf_clear_namespace(sbuf, highlight_namespace, 0, -1)
+  for _, h in ipairs(hls) do
+    vim.api.nvim_buf_set_extmark(sbuf, highlight_namespace, h.line, h.col_start, {
+      end_col = h.col_end,
+      hl_group = h.group,
+    })
+  end
+
+  local strip_win = strip and strip.win
+  if strip_win and vim.api.nvim_win_is_valid(strip_win) then
+    if vim.api.nvim_win_get_buf(strip_win) ~= sbuf then
+      vim.api.nvim_win_set_buf(strip_win, sbuf)
+    end
+    if vim.api.nvim_win_get_height(strip_win) ~= #content then
+      vim.api.nvim_win_set_height(strip_win, #content)
+    end
+  else
+    strip_win = open_bar_strip(dwin, sbuf, #content)
+  end
+
+  if strip_win and vim.api.nvim_win_is_valid(strip_win) then
+    bar_strips[dwin] = { win = strip_win, buf = sbuf }
+  else
+    close_strip(dwin)
+  end
+end
+
 -- Apply the parser-driven highlight spans to a buffer as extmarks (replacing the previous set)
 -- and re-place the active-log bar + stray mark from the current text/cursor. The single LIVE
 -- path: daylog files attach it via the ftplugin (every keystroke, including insert), report
@@ -179,6 +457,26 @@ local function highlight_buffer(buf)
 
   render_active_bar(buf, lines)
   render_stray(buf)
+  render_time_bar(buf, lines)
+end
+
+-- Flip the global time bar on/off and redraw every visible daylog buffer, so the change shows at
+-- once across splits (others pick it up via the ftplugin when navigated to). Returns the new state.
+local function toggle_time_bar()
+  time_bar_on = not time_bar_enabled()
+  -- Collect the on-screen daylog buffers before redrawing any: a redraw can open or close a strip
+  -- window, which would invalidate a window id still pending in a single combined loop.
+  local daylog_bufs = {}
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local win_buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[win_buf].filetype == "daylog" then
+      daylog_bufs[win_buf] = true
+    end
+  end
+  for win_buf in pairs(daylog_bufs) do
+    highlight_buffer(win_buf)
+  end
+  return time_bar_on
 end
 
 -- Refresh the clean/dirty gate (any diagnostic in any log hides the bars) and re-render. The
@@ -358,6 +656,7 @@ M.cursor_row = cursor_row
 M.highlight_buffer = highlight_buffer
 M.refresh_indicators = refresh_indicators
 M.render_stray = render_stray
+M.toggle_time_bar = toggle_time_bar
 M.publish_diagnostics = publish_diagnostics
 M.apply_result = apply_result
 M.run_buffer_usecase = run_buffer_usecase

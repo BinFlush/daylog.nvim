@@ -53,6 +53,17 @@ M.GROUPS = {
   DaylogActiveSign = { fg = "#83c092", ctermfg = 108 },
   -- The stray-cursor bar is a fixed soft red (same idea as DaylogActiveSign), overridable.
   DaylogStraySign = { fg = "#d28a8a", ctermfg = 167 },
+  -- The time-bar palette: background swatches assigned to activities by total duration (the
+  -- colour index cycles through these). A fixed, distinct set, each overridable.
+  DaylogBar1 = { bg = "#5b8fb0", ctermbg = 67 },
+  DaylogBar2 = { bg = "#83c092", ctermbg = 108 },
+  DaylogBar3 = { bg = "#dbbc7f", ctermbg = 179 },
+  DaylogBar4 = { bg = "#e67e80", ctermbg = 174 },
+  DaylogBar5 = { bg = "#d699b6", ctermbg = 175 },
+  DaylogBar6 = { bg = "#7fbbb3", ctermbg = 109 },
+  DaylogBar7 = { bg = "#e69875", ctermbg = 173 },
+  DaylogBar8 = { bg = "#a0a8b0", ctermbg = 247 },
+  DaylogBarLabel = "Comment",
 }
 
 local BASE_PRIORITY = 100
@@ -250,6 +261,13 @@ function M.active_region(lines)
     return nil
   end
   return { start_row = active.start_row, end_row = #lines }
+end
+
+-- The active log's semantic entries (alias / tag / offset resolved), or nil when there's no log.
+-- The time bar lays the day's intervals out from these.
+function M.active_entries(lines)
+  local active = analyze.get_active_log(analyze.analyze(document.parse(lines)))
+  return active and active.entries or nil
 end
 
 return M

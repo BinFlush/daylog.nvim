@@ -94,6 +94,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`)
 | `:Daylog refresh` | Rebuild every summary to match its entries |
 | `:Daylog sync [source]` | Refresh a source's cached work items |
 | `:Daylog keys` | Show the daylog keymaps + commands in a popup (also `g?` in `.day` files) |
+| `:Daylog bar` | Toggle a color-coded time bar pinned to the window bottom — the day's activities, sized by time spent |
 
 `:help daylog-commands` has the full rules.
 
@@ -107,7 +108,7 @@ require("daylog").setup({ keymaps = true })
 
 Buffer-locally in `.day` files: `]d` / `[d` between days (count-aware) and a `<leader>d` cluster
 (`di` insert, `dI` pick activity, `dr` repeat, `dn` new, `dc` copy, `do` order, `dl` log, `dm` map,
-`dR` rename, `df` refresh; `dm` / `dR` also act over a visual selection) — it rides your `<leader>`,
+`dR` rename, `df` refresh, `db` time bar; `dm` / `dR` also act over a visual selection) — it rides your `<leader>`,
 so set `mapleader` to taste (space → `<Space>di`). Each map is labelled for which-key, and `g?`
 (or `:Daylog keys`) shows a cheatsheet. Pass `{ ["<lhs>"] = "<rhs>", ... }` for your own.
 
@@ -160,6 +161,7 @@ require("daylog").setup({
   daybook = { root = "~/daylog", directory = "%Y/%V" }, -- directory is an optional strftime template
   auto_summary = "change", -- change | idle | save | off
   auto_timezone = true, -- record UTC offset + DST/travel drift so a clock change never skews a duration
+  time_bar = false, -- show the color-coded time bar by default (:Daylog bar / <leader>db toggles it)
 })
 ```
 

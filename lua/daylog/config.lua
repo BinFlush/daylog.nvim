@@ -194,6 +194,20 @@ local function normalize_auto_timezone(value)
   return value
 end
 
+-- The colour-coded time bar pinned at the daylog window's bottom (:Daylog bar / <leader>db toggle it
+-- globally). Off by default; this is the initial state until the global toggle is first used.
+local function normalize_time_bar(value)
+  if value == nil then
+    return false
+  end
+
+  if type(value) ~= "boolean" then
+    error("daylog: time_bar must be a boolean")
+  end
+
+  return value
+end
+
 -- `keymaps` is off (false) by default, `true` to apply the documented default set, or a
 -- { lhs = rhs } table to map your own keys (replacing the default set). The maps are applied
 -- buffer-locally in daylog files; rhs is a mapping string (e.g. "<Cmd>Daylog today<CR>") or a
@@ -410,6 +424,7 @@ local function normalize_config(options)
     active_indicator = normalize_active_indicator(options.active_indicator),
     auto_timezone = normalize_auto_timezone(options.auto_timezone),
     keymaps = normalize_keymaps(options.keymaps),
+    time_bar = normalize_time_bar(options.time_bar),
   }
 
   local daybook = normalize_daybook(options.daybook)

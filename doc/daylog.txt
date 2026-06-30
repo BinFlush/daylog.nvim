@@ -643,6 +643,22 @@ given, by fetching from the tracker. See |daylog-sources|.
 Show a popup cheatsheet of the daylog keymaps active in daylog files, plus how to open
 today and reach the full command set. `g?` runs it too when the default set is enabled.
 
+                                                        *:Daylog-bar*
+:Daylog bar
+
+Toggle the colour-coded time bar at the bottom of the window: a horizontal bar whose
+segments are the active log's intervals -- each width proportional to its real duration,
+each colour its activity (resolved label) -- with a legend. It lives in a small split
+reserved at the bottom of the daylog window, so it is always visible (it does not scroll
+with the log) and never overlays the summary; the log window is shortened to make room. It
+updates live as you edit.
+- A global toggle: it stays on (or off) as you move between daylog files in the daybook;
+  `time_bar = true` is the initial state, and `<leader>db` toggles it in the opt-in set.
+- On today's log, when the final entry is in the future (a planned end), a thin marker line
+  on the bar shows where the current time falls.
+- Colours come from the `DaylogBar1`..`DaylogBar8` palette (cycled), each overridable with
+  your own `:highlight`; the legend names use `DaylogBarLabel`.
+
                                                         *daylog-keymaps*
 Mappings ~
 
@@ -663,7 +679,7 @@ files:
 - `]d` / `[d` -> next / previous day, count-aware (a deliberate, buffer-local override
   of the built-in diagnostic jumps inside daylog buffers).
 - `<leader>d` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy, `o` order,
-  `l` log, `m` map, `R` rename, `f` refresh; `m` / `R` also act on a selection.
+  `l` log, `m` map, `R` rename, `f` refresh, `b` time bar; `m` / `R` also act on a selection.
 - The cluster rides your `<leader>` -- set `mapleader` to taste (e.g. space, for
   `<Space>d...`); it shadows a global `<leader>d*` only inside daylog buffers.
 - `g?` -> show the keymap cheatsheet (|:Daylog-keys|).
@@ -974,6 +990,11 @@ any diagnostic hides them so the warnings stand on their own.
 >
   require('daylog').setup({ active_indicator = false })
 <
+
+                                                          *daylog-time-bar*
+`time_bar` sets whether the colour-coded time bar (|:Daylog-bar|) is shown in a daylog
+buffer by default. Optional, defaults to `false`; `:Daylog bar` (or `<leader>db`) then
+toggles it globally, carried across the daybook.
 
                                                       *daylog-auto-timezone*
 `auto_timezone` keeps your logs honest across a clock change. It is optional and

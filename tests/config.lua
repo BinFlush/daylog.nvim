@@ -30,6 +30,7 @@ return function(t)
       active_indicator = true,
       auto_timezone = true,
       keymaps = false,
+      time_bar = false,
     })
 
     config.setup()
@@ -39,6 +40,7 @@ return function(t)
       active_indicator = true,
       auto_timezone = true,
       keymaps = false,
+      time_bar = false,
     })
   end)
 
@@ -130,6 +132,7 @@ return function(t)
       active_indicator = true,
       auto_timezone = true,
       keymaps = false,
+      time_bar = false,
     })
 
     config.setup()
