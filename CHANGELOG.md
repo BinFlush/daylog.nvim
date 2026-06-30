@@ -44,6 +44,11 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- **The time bar legend abbreviates instead of dropping labels.** When the legend is wider than the
+  window, the longest labels are shortened to a still-distinct prefix (with a trailing `…`, floored at
+  three characters) before any are dropped; only once even those minimums do not fit are the
+  least-fitting labels evicted from the end. The hover tooltip (`time_bar_hover`) still shows the full
+  activity name.
 - **The active-log indicator is now per-activity colored.** The uniform green margin bar is replaced
   by a colour per activity: each entry and the notes beneath it carry the activity's colour, and each
   summary row carries its activity's colour -- so an activity reads as one connected colour down the

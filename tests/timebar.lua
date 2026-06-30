@@ -24,6 +24,87 @@ return function(t)
     t.eq(timebar.segment_label_at(segs, 81), nil) -- past the last segment
   end)
 
+  t.test("fit_legend leaves labels whole when they all fit", function()
+    t.eq(
+      timebar.fit_legend({
+        { label = "plan", color_index = 1 },
+        { label = "review", color_index = 2 },
+      }, 100),
+      {
+        { text = "plan", color_index = 1 },
+        { text = "review", color_index = 2 },
+      }
+    )
+  end)
+
+  t.test("fit_legend shaves the longest label first, keeping short ones whole", function()
+    -- "ab" stays full; "refactoring" is the longest, so it carries the abbreviation + ellipsis.
+    t.eq(
+      timebar.fit_legend({
+        { label = "ab", color_index = 1 },
+        { label = "refactoring", color_index = 2 },
+      }, 18),
+      {
+        { text = "ab", color_index = 1 },
+        { text = "refac…", color_index = 2 },
+      }
+    )
+  end)
+
+  t.test("fit_legend keeps a prefix label whole and marks the longer one", function()
+    -- "PR" is a prefix of "PRrev": it must stay full (a 2-char truncation of "PRrev" would collide),
+    -- so the longer one carries the ellipsis.
+    t.eq(
+      timebar.fit_legend({
+        { label = "PR", color_index = 1 },
+        { label = "PRrev", color_index = 2 },
+      }, 16),
+      {
+        { text = "PR", color_index = 1 },
+        { text = "PRr…", color_index = 2 },
+      }
+    )
+  end)
+
+  t.test("fit_legend floors abbreviation at 3 chars, evicting rather than going shorter", function()
+    -- "m" vs "r" would distinguish in one char, but the floor keeps >= 3...
+    t.eq(
+      timebar.fit_legend({
+        { label = "meeting", color_index = 1 },
+        { label = "review", color_index = 2 },
+      }, 18),
+      {
+        { text = "mee…", color_index = 1 },
+        { text = "rev…", color_index = 2 },
+      }
+    )
+    -- ...and one cell tighter, the second is dropped whole rather than shrunk below the floor.
+    t.eq(
+      timebar.fit_legend({
+        { label = "meeting", color_index = 1 },
+        { label = "review", color_index = 2 },
+      }, 17),
+      {
+        { text = "meeting", color_index = 1 },
+      }
+    )
+  end)
+
+  t.test("fit_legend truncates on UTF-8 character boundaries", function()
+    -- both share "café " and differ at the 6th char, so each shows six characters (the accented "é"
+    -- kept whole, never split mid-byte) plus the ellipsis.
+    t.eq(
+      timebar.fit_legend({
+        { label = "café latte", color_index = 1 },
+        { label = "café mocha", color_index = 2 },
+      }, 24),
+      {
+        { text = "café l…", color_index = 1 },
+        { text = "café m…", color_index = 2 },
+      }
+    )
+  end)
+
   t.test("layout fills the width with segments proportional to real duration", function()
     -- a: 08:00-10:00 (120) + 10:30-12:00 (90) = 210; b: 10:00-10:30 (30). total 240.
     local layout = timebar.layout(

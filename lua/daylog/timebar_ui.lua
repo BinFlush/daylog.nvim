@@ -86,14 +86,17 @@ local function bar_virt_lines(layout, width)
 
   local legend = {}
   local used = 0
-  for _, item in ipairs(layout.legend) do
-    local name = " " .. item.label .. "  "
-    if used + 2 + #name > width then
+  for _, item in ipairs(timebar.fit_legend(layout.legend, width)) do
+    local name = " " .. item.text .. "  "
+    -- fit_legend already abbreviated/evicted by character count; this guards the true display width
+    -- so a double-width (CJK/emoji) label can never overflow the bar.
+    local item_width = 2 + vim.fn.strdisplaywidth(name)
+    if used + item_width > width then
       break
     end
     legend[#legend + 1] = { "  ", bar_group(item.color_index) }
     legend[#legend + 1] = { name, "DaylogBarLabel" }
-    used = used + 2 + #name
+    used = used + item_width
   end
 
   local rows = {}

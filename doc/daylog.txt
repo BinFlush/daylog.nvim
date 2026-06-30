@@ -660,6 +660,9 @@ updates live as you edit.
   on the bar shows where the current time falls.
 - An optional mouse-hover tooltip (|daylog-time-bar-hover|) shows the clock time and the
   activity under the pointer.
+- When the legend is wider than the window, long labels are abbreviated to a distinct prefix
+  (with a trailing `…`), and the least-fitting are dropped only once even that will not fit;
+  the hover tooltip still shows the full name.
 - Colours come from the `DaylogBar1`..`DaylogBar8` palette (cycled), each overridable with
   your own `:highlight`; the legend names use `DaylogBarLabel`.
 

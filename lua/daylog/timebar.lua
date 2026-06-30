@@ -123,4 +123,132 @@ function M.segment_label_at(segments, col)
   return nil
 end
 
+-- Split a string into its UTF-8 characters, so abbreviation never cuts a multibyte char. A byte below
+-- 0x80 (ASCII) or at/above 0xC0 (a lead byte) starts a character; 0x80..0xBF continues the current one.
+local function utf8_chars(s)
+  local chars = {}
+  for i = 1, #s do
+    local b = string.byte(s, i)
+    if b < 0x80 or b >= 0xC0 then
+      chars[#chars + 1] = string.sub(s, i, i)
+    elseif #chars > 0 then
+      chars[#chars] = chars[#chars] .. string.sub(s, i, i)
+    end
+  end
+  return chars
+end
+
+-- The number of leading characters two char arrays share.
+local function lcp(a, b)
+  local n = math.min(#a, #b)
+  local i = 0
+  while i < n and a[i + 1] == b[i + 1] do
+    i = i + 1
+  end
+  return i
+end
+
+local LEGEND_OVERHEAD = 5 -- per legend item besides the label: swatch (2) + a leading + two trailing
+local LEGEND_FLOOR = 3 -- never shave a label below this many characters (or its length, if shorter)
+local LEGEND_MARKER = "…" -- appended to a shortened label; one display cell
+
+-- Fit the legend `items` ({ label, color_index } in appearance order) into `width` cells: abbreviate
+-- the longest labels to a still-distinct prefix (marked with "…") before dropping any, and drop from
+-- the tail only once even the floored minimums no longer fit. Returns { { text, color_index } } with
+-- the text already abbreviated. Pure: the shell renders it and guards the true display width.
+function M.fit_legend(items, width)
+  local n = #items
+  if n == 0 then
+    return {}
+  end
+
+  local chars, len = {}, {}
+  for i = 1, n do
+    chars[i] = utf8_chars(items[i].label)
+    len[i] = #chars[i]
+  end
+
+  -- 1) the shortest prefix that keeps each label distinct from every other, floored for readability
+  --    and capped at its own length (so a label that is a prefix of another simply stays full).
+  local min_len = {}
+  for i = 1, n do
+    local distinct = 1
+    for j = 1, n do
+      if j ~= i then
+        distinct = math.max(distinct, lcp(chars[i], chars[j]) + 1)
+      end
+    end
+    min_len[i] = math.min(len[i], math.max(LEGEND_FLOOR, distinct))
+  end
+
+  local function cost(i, a)
+    return LEGEND_OVERHEAD + a + (a < len[i] and 1 or 0)
+  end
+
+  -- 2) keep the longest leading run whose floored minimums fit; evict the rest from the tail.
+  local keep, budget = 0, 0
+  for i = 1, n do
+    budget = budget + cost(i, min_len[i])
+    if budget > width then
+      break
+    end
+    keep = i
+  end
+
+  -- A single leading label too wide even at its minimum: still show it, hard-truncated to the width
+  -- (the shell drops it if even that overflows).
+  if keep == 0 then
+    local a = math.max(1, math.min(len[1], width - LEGEND_OVERHEAD - 1))
+    local text = table.concat(chars[1], "", 1, a)
+    if a < len[1] then
+      text = text .. LEGEND_MARKER
+    end
+    return { { text = text, color_index = items[1].color_index } }
+  end
+
+  -- 3) start the kept labels full, then shave the longest one still above its minimum until it fits.
+  local a, total = {}, 0
+  for i = 1, keep do
+    a[i] = len[i]
+    total = total + cost(i, a[i])
+  end
+  while total > width do
+    local pick
+    for i = 1, keep do
+      if a[i] > min_len[i] then
+        local better
+        if not pick then
+          better = true
+        elseif a[i] ~= a[pick] then
+          better = a[i] > a[pick]
+        elseif a[i] - min_len[i] ~= a[pick] - min_len[pick] then
+          better = a[i] - min_len[i] > a[pick] - min_len[pick]
+        else
+          better = true -- equal length and slack: prefer the later (greater) index
+        end
+        if better then
+          pick = i
+        end
+      end
+    end
+    if not pick then
+      break
+    end
+    total = total - cost(pick, a[pick])
+    a[pick] = a[pick] - 1
+    total = total + cost(pick, a[pick])
+  end
+
+  -- 4) emit, marking the shortened labels.
+  local out = {}
+  for i = 1, keep do
+    local text = table.concat(chars[i], "", 1, a[i])
+    if a[i] < len[i] then
+      text = text .. LEGEND_MARKER
+    end
+    out[#out + 1] = { text = text, color_index = items[i].color_index }
+  end
+  return out
+end
+
 return M
