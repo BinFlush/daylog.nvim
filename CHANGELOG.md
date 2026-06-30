@@ -22,6 +22,13 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- **`:Daylog keys` shows a keymap cheatsheet.** A popup (also `g?` in `.day` files when
+  `keymaps = true`) lists the daylog keymaps active in the buffer, plus how to open today and reach
+  the full command set. The `keymaps = true` default set now also carries per-key descriptions, so
+  which-key renders a labelled menu instead of an unlabelled blob.
+
 ### Changed
 
 - **`:Daylog` registers at plugin load.** The command is available the moment daylog is installed --

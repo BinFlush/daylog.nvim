@@ -93,6 +93,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`)
 | `:Daylog order` | Rewrite every log in the buffer in chronological order |
 | `:Daylog refresh` | Rebuild every summary to match its entries |
 | `:Daylog sync [source]` | Refresh a source's cached work items |
+| `:Daylog keys` | Show the daylog keymaps + commands in a popup (also `g?` in `.day` files) |
 
 `:help daylog-commands` has the full rules.
 
@@ -104,9 +105,10 @@ daylog sets no keys. For a ready-made set:
 require("daylog").setup({ keymaps = true })
 ```
 
-Buffer-locally in `.day` files: `]d` / `[d` between days (count-aware), and a `<localleader>`
-cluster — `i` insert, `I` pick activity, `r` repeat, `n` new, `c` copy, `o` order, `l` log,
-`R` refresh. Pass `{ ["<lhs>"] = "<rhs>", ... }` for your own.
+Buffer-locally in `.day` files: `]d` / `[d` between days (count-aware) and a `<localleader>`
+cluster (`i` insert, `I` pick activity, `r` repeat, `n` new, `c` copy, `o` order, `l` log,
+`R` refresh). Each map is labelled for which-key, and `g?` (or `:Daylog keys`) shows a cheatsheet.
+Pass `{ ["<lhs>"] = "<rhs>", ... }` for your own.
 
 To bind keys yourself, every verb is a `:Daylog <verb>` command and a Lua function
 (`:help daylog-lua` lists the names):

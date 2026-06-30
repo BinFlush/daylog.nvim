@@ -640,51 +640,141 @@ end
 -- The opt-in default key set (setup({ keymaps = true })): buffer-local in daylog files so it
 -- never touches global keys. ]d / [d navigate days (deliberately overriding the diagnostic
 -- jumps inside daylog buffers, and count-aware -- 3]d steps three logged days on); the editing
--- verbs sit under <localleader>. Each value is a callback over the public verb api.
+-- verbs sit under <localleader>; g? shows the cheatsheet. Each entry carries a description so
+-- which-key (and :Daylog keys) can label it.
 local DEFAULT_KEYMAPS = {
-  ["]d"] = function()
-    M.next_day(vim.v.count1)
-  end,
-  ["[d"] = function()
-    M.prev_day(vim.v.count1)
-  end,
-  ["<localleader>i"] = function()
-    M.insert()
-  end,
-  ["<localleader>I"] = function()
-    M.insert({ pick = true })
-  end,
-  ["<localleader>r"] = function()
-    M.repeat_()
-  end,
-  ["<localleader>n"] = function()
-    M.new_log()
-  end,
-  ["<localleader>c"] = function()
-    M.copy()
-  end,
-  ["<localleader>o"] = function()
-    M.order()
-  end,
-  ["<localleader>l"] = function()
-    M.log()
-  end,
-  ["<localleader>R"] = function()
-    M.refresh()
-  end,
+  {
+    lhs = "]d",
+    desc = "next day",
+    rhs = function()
+      M.next_day(vim.v.count1)
+    end,
+  },
+  {
+    lhs = "[d",
+    desc = "previous day",
+    rhs = function()
+      M.prev_day(vim.v.count1)
+    end,
+  },
+  {
+    lhs = "<localleader>i",
+    desc = "insert (stamp the current time)",
+    rhs = function()
+      M.insert()
+    end,
+  },
+  {
+    lhs = "<localleader>I",
+    desc = "insert from picker (what to log)",
+    rhs = function()
+      M.insert({ pick = true })
+    end,
+  },
+  {
+    lhs = "<localleader>r",
+    desc = "repeat the activity under the cursor",
+    rhs = function()
+      M.repeat_()
+    end,
+  },
+  {
+    lhs = "<localleader>n",
+    desc = "new log block",
+    rhs = function()
+      M.new_log()
+    end,
+  },
+  {
+    lhs = "<localleader>c",
+    desc = "copy the active log",
+    rhs = function()
+      M.copy()
+    end,
+  },
+  {
+    lhs = "<localleader>o",
+    desc = "order entries by time",
+    rhs = function()
+      M.order()
+    end,
+  },
+  {
+    lhs = "<localleader>l",
+    desc = "toggle logged on the summary row",
+    rhs = function()
+      M.log()
+    end,
+  },
+  {
+    lhs = "<localleader>R",
+    desc = "refresh summaries",
+    rhs = function()
+      M.refresh()
+    end,
+  },
+  {
+    lhs = "g?",
+    desc = "show daylog keys",
+    rhs = function()
+      M.keys()
+    end,
+  },
 }
 
+-- The keymap cheatsheet entries ({ lhs, desc }) for the active config: the default set, a custom
+-- table (generic label), or empty when keymaps are off. Read by :Daylog keys / g?.
+local function keymap_help_entries()
+  local keymaps = config.get().keymaps
+  if keymaps == true then
+    local entries = {}
+    for _, m in ipairs(DEFAULT_KEYMAPS) do
+      entries[#entries + 1] = { lhs = m.lhs, desc = m.desc }
+    end
+    return entries
+  end
+
+  if type(keymaps) == "table" then
+    local entries = {}
+    for lhs in pairs(keymaps) do
+      entries[#entries + 1] = { lhs = lhs, desc = "your mapping" }
+    end
+    table.sort(entries, function(a, b)
+      return a.lhs < b.lhs
+    end)
+    return entries
+  end
+
+  return {}
+end
+
+-- Show the keymap cheatsheet popup (:Daylog keys, and g? in the default set).
+function M.keys()
+  require("daylog.keys").show(keymap_help_entries())
+end
+
 -- Apply the configured keymaps buffer-locally to a daylog buffer (true -> the default set, a
--- table -> the user's own lhs -> rhs).
+-- table -> the user's own lhs -> rhs). Each map carries a description so which-key can label it.
 local function apply_keymaps(buf)
   local keymaps = config.get().keymaps
   if not keymaps then
     return
   end
 
-  local maps = keymaps == true and DEFAULT_KEYMAPS or keymaps
-  for lhs, rhs in pairs(maps) do
-    vim.keymap.set("n", lhs, rhs, { buffer = buf, silent = true, desc = "daylog" })
+  if keymaps == true then
+    for _, m in ipairs(DEFAULT_KEYMAPS) do
+      vim.keymap.set(
+        "n",
+        m.lhs,
+        m.rhs,
+        { buffer = buf, silent = true, desc = "Daylog: " .. m.desc }
+      )
+    end
+    return
+  end
+
+  for lhs, rhs in pairs(keymaps) do
+    vim.keymap.set("n", lhs, rhs, { buffer = buf, silent = true, desc = "Daylog (user map)" })
   end
 end
 

@@ -633,6 +633,12 @@ given, by fetching from the tracker. See |daylog-sources|.
   is older than the source's `ttl`, so a manual sync is mainly for pulling in
   brand-new work items immediately.
 
+                                                        *:Daylog-keys*
+:Daylog keys
+
+Show a popup cheatsheet of the daylog keymaps active in daylog files, plus how to open
+today and reach the full command set. `g?` runs it too when the default set is enabled.
+
                                                         *daylog-keymaps*
 Mappings ~
 
@@ -654,6 +660,8 @@ files so it never touches your global keys:
   of the built-in diagnostic jumps inside daylog buffers).
 - `<localleader>` + `i` insert, `I` insert-pick, `r` repeat, `n` new, `c` copy,
   `o` order, `l` log, `R` refresh.
+- `g?` -> show the keymap cheatsheet (|:Daylog-keys|).
+Each map carries a description, so which-key renders a labelled menu.
 
 `setup({ keymaps = { ["<lhs>"] = "<rhs>", ... } })` applies your own buffer-local set
 instead of the default one; each `<rhs>` is a mapping string or a Lua function.
@@ -667,7 +675,7 @@ your own config all call the same code:
 - `insert(opts)` (`opts.source` / `opts.pick`), `repeat_()`, `new_log()`, `copy()`.
 - `order()`, `log()`, `balance(steps)`, `split(weights)`, `map(opts)`
   (`opts.value` / `opts.source` / `opts.clear` / `opts.range`), `rename(opts)`.
-- `refresh()`, `sync(source)`.
+- `refresh()`, `sync(source)`, `keys()`.
 
 `when` and `range` accept the same strings the command does (|daylog-date-tokens|).
 

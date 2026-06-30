@@ -31,11 +31,13 @@ return function(t)
   t.test("keymaps = true applies the default set buffer-locally, as callbacks", function()
     with_daylog_setup({ keymaps = true }, function()
       as_daylog_buffer()
-      -- ]d / [d + an 8-key <localleader> cluster = 10 maps, each a Lua callback (not a string).
-      t.eq(#buffer_maps(), 10)
+      -- ]d / [d + an 8-key <localleader> cluster + g? = 11 maps, each a Lua callback (not a string).
+      t.eq(#buffer_maps(), 11)
       local nav = buffer_map("]d")
       t.ok(nav ~= nil and nav.callback ~= nil, "]d should map to a callback")
+      t.ok(nav.desc ~= nil and nav.desc:match("next day") ~= nil, "]d should carry a per-key desc")
       t.ok(buffer_map("[d") ~= nil, "[d should be mapped")
+      t.ok(buffer_map("g?") ~= nil, "g? should open the keys popup")
     end)
   end)
 

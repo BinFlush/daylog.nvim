@@ -71,7 +71,7 @@ end
 
 -- :Daylog <verb> -- the single command. Entry-point verbs work anywhere; editing verbs act on
 -- the current daylog buffer (and surface in completion only there).
-local ENTRY_VERBS = { "today", "day", "next", "prev", "report", "sync" }
+local ENTRY_VERBS = { "today", "day", "next", "prev", "report", "sync", "keys" }
 local EDIT_VERBS = {
   "insert",
   "repeat",
@@ -230,6 +230,9 @@ local VERBS = {
   end,
   sync = function(api, ctx)
     api.sync(ctx.fargs[1])
+  end,
+  keys = function(api)
+    api.keys()
   end,
 }
 
