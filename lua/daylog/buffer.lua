@@ -1,6 +1,6 @@
+local activity_hl = require("daylog.activity_hl")
 local config = require("daylog.config")
 local highlight = require("daylog.highlight")
-local palette = require("daylog.palette")
 local timebar_ui = require("daylog.timebar_ui")
 local refresh_summaries = require("daylog.usecases.refresh_summaries")
 local syntax = require("daylog.syntax")
@@ -66,30 +66,8 @@ local function resolve_buf(buf)
   return buf
 end
 
--- The active-log and stray sign defs are registered lazily on first use (mirroring the
--- highlight groups), so they work whether or not setup() ran.
--- One sign per activity colour: a `▌` in the activity's foreground colour. The colour group
--- DaylogSign{i} (a generated wheel colour) and its matching sign are defined on first use; the active
--- indicator places the sign on each row, so the margin reads as a per-activity colour bar.
-local activity_signs_defined = {}
-
-local function activity_sign(color_index)
-  if not activity_signs_defined[color_index] then
-    local c = palette.color(color_index)
-    vim.api.nvim_set_hl(
-      0,
-      "DaylogSign" .. color_index,
-      { fg = c.gui, ctermfg = c.cterm, default = true }
-    )
-    vim.fn.sign_define("DaylogActivitySign" .. color_index, {
-      text = "▌",
-      texthl = "DaylogSign" .. color_index,
-    })
-    activity_signs_defined[color_index] = true
-  end
-  return "DaylogActivitySign" .. color_index
-end
-
+-- The stray-cursor sign def is registered lazily on first use (like the highlight groups), so it
+-- works whether or not setup() ran. (The per-activity colours and signs live in daylog.activity_hl.)
 local stray_sign_defined = false
 local function ensure_stray_sign()
   if stray_sign_defined then
@@ -122,11 +100,11 @@ local function ensure_highlight_groups()
 end
 
 -- A colorscheme switch clears our default highlight groups; forget the cached definitions so the
--- next render re-creates them (the static groups and the per-activity sign colours alike).
+-- next render re-creates the static groups. (The per-activity colour groups reset themselves in
+-- daylog.activity_hl.)
 vim.api.nvim_create_autocmd("ColorScheme", {
   callback = function()
     highlight_groups_defined = false
-    activity_signs_defined = {}
   end,
 })
 
@@ -170,7 +148,7 @@ local function render_indicator(buf, lines, analysis)
         vim.fn.sign_place(
           0,
           "daylog_active",
-          activity_sign(color_index),
+          activity_hl.activity_sign(color_index),
           buf,
           { lnum = row, priority = 5 }
         )

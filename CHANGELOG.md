@@ -29,8 +29,8 @@ happen, but they are called out clearly in this changelog.
   time spent and its colour the activity (resolved label), with a legend. It lives in a reserved
   split at the bottom of the daylog window (always visible, never overlapping content) and, on
   today's log with a future-dated final entry, marks where the current time falls. Toggle it globally
-  with `:Daylog bar` or `<leader>db`, or show it by default with `time_bar = true`. The `DaylogBar1..8`
-  palette is overridable.
+  with `:Daylog bar` or `<leader>db`, or show it by default with `time_bar = true`. The `DaylogBar{n}`
+  groups are overridable.
 - **A mouse-hover tooltip on the time bar (`time_bar_hover`).** With `time_bar_hover = true` (and
   Neovim's `mousemoveevent` set), hovering the bar shows the clock time at the pointer and the activity
   there. Opt-in and off by default; daylog never enables `mousemoveevent` for you.
@@ -60,7 +60,7 @@ happen, but they are called out clearly in this changelog.
   summary row carries its activity's colour -- so an activity reads as one connected colour down the
   margin and across to its summary line, matching the time bar. Colours are assigned by order of
   first appearance (so they stay stable as the day grows, never reshuffling by duration) and come
-  from the `DaylogSign1`..`DaylogSign8` palette (the `DaylogActiveSign` group is gone).
+  from the `DaylogSign{n}` groups (the `DaylogActiveSign` group is gone).
 - **`:Daylog` registers at plugin load.** The command is available the moment daylog is installed --
   any plugin manager, no `setup()` call -- so `setup()` is now purely optional configuration (the
   daybook, sources, keymaps). `:Daylog today` warns until you set `daybook.root`, while the editing

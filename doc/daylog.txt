@@ -994,7 +994,7 @@ any diagnostic hides them so the warnings stand on their own.
   appears once a file holds two or more logs (you cannot stray off a single log).
 - The markers settle like diagnostics (they update on leaving insert / a
   normal-mode edit), so they never flicker mid-edit.
-- The activity colours are the generated wheel colours (the same per activity as the time
+- The activity colours are the generated colours (the same per activity as the time
   bar, here as a foreground) in the `DaylogSign{n}` groups; the red stray mark is
   `DaylogStraySign`. Override any with your own `:highlight`.
 - Set `active_indicator = false` to turn them off.
