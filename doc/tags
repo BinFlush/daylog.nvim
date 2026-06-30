@@ -41,5 +41,6 @@ daylog-sources	daylog.txt	/*daylog-sources*
 daylog-sticky-metadata	daylog.txt	/*daylog-sticky-metadata*
 daylog-summaries	daylog.txt	/*daylog-summaries*
 daylog-time-bar	daylog.txt	/*daylog-time-bar*
+daylog-time-bar-hover	daylog.txt	/*daylog-time-bar-hover*
 daylog-utc-offset	daylog.txt	/*daylog-utc-offset*
 daylog.nvim	daylog.txt	/*daylog.nvim*

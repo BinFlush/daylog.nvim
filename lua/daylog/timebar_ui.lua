@@ -1,4 +1,5 @@
 local config = require("daylog.config")
+local entry = require("daylog.entry")
 local highlight = require("daylog.highlight")
 local timebar = require("daylog.timebar")
 
@@ -44,6 +45,18 @@ end
 -- one window reuse the strip. `strip_autocmds_set` guards the one-time lifecycle autocmd setup.
 local bar_strips = {}
 local strip_autocmds_set = false
+
+-- The hover tooltip: a single reusable, non-focusable float showing the time + activity under the
+-- mouse (opt-in via `time_bar_hover`). Created lazily; hiding closes the window but reuses the buffer.
+local hover_win = nil
+local hover_buf = nil
+
+local function hide_hover()
+  if hover_win and vim.api.nvim_win_is_valid(hover_win) then
+    pcall(vim.api.nvim_win_close, hover_win, true)
+  end
+  hover_win = nil
+end
 
 -- The legend and bar as virtual-line chunk lists ({ {text, hl}, ... } per line), legend above the
 -- bar. The bar is one coloured run of spaces per segment; the legend is a swatch + name per activity
@@ -132,6 +145,7 @@ local function close_strip(owner)
     pcall(vim.api.nvim_buf_delete, strip.buf, { force = true })
   end
   bar_strips[owner] = nil
+  hide_hover()
 end
 
 -- Lifecycle autocmds for the strips, set up once on first use. A strip is a real window, so it must
@@ -306,10 +320,76 @@ function M.render(buf, lines, analysis)
   end
 
   if strip_win and vim.api.nvim_win_is_valid(strip_win) then
-    bar_strips[dwin] = { win = strip_win, buf = sbuf }
+    bar_strips[dwin] = {
+      win = strip_win,
+      buf = sbuf,
+      first_minutes = entries[1].minutes,
+      last_minutes = entries[#entries].minutes,
+      segments = layout.segments,
+    }
   else
     close_strip(dwin)
   end
+end
+
+-- Show (or reposition) the hover tooltip one row above the pointer, reusing its window/buffer.
+local function show_hover(pos, text)
+  if not (hover_buf and vim.api.nvim_buf_is_valid(hover_buf)) then
+    hover_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[hover_buf].bufhidden = "hide"
+  end
+  vim.bo[hover_buf].modifiable = true
+  vim.api.nvim_buf_set_lines(hover_buf, 0, -1, false, { " " .. text .. " " })
+  vim.bo[hover_buf].modifiable = false
+
+  local width = vim.fn.strdisplaywidth(text) + 2
+  local placement = {
+    relative = "editor",
+    width = width,
+    height = 1,
+    row = math.max(0, pos.screenrow - 2),
+    col = math.min(math.max(0, pos.screencol - 1), math.max(0, vim.o.columns - width)),
+  }
+  if hover_win and vim.api.nvim_win_is_valid(hover_win) then
+    vim.api.nvim_win_set_config(hover_win, placement)
+  else
+    placement.style = "minimal"
+    placement.focusable = false
+    placement.noautocmd = true
+    placement.zindex = 200
+    hover_win = vim.api.nvim_open_win(hover_buf, false, placement)
+  end
+end
+
+-- The strip record whose own window is `win`, or nil. Strips are keyed by their owner (log) window,
+-- so a hover hit-test scans for the strip window itself.
+local function strip_by_win(win)
+  for _, strip in pairs(bar_strips) do
+    if strip.win == win then
+      return strip
+    end
+  end
+  return nil
+end
+
+-- Mouse-move handler, installed buffer-locally in daylog files when `time_bar_hover` is on (and only
+-- effective once the user has set `mousemoveevent`). Over a bar strip, it shows the clock time +
+-- activity at the hovered column; anywhere else it hides the tooltip.
+function M.on_mouse_move()
+  local pos = vim.fn.getmousepos()
+  local strip = strip_by_win(pos.winid)
+  if not (strip and strip.first_minutes and pos.wincol >= 1) then
+    hide_hover()
+    return
+  end
+  local width = vim.api.nvim_win_get_width(strip.win)
+  local minutes = timebar.time_at_column(strip.first_minutes, strip.last_minutes, width, pos.wincol)
+  local text = entry.minutes_string(minutes)
+  local label = timebar.segment_label_at(strip.segments, pos.wincol)
+  if label then
+    text = text .. "  " .. label
+  end
+  show_hover(pos, text)
 end
 
 return M

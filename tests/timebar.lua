@@ -7,6 +7,23 @@ return function(t)
     return analyze.get_active_log(analyze.analyze(document.parse(lines))).entries
   end
 
+  t.test("time_at_column maps bar columns back to clock minutes", function()
+    -- 08:00 (480) -> 12:00 (720) over 80 cells: 3 minutes per cell, at each cell's left edge.
+    t.eq(timebar.time_at_column(480, 720, 80, 1), 480) -- the first cell -> the start
+    t.eq(timebar.time_at_column(480, 720, 80, 41), 600) -- 40 cells in -> +120m -> 10:00
+    t.eq(timebar.time_at_column(480, 720, 80, 100), 720) -- past the end clamps to the last entry
+    t.eq(timebar.time_at_column(480, 720, 0, 5), 480) -- a zero width never divides
+  end)
+
+  t.test("segment_label_at finds the activity under a column", function()
+    local segs = { { width = 40, label = "a" }, { width = 40, label = "b" } }
+    t.eq(timebar.segment_label_at(segs, 1), "a")
+    t.eq(timebar.segment_label_at(segs, 40), "a") -- the boundary belongs to the left segment
+    t.eq(timebar.segment_label_at(segs, 41), "b")
+    t.eq(timebar.segment_label_at(segs, 80), "b")
+    t.eq(timebar.segment_label_at(segs, 81), nil) -- past the last segment
+  end)
+
   t.test("layout fills the width with segments proportional to real duration", function()
     -- a: 08:00-10:00 (120) + 10:30-12:00 (90) = 210; b: 10:00-10:30 (30). total 240.
     local layout = timebar.layout(

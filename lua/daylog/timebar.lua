@@ -99,4 +99,28 @@ function M.layout(entries, width, now_minutes)
   return result
 end
 
+-- The clock minutes at a 1-based bar column, the inverse of the now-marker mapping above: the bar's
+-- x-axis is linear in time over [first, last], so column `col` of `width` sits at the cell's left
+-- edge, first + (col-1)/width * (last-first). Rounded to the minute and clamped to the span.
+function M.time_at_column(first, last, width, col)
+  if width < 1 then
+    return first
+  end
+  local raw = first + math.floor((col - 1) / width * (last - first) + 0.5)
+  return math.max(first, math.min(last, raw))
+end
+
+-- The activity label of the segment covering 1-based column `col` (segment widths sum to the bar
+-- width), or nil when `col` falls past the last segment. Pure; reads `layout.segments`.
+function M.segment_label_at(segments, col)
+  local edge = 0
+  for _, seg in ipairs(segments) do
+    edge = edge + seg.width
+    if col <= edge then
+      return seg.label
+    end
+  end
+  return nil
+end
+
 return M

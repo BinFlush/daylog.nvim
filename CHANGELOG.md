@@ -31,6 +31,9 @@ happen, but they are called out clearly in this changelog.
   today's log with a future-dated final entry, marks where the current time falls. Toggle it globally
   with `:Daylog bar` or `<leader>db`, or show it by default with `time_bar = true`. The `DaylogBar1..8`
   palette is overridable.
+- **A mouse-hover tooltip on the time bar (`time_bar_hover`).** With `time_bar_hover = true` (and
+  Neovim's `mousemoveevent` set), hovering the bar shows the clock time at the pointer and the activity
+  there. Opt-in and off by default; daylog never enables `mousemoveevent` for you.
 - **`:Daylog keys` shows a keymap cheatsheet.** A popup (also `g?` in `.day` files when
   `keymaps = true`) lists the daylog keymaps active in the buffer, plus how to open today and reach
   the full command set. The `keymaps = true` default set now also carries per-key descriptions, so

@@ -165,6 +165,7 @@ require("daylog").setup({
   auto_summary = "change", -- change | idle | save | off
   auto_timezone = true, -- record UTC offset + DST/travel drift so a clock change never skews a duration
   time_bar = false, -- show the color-coded time bar by default (:Daylog bar / <leader>db toggles it)
+  time_bar_hover = false, -- mouse-hover tooltip on the bar (time + activity); also needs `:set mousemoveevent`
 })
 ```
 

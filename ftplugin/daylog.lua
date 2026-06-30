@@ -57,4 +57,13 @@ if not vim.b.daylog_highlight_attached then
       daylog.highlight_buffer(args.buf)
     end,
   })
+
+  -- Mouse-hover tooltip over the time bar (opt-in via `time_bar_hover`; also needs `:set
+  -- mousemoveevent`, which daylog never sets for you). Buffer-local so it only fires while a daylog
+  -- file is focused; the handler hit-tests the bar strip and shows/hides the time + activity popup.
+  if require("daylog.config").get().time_bar_hover then
+    vim.keymap.set({ "n", "i" }, "<MouseMove>", function()
+      require("daylog.timebar_ui").on_mouse_move()
+    end, { buffer = 0 })
+  end
 end
