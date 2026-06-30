@@ -52,6 +52,7 @@ local insert_new_log = daybook_io.insert_new_log
 
 -- Report buffers, rebound as locals.
 local open_report = report_buffers.open_report
+local open_export = report_buffers.open_export
 local refresh_report_windows = report_buffers.refresh_report_windows
 
 -- Current-time stamping + carryover, rebound as locals.
@@ -542,6 +543,42 @@ function M.report(range, aggregate_only)
     request_label = request_label,
     aggregate_only = aggregate_only or false,
   })
+end
+
+-- Export a range's summary as CSV or JSON into a scratch buffer (which you `:w` or yank), and return
+-- the rendered string for scripting. `range` reuses the report date vocabulary (a count "7", a
+-- "FROM..TO" token range, named tokens), defaulting to today. The numbers match `:Daylog report`.
+function M.export(format, range)
+  format = type(format) == "string" and format:lower() or ""
+  if format ~= "csv" and format ~= "json" then
+    warn("daylog: export expects a format: csv or json")
+    return
+  end
+
+  local request
+  if range == nil or range == "" then
+    request = { count = 1 }
+  else
+    request = parse_report_range(range)
+  end
+  if not request then
+    warn("daylog: export range expects a day count or a FROM..TO range (e.g. 7, monday..today)")
+    return
+  end
+
+  local dates, err
+  if request.count then
+    dates = daybook.trailing_dates(os.time(), request.count)
+  else
+    dates, err = resolve_range_dates(request)
+  end
+  if not dates then
+    warn(err)
+    return
+  end
+
+  local request_label = #dates > 0 and daybook.date_range_label(dates[1], dates[#dates]) or "export"
+  return open_export({ dates = dates, request_label = request_label }, format)
 end
 
 -- Wire the autocmds that drive automatic summary refresh for the configured

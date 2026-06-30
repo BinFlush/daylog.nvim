@@ -20,6 +20,16 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Added
+
+- **`:Daylog export csv|json [range]` writes a machine-readable summary.** Export a day or a range
+  (the `report` date vocabulary, defaulting to today) as CSV or JSON into a scratch buffer you save or
+  yank -- one row per activity per day (`date, activity, tag, minutes, hours, logged, ooo`), carrying
+  the same quantized numbers `:Daylog report` shows, ready for a timesheet / invoicing tool / script.
+  `require("daylog").export(format, range)` returns the string for scripting.
+
 ## 0.14.0 - 2026-06-30
 
 ### Added

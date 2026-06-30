@@ -86,6 +86,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`)
 | `:Daylog[!] insert [source]` | Stamp the current time; with a source, pick a work item; `!` opens a fuzzy picker of your recent activities + every source's items |
 | `:Daylog repeat` | Repeat the activity under the cursor (entry or summary row) at the current time |
 | `:Daylog[!] report {range}` | Open a multi-day report — a count, a date range, or tokens like `monday..` (`!` for the range summary only — drops the per-day sections) |
+| `:Daylog export csv\|json [range]` | Export a day or range's summary as CSV/JSON into a scratch buffer (`:w` or yank) for a timesheet / invoicing / a script |
 | `:Daylog log` | Toggle the logged (`!L`) state of the summary row under the cursor |
 | `:Daylog balance [steps]` | Nudge the rounding of the row (or entry) under the cursor by ±N q-steps (`0` clears) |
 | `:[range]Daylog rename [name\|source]` | Rename the entry's text or a `#tag`/`@location` under the cursor; over a visual range, set every selected entry to one description (not activity summary rows — use `map` for the report label) |

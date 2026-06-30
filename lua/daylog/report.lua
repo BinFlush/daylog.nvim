@@ -1,6 +1,7 @@
 local buffer = require("daylog.buffer")
 local config = require("daylog.config")
 local daybook_io = require("daylog.daybook_io")
+local export = require("daylog.export")
 local render = require("daylog.render")
 local week = require("daylog.week")
 
@@ -34,7 +35,8 @@ local function unique_buffer_name(base_name)
   return candidate
 end
 
-local function open_report_buffer(lines, name)
+-- Open a fresh read-only scratch buffer in a bottom split, named `name`, holding `lines`.
+local function fill_scratch(lines, name)
   vim.cmd("botright new")
   vim.bo.buftype = "nofile"
   vim.bo.bufhidden = "wipe"
@@ -48,7 +50,10 @@ local function open_report_buffer(lines, name)
   vim.api.nvim_win_set_cursor(0, { 1, 0 })
   vim.bo.modified = false
   vim.bo.modifiable = false
+end
 
+local function open_report_buffer(lines, name)
+  fill_scratch(lines, name)
   -- Reports are scratch buffers (no daylog filetype, so no ftplugin), so apply
   -- the parser-driven highlighter directly. The same recognizer handles the
   -- labeled multi-day section headers and their duration rows.
@@ -104,6 +109,24 @@ local function open_report(spec)
   vim.api.nvim_buf_set_var(0, "log_report", spec)
 end
 
+-- Build the CSV/JSON export for a spec and open it in a read-only scratch buffer named
+-- `daylog-export-<range>.<fmt>` with the matching filetype (so a csv/json plugin can highlight it).
+-- Returns the rendered string, or nil on error (already warned). Export is a snapshot -- unlike a
+-- report it is not tagged for auto-refresh.
+local function open_export(spec, format)
+  local report, err = build_report_for_spec(spec)
+  if not report then
+    warn(err)
+    return nil
+  end
+
+  local text = export[format](report)
+  local name = "daylog-export-" .. (spec.request_label or "export") .. "." .. format
+  fill_scratch(vim.split((text:gsub("\n$", "")), "\n", { plain = true }), name)
+  vim.bo.filetype = format
+  return text
+end
+
 -- The report spec stored on `buf` (the current buffer when nil), or nil when that buffer is
 -- not a daylog report. open_report owns writing the var, so this owns the read; the shells ask
 -- here instead of repeating the pcall + type-check against the "log_report" key.
@@ -145,6 +168,7 @@ end
 
 M.build_report_for_spec = build_report_for_spec
 M.open_report = open_report
+M.open_export = open_export
 M.refresh_report_windows = refresh_report_windows
 
 return M

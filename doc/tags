@@ -3,6 +3,7 @@
 :Daylog-bar	daylog.txt	/*:Daylog-bar*
 :Daylog-copy	daylog.txt	/*:Daylog-copy*
 :Daylog-day	daylog.txt	/*:Daylog-day*
+:Daylog-export	daylog.txt	/*:Daylog-export*
 :Daylog-insert	daylog.txt	/*:Daylog-insert*
 :Daylog-keys	daylog.txt	/*:Daylog-keys*
 :Daylog-log	daylog.txt	/*:Daylog-log*

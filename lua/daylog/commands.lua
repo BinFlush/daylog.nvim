@@ -71,7 +71,7 @@ end
 
 -- :Daylog <verb> -- the single command. Entry-point verbs work anywhere; editing verbs act on
 -- the current daylog buffer (and surface in completion only there).
-local ENTRY_VERBS = { "today", "day", "next", "prev", "report", "sync", "keys" }
+local ENTRY_VERBS = { "today", "day", "next", "prev", "report", "export", "sync", "keys" }
 local EDIT_VERBS = {
   "insert",
   "repeat",
@@ -130,6 +130,12 @@ local function daylog_complete(arglead, cmdline, cursorpos)
 
   if verb == "day" or verb == "report" then
     return prefix_matches(DAY_TOKENS, arglead)
+  elseif verb == "export" then
+    -- first argument is the format, then the (optional) range tokens
+    if before:match("^export%s+%S+%s") then
+      return prefix_matches(DAY_TOKENS, arglead)
+    end
+    return prefix_matches({ "csv", "json" }, arglead)
   elseif verb == "insert" or verb == "sync" or verb == "rename" or verb == "map" then
     return source_complete(arglead)
   end
@@ -182,6 +188,10 @@ local VERBS = {
   end,
   report = function(api, ctx)
     api.report(ctx.rest, ctx.bang)
+  end,
+  export = function(api, ctx)
+    -- ctx.rest is "<format> <range...>"; split the format word off the range.
+    api.export(ctx.fargs[1], (ctx.rest:gsub("^%s*%S+%s*", "")))
   end,
   insert = function(api, ctx)
     api.insert({ source = ctx.fargs[1], pick = ctx.bang })
