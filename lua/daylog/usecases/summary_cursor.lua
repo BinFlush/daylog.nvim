@@ -26,7 +26,6 @@ local SELECTABLE = {
   [render.LAYOUT_KIND.SUMMARY_ITEM] = true,
   [render.LAYOUT_KIND.TAG_TOTAL] = true,
   [render.LAYOUT_KIND.LOCATION_TOTAL] = true,
-  [render.LAYOUT_KIND.LOGGED_TOTAL] = true,
   [render.LAYOUT_KIND.TOTAL] = true,
 }
 

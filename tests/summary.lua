@@ -34,9 +34,6 @@ return function(t)
   -- computing at q=1 and dropping the now-zero error fields.
   local function strip_errors(result)
     local groups = { result.summary_items, result.tag_totals, result.location_totals }
-    if result.logged_totals then
-      table.insert(groups, result.logged_totals)
-    end
 
     for _, group in ipairs(groups) do
       for _, item in ipairs(group) do
@@ -124,6 +121,8 @@ return function(t)
       },
       activity_total = 75,
       workday_total = 60,
+      tag_total = 75,
+      location_total = 75,
     })
   end)
 
@@ -180,11 +179,13 @@ return function(t)
       },
       activity_total = 120,
       workday_total = 60,
+      tag_total = 120,
+      location_total = 120,
     })
   end)
 
   t.test(
-    "summary splits logged main rows and counts logged totals from workday intervals",
+    "summary splits logged main rows by !S and foots tag/location to their own totals",
     function()
       local block = block_from_lines({
         "--- log #ClientA @office ---",
@@ -242,20 +243,10 @@ return function(t)
             unrounded_duration = 150,
           },
         },
-        logged_totals = {
-          {
-            logged = true,
-            duration = 60,
-            unrounded_duration = 60,
-          },
-          {
-            logged = false,
-            duration = 60,
-            unrounded_duration = 60,
-          },
-        },
         activity_total = 150,
         workday_total = 120,
+        tag_total = 150,
+        location_total = 150,
       })
     end
   )
@@ -319,6 +310,8 @@ return function(t)
       },
       activity_total = 30,
       workday_total = 30,
+      tag_total = 30,
+      location_total = 30,
       activity_error_minutes = 0,
       workday_error_minutes = 0,
     })
@@ -383,6 +376,8 @@ return function(t)
       },
       activity_total = 60,
       workday_total = 60,
+      tag_total = 60,
+      location_total = 60,
       activity_error_minutes = 0,
       workday_error_minutes = 0,
     })
@@ -429,18 +424,21 @@ return function(t)
           source_entry_rows = { 4 },
         },
       },
+      -- The tag section quantizes on its OWN base and foots to tag_total (60): the
+      -- #ooo break's 20 unrounded minutes take the spare bucket here even though the
+      -- shared main base rounded them to 0.
       tag_totals = {
         {
           tag = "ClientA",
-          duration = 60,
+          duration = 30,
           unrounded_duration = 40,
-          error_minutes = -20,
+          error_minutes = 10,
         },
         {
           tag = "ooo",
-          duration = 0,
+          duration = 30,
           unrounded_duration = 20,
-          error_minutes = 20,
+          error_minutes = -10,
         },
       },
       location_totals = {
@@ -451,30 +449,17 @@ return function(t)
           error_minutes = 0,
         },
       },
-      logged_totals = {
-        {
-          logged = true,
-          duration = 30,
-          unrounded_duration = 20,
-          error_minutes = -10,
-        },
-        {
-          logged = false,
-          duration = 30,
-          unrounded_duration = 20,
-          error_minutes = -10,
-        },
-      },
       activity_total = 60,
       workday_total = 60,
+      tag_total = 60,
+      location_total = 60,
       activity_error_minutes = 0,
       workday_error_minutes = -20,
     })
   end)
 
-  t.test(
-    "quantized logged totals follow visible main summary rows instead of independent bucket rounding",
-    function()
+  t.test("quantized summary splits main rows by !S on the shared base", function()
+    do
       local block = block_from_lines({
         "--- log #ClientA q=30 ---",
         "08:00 implementation !S",
@@ -520,52 +505,35 @@ return function(t)
             error_minutes = 10,
           },
         },
-        logged_totals = {
-          {
-            logged = true,
-            duration = 30,
-            unrounded_duration = 20,
-            error_minutes = -10,
-          },
-          {
-            logged = false,
-            duration = 0,
-            unrounded_duration = 20,
-            error_minutes = 20,
-          },
-        },
         activity_total = 30,
         workday_total = 30,
+        tag_total = 30,
+        location_total = 30,
         activity_error_minutes = 10,
         workday_error_minutes = 10,
       })
     end
-  )
+  end)
 
-  t.test(
-    "logged totals render logged before unlogged even when unlogged duration is larger",
-    function()
-      local block = block_from_lines({
-        "--- log #ClientA q=30 ---",
-        "08:00 implementation !S",
-        "08:10 implementation",
-        "09:00 done",
-      })
+  t.test("tag and location sections order rows by descending duration", function()
+    -- A tag with a small logged (!T) slice and a large unlogged slice: the sections
+    -- sort purely by duration, so the larger unlogged row comes first. (There is no
+    -- separate logged section any more and no logged-first ordering.)
+    local block = block_from_lines({
+      "--- log #ClientA q=30 ---",
+      "08:00 implementation !T",
+      "08:10 implementation",
+      "09:00 done",
+    })
 
-      local result = summary.summarize_block(block)
+    local result = summary.summarize_block(block)
 
-      -- Unlogged exact = 50, logged exact = 10; after quantization unlogged gets the
-      -- larger quantized bucket.  Logged must still appear before unlogged.
-      t.ok(result.logged_totals ~= nil, "logged_totals should be present")
-      t.ok(#result.logged_totals == 2, "should have two logged_total rows")
-      t.eq(result.logged_totals[1].logged, true)
-      t.eq(result.logged_totals[2].logged, false)
-      t.ok(
-        result.logged_totals[2].duration >= result.logged_totals[1].duration,
-        "unlogged duration should be >= logged duration in this log"
-      )
-    end
-  )
+    t.eq(#result.tag_totals, 2)
+    -- Logged slice = 10m, unlogged = 50m; the larger (unlogged) row sorts first.
+    t.ok(result.tag_totals[1].duration >= result.tag_totals[2].duration, "sorted descending")
+    t.eq(result.tag_totals[1].logged, nil)
+    t.eq(result.tag_totals[2].logged, true)
+  end)
 
   t.test("a frozen !S row holds its committed value when a later entry is appended", function()
     -- The reported bug: logging "logged item" at 1.00h (60m), then appending a
@@ -623,17 +591,10 @@ return function(t)
     t.eq(by_text["thing two"].logged, true)
     t.eq(s.activity_total, 120)
 
-    -- The logged/unlogged split follows: 60 logged (thing two), 60 unlogged (thing one).
-    local logged, unlogged
-    for _, total in ipairs(s.logged_totals) do
-      if total.logged then
-        logged = total
-      else
-        unlogged = total
-      end
-    end
-    t.eq(logged.duration, 60)
-    t.eq(unlogged.duration, 60)
+    -- The main summary splits by !S: thing two logged (60), thing one unlogged (60).
+    t.eq(by_text["thing one"].logged, nil)
+    t.eq(by_text["thing one"].duration, 60)
+    t.eq(by_text["thing two"].duration, 60)
   end)
 
   t.test("fine_grained_quantized matches the display whether or not a sibling is frozen", function()
@@ -763,6 +724,8 @@ return function(t)
       },
       activity_total = 60,
       workday_total = 60,
+      tag_total = 60,
+      location_total = 60,
       activity_error_minutes = 0,
       workday_error_minutes = 0,
     })
@@ -845,6 +808,8 @@ return function(t)
       },
       activity_total = 60,
       workday_total = 60,
+      tag_total = 60,
+      location_total = 60,
       activity_error_minutes = -9,
       workday_error_minutes = -9,
     })
@@ -896,6 +861,8 @@ return function(t)
       },
       activity_total = 30,
       workday_total = 30,
+      tag_total = 30,
+      location_total = 30,
       activity_error_minutes = 4,
       workday_error_minutes = 4,
     })
@@ -998,6 +965,8 @@ return function(t)
         },
         activity_total = 30,
         workday_total = 30,
+        tag_total = 30,
+        location_total = 30,
         activity_error_minutes = 10,
         workday_error_minutes = 10,
       }
@@ -1035,14 +1004,6 @@ return function(t)
               error_minutes = -10,
             },
           },
-          logged_totals = {
-            {
-              logged = true,
-              duration = 30,
-              unrounded_duration = 20,
-              error_minutes = -10,
-            },
-          },
           activity_total = 30,
           workday_total = 30,
           activity_error_minutes = -10,
@@ -1070,14 +1031,6 @@ return function(t)
           location_totals = {
             {
               location = "office",
-              duration = 30,
-              unrounded_duration = 20,
-              error_minutes = -10,
-            },
-          },
-          logged_totals = {
-            {
-              logged = false,
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
@@ -1125,29 +1078,17 @@ return function(t)
             error_minutes = -20,
           },
         },
-        logged_totals = {
-          {
-            logged = true,
-            duration = 30,
-            unrounded_duration = 20,
-            error_minutes = -10,
-          },
-          {
-            logged = false,
-            duration = 30,
-            unrounded_duration = 20,
-            error_minutes = -10,
-          },
-        },
         activity_total = 60,
         workday_total = 60,
+        tag_total = 60,
+        location_total = 60,
         activity_error_minutes = -20,
         workday_error_minutes = -20,
       }
     )
   end)
 
-  t.test("combined quantized summaries derive logged totals from combined summary items", function()
+  t.test("combined quantized summaries preserve logged main-row separation", function()
     t.eq(
       summary.combine_summaries({
         {
@@ -1184,14 +1125,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 40,
               error_minutes = 10,
-            },
-          },
-          logged_totals = {
-            {
-              logged = true,
-              duration = 999,
-              unrounded_duration = 999,
-              error_minutes = 0,
             },
           },
           activity_total = 30,
@@ -1236,22 +1169,10 @@ return function(t)
             error_minutes = 10,
           },
         },
-        logged_totals = {
-          {
-            logged = true,
-            duration = 30,
-            unrounded_duration = 20,
-            error_minutes = -10,
-          },
-          {
-            logged = false,
-            duration = 0,
-            unrounded_duration = 20,
-            error_minutes = 20,
-          },
-        },
         activity_total = 30,
         workday_total = 30,
+        tag_total = 30,
+        location_total = 30,
         activity_error_minutes = 10,
         workday_error_minutes = 10,
       }
@@ -1259,15 +1180,15 @@ return function(t)
   end)
 
   t.test(
-    "combined quantized logged totals follow combined visible summary rows instead of re-quantizing",
+    "combined main summary rows follow combined visible rows instead of re-quantizing",
     function()
       -- Each day: impl !S = 20 exact, impl = 20 exact, bucket = 30.
       -- Tie on remainder; first-seen (logged=true) gets the single extra bucket.
-      -- Per-day result: logged = 30, unlogged = 0.
+      -- Per-day result: logged main row = 30, unlogged = 0.
       --
-      -- Combined visible rows: logged = 60, unlogged = 0.
+      -- Combined visible main rows: logged = 60, unlogged = 0.
       --
-      -- If logged and unlogged exact totals were independently re-quantized after
+      -- If the logged and unlogged main rows were independently re-quantized after
       -- combining (logged exact = 40 → target 30, unlogged exact = 40 → target 30),
       -- the result would be logged = 30, unlogged = 30 — diverging from the visible
       -- combined rows.  The invariant requires logged = 60, unlogged = 0.
@@ -1296,10 +1217,6 @@ return function(t)
         },
         location_totals = {
           { location = nil, duration = 30, unrounded_duration = 40, error_minutes = 10 },
-        },
-        logged_totals = {
-          { logged = true, duration = 30, unrounded_duration = 20, error_minutes = -10 },
-          { logged = false, duration = 0, unrounded_duration = 20, error_minutes = 20 },
         },
         activity_total = 30,
         workday_total = 30,
@@ -1333,12 +1250,10 @@ return function(t)
         location_totals = {
           { location = nil, duration = 60, unrounded_duration = 80, error_minutes = 20 },
         },
-        logged_totals = {
-          { logged = true, duration = 60, unrounded_duration = 40, error_minutes = -20 },
-          { logged = false, duration = 0, unrounded_duration = 40, error_minutes = 40 },
-        },
         activity_total = 60,
         workday_total = 60,
+        tag_total = 60,
+        location_total = 60,
         activity_error_minutes = 20,
         workday_error_minutes = 20,
       })
@@ -1422,6 +1337,8 @@ return function(t)
       },
       activity_total = 540,
       workday_total = 540,
+      tag_total = 540,
+      location_total = 540,
     })
   end)
 
@@ -1704,8 +1621,13 @@ return function(t)
     t.eq(s.summary_items[1].nudge, 1)
     t.eq(s.workday_total, 60)
     t.eq(s.workday_nudge, 1)
-    t.eq(s.tag_totals[1].nudge, 1)
-    t.eq(s.location_totals[1].nudge, 1)
+
+    -- The nudge shifts the MAIN axis only. The tag and location sections round on
+    -- their own axis (50 true -> 45 at q=15) and carry no nudge.
+    t.eq(s.tag_total, 45)
+    t.eq(s.tag_totals[1].nudge, nil)
+    t.eq(s.location_total, 45)
+    t.eq(s.location_totals[1].nudge, nil)
   end)
 
   t.test("a no-nudge log summarizes with no nudge fields (zero overhead)", function()
@@ -1731,8 +1653,8 @@ return function(t)
     local s = summary.summarize_block(block)
 
     t.eq(total_duration(s.summary_items), s.workday_total)
-    t.eq(total_duration(s.tag_totals), s.activity_total)
-    t.eq(total_duration(s.location_totals), s.activity_total)
+    t.eq(total_duration(s.tag_totals), s.tag_total)
+    t.eq(total_duration(s.location_totals), s.location_total)
   end)
 
   t.test("a nudge on one day reconciles the combined week total and residual", function()

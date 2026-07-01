@@ -35,10 +35,11 @@ return function(t)
 
   -- T1/T2/T3 at the minute level: pure partition-sum identities over the cells.
   local function assert_partition_invariants(ctx, s)
-    -- T1: each whole-cell partition (main items / tags / locations) sums to activity.
+    -- T1: each section is a partition that sums to its OWN total (tag/location
+    -- totals round on their own axis and can differ from activity after a nudge).
     eq(sum_field(s.summary_items, "duration"), s.activity_total, ctx .. " T1 items=activity")
-    eq(sum_field(s.tag_totals, "duration"), s.activity_total, ctx .. " T1 tags=activity")
-    eq(sum_field(s.location_totals, "duration"), s.activity_total, ctx .. " T1 locs=activity")
+    eq(sum_field(s.tag_totals, "duration"), s.tag_total, ctx .. " T1 tags=tag_total")
+    eq(sum_field(s.location_totals, "duration"), s.location_total, ctx .. " T1 locs=location_total")
 
     local workday, ooo = 0, 0
     for _, item in ipairs(s.summary_items) do
@@ -49,9 +50,6 @@ return function(t)
       end
     end
     eq(workday, s.workday_total, ctx .. " T1 non-ooo items=workday")
-    if s.logged_totals then
-      eq(sum_field(s.logged_totals, "duration"), s.workday_total, ctx .. " T1 logged=workday")
-    end
 
     -- T2: the activity/workday gap is exactly the out-of-office time.
     eq(s.activity_total - s.workday_total, ooo, ctx .. " T2 activity-workday=ooo")
@@ -69,7 +67,6 @@ return function(t)
     residuals(s.summary_items, "items")
     residuals(s.tag_totals, "tags")
     residuals(s.location_totals, "locs")
-    residuals(s.logged_totals, "logged")
     eq(
       s.activity_error_minutes,
       sum_field(s.summary_items, "error_minutes"),
@@ -86,11 +83,19 @@ return function(t)
     return tonumber(hours) * 60 + tonumber(minutes)
   end
 
+  -- The displayed section total: dec rounds minutes to centihours, hm is exact minutes.
+  local function displayed(minutes, fmt)
+    if fmt == "dec" then
+      return math.floor(minutes * 100 / 60 + 0.5)
+    end
+    return minutes
+  end
+
   -- The rendered rows of each section must foot to that section's displayed total.
   local function assert_display_footing(ctx, s)
     local K = render.LAYOUT_KIND
     for _, fmt in ipairs({ "dec", "hm" }) do
-      local sections = { summary = {}, tag = {}, location = {}, logged = {} }
+      local sections = { summary = {}, tag = {}, location = {} }
       local activity, workday
       for _, row in ipairs(render.summary_layout(s, fmt, {})) do
         if row.kind == K.SUMMARY_ITEM then
@@ -99,8 +104,6 @@ return function(t)
           sections.tag[#sections.tag + 1] = parse_duration(row.line, fmt)
         elseif row.kind == K.LOCATION_TOTAL then
           sections.location[#sections.location + 1] = parse_duration(row.line, fmt)
-        elseif row.kind == K.LOGGED_TOTAL then
-          sections.logged[#sections.logged + 1] = parse_duration(row.line, fmt)
         elseif row.kind == K.TOTAL then
           local value = parse_duration(row.line, fmt)
           if row.line:find("activity") then
@@ -111,14 +114,14 @@ return function(t)
         end
       end
 
-      -- When no #ooo work exists the activity row is omitted and the whole-cell
-      -- sections foot to the workday total instead.
+      -- When no #ooo work exists the activity row is omitted and the main
+      -- section foots to the workday total instead. Tag and location sections
+      -- foot to their OWN displayed totals.
       local whole = activity or workday
       local checks = {
         { "summary", sections.summary, whole },
-        { "tag", sections.tag, whole },
-        { "location", sections.location, whole },
-        { "logged", sections.logged, workday },
+        { "tag", sections.tag, displayed(s.tag_total, fmt) },
+        { "location", sections.location, displayed(s.location_total, fmt) },
       }
       for _, check in ipairs(checks) do
         local rows, want = check[2], check[3]

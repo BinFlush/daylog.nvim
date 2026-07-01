@@ -301,7 +301,7 @@ return function(t)
     )
   end)
 
-  t.test("render unrounded summaries append !S on main rows and show a logged section", function()
+  t.test("render unrounded summaries append !S on main rows", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -335,20 +335,10 @@ return function(t)
             unrounded_duration = 120,
           },
         },
-        logged_totals = {
-          {
-            logged = true,
-            duration = 60,
-            unrounded_duration = 60,
-          },
-          {
-            logged = false,
-            duration = 60,
-            unrounded_duration = 60,
-          },
-        },
         activity_total = 120,
         workday_total = 120,
+        tag_total = 120,
+        location_total = 120,
       }),
       {
         "",
@@ -362,17 +352,13 @@ return function(t)
         "--- locations ---",
         "2.00h (+0m) @office",
         "",
-        "--- logged ---",
-        "1.00h (+0m) logged",
-        "1.00h (+0m) unlogged",
-        "",
         "--- totals ---",
         "2.00h (+0m) workday",
       }
     )
   end)
 
-  t.test("render quantized summaries append !S on main rows and show logged deltas", function()
+  t.test("render quantized summaries append !S on main rows", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -410,22 +396,10 @@ return function(t)
             error_minutes = -20,
           },
         },
-        logged_totals = {
-          {
-            logged = true,
-            duration = 30,
-            unrounded_duration = 20,
-            error_minutes = -10,
-          },
-          {
-            logged = false,
-            duration = 30,
-            unrounded_duration = 20,
-            error_minutes = -10,
-          },
-        },
         activity_total = 60,
         workday_total = 60,
+        tag_total = 60,
+        location_total = 60,
         activity_error_minutes = -20,
         workday_error_minutes = -20,
       }),
@@ -440,10 +414,6 @@ return function(t)
         "",
         "--- locations ---",
         "1.00h (-20m) @office",
-        "",
-        "--- logged ---",
-        "0.50h (-10m) logged",
-        "0.50h (-10m) unlogged",
         "",
         "--- totals ---",
         "1.00h (-20m) workday",
@@ -688,7 +658,7 @@ return function(t)
     )
   end)
 
-  t.test("render reports use logged headers when logged totals are present", function()
+  t.test("render reports append !S on main rows (no logged section)", function()
     t.eq(
       render.days_report_lines({
         period_label = "2026-W21",
@@ -709,16 +679,10 @@ return function(t)
               },
               tag_totals = {},
               location_totals = {},
-              logged_totals = {
-                {
-                  logged = true,
-                  duration = 60,
-                  unrounded_duration = 60,
-                  error_minutes = 0,
-                },
-              },
               activity_total = 60,
               workday_total = 60,
+              tag_total = 60,
+              location_total = 60,
               activity_error_minutes = 0,
               workday_error_minutes = 0,
             },
@@ -738,16 +702,10 @@ return function(t)
           },
           tag_totals = {},
           location_totals = {},
-          logged_totals = {
-            {
-              logged = true,
-              duration = 60,
-              unrounded_duration = 60,
-              error_minutes = 0,
-            },
-          },
           activity_total = 60,
           workday_total = 60,
+          tag_total = 60,
+          location_total = 60,
           activity_error_minutes = 0,
           workday_error_minutes = 0,
         },
@@ -756,17 +714,11 @@ return function(t)
         "--- day summary 2026-05-18 ---",
         "1:00 (+0m) plan !S",
         "",
-        "--- day logged 2026-05-18 ---",
-        "1:00 (+0m) logged",
-        "",
         "--- day totals 2026-05-18 ---",
         "1:00 (+0m) workday",
         "",
         "--- range summary 2026-W21 ---",
         "1:00 (+0m) plan !S",
-        "",
-        "--- range logged 2026-W21 ---",
-        "1:00 (+0m) logged",
         "",
         "--- range totals 2026-W21 ---",
         "1:00 (+0m) workday",
@@ -981,20 +933,10 @@ return function(t)
           unrounded_duration = 120,
         },
       },
-      logged_totals = {
-        {
-          logged = true,
-          duration = 60,
-          unrounded_duration = 60,
-        },
-        {
-          logged = false,
-          duration = 60,
-          unrounded_duration = 60,
-        },
-      },
       activity_total = 120,
       workday_total = 120,
+      tag_total = 120,
+      location_total = 120,
     }
 
     local layout = render.summary_layout(summary)
@@ -1046,7 +988,7 @@ return function(t)
     t.eq(summary_rows[2].line, "1.00h (+0m) implementation")
   end)
 
-  t.test("summary_layout uses distinct kinds for tag, location, logged, and total rows", function()
+  t.test("summary_layout uses distinct kinds for tag, location, and total rows", function()
     local layout = render.summary_layout({
       summary_items = {
         {
@@ -1065,11 +1007,10 @@ return function(t)
       location_totals = {
         { location = "office", duration = 60, unrounded_duration = 60 },
       },
-      logged_totals = {
-        { logged = true, duration = 60, unrounded_duration = 60 },
-      },
       activity_total = 60,
       workday_total = 60,
+      tag_total = 60,
+      location_total = 60,
     })
 
     local function find_by_line(line)
@@ -1080,7 +1021,6 @@ return function(t)
 
     t.eq(find_by_line("1.00h (+0m) #ClientA").kind, "tag_total")
     t.eq(find_by_line("1.00h (+0m) @office").kind, "location_total")
-    t.eq(find_by_line("1.00h (+0m) logged").kind, "logged_total")
     t.eq(find_by_line("1.00h (+0m) workday").kind, "total")
 
     for _, row in ipairs(layout) do

@@ -133,10 +133,12 @@ Rules:
   its own description. The alias may contain spaces; the trailing metadata below
   follows it (attaching to the entry as usual). Normally written by |:Daylog-map|.
   See |daylog-mapping|.
-- `!S` marks the interval started by that entry as already logged externally.
-  An optional minute count -- `!S<minutes>`, written by |:Daylog-log| -- freezes
-  that row at its committed value, so appending later entries can never restate
-  it (see below). Bare `!S` is logged but unfrozen.
+- A logged marker records that the interval has been reported to an external system, at one
+  of four independent levels: `!S` (its summary row), `!T` (its tag), `!L` (its location), or
+  `!W` (the workday). An entry may carry several, e.g. `!S !T`. An optional minute count --
+  `!S<minutes>`, written by |:Daylog-log| -- freezes that level's row at its committed value,
+  so appending later entries can never restate it (see below). A bare marker is logged but
+  unfrozen. `#ooo` time can never be logged, at any level.
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
   |daylog-sticky-metadata|. It is only needed when the clock moves (travel or
   DST) and is invisible otherwise.
@@ -150,11 +152,14 @@ Rules:
 - If no duration option is present, summaries default to decimal hours such as
   `1.50h`.
 
-`!S` is preserved by source rewrites such as copy and order. Summaries and
-reports split main rows by logged state, render logged rows with trailing `!S`
-(always bare -- the frozen minutes live only on the entry line), and add a
-logged section for workday-eligible logged versus unlogged totals when logged
-work was marked. Tag and location totals stay grouped normally.
+Logged markers are preserved by source rewrites such as copy and order. Each summary section
+splits itself by its own level: the summary rows by `!S`, the tag totals by `!T`, the location
+totals by `!L` -- a logged slice (held at its committed value) and an unlogged slice (still
+live). A logged row renders with its level's marker (a logged tag row `... #ClientA !T`, always
+bare -- the frozen minutes live only on the entry line). Because the levels are independent,
+logging an activity's summary does not change what its tag or location reports; you log those
+separately. Each section quantizes on its own, so once commitments differ across levels a tag
+total can differ from the sum of its activity rows by a rounding bucket.
 
 Quantization normally distributes each log's rounding by largest remainder
 across every row at once, so adding an entry can shift the rounded duration of
@@ -521,14 +526,16 @@ Rewrite all log blocks in chronological order.
                                                         *:Daylog-log*
 :Daylog log
 
-Toggle the logged state of the main summary row under the cursor.
+Toggle the summary-level logged state of the main summary row under the cursor. (Logging a
+tag, location, or the workday from their rows is not yet wired; type `!T`/`!L`/`!W` by hand for
+now.)
 - The cursor must be on a main summary row inside the summary section of the active
   log. The summary is recomputed from source; the rendered row acts only as a
   selector.
 - The logged state is toggled: an unlogged row's source intervals gain a trailing
   `!S<minutes>` -- freezing the row at its currently displayed duration -- and an
   already logged row's lose it. The summary section is regenerated afterwards.
-- Tag, location, logged, and total rows are not eligible; `#ooo` rows are refused.
+- Tag, location, and total rows are not eligible; `#ooo` rows are refused.
 - Summary rows that no longer match the recomputed summary are refused; run
   `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
 
@@ -554,7 +561,7 @@ bulk rename through it is ambiguous. Relabel an activity for the report with
 - On a tag-total row, that `#tag` is renamed everywhere it is effective; entries that
   only inherited the tag follow automatically. A location-total row, the `@location`
   the same way.
-- An activity summary row, the logged / totals rows, and the `(untagged)` /
+- An activity summary row, the totals rows, and the `(untagged)` /
   `(no location)` placeholders are not renamable.
 - Renaming a tag or location to one that already exists merges the two. A tag or
   location name must be letters, digits, underscores, or hyphens; activity text is
@@ -606,13 +613,12 @@ copying-and-cleaning a log for reporting.
 Manually balance summary rounding by [steps] q-steps (a signed integer; default `+1`,
 `0` clears). Quantization rounds each row to the block's `q=` bucket by largest
 remainder, so residuals can leave a day -- and a week -- a step or two short of a
-clean total. This nudges the rounding to land it, while every section stays a
-partition that foots to its total.
+clean total. This nudges the rounding to land it on the main (summary-level) axis.
 
 - With the cursor on a summary row, the best contributing entry is rounded [steps]
   buckets further -- the least-error choice. The workday or activity total scopes all
-  its work, a main row its own activity, and a tag / location / logged total that
-  group. Rounding a line up also lifts every total that contains it.
+  its work and a main row its own activity. Tag and location totals round on their own
+  independent axis and are refused here (log or adjust their entries instead).
 - With the cursor on an entry, that entry is nudged directly.
 - The chosen entries gain a `round±N` marker; the summary is rebuilt and the marker is
   shown on every affected summary row. Run again to add more, with the opposite sign

@@ -24,6 +24,19 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- **Logging is multi-level: tags and locations now split by their own logged state.** An entry can be
+  logged at the summary (`!S`), tag (`!T`), or location (`!L`) level independently (and `!W` for the
+  workday parses and round-trips). Each summary section now splits into a logged slice (held at its
+  committed value) and an unlogged slice, and a logged row renders with its level's marker (a logged tag
+  row shows `... #ClientA !T`, a logged location `... @home !L`). Logging an activity's summary no longer
+  changes what its tag or location reports — you log those separately. Each section quantizes on its own,
+  so once per-level commitments diverge a tag total can differ from the sum of its activity rows by a
+  rounding bucket. **The separate `--- logged ---` section is removed** (each section carries its own
+  split now) — a derived-output change, so summaries with logged work render differently on upgrade.
+  `#ooo` time still cannot be logged at any level (now diagnosed per level). `:Daylog balance` acts on
+  the main/workday axis only; tag and location totals round independently and are refused there.
+  Per-level `:Daylog log` from a tag/location/workday row (rather than by hand) is not yet wired.
+
 - **BREAKING — the logged marker `!L` is now `!S`.** Logging is becoming multi-level: an entry can be
   logged at the summary (`!S`), tag (`!T`), location (`!L`), or workday (`!W`) level, each independently.
   The v0.1.x single summary-logged marker `!L` is now `!S`, and `!L` becomes the *location* level. **Run

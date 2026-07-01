@@ -39,7 +39,7 @@ end
 -- rendered lines, and the activity / workday totals.
 local function dissect(layout, fmt)
   local K = render.LAYOUT_KIND
-  local sec = { summary = {}, tag = {}, location = {}, logged = {} }
+  local sec = { summary = {}, tag = {}, location = {} }
   local rendered = {}
   local activity, workday
   for _, row in ipairs(layout) do
@@ -50,8 +50,6 @@ local function dissect(layout, fmt)
       sec.tag[#sec.tag + 1] = parse_duration(row.line, fmt)
     elseif row.kind == K.LOCATION_TOTAL then
       sec.location[#sec.location + 1] = parse_duration(row.line, fmt)
-    elseif row.kind == K.LOGGED_TOTAL then
-      sec.logged[#sec.logged + 1] = parse_duration(row.line, fmt)
     elseif row.kind == K.TOTAL then
       local d = parse_duration(row.line, fmt)
       if row.line:find("activity") then
@@ -113,13 +111,20 @@ function M.check(sub, mode)
     return report(sub, mode, wl, "min", {}, msg)
   end
 
+  -- The displayed section total: dec rounds minutes to centihours, hm is exact minutes.
+  local function displayed(minutes, fmt)
+    if fmt == "dec" then
+      return math.floor(minutes * 100 / 60 + 0.5)
+    end
+    return minutes
+  end
+
   for _, fmt in ipairs({ "dec", "hm" }) do
-    local sec, rendered, activity, workday = dissect(render.summary_layout(s, fmt, {}), fmt)
+    local sec, rendered, activity = dissect(render.summary_layout(s, fmt, {}), fmt)
     local checks = {
       { "summary items", sec.summary, activity },
-      { "tag totals", sec.tag, activity },
-      { "location totals", sec.location, activity },
-      { "logged totals", sec.logged, workday },
+      { "tag totals", sec.tag, displayed(s.tag_total, fmt) },
+      { "location totals", sec.location, displayed(s.location_total, fmt) },
     }
     for _, c in ipairs(checks) do
       local name, rows, want = c[1], c[2], c[3]

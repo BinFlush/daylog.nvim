@@ -325,20 +325,19 @@ return function(t)
     t.eq(result.cursor_row, big_row)
   end)
 
-  t.test("balancing a tag total that reorders follows it too", function()
+  t.test("balancing a tag total is refused; tag totals round on their own axis", function()
     local lines = buffer_with_summary({
       "--- log q=60 d=hm ---",
       "08:00 a #x",
       "09:00 b #y",
       "11:00 done",
     })
-    -- Tag totals list #y (2h) then #x (1h); balancing #x +2 makes it 3h and it moves up.
+    -- Tag and location totals now round independently, so balancing one is refused.
     local x_row = row_of(lines, ") #x")
 
-    local result = balance.run(lines, x_row, 2)
-    local out = apply(lines, result)
+    local result, err = balance.run(lines, x_row, 2)
 
-    t.ok(result.cursor_row < x_row, "#x moved up its section")
-    t.ok(out[result.cursor_row]:find("#x", 1, true), "the cursor lands on the #x total")
+    t.eq(result, nil)
+    t.eq(err, balance.SECTION_NOT_BALANCEABLE)
   end)
 end

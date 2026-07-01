@@ -59,6 +59,10 @@ local function build_intervals(entries)
       -- marker (`s == true`) freezes nothing, so the row's `logged_minutes` stays nil and
       -- it rounds live like any un-frozen row.
       logged_minutes = type(logged_s) == "number" and logged_s or nil,
+      -- The whole per-level logged table ({ level -> committed | true }), carried so the tag and
+      -- location sections can split themselves by their own level (project_section). The `logged` /
+      -- `logged_minutes` above are the summary (`s`) slice the main section and balance still key on.
+      logged_by_level = current.logged,
       source_entry_row = current.row,
     })
   end
@@ -158,6 +162,55 @@ local function build_summary_from_rows(rows)
   }
 end
 
+-- Project the intervals into one report section (tags or locations), split by `level`'s logged flag
+-- and quantized INDEPENDENTLY -- frozen-aware on that level's committed values. The section rounds its
+-- own real totals, so it foots to its own returned total, which can differ from the main activity
+-- total by a bucket once per-level commitments diverge (the intended multi-level behavior). `key_fields`
+-- are the section's grouping fields ({ "tag" } / { "location" }). Because the fold is exactly the
+-- grouping (no location to collapse, unlike main), the quantized rows are the display items directly.
+--
+-- #ooo time can never be logged, so a workday-excluded interval always lands in the section's UNLOGGED
+-- slice regardless of any contradictory marker it carries -- logging_diagnostics surfaces the mistake.
+local function append_field(list, field)
+  local out = {}
+  for i, value in ipairs(list) do
+    out[i] = value
+  end
+  out[#out + 1] = field
+  return out
+end
+
+local function project_section(intervals, key_fields, level, bucket_minutes)
+  local group_fields = append_field(key_fields, "logged")
+  local carry_fields = append_field(group_fields, "logged_minutes")
+
+  local adapted = {}
+  for _, interval in ipairs(intervals) do
+    local committed = interval.logged_by_level and interval.logged_by_level[level]
+    local logged = committed ~= nil and not interval.workday_excluded
+
+    local row = { duration = interval.duration }
+    for _, field in ipairs(key_fields) do
+      row[field] = interval[field]
+    end
+    row.logged = logged or nil
+    row.logged_minutes = (logged and type(committed) == "number") and committed or nil
+    adapted[#adapted + 1] = row
+  end
+
+  -- No source-row provenance on tag/location rows: nothing reads it (diagnostics anchor via the block's
+  -- entry_items), and omitting it keeps these rows the shape the reports and combine already expect.
+  local rows = projection.project_rows(adapted, group_fields, carry_fields, false)
+  local items = quantize.quantize_fine_grained(rows, bucket_minutes)
+
+  local total = 0
+  for _, item in ipairs(items) do
+    total = total + item.duration
+  end
+
+  return items, total
+end
+
 local function sort_by_duration(items)
   local indexed = {}
 
@@ -240,68 +293,10 @@ local function finalize_summary_order(summary)
   return summary
 end
 
--- Emit logged totals in fixed semantic order: logged always before unlogged.
--- `by_logged` is keyed by the boolean logged state.
-local function ordered_logged_totals(by_logged)
-  local totals = {}
-
-  if by_logged[true] then
-    table.insert(totals, by_logged[true])
-  end
-  if by_logged[false] then
-    table.insert(totals, by_logged[false])
-  end
-
-  return totals
-end
-
--- Derive logged totals by projecting workday-eligible summary items by logged state.
--- Items must already carry quantized durations and error_minutes (i.e. they come from
--- quantize.project_quantized_items or an apply_error_minutes pass).  Duration,
--- unrounded_duration, and error_minutes are summed directly so the result equals the sum of
--- the visible quantized main summary rows by logged state, preserving the remainder
--- distribution from the shared quantization pass.
-local function logged_totals_from_quantized_items(items)
-  local buckets = {}
-  local has_logged = false
-
-  for _, item in ipairs(items or {}) do
-    if not item.workday_excluded then
-      local logged = item.logged == true
-      has_logged = has_logged or logged
-
-      local bucket = buckets[logged]
-      if not bucket then
-        bucket = {
-          logged = logged,
-          duration = 0,
-          unrounded_duration = 0,
-          error_minutes = 0,
-        }
-        buckets[logged] = bucket
-      end
-
-      bucket.duration = bucket.duration + item.duration
-      bucket.unrounded_duration = bucket.unrounded_duration + (item.unrounded_duration or 0)
-      bucket.error_minutes = bucket.error_minutes + (item.error_minutes or 0)
-      if item.nudge and item.nudge ~= 0 then
-        bucket.nudge = (bucket.nudge or 0) + item.nudge
-      end
-    end
-  end
-
-  if not has_logged then
-    return nil
-  end
-
-  return ordered_logged_totals(buckets)
-end
-
--- Apply the shared summary tail: attach the manual-nudge totals sparsely (only when
--- nonzero, so a log with no manual balancing produces the identical structure),
--- derive and attach the logged totals from the main rows, and order every section.
--- Both summarize_entries and combine_summaries finish through this so the
--- sparse-nudge and logged-totals invariants are defined once.
+-- Apply the shared summary tail: attach the manual-nudge totals sparsely (only when nonzero, so a log
+-- with no manual balancing produces the identical structure), then order every section. Both
+-- summarize_entries and combine_summaries finish through this so the sparse-nudge invariant is defined
+-- once. The per-level logged/unlogged split lives inside each section now, not in a separate section.
 local function finalize_summary(summary, activity_nudge, workday_nudge)
   if activity_nudge ~= 0 then
     summary.activity_nudge = activity_nudge
@@ -310,27 +305,29 @@ local function finalize_summary(summary, activity_nudge, workday_nudge)
     summary.workday_nudge = workday_nudge
   end
 
-  local logged_totals = logged_totals_from_quantized_items(summary.summary_items)
-  if logged_totals then
-    summary.logged_totals = logged_totals
-  end
-
   return finalize_summary_order(summary)
 end
 
--- Quantize grouped summary rows together.
--- The overall activity total is rounded to the nearest configured bucket, each
--- fine-grained row is rounded down to that bucket, and the remaining
--- bucket-sized blocks are assigned to the largest remainders. Every displayed
--- quantized section is then projected from that one quantized fine-grained
--- base. `#ooo` rows participate in the same pass, but are excluded from the
--- final workday total.
+-- Build the full quantized summary for a set of entries.
+-- The MAIN summary (and the activity/workday totals) is quantized on the one shared summary-level base:
+-- the activity total rounds to the nearest bucket, each fine-grained row rounds down, and the remaining
+-- bucket blocks go to the largest remainders. The main section already splits by the summary (`s`)
+-- level, and the balance system reads this same base, so it is left verbatim.
+-- The TAG and LOCATION sections quantize INDEPENDENTLY, each split by its own level (`t` / `l`) and
+-- footing to its own total (project_section). `#ooo` rows participate everywhere but are excluded from
+-- the workday total and can never be logged.
 function M.summarize_entries(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
-  local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
+  local intervals = build_intervals(entries)
+
+  local unrounded_rows = build_fine_grained_rows(intervals)
   local unrounded_summary = build_summary_from_rows(unrounded_rows)
   local quantized_rows = quantize.quantize_fine_grained(unrounded_rows, bucket_minutes)
   local quantized_summary = build_summary_from_rows(quantized_rows)
+
+  local tag_totals, tag_total = project_section(intervals, { "tag" }, "t", bucket_minutes)
+  local location_totals, location_total =
+    project_section(intervals, { "location" }, "l", bucket_minutes)
 
   local summary = {
     summary_items = quantize.project_quantized_items(
@@ -339,20 +336,12 @@ function M.summarize_entries(entries, quantize_minutes)
       { "text", "tag", "workday_excluded", "logged" },
       { "text", "tag", "workday_excluded", "logged" }
     ),
-    tag_totals = quantize.project_quantized_items(
-      unrounded_summary.tag_totals,
-      quantized_summary.tag_totals,
-      { "tag" },
-      { "tag" }
-    ),
-    location_totals = quantize.project_quantized_items(
-      unrounded_summary.location_totals,
-      quantized_summary.location_totals,
-      { "location" },
-      { "location" }
-    ),
+    tag_totals = tag_totals,
+    location_totals = location_totals,
     activity_total = quantized_summary.activity_total,
     workday_total = quantized_summary.workday_total,
+    tag_total = tag_total,
+    location_total = location_total,
     activity_error_minutes = unrounded_summary.activity_total - quantized_summary.activity_total,
     workday_error_minutes = unrounded_summary.workday_total - quantized_summary.workday_total,
   }
@@ -395,23 +384,30 @@ function M.activity_identity_key(row)
   }, "\0")
 end
 
--- Every logged interval that folds into one fine-grained row must carry the same
--- frozen value: :Daylog log writes the row's committed total onto each contributing
--- entry. The fold (build_fine_grained_rows) keeps logged_minutes as a first-seen
--- field, so disagreeing values -- from a hand edit or a partial operation -- would be
--- silently collapsed to one. This finds every such row instead, keyed by
--- activity_identity_key within the logged set, so it matches where the values actually
--- collapse. Returns a list of { row } anchored at the earliest conflicting entry; the
--- shell turns each into a diagnostic. A bare `!S` (unfrozen, no value) counts as its own
--- value, so mixing `!S` and `!S60` also conflicts.
-function M.logged_value_conflicts(entries)
-  local groups = {}
-  local order = {}
+-- The grouping an interval's committed logged value must agree within, per level: an activity for the
+-- summary level, a tag / a location for those, the whole workday for `w` (one group).
+local function level_group_key(row, level)
+  if level == "t" then
+    return row.tag or ""
+  elseif level == "l" then
+    return row.location or ""
+  elseif level == "w" then
+    return ""
+  end
+  return M.activity_identity_key(row)
+end
 
-  for _, interval in ipairs(build_intervals(entries)) do
-    if interval.logged then
-      local key = M.activity_identity_key(interval)
+-- Same-<level> intervals whose committed logged values disagree, each { row } anchored at the earliest
+-- entry. :Daylog log writes one committed total onto every entry of the level's group; a hand edit or a
+-- partial operation can leave them disagreeing, which the fold would silently collapse to one -- this
+-- catches it first. A bare marker counts as its own value, so mixing `!T` and `!T60` also conflicts.
+local function conflicts_at_level(intervals, level)
+  local groups, order = {}, {}
 
+  for _, interval in ipairs(intervals) do
+    local committed = interval.logged_by_level and interval.logged_by_level[level]
+    if committed ~= nil then
+      local key = level_group_key(interval, level)
       local group = groups[key]
       if not group then
         group = { row = interval.source_entry_row, values = {}, distinct = 0 }
@@ -419,7 +415,7 @@ function M.logged_value_conflicts(entries)
         order[#order + 1] = group
       end
 
-      local token = interval.logged_minutes == nil and "nil" or tostring(interval.logged_minutes)
+      local token = type(committed) == "number" and tostring(committed) or "nil"
       if not group.values[token] then
         group.values[token] = true
         group.distinct = group.distinct + 1
@@ -436,52 +432,82 @@ function M.logged_value_conflicts(entries)
       conflicts[#conflicts + 1] = { row = group.row }
     end
   end
-
   return conflicts
 end
 
--- Semantic logging problems in a block that make its summary untrustworthy, each { row, message }:
---   * a frozen `!S<n>` value that no longer fits the block's bucket (a hand-edit or a q change),
---   * out-of-office (`#ooo`) time marked logged (`:Daylog log` refuses it; a hand-edit slips it in),
---   * same-activity entries disagreeing on their `!S` value.
+-- Public summary-level conflicts (the main rows :Daylog map / rename reason over). PURE.
+function M.logged_value_conflicts(entries)
+  return conflicts_at_level(build_intervals(entries), "s")
+end
+
+-- The noun each level's committed value belongs to, for diagnostic wording.
+local LEVEL_NOUN = { s = "activity", t = "tag", l = "location", w = "workday" }
+
+-- Semantic logging problems in a block that make its summary untrustworthy, each { row, message }, for
+-- every level (`!S`/`!T`/`!L`/`!W`):
+--   * a frozen `!X<n>` value that no longer fits the block's bucket (a hand-edit or a q change),
+--   * out-of-office (`#ooo`) time marked logged at any level (:Daylog log refuses it; a hand-edit slips
+--     it in),
+--   * entries of one level-group disagreeing on their committed value.
 -- One detector shared by refresh (which raises these as diagnostics) and the highlighter (which reddens
 -- the summary while any are present), so the warning and the red flag can never drift apart. PURE.
 function M.logging_diagnostics(block)
   local out = {}
   local bucket = block.quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+  local intervals = build_intervals(block.entries)
 
-  for _, row in ipairs(M.fine_grained_quantized(block.entries, block.quantize_minutes)) do
-    if
-      row.logged_minutes ~= nil and (row.logged_minutes < 0 or row.logged_minutes % bucket ~= 0)
-    then
-      local at = row.source_entry_rows and row.source_entry_rows[1]
-      if at then
-        out[#out + 1] = {
-          row = at,
-          message = string.format(
-            "daylog: a frozen !S value no longer fits q=%d; re-run :Daylog log to recommit",
-            bucket
-          ),
-        }
+  -- A frozen value off the bucket grid, reported once per level-group (anchored at its first entry).
+  local seen_off_grid = {}
+  for _, item in ipairs(block.entry_items) do
+    for _, level in ipairs(syntax.LOGGED_LEVELS) do
+      local committed = item.logged and item.logged[level]
+      if type(committed) == "number" and (committed < 0 or committed % bucket ~= 0) then
+        local key = level .. "\0" .. level_group_key(item, level)
+        if not seen_off_grid[key] then
+          seen_off_grid[key] = true
+          out[#out + 1] = {
+            row = item.start_row,
+            message = string.format(
+              "daylog: a frozen !%s value no longer fits q=%d; re-run :Daylog log to recommit",
+              level:upper(),
+              bucket
+            ),
+          }
+        end
       end
     end
   end
 
+  -- Out-of-office time can never be logged, at any level.
   for _, item in ipairs(block.entry_items) do
-    if item.logged and item.logged.s and item.workday_excluded then
-      out[#out + 1] = {
-        row = item.start_row,
-        message = "daylog: out-of-office time cannot be logged; remove !S or #ooo",
-      }
+    if item.workday_excluded and item.logged then
+      for _, level in ipairs(syntax.LOGGED_LEVELS) do
+        if item.logged[level] then
+          out[#out + 1] = {
+            row = item.start_row,
+            message = "daylog: out-of-office time cannot be logged; remove !"
+              .. level:upper()
+              .. " or #ooo",
+          }
+          break
+        end
+      end
     end
   end
 
-  for _, conflict in ipairs(M.logged_value_conflicts(block.entries)) do
-    out[#out + 1] = {
-      row = conflict.row,
-      message = "daylog: logged entries for this activity disagree on their "
-        .. "!S value; re-run :Daylog log to recommit",
-    }
+  -- Same-group entries disagreeing on a committed value.
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
+    for _, conflict in ipairs(conflicts_at_level(intervals, level)) do
+      out[#out + 1] = {
+        row = conflict.row,
+        message = string.format(
+          "daylog: logged entries for this %s disagree on their !%s value; "
+            .. "re-run :Daylog log to recommit",
+          LEVEL_NOUN[level],
+          level:upper()
+        ),
+      }
+    end
   end
 
   return out
@@ -493,6 +519,8 @@ function M.combine_summaries(summaries)
   local location_totals = {}
   local activity_total = 0
   local workday_total = 0
+  local tag_total = 0
+  local location_total = 0
   local activity_error_minutes = 0
   local workday_error_minutes = 0
   local activity_nudge = 0
@@ -501,6 +529,8 @@ function M.combine_summaries(summaries)
   for _, item in ipairs(summaries or {}) do
     activity_total = activity_total + item.activity_total
     workday_total = workday_total + item.workday_total
+    tag_total = tag_total + (item.tag_total or item.activity_total)
+    location_total = location_total + (item.location_total or item.activity_total)
     activity_error_minutes = activity_error_minutes + (item.activity_error_minutes or 0)
     workday_error_minutes = workday_error_minutes + (item.workday_error_minutes or 0)
     activity_nudge = activity_nudge + (item.activity_nudge or 0)
@@ -527,14 +557,18 @@ function M.combine_summaries(summaries)
         { "text", "tag", "workday_excluded", "logged" }
       )
     ),
+    -- The `logged` field is part of the key so a tag's/location's logged and unlogged rows stay
+    -- separate across days (each section already carries its own split).
     tag_totals = quantize.apply_error_minutes(
-      projection.project_rows(tag_totals, { "tag" }, { "tag" })
+      projection.project_rows(tag_totals, { "tag", "logged" }, { "tag", "logged" })
     ),
     location_totals = quantize.apply_error_minutes(
-      projection.project_rows(location_totals, { "location" }, { "location" })
+      projection.project_rows(location_totals, { "location", "logged" }, { "location", "logged" })
     ),
     activity_total = activity_total,
     workday_total = workday_total,
+    tag_total = tag_total,
+    location_total = location_total,
     activity_error_minutes = activity_error_minutes,
     workday_error_minutes = workday_error_minutes,
   }

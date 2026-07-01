@@ -1013,9 +1013,6 @@ return function(t)
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation !S",
       "",
-      "--- logged ---",
-      "1.00h (+0m) logged",
-      "",
       "--- totals ---",
       "1.00h (+0m) workday",
     })
@@ -1042,9 +1039,6 @@ return function(t)
       "",
       "--- summary q=30 d=dec ---",
       "1.00h (+0m) implementation !S",
-      "",
-      "--- logged ---",
-      "1.00h (+0m) logged",
       "",
       "--- totals ---",
       "1.00h (+0m) workday",
@@ -1123,7 +1117,6 @@ return function(t)
       return false
     end
     t.ok(has("2.00h (+0m) build !S"), "the merged row reads 2.00h")
-    t.ok(has("2.00h (+0m) logged"), "all of build is now logged")
     -- No separate unlogged build row survives.
     t.ok(find(function(line)
       return line:find("build", 1, true)
@@ -1327,10 +1320,6 @@ return function(t)
         "",
         "--- locations ---",
         "3.00h (+1m) @office",
-        "",
-        "--- logged ---",
-        "0.75h (-1m) logged",
-        "2.25h (+2m) unlogged",
         "",
         "--- totals ---",
         "3.00h (+1m) workday",

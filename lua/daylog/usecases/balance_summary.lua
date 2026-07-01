@@ -23,6 +23,11 @@ local M = {}
 -- A delta of 0 clears the cursor target's nudge: on a summary row it removes every
 -- marker contributing to that row's scope; on an entry it removes that entry's marker.
 --
+-- Balancing acts on the main (summary-level) axis -- main rows, the activity total, and the workday
+-- total -- because those share the one quantization base whose rounding a nudge shifts. The tag and
+-- location sections quantize independently (each by its own level), so a main nudge does not move them
+-- and they carry no nudge of their own yet; balancing is refused on a tag or location row.
+--
 -- Frozen logged rows (`!S<minutes>`) are held at their committed value and the
 -- quantizer ignores any nudge on them, so they are never selectable: a balance step
 -- only ever lands on an un-frozen row. When the only candidates left in scope are
@@ -34,10 +39,12 @@ M.NOT_BALANCEABLE = "daylog: put the cursor on a summary row or an entry to bala
 M.CANNOT_DOWN = "daylog: cannot round down further here; the contributing items are already empty"
 M.ONLY_LOGGED = "daylog: cannot balance here; the remaining items are all logged"
 M.NOTHING = "daylog: nothing to balance on this line"
+M.SECTION_NOT_BALANCEABLE =
+  "daylog: balance an activity or the workday total; tag and location totals round on their own"
 
 -- The set of fine-grained rows a cursor line governs. A main row scopes its own
--- (text, tag) across locations; tag/location/logged totals scope that group; the
--- workday total scopes workday-eligible rows and the activity total scopes all.
+-- (text, tag) across locations; the workday total scopes workday-eligible rows and the activity total
+-- scopes all. (Tag and location totals are refused earlier -- they round independently.)
 local function scope_for(layout_row)
   local kind = layout_row.kind
   local item = layout_row.item
@@ -49,18 +56,6 @@ local function scope_for(layout_row)
         and row.tag == item.tag
         and (row.workday_excluded == true) == (item.workday_excluded == true)
         and (row.logged == true) == (item.logged == true)
-    end
-  elseif kind == K.TAG_TOTAL then
-    return function(row)
-      return row.tag == item.tag
-    end
-  elseif kind == K.LOCATION_TOTAL then
-    return function(row)
-      return row.location == item.location
-    end
-  elseif kind == K.LOGGED_TOTAL then
-    return function(row)
-      return not row.workday_excluded and (row.logged == true) == (item.logged == true)
     end
   elseif kind == K.TOTAL then
     if layout_row.total == "workday" then
@@ -271,12 +266,6 @@ local function same_target(a, b)
       and a.item.tag == b.item.tag
       and (a.item.workday_excluded == true) == (b.item.workday_excluded == true)
       and (a.item.logged == true) == (b.item.logged == true)
-  elseif a.kind == K.TAG_TOTAL then
-    return a.item.tag == b.item.tag
-  elseif a.kind == K.LOCATION_TOTAL then
-    return a.item.location == b.item.location
-  elseif a.kind == K.LOGGED_TOTAL then
-    return (a.item.logged == true) == (b.item.logged == true)
   elseif a.kind == K.TOTAL then
     return a.total == b.total
   end
@@ -333,6 +322,11 @@ function M.run(lines, cursor_row, delta)
   end
 
   if result.layout_row then
+    local kind = result.layout_row.kind
+    if kind == render.LAYOUT_KIND.TAG_TOTAL or kind == render.LAYOUT_KIND.LOCATION_TOTAL then
+      return nil, M.SECTION_NOT_BALANCEABLE
+    end
+
     local entry_changes, err = summary_entry_changes(result.ctx.block, result.layout_row, delta)
     if not entry_changes then
       return nil, err
