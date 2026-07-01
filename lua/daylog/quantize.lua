@@ -147,7 +147,7 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   return result
 end
 
--- Quantize fine-grained rows the way daylog reports them: hold frozen (!L) rows at their
+-- Quantize fine-grained rows the way daylog reports them: hold frozen (!S) rows at their
 -- commitment and round the un-frozen rows to their own bucket total (frozen_aware_target).
 -- The single entry point the display and the committed-value readers share, so they cannot
 -- drift apart (a past bug: the two computed the target separately and one lagged).

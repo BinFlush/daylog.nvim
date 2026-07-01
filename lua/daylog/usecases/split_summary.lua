@@ -160,7 +160,7 @@ function M.run(lines, cursor_row, weights)
           location = entry_item.location,
           offset = entry_item.offset,
           workday_excluded = entry_item.workday_excluded,
-          logged = false,
+          logged = nil,
         }
         if i == 1 then
           out_lines[i] = entry.format(fields, current_tag, current_location, current_offset)
@@ -197,8 +197,7 @@ function M.run(lines, cursor_row, weights)
           location = semantic_entry.location,
           offset = semantic_entry.offset,
           workday_excluded = semantic_entry.workday_excluded,
-          logged = false,
-          logged_minutes = nil,
+          logged = nil,
           nudge = nil,
           row = semantic_entry.row,
         }

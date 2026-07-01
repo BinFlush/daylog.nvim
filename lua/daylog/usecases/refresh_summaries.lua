@@ -22,7 +22,7 @@ local M = {}
 -- final -- whether or not a summary exists yet. Each warning is { row, message };
 -- the shell publishes them as buffer diagnostics so they clear when fixed.
 
--- The logging problems (frozen value off-grid, `#ooo` marked logged, same-activity `!L` values
+-- The logging problems (frozen value off-grid, `#ooo` marked logged, same-activity `!S` values
 -- disagreeing) live in `summary.logging_diagnostics`, shared with the highlighter so a warning and
 -- its red flag can never disagree.
 

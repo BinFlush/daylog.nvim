@@ -109,6 +109,7 @@ end
 local root = vim.fn.getcwd()
 
 dofile(root .. "/tests/entry.lua")(t)
+dofile(root .. "/tests/multi_level_logging.lua")(t)
 dofile(root .. "/tests/document.lua")(t)
 dofile(root .. "/tests/analyze.lua")(t)
 dofile(root .. "/tests/summary.lua")(t)

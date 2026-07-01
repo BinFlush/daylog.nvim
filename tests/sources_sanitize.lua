@@ -19,7 +19,7 @@ return function(t)
     { input = "1234 Investigate #flaky", expected = "1234 Investigate (#flaky)" },
     { input = "42 Triage @home", expected = "42 Triage (@home)" },
     { input = "7 Cleanup #- @-", expected = "7 Cleanup (#-) (@-)" },
-    { input = "9 Done !L", expected = "9 Done (!L)" },
+    { input = "9 Done !S", expected = "9 Done (!S)" },
   }
 
   for _, case in ipairs(cases) do

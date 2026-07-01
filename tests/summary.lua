@@ -188,9 +188,9 @@ return function(t)
     function()
       local block = block_from_lines({
         "--- log #ClientA @office ---",
-        "08:00 implementation !L",
+        "08:00 implementation !S",
         "09:00 implementation",
-        "10:00 break #ooo !L",
+        "10:00 break #ooo !S",
         "10:30 done",
       })
 
@@ -391,9 +391,9 @@ return function(t)
   t.test("quantized summary splits logged rows without splitting tag or location totals", function()
     local block = block_from_lines({
       "--- log #ClientA @office q=30 ---",
-      "08:00 implementation !L",
+      "08:00 implementation !S",
       "08:20 implementation",
-      "08:40 break #ooo !L",
+      "08:40 break #ooo !S",
       "09:00 done",
     })
 
@@ -477,7 +477,7 @@ return function(t)
     function()
       local block = block_from_lines({
         "--- log #ClientA q=30 ---",
-        "08:00 implementation !L",
+        "08:00 implementation !S",
         "08:20 implementation",
         "08:40 done",
       })
@@ -547,7 +547,7 @@ return function(t)
     function()
       local block = block_from_lines({
         "--- log #ClientA q=30 ---",
-        "08:00 implementation !L",
+        "08:00 implementation !S",
         "08:10 implementation",
         "09:00 done",
       })
@@ -567,14 +567,14 @@ return function(t)
     end
   )
 
-  t.test("a frozen !L row holds its committed value when a later entry is appended", function()
+  t.test("a frozen !S row holds its committed value when a later entry is appended", function()
     -- The reported bug: logging "logged item" at 1.00h (60m), then appending a
     -- 2-minute task, used to restate it to 1.25h. Pinning holds it at 60; the un-frozen
     -- rows round to their OWN nearest-bucket total, so a frozen row can never push them
     -- around (the committed under-count lands on the total, not on an unrelated row).
     local before = summary.summarize_block(block_from_lines({
       "--- log ---",
-      "00:00 logged item !L60",
+      "00:00 logged item !S60",
       "01:07 other task",
     }))
     t.eq(before.summary_items[1].text, "logged item")
@@ -582,7 +582,7 @@ return function(t)
 
     local after = summary.summarize_block(block_from_lines({
       "--- log ---",
-      "00:00 logged item !L60",
+      "00:00 logged item !S60",
       "01:07 other task",
       "01:09 new task",
     }))
@@ -598,14 +598,14 @@ return function(t)
   end)
 
   t.test("logging a manually-rounded row does not move an un-frozen row", function()
-    -- thing two is manually rounded down (round-1) then logged at that value (!L60). The
+    -- thing two is manually rounded down (round-1) then logged at that value (!S60). The
     -- un-frozen "thing one" must keep its own honest 60 -- the nudge's residual lands on
     -- the total (120, not the abstract round(128) = 135), never on an unrelated row.
     local s = summary.summarize_entries(
       block_from_lines({
         "--- log ---",
         "08:00 thing one",
-        "09:00 thing two round-1 !L60",
+        "09:00 thing two round-1 !S60",
         "10:08 done",
       }).entries,
       15
@@ -640,7 +640,7 @@ return function(t)
     -- :Daylog log commits the value fine_grained_quantized reports, so it must agree with
     -- summarize_entries. The order-dependence bug: with thing two frozen, thing one used to
     -- quantize to the stale whole-day target (75) here while the display showed 60 -- so
-    -- logging thing one second committed !L75. Both now use the frozen-aware target.
+    -- logging thing one second committed !S75. Both now use the frozen-aware target.
     local function thing_one(second_line)
       local block =
         block_from_lines({ "--- log ---", "08:00 thing one", second_line, "10:08 done" })
@@ -651,16 +651,16 @@ return function(t)
       end
     end
     t.eq(thing_one("09:00 thing two round-1"), 60) -- thing two un-frozen
-    t.eq(thing_one("09:00 thing two round-1 !L60"), 60) -- thing two frozen: still 60, not 75
+    t.eq(thing_one("09:00 thing two round-1 !S60"), 60) -- thing two frozen: still 60, not 75
   end)
 
-  t.test("logged_value_conflicts flags entries under one row that disagree on !L", function()
+  t.test("logged_value_conflicts flags entries under one row that disagree on !S", function()
     -- Two "build" intervals fold into one row; the fold keeps only the first value, so
     -- disagreeing committed values are a conflict the shell must surface.
     local block = block_from_lines({
       "--- log ---",
-      "08:00 build !L60",
-      "09:00 build !L45",
+      "08:00 build !S60",
+      "09:00 build !S45",
       "10:00 done",
     })
     local conflicts = summary.logged_value_conflicts(block.entries)
@@ -671,8 +671,8 @@ return function(t)
   t.test("logged_value_conflicts is quiet when same-row entries agree", function()
     local agree = block_from_lines({
       "--- log ---",
-      "08:00 build !L60",
-      "09:00 build !L60",
+      "08:00 build !S60",
+      "09:00 build !S60",
       "10:00 done",
     })
     t.eq(#summary.logged_value_conflicts(agree.entries), 0)
@@ -680,8 +680,8 @@ return function(t)
     -- Different locations are different rows, so per-location values never conflict.
     local split = block_from_lines({
       "--- log ---",
-      "08:00 build @here !L60",
-      "09:00 build @there !L30",
+      "08:00 build @here !S60",
+      "09:00 build @there !S30",
       "09:30 done",
     })
     t.eq(#summary.logged_value_conflicts(split.entries), 0)
@@ -692,8 +692,8 @@ return function(t)
     -- its own committed duration, and the main row is their sum.
     local result = summary.summarize_block(block_from_lines({
       "--- log ---",
-      "08:00 build @here !L60",
-      "09:00 build @there !L30",
+      "08:00 build @here !S60",
+      "09:00 build @there !S30",
       "09:30 done",
     }))
     t.eq(result.summary_items[1].text, "build")
@@ -1261,7 +1261,7 @@ return function(t)
   t.test(
     "combined quantized logged totals follow combined visible summary rows instead of re-quantizing",
     function()
-      -- Each day: impl !L = 20 exact, impl = 20 exact, bucket = 30.
+      -- Each day: impl !S = 20 exact, impl = 20 exact, bucket = 30.
       -- Tie on remainder; first-seen (logged=true) gets the single extra bucket.
       -- Per-day result: logged = 30, unlogged = 0.
       --
@@ -1578,9 +1578,9 @@ return function(t)
   t.test("summary provenance keeps logged and unlogged source rows separate", function()
     local block = block_from_lines({
       "--- log #ClientA ---",
-      "08:00 implementation !L",
+      "08:00 implementation !S",
       "09:00 implementation",
-      "10:00 implementation !L",
+      "10:00 implementation !S",
       "11:00 done",
     })
 
@@ -1787,8 +1787,8 @@ return function(t)
     -- disagreeing committed values still conflict (the diagnostic follows the alias).
     local block = block_from_lines({
       "--- log ---",
-      "08:00 fix login => BUG-1 !L60",
-      "09:00 chase timeout => BUG-1 !L45",
+      "08:00 fix login => BUG-1 !S60",
+      "09:00 chase timeout => BUG-1 !S45",
       "10:00 done",
     })
     local conflicts = summary.logged_value_conflicts(block.entries)

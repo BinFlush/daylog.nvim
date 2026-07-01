@@ -8,6 +8,7 @@ local current_time = require("daylog.current_time")
 local daybook = require("daylog.daybook")
 local log_current = require("daylog.usecases.log_current")
 local daybook_io = require("daylog.daybook_io")
+local migrate_logging = require("daylog.usecases.migrate_logging")
 local order_logs = require("daylog.usecases.order_logs")
 local refresh_summaries = require("daylog.usecases.refresh_summaries")
 local map = require("daylog.map")
@@ -300,6 +301,13 @@ end
 
 -- Rebuild every existing summary in the current buffer to match its entries.
 function M.refresh()
+  apply_refresh(false)
+end
+
+-- One-time migration from the v0.1.x single summary-logged `!L` to `!S` (the letter is now location).
+-- Rewrites the entry markers, then refreshes so the summaries reflect the recovered summary logging.
+function M.migrate_logging()
+  run_buffer_usecase(migrate_logging.run)
   apply_refresh(false)
 end
 

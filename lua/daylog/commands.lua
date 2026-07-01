@@ -84,6 +84,7 @@ local EDIT_VERBS = {
   "map",
   "rename",
   "refresh",
+  "migrate",
   "bar",
 }
 
@@ -239,6 +240,9 @@ local VERBS = {
   end,
   refresh = function(api)
     api.refresh()
+  end,
+  migrate = function(api)
+    api.migrate_logging()
   end,
   sync = function(api, ctx)
     api.sync(ctx.fargs[1])

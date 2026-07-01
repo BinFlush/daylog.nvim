@@ -1,6 +1,12 @@
 local M = {}
 
-M.LOGGED_TOKEN = "!L"
+-- Logging is multi-level: an entry can be marked logged at the summary (`!S`), tag (`!T`), location
+-- (`!L`), or workday (`!W`) level, each independently frozen. The letters are the first letter of each
+-- summary section, in the canonical emission order.
+M.LOGGED_LEVELS = { "s", "t", "l", "w" }
+local LOGGED_LETTER = { s = "S", t = "T", l = "L", w = "W" }
+local LOGGED_LEVEL_OF = { S = "s", T = "t", L = "l", W = "w" }
+
 M.TAG_CLEAR_TOKEN = "#-"
 M.LOCATION_CLEAR_TOKEN = "@-"
 M.OUT_OF_OFFICE_TAG = "ooo"
@@ -152,7 +158,7 @@ end
 
 -- Whether a line has the shape of a generated summary duration row -- a duration
 -- token followed by a `(±Nm)` rounding-error marker (`3.00h (+0m) workday`,
--- `9:54 (-13m) design2 !L`). The shape backstop used when no banner survives at
+-- `9:54 (-13m) design2 !S`). The shape backstop used when no banner survives at
 -- all: the surviving generated rows are recognized by this so their span can be
 -- located and blasted. The marker's sign is required -- render always emits one via
 -- `%+d`, so an unsigned `(Nm)` in a hand-written note is never mistaken for a row.
@@ -257,35 +263,32 @@ function M.round_nudge_token(n)
   return "round" .. (n < 0 and "" or "+") .. n
 end
 
--- The `!L` logged marker optionally carries a frozen committed value in minutes
--- (`!L60`): the row is held at that exact duration and excluded from the
--- largest-remainder pool, so an external commitment never moves when later entries
--- are appended. Bare `!L` stays "logged but unfrozen" (current behavior); only
--- :Daylog log writes the number. The minutes ride on the marker itself rather than a
--- separate token, so `round±N` remains the only free-standing rounding knob.
+-- A logged marker optionally carries a frozen committed value in minutes (`!S60`): the row is held at
+-- that exact duration and excluded from the largest-remainder pool, so an external commitment never
+-- moves when later entries are appended. A bare marker (`!S`) is "logged but unfrozen"; only :Daylog
+-- log writes the number. The minutes ride on the marker itself rather than a separate token, so
+-- `round±N` remains the only free-standing rounding knob.
 
--- Parse a `!L` / `!L<minutes>` marker. Returns (true, minutes) for a frozen marker,
--- (true, nil) for a bare one, or false when the token is not a logged marker.
+-- Parse a `!S`/`!T`/`!L`/`!W` logged marker (optionally frozen: `!S<minutes>`). Returns
+-- (level, minutes) -- level one of "s"/"t"/"l"/"w", minutes a number or nil for a bare marker -- or
+-- nil when the token is not a logged marker.
 function M.parse_logged_token(token)
-  local digits = token:match("^!L(%d*)$")
-  if not digits then
-    return false
+  local letter, digits = token:match("^!([STLW])(%d*)$")
+  if not letter then
+    return nil
   end
 
-  if digits == "" then
-    return true, nil
-  end
-
-  return true, tonumber(digits)
+  return LOGGED_LEVEL_OF[letter], digits ~= "" and tonumber(digits) or nil
 end
 
--- Render a logged marker: bare `!L`, or `!L<minutes>` when a frozen value is present.
-function M.logged_token(minutes)
+-- Render the logged marker for `level`: bare `!S`, or `!S<minutes>` when a frozen value is present.
+function M.logged_token(level, minutes)
+  local token = "!" .. LOGGED_LETTER[level]
   if minutes == nil then
-    return M.LOGGED_TOKEN
+    return token
   end
 
-  return M.LOGGED_TOKEN .. minutes
+  return token .. minutes
 end
 
 return M

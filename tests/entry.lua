@@ -31,14 +31,14 @@ return function(t)
     t.eq(parsed.workday_excluded, false)
   end)
 
-  t.test("entry parse keeps trailing !L without making it sticky", function()
-    local parsed = entry.parse("08:04 bake strudel !L #sales @client", "ProjectOrion", "office")
+  t.test("entry parse keeps trailing !S without making it sticky", function()
+    local parsed = entry.parse("08:04 bake strudel !S #sales @client", "ProjectOrion", "office")
     t.eq(parsed.tag, "sales")
     t.eq(parsed.location, "client")
-    t.eq(parsed.logged, true)
+    t.eq(parsed.logged, { s = true })
 
     parsed = entry.parse("08:04 bake strudel", "ProjectOrion", "office")
-    t.eq(parsed.logged, false)
+    t.eq(parsed.logged, nil)
   end)
 
   t.test("entry parse keeps inline hashtags in text", function()
@@ -106,9 +106,9 @@ return function(t)
         tag = "sales",
         location = "client",
         workday_excluded = false,
-        logged = true,
+        logged = { s = true },
       }, "ProjectOrion", "office"),
-      "08:00 third #sales @client !L"
+      "08:00 third #sales @client !S"
     )
     t.eq(
       entry.format({
@@ -117,9 +117,9 @@ return function(t)
         tag = nil,
         location = nil,
         workday_excluded = false,
-        logged = true,
+        logged = { s = true },
       }, "ProjectOrion", "office"),
-      "08:00 reset #- @- !L"
+      "08:00 reset #- @- !S"
     )
   end)
 
@@ -146,7 +146,7 @@ return function(t)
     t.eq(entry.format({ minutes = 480, text = "d", offset = nil }, nil, nil, nil), "08:00 d")
   end)
 
-  t.test("entry format orders trailing metadata as #tag @location utc and then !L", function()
+  t.test("entry format orders trailing metadata as #tag @location utc and then !S", function()
     t.eq(
       entry.format({
         minutes = 480,
@@ -154,9 +154,9 @@ return function(t)
         tag = "sales",
         location = "client",
         offset = 120,
-        logged = true,
+        logged = { s = true },
       }, "ProjectOrion", "office", nil),
-      "08:00 x #sales @client utc+2 !L"
+      "08:00 x #sales @client utc+2 !S"
     )
   end)
 
@@ -175,11 +175,11 @@ return function(t)
       entry.format({ minutes = 480, text = "plan", nudge = -2 }, nil, nil, nil),
       "08:00 plan round-2"
     )
-    -- A zero or absent nudge emits nothing (non-sticky, like !L).
+    -- A zero or absent nudge emits nothing (non-sticky, like !S).
     t.eq(entry.format({ minutes = 480, text = "plan", nudge = 0 }, nil, nil, nil), "08:00 plan")
     t.eq(entry.format({ minutes = 480, text = "plan" }, nil, nil, nil), "08:00 plan")
 
-    -- Trailing order: #tag @location utc±H round±N !L.
+    -- Trailing order: #tag @location utc±H round±N !S.
     t.eq(
       entry.format({
         minutes = 480,
@@ -188,9 +188,9 @@ return function(t)
         location = "client",
         offset = 120,
         nudge = 1,
-        logged = true,
+        logged = { s = true },
       }, "ProjectOrion", "office", nil),
-      "08:00 x #sales @client utc+2 round+1 !L"
+      "08:00 x #sales @client utc+2 round+1 !S"
     )
   end)
 
@@ -200,56 +200,40 @@ return function(t)
     t.eq(entry.sanitize_text("another round of edits"), "another round of edits")
   end)
 
-  t.test("entry parse reads a frozen !L value; a bare !L has none", function()
-    local parsed = entry.parse("08:00 plan !L60", "ClientA", "office")
-    t.eq(parsed.logged, true)
-    t.eq(parsed.logged_minutes, 60)
+  t.test("entry parse reads a frozen !S value; a bare !S has none", function()
+    local parsed = entry.parse("08:00 plan !S60", "ClientA", "office")
+    t.eq(parsed.logged, { s = 60 })
 
-    parsed = entry.parse("08:00 plan !L", "ClientA", "office")
-    t.eq(parsed.logged, true)
-    t.eq(parsed.logged_minutes, nil)
+    parsed = entry.parse("08:00 plan !S", "ClientA", "office")
+    t.eq(parsed.logged, { s = true })
   end)
 
-  t.test("entry format emits a frozen !L value, bare when absent", function()
+  t.test("entry format emits a frozen !S value, bare when absent", function()
     t.eq(
-      entry.format(
-        { minutes = 480, text = "plan", logged = true, logged_minutes = 60 },
-        nil,
-        nil,
-        nil
-      ),
-      "08:00 plan !L60"
+      entry.format({ minutes = 480, text = "plan", logged = { s = 60 } }, nil, nil, nil),
+      "08:00 plan !S60"
     )
     t.eq(
-      entry.format({ minutes = 480, text = "plan", logged = true }, nil, nil, nil),
-      "08:00 plan !L"
+      entry.format({ minutes = 480, text = "plan", logged = { s = true } }, nil, nil, nil),
+      "08:00 plan !S"
     )
-    -- The frozen value is dropped entirely when the entry is not logged.
-    t.eq(
-      entry.format(
-        { minutes = 480, text = "plan", logged = false, logged_minutes = 60 },
-        nil,
-        nil,
-        nil
-      ),
-      "08:00 plan"
-    )
+    -- A logged table with no levels (what an unmark leaves) emits no marker.
+    t.eq(entry.format({ minutes = 480, text = "plan", logged = {} }, nil, nil, nil), "08:00 plan")
   end)
 
-  t.test("entry sanitize_text neutralizes a trailing frozen !L value", function()
-    t.eq(entry.sanitize_text("ship it !L45"), "ship it (!L45)")
+  t.test("entry sanitize_text neutralizes a trailing frozen !S value", function()
+    t.eq(entry.sanitize_text("ship it !S45"), "ship it (!S45)")
     -- A non-token word that merely starts with the letters is left alone.
-    t.eq(entry.sanitize_text("look at !Llamas"), "look at !Llamas")
+    t.eq(entry.sanitize_text("look at !Slamas"), "look at !Slamas")
   end)
 
   t.test("entry parse reads a multi-word alias with trailing metadata", function()
     -- The metadata trails the line as usual and attaches to the entry; the alias is the
     -- ` => label` between the description and that metadata.
-    local parsed = entry.parse("09:00 fix login => BUG-123 Fix the login #ProjectOrion !L30")
+    local parsed = entry.parse("09:00 fix login => BUG-123 Fix the login #ProjectOrion !S30")
     t.eq(parsed.text, "fix login")
     t.eq(parsed.tag, "ProjectOrion")
-    t.eq(parsed.logged, true)
-    t.eq(parsed.logged_minutes, 30)
+    t.eq(parsed.logged, { s = 30 })
     t.eq(parsed.alias, "BUG-123 Fix the login")
   end)
 

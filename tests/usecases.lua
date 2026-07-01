@@ -219,10 +219,10 @@ return function(t)
     })
   end)
 
-  t.test("append_copy preserves !L and canonicalizes it after metadata", function()
+  t.test("append_copy preserves !S and canonicalizes it after metadata", function()
     local result = append_copy.run({
       "--- log #ClientA @office ---",
-      "08:00 plan !L @client",
+      "08:00 plan !S @client",
       "09:00 done",
     })
 
@@ -234,12 +234,12 @@ return function(t)
           lines = {
             "",
             "--- log #ClientA @office ---",
-            "08:00 plan @client !L",
+            "08:00 plan @client !S",
             "09:00 done",
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) plan !L",
+            "1.00h (+0m) plan !S",
             "",
             "--- tags ---",
             "1.00h (+0m) #ClientA",
@@ -403,10 +403,10 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current usecase does not propagate !L", function()
+  t.test("repeat_current usecase does not propagate !S", function()
     local result = repeat_current.run({
       "--- log #ClientA @office ---",
-      "08:00 planning !L",
+      "08:00 planning !S",
       "09:00 done",
     }, 2, "08:30")
 
@@ -641,11 +641,11 @@ return function(t)
     })
   end)
 
-  t.test("order_logs usecase preserves !L", function()
+  t.test("order_logs usecase preserves !S", function()
     local result = order_logs.run({
       "--- log #sales ---",
       "09:00 done",
-      "08:00 plan !L",
+      "08:00 plan !S",
     })
 
     t.eq(result, {
@@ -654,7 +654,7 @@ return function(t)
           start_index = 1,
           end_index = 3,
           lines = {
-            "08:00 plan !L",
+            "08:00 plan !S",
             "09:00 done",
           },
         },
@@ -703,7 +703,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) implementation !L",
+            "1.00h (+0m) implementation !S",
             "",
             "--- logged ---",
             "1.00h (+0m) logged",
@@ -715,7 +715,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L60" },
+          lines = { "08:00 implementation !S60" },
         },
       },
     })
@@ -740,7 +740,7 @@ return function(t)
             "",
             "",
             "--- summary q=30 d=dec ---",
-            "1.00h (+0m) implementation !L",
+            "1.00h (+0m) implementation !S",
             "",
             "--- logged ---",
             "1.00h (+0m) logged",
@@ -752,7 +752,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L60" },
+          lines = { "08:00 implementation !S60" },
         },
       },
     })
@@ -780,7 +780,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "2.00h (+0m) implementation !L",
+            "2.00h (+0m) implementation !S",
             "1.00h (+0m) meeting",
             "",
             "--- logged ---",
@@ -794,12 +794,12 @@ return function(t)
         {
           start_index = 3,
           end_index = 4,
-          lines = { "10:00 implementation !L120" },
+          lines = { "10:00 implementation !S120" },
         },
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L120" },
+          lines = { "08:00 implementation !S120" },
         },
       },
     })
@@ -825,7 +825,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) implementation !L",
+            "1.00h (+0m) implementation !S",
             "",
             "--- logged ---",
             "1.00h (+0m) logged",
@@ -837,13 +837,13 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !L60" },
+          lines = { "08:00 implementation !S60" },
         },
       },
     })
   end)
 
-  t.test("log_current canonicalizes metadata order around the appended !L", function()
+  t.test("log_current canonicalizes metadata order around the appended !S", function()
     local result = log_current.run({
       "--- log ---",
       "08:00 plan #ClientA @office",
@@ -862,7 +862,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) plan !L",
+            "1.00h (+0m) plan !S",
             "",
             "--- tags ---",
             "1.00h (+0m) #ClientA",
@@ -880,7 +880,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 plan #ClientA @office !L60" },
+          lines = { "08:00 plan #ClientA @office !S60" },
         },
       },
     })
@@ -971,11 +971,11 @@ return function(t)
   t.test("log_current unmarks an already logged summary row", function()
     local result = log_current.run({
       "--- log ---",
-      "08:00 implementation !L",
+      "08:00 implementation !S",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
-      "1.00h (+0m) implementation !L",
+      "1.00h (+0m) implementation !S",
     }, 6)
 
     t.eq(result, {
@@ -1157,7 +1157,7 @@ return function(t)
               "",
               "",
               "--- summary q=15 d=dec ---",
-              "2.00h (+0m) planning !L",
+              "2.00h (+0m) planning !S",
               "1.00h (+0m) review",
               "",
               "--- tags ---",
@@ -1177,7 +1177,7 @@ return function(t)
           {
             start_index = 1,
             end_index = 2,
-            lines = { "08:00 planning !L120" },
+            lines = { "08:00 planning !S120" },
           },
         },
       })
@@ -1228,7 +1228,7 @@ return function(t)
               "",
               "--- summary q=15 d=dec ---",
               "2.00h (-8m) versions",
-              "0.75h (-1m) Q1 features !L",
+              "0.75h (-1m) Q1 features !S",
               "0.25h (+5m) stand",
               "0.00h (+5m) folksy",
               "",
@@ -1249,7 +1249,7 @@ return function(t)
           {
             start_index = 6,
             end_index = 7,
-            lines = { "10:17 Q1 features !L45" },
+            lines = { "10:17 Q1 features !S45" },
           },
         },
       })
@@ -1281,13 +1281,13 @@ return function(t)
         "09:20 versions",
         "10:12 folksy",
         "    what is he talking about    ",
-        "10:17 Q1 features !L45",
+        "10:17 Q1 features !S45",
         "11:01 versions",
         "",
         "",
         "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",
-        "0.75h (-1m) Q1 features !L",
+        "0.75h (-1m) Q1 features !S",
         "0.25h (+5m) stand",
         "0.00h (+5m) folksy",
         "",

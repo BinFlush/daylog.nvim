@@ -181,10 +181,10 @@ return function(t)
   t.test("split refuses a logged activity", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
-      "08:00 meeting !L120",
+      "08:00 meeting !S120",
       "10:00 done",
     })
-    local _, err = split_summary.run(lines, row_of(lines, "(+0m) meeting !L"), { 1, 1 })
+    local _, err = split_summary.run(lines, row_of(lines, "(+0m) meeting !S"), { 1, 1 })
     t.eq(err, split_summary.REFUSE_LOGGED)
   end)
 
@@ -319,7 +319,7 @@ return function(t)
 
   t.test("split drops the alias on the parts", function()
     -- Splitting distinguishes sub-activities, the opposite of collapsing under one
-    -- alias, so the parts lose the mapping (like they lose !L / nudge).
+    -- alias, so the parts lose the mapping (like they lose !S / nudge).
     local out = run(
       buffer_with_summary({
         "--- log q=1 d=hm ---",

@@ -714,7 +714,7 @@ return function(t)
     t.reset({
       "--- log q=1 d=hm ---",
       "09:00 alpha",
-      "09:30 deploy !L30",
+      "09:30 deploy !S30",
       "10:00 done",
     })
     vim.cmd("Daylog refresh")
@@ -1006,12 +1006,12 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- log ---",
-      "08:00 implementation !L60",
+      "08:00 implementation !S60",
       "09:00 done",
       "",
       "",
       "--- summary q=15 d=dec ---",
-      "1.00h (+0m) implementation !L",
+      "1.00h (+0m) implementation !S",
       "",
       "--- logged ---",
       "1.00h (+0m) logged",
@@ -1036,12 +1036,12 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- log q=30 ---",
-      "08:00 implementation !L60",
+      "08:00 implementation !S60",
       "09:00 done",
       "",
       "",
       "--- summary q=30 d=dec ---",
-      "1.00h (+0m) implementation !L",
+      "1.00h (+0m) implementation !S",
       "",
       "--- logged ---",
       "1.00h (+0m) logged",
@@ -1054,11 +1054,11 @@ return function(t)
   t.test("log log unmarks an already logged summary row", function()
     t.reset({
       "--- log ---",
-      "08:00 implementation !L60",
+      "08:00 implementation !S60",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
-      "1.00h (+0m) implementation !L",
+      "1.00h (+0m) implementation !S",
     })
     t.set_cursor(6, 0)
 
@@ -1081,10 +1081,10 @@ return function(t)
   t.test("log log merges a newly logged row into an already logged one and sums", function()
     -- build has one logged interval (frozen 60) and one unlogged (60). Logging the
     -- unlogged one must combine them into a single 2.00h row, with BOTH entries
-    -- carrying the combined !L120 -- not each keeping its own 60.
+    -- carrying the combined !S120 -- not each keeping its own 60.
     t.reset({
       "--- log ---",
-      "08:00 build !L60",
+      "08:00 build !S60",
       "09:00 build",
       "10:00 done",
     })
@@ -1099,10 +1099,10 @@ return function(t)
       end
     end
     -- The unlogged "build" summary row: a summary line (not an entry) mentioning build
-    -- without an !L marker.
+    -- without an !S marker.
     local unlogged_row = find(function(line)
       return line:find("build", 1, true)
-        and not line:find("!L", 1, true)
+        and not line:find("!S", 1, true)
         and not line:match("^%d%d:%d%d")
     end)
     t.ok(unlogged_row ~= nil, "expected a separate unlogged build summary row")
@@ -1111,8 +1111,8 @@ return function(t)
     vim.cmd("Daylog log")
 
     local out = t.get_lines()
-    t.eq(out[2], "08:00 build !L120")
-    t.eq(out[3], "09:00 build !L120")
+    t.eq(out[2], "08:00 build !S120")
+    t.eq(out[3], "09:00 build !S120")
 
     local function has(needle)
       for _, line in ipairs(out) do
@@ -1122,12 +1122,12 @@ return function(t)
       end
       return false
     end
-    t.ok(has("2.00h (+0m) build !L"), "the merged row reads 2.00h")
+    t.ok(has("2.00h (+0m) build !S"), "the merged row reads 2.00h")
     t.ok(has("2.00h (+0m) logged"), "all of build is now logged")
     -- No separate unlogged build row survives.
     t.ok(find(function(line)
       return line:find("build", 1, true)
-        and not line:find("!L", 1, true)
+        and not line:find("!S", 1, true)
         and not line:match("^%d%d:%d%d")
     end) == nil, "the unlogged build row should be gone")
   end)
@@ -1137,12 +1137,12 @@ return function(t)
     -- every entry and gives back the whole 2.00h as unlogged.
     t.reset({
       "--- log ---",
-      "08:00 build !L120",
-      "09:00 build !L120",
+      "08:00 build !S120",
+      "09:00 build !S120",
       "10:00 done",
       "",
       "--- summary q=15 d=dec ---",
-      "2.00h (+0m) build !L",
+      "2.00h (+0m) build !S",
     })
     t.set_cursor(7, 0)
 
@@ -1175,7 +1175,7 @@ return function(t)
 
     vim.cmd("Daylog log")
     -- The source entry is frozen at its committed 60 minutes (1.00h).
-    t.eq(t.get_lines()[2], "00:00 logged item !L60")
+    t.eq(t.get_lines()[2], "00:00 logged item !S60")
 
     -- Append a third entry and refresh: largest-remainder alone would restate the
     -- logged row to 1.25h, but the frozen value holds and the un-frozen rows round to
@@ -1194,14 +1194,14 @@ return function(t)
       end
       return false
     end
-    t.ok(has("1.00h (+7m) logged item !L"), "logged row should still read 1.00h")
+    t.ok(has("1.00h (+7m) logged item !S"), "logged row should still read 1.00h")
     t.ok(has("0.00h (+2m) other task"), "other task rounds to its own honest value")
     t.ok(has("1.00h (+9m) workday"), "the total is the honest sum of the displayed parts")
   end)
 
   t.test("logging two rounded rows commits identical values in either order", function()
     -- Reported order-dependence: `thing two round-1` then `thing one` used to commit
-    -- thing one at !L75 (stale whole-day target), while the reverse order gave !L60. The
+    -- thing one at !S75 (stale whole-day target), while the reverse order gave !S60. The
     -- committed value now tracks the frozen-aware display, so both orders converge.
     local function summary_item_row(text)
       for i, l in ipairs(t.get_lines()) do
@@ -1228,14 +1228,14 @@ return function(t)
 
     local two_then_one = log_both("thing two", "thing one")
     t.eq(two_then_one, log_both("thing one", "thing two"))
-    t.eq(two_then_one[2], "08:00 thing one !L60")
-    t.eq(two_then_one[3], "09:00 thing two round-1 !L60")
+    t.eq(two_then_one[2], "08:00 thing one !S60")
+    t.eq(two_then_one[3], "09:00 thing two round-1 !S60")
   end)
 
-  t.test("Daylog refresh warns when a frozen !L value no longer fits the bucket", function()
+  t.test("Daylog refresh warns when a frozen !S value no longer fits the bucket", function()
     t.reset({
       "--- log ---",
-      "08:00 plan !L7",
+      "08:00 plan !S7",
       "09:00 done",
     })
 
@@ -1243,18 +1243,18 @@ return function(t)
 
     local found = false
     for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
-      if diagnostic.message:match("frozen !L value no longer fits") then
+      if diagnostic.message:match("frozen !S value no longer fits") then
         found = true
       end
     end
-    t.ok(found, "expected a frozen-drift diagnostic for a non-bucket !L value")
+    t.ok(found, "expected a frozen-drift diagnostic for a non-bucket !S value")
   end)
 
-  t.test("Daylog refresh warns when same-row logged entries disagree on their !L value", function()
+  t.test("Daylog refresh warns when same-row logged entries disagree on their !S value", function()
     t.reset({
       "--- log ---",
-      "08:00 build !L60",
-      "09:00 build !L45",
+      "08:00 build !S60",
+      "09:00 build !S45",
       "10:00 done",
     })
 
@@ -1262,11 +1262,11 @@ return function(t)
 
     local found = false
     for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
-      if diagnostic.message:match("disagree on their !L value") then
+      if diagnostic.message:match("disagree on their !S value") then
         found = true
       end
     end
-    t.ok(found, "expected a divergent-!L diagnostic")
+    t.ok(found, "expected a divergent-!S diagnostic")
   end)
 
   t.test(
@@ -1312,13 +1312,13 @@ return function(t)
         "09:20 versions",
         "10:12 folksy",
         "    what is he talking about    ",
-        "10:17 Q1 features !L45",
+        "10:17 Q1 features !S45",
         "11:01 versions",
         "",
         "",
         "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",
-        "0.75h (-1m) Q1 features !L",
+        "0.75h (-1m) Q1 features !S",
         "0.25h (+5m) stand",
         "0.00h (+5m) folksy",
         "",

@@ -52,8 +52,8 @@ Vocabulary (used throughout this help and the source):
             (`#-`). `#ooo` is the special out-of-office tag.
   location  `@location`, a sticky work location, cleared with `@-`.
   q= / d=   Per-log options: the quantize bucket and the duration format.
-  !L        Marks an interval as already logged to an external system;
-            `!L<minutes>` also freezes its committed value.
+  !S        Marks an interval as already logged to an external system;
+            `!S<minutes>` also freezes its committed value.
   => alias  Maps an entry to a label it resolves to in the summary, keeping the
             entry's own description (|daylog-mapping|, |:Daylog-map|).
 
@@ -103,7 +103,7 @@ The header may set initial sticky metadata and options:
 An entry has this shape:
 
 >
-  HH:MM text [=> alias] [#tag|#-] [@location|@-] [utc±H] [round±N] [!L[minutes]]
+  HH:MM text [=> alias] [#tag|#-] [@location|@-] [utc±H] [round±N] [!S[minutes]]
 <
 
 Example:
@@ -133,10 +133,10 @@ Rules:
   its own description. The alias may contain spaces; the trailing metadata below
   follows it (attaching to the entry as usual). Normally written by |:Daylog-map|.
   See |daylog-mapping|.
-- `!L` marks the interval started by that entry as already logged externally.
-  An optional minute count -- `!L<minutes>`, written by |:Daylog-log| -- freezes
+- `!S` marks the interval started by that entry as already logged externally.
+  An optional minute count -- `!S<minutes>`, written by |:Daylog-log| -- freezes
   that row at its committed value, so appending later entries can never restate
-  it (see below). Bare `!L` is logged but unfrozen.
+  it (see below). Bare `!S` is logged but unfrozen.
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
   |daylog-sticky-metadata|. It is only needed when the clock moves (travel or
   DST) and is invisible otherwise.
@@ -150,15 +150,15 @@ Rules:
 - If no duration option is present, summaries default to decimal hours such as
   `1.50h`.
 
-`!L` is preserved by source rewrites such as copy and order. Summaries and
-reports split main rows by logged state, render logged rows with trailing `!L`
+`!S` is preserved by source rewrites such as copy and order. Summaries and
+reports split main rows by logged state, render logged rows with trailing `!S`
 (always bare -- the frozen minutes live only on the entry line), and add a
 logged section for workday-eligible logged versus unlogged totals when logged
 work was marked. Tag and location totals stay grouped normally.
 
 Quantization normally distributes each log's rounding by largest remainder
 across every row at once, so adding an entry can shift the rounded duration of
-an unrelated earlier row. A frozen `!L<minutes>` row is instead held at exactly
+an unrelated earlier row. A frozen `!S<minutes>` row is instead held at exactly
 that value and pulled out of that pool: the remaining rounding is shared only
 among the un-frozen rows, the displayed total stays the honest rounded total,
 and a committed value never moves. If a frozen value later stops reconciling
@@ -167,7 +167,7 @@ activity was deleted -- |:Daylog-refresh| warns so you can re-run |:Daylog-log| 
 recommit.
 
 When one activity has several logged intervals, they share a single committed
-value -- |:Daylog-log| writes the same `!L<minutes>` onto every contributing entry.
+value -- |:Daylog-log| writes the same `!S<minutes>` onto every contributing entry.
 If a hand edit leaves them disagreeing, only the first would otherwise count, so
 |:Daylog-refresh| warns instead; re-run |:Daylog-log| on that row to make them agree.
 
@@ -433,7 +433,7 @@ One row per activity per day, carrying the report's quantized numbers:
 - `tag` -- the effective `#tag` (empty when none).
 - `minutes` -- the quantized duration (what you bill, per that day's `q=`).
 - `hours` -- `minutes / 60`, to two decimals.
-- `logged` -- whether the row is marked `!L`.
+- `logged` -- whether the row is marked `!S`.
 - `ooo` -- whether it is out-of-office (`#ooo`, excluded from the workday total).
 
 CSV is RFC 4180 (a header row; fields holding a comma or quote are quoted). JSON is a
@@ -526,7 +526,7 @@ Toggle the logged state of the main summary row under the cursor.
   log. The summary is recomputed from source; the rendered row acts only as a
   selector.
 - The logged state is toggled: an unlogged row's source intervals gain a trailing
-  `!L<minutes>` -- freezing the row at its currently displayed duration -- and an
+  `!S<minutes>` -- freezing the row at its currently displayed duration -- and an
   already logged row's lose it. The summary section is regenerated afterwards.
 - Tag, location, logged, and total rows are not eligible; `#ooo` rows are refused.
 - Summary rows that no longer match the recomputed summary are refused; run
@@ -587,12 +587,12 @@ copying-and-cleaning a log for reporting.
   totals) are ignored, the selection is scoped to the active log, and if any selected
   entry is logged the whole map is refused.
 - `:Daylog map {label}` sets the alias to that (possibly multi-word) label; trailing
-  metadata (`#tag`, `!L`, ...) stays on the entry and follows the alias.
+  metadata (`#tag`, `!S`, ...) stays on the entry and follows the alias.
 - With no argument the same unified pool as `:Daylog! insert` / `:Daylog rename` opens;
   the chosen value becomes the alias (a work item maps onto `{id} {title}`). Naming a
   source scopes the picker to that one tracker, like `:Daylog insert {source}`.
 - `:Daylog! map` (bang) clears the mapping on the cursor's target (or the range).
-- A logged entry (`!L`) is refused: unlog it, map it, then log again.
+- A logged entry (`!S`) is refused: unlog it, map it, then log again.
 - `:Daylog rename` and `:Daylog map` are complementary: rename fixes the journal text
   of a single entry (or a `#tag`/`@location`), map sets how an activity is reported. An
   activity summary row is relabeled only with map. Splitting an aliased row drops the
@@ -619,7 +619,7 @@ partition that foots to its total.
   to undo, or `0` to clear the cursor target's nudge.
 - A multi-day report (|:Daylog-report|) sums its days without re-rounding, so balancing
   one day reconciles the period total automatically.
-- Frozen logged rows (`!L<minutes>`) are fixed and never selected. If the only
+- Frozen logged rows (`!S<minutes>`) are fixed and never selected. If the only
   candidates left are logged, the command refuses rather than touch a committed value.
 - The cursor must be on the active log's summary or one of its entries.
 
@@ -648,6 +648,20 @@ for any valid log that has none.
   (e.g. out-of-order timestamps) as a buffer diagnostic.
 - Is a no-op for summaries that are already up to date. Can be run automatically via
   `auto_summary` (see below).
+
+                                                        *:Daylog-migrate*
+:Daylog migrate
+
+One-time migration for logs written before multi-level logging: rewrite the old
+summary-logged marker `!L` to `!S`, then refresh the summaries.
+- Logging is multi-level -- an entry can be logged at the summary (`!S`), tag
+  (`!T`), location (`!L`), or workday (`!W`) level. The single logged marker of
+  earlier versions, `!L`, is now `!S`; `!L` is the location level.
+- The two cannot be told apart automatically (an old and a new `!L` are the same
+  token), so run this once, right after upgrading, before typing any new `!L`.
+- Parse-based: only genuine trailing markers move; activity text is untouched. Any
+  `!T`/`!W` an entry also carries is left in place.
+- See the breaking note in `CHANGELOG.md`.
 
                                                         *:Daylog-sync*
 :Daylog sync [source]

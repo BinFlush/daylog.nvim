@@ -17,6 +17,21 @@ local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
 end
 
+-- The per-entry logged table ({ level -> committed minutes | true }) is mutable, so hand out an
+-- independent copy: copy_fields builds working entries that override-building then mutates.
+local function copy_logged(logged)
+  if logged == nil then
+    return nil
+  end
+
+  local out = {}
+  for level, committed in pairs(logged) do
+    out[level] = committed
+  end
+  return out
+end
+M.copy_logged = copy_logged
+
 -- Copy the semantic-entry field set from any source carrying it (a semantic
 -- entry, entry item, or block item). Structural fields such as row, index, and
 -- attached lines are intentionally left out so callers add only what they need.
@@ -34,8 +49,7 @@ local function copy_fields(src)
     offset = src.offset,
     nudge = src.nudge,
     workday_excluded = src.workday_excluded,
-    logged = src.logged,
-    logged_minutes = src.logged_minutes,
+    logged = copy_logged(src.logged),
     alias = src.alias,
   }
 end
@@ -119,10 +133,11 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     -- inherited, so it is taken straight from the node with no current_* threading.
     nudge = node.nudge,
     workday_excluded = resolved.tag == syntax.OUT_OF_OFFICE_TAG,
-    logged = node.logged == true,
-    -- A frozen committed value (minutes) rides on the !L marker; per-entry and
-    -- non-sticky like `logged` itself. Only present when the entry carries `!L<n>`.
-    logged_minutes = node.logged_minutes,
+    -- Per-entry, non-sticky logged state: a table keyed by level ("s"/"t"/"l"/"w"), each holding its
+    -- frozen committed minutes or `true` for a bare marker. `nil` when the entry logs no level. Only
+    -- the summary level (`s`) drives the summary today; the tag/location/workday levels are carried
+    -- for Phase 2. Copied so the semantic entry never aliases the parse node's table.
+    logged = copy_logged(node.logged),
     -- A mapping alias (` => label`): per-entry, non-sticky, taken straight from the node.
     alias = node.alias,
   }

@@ -301,7 +301,7 @@ return function(t)
     )
   end)
 
-  t.test("render unrounded summaries append !L on main rows and show a logged section", function()
+  t.test("render unrounded summaries append !S on main rows and show a logged section", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -353,7 +353,7 @@ return function(t)
       {
         "",
         "--- summary q=15 d=dec ---",
-        "1.00h (+0m) implementation !L",
+        "1.00h (+0m) implementation !S",
         "1.00h (+0m) implementation",
         "",
         "--- tags ---",
@@ -372,7 +372,7 @@ return function(t)
     )
   end)
 
-  t.test("render quantized summaries append !L on main rows and show logged deltas", function()
+  t.test("render quantized summaries append !S on main rows and show logged deltas", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -432,7 +432,7 @@ return function(t)
       {
         "",
         "--- summary q=15 d=dec ---",
-        "0.50h (-10m) implementation !L",
+        "0.50h (-10m) implementation !S",
         "0.50h (-10m) implementation",
         "",
         "--- tags ---",
@@ -754,7 +754,7 @@ return function(t)
       }, "hm"),
       {
         "--- day summary 2026-05-18 ---",
-        "1:00 (+0m) plan !L",
+        "1:00 (+0m) plan !S",
         "",
         "--- day logged 2026-05-18 ---",
         "1:00 (+0m) logged",
@@ -763,7 +763,7 @@ return function(t)
         "1:00 (+0m) workday",
         "",
         "--- range summary 2026-W21 ---",
-        "1:00 (+0m) plan !L",
+        "1:00 (+0m) plan !S",
         "",
         "--- range logged 2026-W21 ---",
         "1:00 (+0m) logged",
@@ -1041,7 +1041,7 @@ return function(t)
     t.eq(#summary_rows, 2)
     t.eq(summary_rows[1].section, "summary")
     t.eq(summary_rows[1].item, first_item)
-    t.eq(summary_rows[1].line, "1.00h (+0m) implementation !L")
+    t.eq(summary_rows[1].line, "1.00h (+0m) implementation !S")
     t.eq(summary_rows[2].item, second_item)
     t.eq(summary_rows[2].line, "1.00h (+0m) implementation")
   end)

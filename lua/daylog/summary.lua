@@ -34,6 +34,10 @@ local function build_intervals(entries)
     local current_effective = current.minutes - (current.offset or 0)
     local next_effective = next_entry.minutes - (next_entry.offset or 0)
 
+    -- The row's scalar logged state is the summary (`s`) level of the entry's logged table: present
+    -- means logged, a number there is the frozen committed value, `true` is a bare (unfrozen) marker.
+    local logged_s = current.logged and current.logged.s
+
     table.insert(intervals, {
       start = current.minutes,
       stop = next_entry.minutes,
@@ -45,16 +49,16 @@ local function build_intervals(entries)
       tag = current.tag,
       location = current.location,
       workday_excluded = current.workday_excluded,
-      logged = current.logged and true or nil,
+      logged = logged_s ~= nil and true or nil,
       -- The rounding nudge belongs to the entry that starts the interval; it sums
       -- up the fine-grained quantization row this interval folds into.
       nudge = current.nudge,
       -- A frozen committed value (minutes) rides on the entry that starts the
       -- interval. Every interval of one fine-grained row carries the same value (the
-      -- row's committed duration), so the fold copies it through, never sums it. Gated
-      -- on `logged` so a value left behind by an in-memory unmark can never freeze a
-      -- now-unlogged row: a frozen value exists only alongside an active !L.
-      logged_minutes = current.logged and current.logged_minutes or nil,
+      -- row's committed duration), so the fold copies it through, never sums it. A bare
+      -- marker (`s == true`) freezes nothing, so the row's `logged_minutes` stays nil and
+      -- it rounds live like any un-frozen row.
+      logged_minutes = type(logged_s) == "number" and logged_s or nil,
       source_entry_row = current.row,
     })
   end
@@ -82,7 +86,7 @@ function M.closing_entry_row_for(entries, item)
     M.entry_summary_text(last) == item.text
     and last.tag == item.tag
     and (last.workday_excluded or false) == (item.workday_excluded or false)
-    and (last.logged and true or nil) == item.logged
+    and (last.logged and last.logged.s ~= nil and true or nil) == item.logged
   then
     return last.row
   end
@@ -398,8 +402,8 @@ end
 -- silently collapsed to one. This finds every such row instead, keyed by
 -- activity_identity_key within the logged set, so it matches where the values actually
 -- collapse. Returns a list of { row } anchored at the earliest conflicting entry; the
--- shell turns each into a diagnostic. A bare `!L` (unfrozen, no value) counts as its own
--- value, so mixing `!L` and `!L60` also conflicts.
+-- shell turns each into a diagnostic. A bare `!S` (unfrozen, no value) counts as its own
+-- value, so mixing `!S` and `!S60` also conflicts.
 function M.logged_value_conflicts(entries)
   local groups = {}
   local order = {}
@@ -437,9 +441,9 @@ function M.logged_value_conflicts(entries)
 end
 
 -- Semantic logging problems in a block that make its summary untrustworthy, each { row, message }:
---   * a frozen `!L<n>` value that no longer fits the block's bucket (a hand-edit or a q change),
+--   * a frozen `!S<n>` value that no longer fits the block's bucket (a hand-edit or a q change),
 --   * out-of-office (`#ooo`) time marked logged (`:Daylog log` refuses it; a hand-edit slips it in),
---   * same-activity entries disagreeing on their `!L` value.
+--   * same-activity entries disagreeing on their `!S` value.
 -- One detector shared by refresh (which raises these as diagnostics) and the highlighter (which reddens
 -- the summary while any are present), so the warning and the red flag can never drift apart. PURE.
 function M.logging_diagnostics(block)
@@ -455,7 +459,7 @@ function M.logging_diagnostics(block)
         out[#out + 1] = {
           row = at,
           message = string.format(
-            "daylog: a frozen !L value no longer fits q=%d; re-run :Daylog log to recommit",
+            "daylog: a frozen !S value no longer fits q=%d; re-run :Daylog log to recommit",
             bucket
           ),
         }
@@ -464,10 +468,10 @@ function M.logging_diagnostics(block)
   end
 
   for _, item in ipairs(block.entry_items) do
-    if item.logged and item.workday_excluded then
+    if item.logged and item.logged.s and item.workday_excluded then
       out[#out + 1] = {
         row = item.start_row,
-        message = "daylog: out-of-office time cannot be logged; remove !L or #ooo",
+        message = "daylog: out-of-office time cannot be logged; remove !S or #ooo",
       }
     end
   end
@@ -476,7 +480,7 @@ function M.logging_diagnostics(block)
     out[#out + 1] = {
       row = conflict.row,
       message = "daylog: logged entries for this activity disagree on their "
-        .. "!L value; re-run :Daylog log to recommit",
+        .. "!S value; re-run :Daylog log to recommit",
     }
   end
 

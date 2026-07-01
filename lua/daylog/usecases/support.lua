@@ -149,7 +149,7 @@ function M.fresh_entry_edit(block, source, minutes, auto_offset)
 
   local fields = analyze.copy_fields(source)
   fields.minutes = minutes
-  fields.logged = false
+  fields.logged = nil
   fields.nudge = nil
 
   local stamp = M.offset_stamp(state.offset, auto_offset)

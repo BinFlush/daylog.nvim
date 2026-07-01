@@ -22,6 +22,16 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Changed
+
+- **BREAKING — the logged marker `!L` is now `!S`.** Logging is becoming multi-level: an entry can be
+  logged at the summary (`!S`), tag (`!T`), location (`!L`), or workday (`!W`) level, each independently.
+  The v0.1.x single summary-logged marker `!L` is now `!S`, and `!L` becomes the *location* level. **Run
+  `:Daylog migrate` once on existing logs** to rewrite `!L`→`!S` before typing any new location marker
+  (it can't be auto-detected — an old and a new `!L` are the same token). This release lands the marker
+  foundation only: `!S` behaves exactly as `!L` did, and `!T`/`!L`/`!W` parse and round-trip but do not
+  yet affect summaries. (v0.1.0 compat fixtures contain no `!L`, so the frozen baseline is unaffected.)
+
 ### Added
 
 - **The time bar shows a before/after view of mappings.** When the active log has mapped entries
@@ -41,26 +51,26 @@ happen, but they are called out clearly in this changelog.
 ### Added
 
 - **Broken logs are flagged in red.** When a log carries a logging error — out-of-office time marked
-  logged (`#ooo !L`), same-activity `!L` values that disagree, or a frozen value that no longer fits the
+  logged (`#ooo !S`), same-activity `!S` values that disagree, or a frozen value that no longer fits the
   bucket — or a structural error (an out-of-order or invalid entry), the offending line **and** its
   now-untrustworthy summary are highlighted red until the error is fixed, then clear on their own. The
   colour is the `DaylogError` group, restylable via `:highlight`.
 
 ### Fixed
 
-- **A hand-typed `!L` on out-of-office (`#ooo`) time now warns.** `:Daylog log` already refuses to log
-  `#ooo` time, but a hand-edited `#ooo !L` slipped past it and rendered an inert logged marker with no
+- **A hand-typed `!S` on out-of-office (`#ooo`) time now warns.** `:Daylog log` already refuses to log
+  `#ooo` time, but a hand-edited `#ooo !S` slipped past it and rendered an inert logged marker with no
   logged-section accounting and no diagnostic. `:Daylog refresh` now surfaces it — "out-of-office time
-  cannot be logged; remove !L or #ooo" — so the rule holds for hand-edits too.
+  cannot be logged; remove !S or #ooo" — so the rule holds for hand-edits too.
 - **Logging a manually-rounded row no longer changes an unrelated row, and `:Daylog log` is now
   order-independent.** When an entry carried a `round±N` nudge and was then logged (`:Daylog log` /
-  `!L`), the frozen row's residual used to be forced onto another activity's duration (and the day
+  `!S`), the frozen row's residual used to be forced onto another activity's duration (and the day
   total) to keep an abstract whole-day rounded total; logging a second row could then even commit it at
   the wrong value depending on which row was logged first. Frozen rows are now held at their committed
   value and the remaining rows round to *their own* total (`quantize.frozen_aware_target`, used by both
   the display and the committed-value path), so the day total is the honest sum of the displayed parts
-  and each `!L` value is the row's displayed duration regardless of logging order. Logging now obeys the
-  same rounding a `round±N` nudge already does — summaries combining `!L` with a nudge render
+  and each `!S` value is the row's displayed duration regardless of logging order. Logging now obeys the
+  same rounding a `round±N` nudge already does — summaries combining `!S` with a nudge render
   consistently with the un-logged case, so their derived output changes on upgrade.
 - **`:Daylog log` gives a clear message when the cursor isn't on a summary row.** Running it on an
   entry line, a totals/tag row, or a blank used to report "summary row does not match the active log;

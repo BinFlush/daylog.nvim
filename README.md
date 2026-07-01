@@ -60,7 +60,7 @@ Requires Neovim 0.8+ (and `curl`, only for external [sources](#sources)).
 - **`:Daylog repeat`** re-stamps an earlier activity (a standup, a recurring call) at the current
   time — cursor on its entry or summary row.
 - End the day with `:Daylog insert` then `done` — the last timestamp closes the task before it.
-- **`:Daylog log`** marks a summary row's time as reported elsewhere (`!L`); run it again to unmark.
+- **`:Daylog log`** marks a summary row's time as reported elsewhere (`!S`); run it again to unmark.
 - **`:Daylog report monday..`** opens a live, read-only multi-day report (`report 7`, or any date
   range).
 
@@ -75,7 +75,7 @@ changed — or a rounding bucket (`q=`) in the header:
 17:00 done
 ```
 
-The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`) is in
+The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!S`, `=> alias`, `d=hm`) is in
 `:help daylog-format`.
 
 ## Commands
@@ -89,7 +89,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`)
 | `:Daylog repeat` | Repeat the activity under the cursor (entry or summary row) at the current time |
 | `:Daylog[!] report {range}` | Open a multi-day report — a count, a date range, or tokens like `monday..` (`!` for the range summary only — drops the per-day sections) |
 | `:Daylog export csv\|json [range]` | Export a day or range's summary as CSV/JSON into a scratch buffer (`:w` or yank) for a timesheet / invoicing / a script |
-| `:Daylog log` | Toggle the logged (`!L`) state of the summary row under the cursor |
+| `:Daylog log` | Toggle the logged (`!S`) state of the summary row under the cursor |
 | `:Daylog balance [steps]` | Nudge the rounding of the row (or entry) under the cursor by ±N q-steps (`0` clears) |
 | `:[range]Daylog rename [name\|source]` | Rename the entry's text or a `#tag`/`@location` under the cursor; over a visual range, set every selected entry to one description (not activity summary rows — use `map` for the report label) |
 | `:[range]Daylog[!] map [label\|source]` | Map the entry, a summary row's entries, or a visual selection to a report label (`=> alias`); `!` clears |
@@ -98,6 +98,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!L`, `=> alias`, `d=hm`)
 | `:Daylog new` | Scaffold a fresh `--- log ---` block in the current buffer (the new block becomes active) |
 | `:Daylog order` | Rewrite every log in the buffer in chronological order |
 | `:Daylog refresh` | Rebuild every summary to match its entries |
+| `:Daylog migrate` | One-time: rewrite v0.1.x `!L` logged markers to `!S` (see the CHANGELOG breaking note) |
 | `:Daylog sync [source]` | Refresh a source's cached work items |
 | `:Daylog keys` | Show the daylog keymaps + commands in a popup (also `g?` in `.day` files) |
 | `:Daylog bar` | Toggle a color-coded time bar — a panel at the window's bottom showing the day's activities, sized by time spent |

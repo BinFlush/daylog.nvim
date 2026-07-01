@@ -15,7 +15,7 @@ local M = {}
 -- line range (a visual selection) it maps every entry line in the range and expands every
 -- summary row in the range to the entries feeding it -- so selecting a span of summary rows
 -- collapses those activities under one label. The mapping rides on the entry, so the summary
--- stays a pure projection. An empty value clears the alias. A logged (`!L`) entry is refused
+-- stays a pure projection. An empty value clears the alias. A logged (`!S`) entry is refused
 -- -- its committed value is tied to its current identity; unlog, map, relog.
 
 M.REFUSE_LOGGED = "daylog: refusing to map a logged entry; unlog it first"
@@ -135,7 +135,7 @@ local function apply_alias(ctx, rows, alias)
     if target[item.start_row] then
       local desired = (value == item.text) and "" or value
       if desired ~= (item.alias or "") then
-        if item.logged then
+        if item.logged and item.logged.s then
           return nil, M.REFUSE_LOGGED
         end
         overrides[item.start_row] = { alias = desired }

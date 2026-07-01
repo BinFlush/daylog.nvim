@@ -3,7 +3,7 @@ return function(t)
   -- docs/architecture.md / the plan): footing and its corollaries are structural
   -- partition-sum identities, so they must hold for ANY per-cell nudge. This throws
   -- adversarial per-entry nudge vectors (wide range, mixed signs, forcing clamps) at
-  -- synthesized logs -- on top of the offsets/tags/locations/ooo/!L the synth
+  -- synthesized logs -- on top of the offsets/tags/locations/ooo/!S the synth
   -- already varies -- and asserts, for the day summary AND a combined week:
   --   T1  every section's rows sum to its own total;
   --   T2  activity = Σtags = Σlocations, workday = Σlogged, activity - workday = Σooo;

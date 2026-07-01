@@ -1,3 +1,4 @@
+local analyze = require("daylog.analyze")
 local render = require("daylog.render")
 local summary = require("daylog.summary")
 local summary_cursor = require("daylog.usecases.summary_cursor")
@@ -68,6 +69,16 @@ local function frozen_values(block, target_rows)
   return frozen
 end
 
+-- The entry's logged table with the summary (`s`) level set to `committed` (the frozen minutes) on a
+-- mark, or removed (`committed == nil`) on an unmark -- preserving any tag/location/workday levels the
+-- entry also carries. Always a table (never nil, which an override cannot use to clear a field); an
+-- empty one reads as "logged at no level" everywhere (every reader keys on `.s` / `[level]`).
+local function set_summary_level(entry_item, committed)
+  local logged = analyze.copy_logged(entry_item and entry_item.logged) or {}
+  logged.s = committed
+  return logged
+end
+
 function M.run(lines, cursor_row)
   local result, err = summary_cursor.resolve_or_entry(lines, cursor_row)
   if not result then
@@ -100,29 +111,30 @@ function M.run(lines, cursor_row)
     target_rows[source_row] = true
   end
 
+  local entry_by_row = {}
   for _, entry_item in ipairs(block.entry_items) do
-    if
-      target_rows[entry_item.start_row] and (entry_item.logged == true) ~= (item.logged == true)
-    then
+    entry_by_row[entry_item.start_row] = entry_item
+    local entry_logged = entry_item.logged and entry_item.logged.s ~= nil
+    if target_rows[entry_item.start_row] and (entry_logged or false) ~= (item.logged == true) then
       return nil, INCONSISTENT_SOURCE
     end
   end
 
   local frozen = target_logged and frozen_values(block, target_rows) or {}
 
-  -- One override per affected entry drives both the source-line rewrite and the summary rebuild,
-  -- so they cannot disagree. On mark, every entry the merge touches (`frozen` -- the newly logged
-  -- rows and any already-logged row they absorb) takes the combined committed total; on unmark the
-  -- target entries drop their !L marker (build_intervals nils a non-logged interval's
-  -- logged_minutes, so clearing `logged` alone suffices).
+  -- One override per affected entry drives both the source-line rewrite and the summary rebuild, so
+  -- they cannot disagree. On mark, every entry the merge touches (`frozen` -- the newly logged rows
+  -- and any already-logged row they absorb) takes the combined committed total at the summary level;
+  -- on unmark the target entries drop their `!S` marker. Either way only the summary level moves --
+  -- set_summary_level keeps any `!T`/`!L`/`!W` the entry carries.
   local overrides = {}
   if target_logged then
     for row, minutes in pairs(frozen) do
-      overrides[row] = { logged = true, logged_minutes = minutes }
+      overrides[row] = { logged = set_summary_level(entry_by_row[row], minutes) }
     end
   else
     for row in pairs(target_rows) do
-      overrides[row] = { logged = false }
+      overrides[row] = { logged = set_summary_level(entry_by_row[row], nil) }
     end
   end
 

@@ -52,7 +52,6 @@ return function(t)
         tag = "ProjectOrion",
         location = "office",
         workday_excluded = false,
-        logged = false,
       },
       {
         kind = "entry_item",
@@ -67,7 +66,6 @@ return function(t)
         tag = "ProjectOrion",
         location = "home",
         workday_excluded = false,
-        logged = false,
       },
       {
         kind = "entry_item",
@@ -82,7 +80,6 @@ return function(t)
         tag = "ooo",
         location = "home",
         workday_excluded = true,
-        logged = false,
       },
       {
         kind = "entry_item",
@@ -97,7 +94,6 @@ return function(t)
         tag = "ooo",
         location = "home",
         workday_excluded = true,
-        logged = false,
       },
       {
         kind = "entry_item",
@@ -112,7 +108,6 @@ return function(t)
         tag = "ProjectOrion",
         location = "client",
         workday_excluded = false,
-        logged = false,
       },
     })
     t.eq(first.entries, {
@@ -125,7 +120,6 @@ return function(t)
         tag = "ProjectOrion",
         location = "office",
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 4,
@@ -136,7 +130,6 @@ return function(t)
         tag = "ProjectOrion",
         location = "home",
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 5,
@@ -147,7 +140,6 @@ return function(t)
         tag = "ooo",
         location = "home",
         workday_excluded = true,
-        logged = false,
       },
       {
         row = 6,
@@ -158,7 +150,6 @@ return function(t)
         tag = "ooo",
         location = "home",
         workday_excluded = true,
-        logged = false,
       },
       {
         row = 7,
@@ -169,7 +160,6 @@ return function(t)
         tag = "ProjectOrion",
         location = "client",
         workday_excluded = false,
-        logged = false,
       },
     })
 
@@ -190,7 +180,6 @@ return function(t)
         tag = "internal",
         location = "office",
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 14,
@@ -201,7 +190,6 @@ return function(t)
         tag = "internal",
         location = "office",
         workday_excluded = false,
-        logged = false,
       },
     })
 
@@ -214,9 +202,9 @@ return function(t)
   t.test("analyze carries logged state without making it sticky", function()
     local analysis = analyze.analyze(document.parse({
       "--- log #ProjectOrion @office ---",
-      "08:00 plan !L",
+      "08:00 plan !S",
       "09:00 call @home",
-      "10:00 done !L",
+      "10:00 done !S",
     }))
 
     t.eq(analysis.log_blocks[1].entries, {
@@ -229,7 +217,7 @@ return function(t)
         tag = "ProjectOrion",
         location = "office",
         workday_excluded = false,
-        logged = true,
+        logged = { s = true },
       },
       {
         row = 3,
@@ -240,7 +228,6 @@ return function(t)
         tag = "ProjectOrion",
         location = "home",
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 4,
@@ -251,7 +238,7 @@ return function(t)
         tag = "ProjectOrion",
         location = "home",
         workday_excluded = false,
-        logged = true,
+        logged = { s = true },
       },
     })
   end)
@@ -566,7 +553,6 @@ return function(t)
         tag = nil,
         location = nil,
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 3,
@@ -577,7 +563,6 @@ return function(t)
         tag = "sales",
         location = nil,
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 4,
@@ -588,7 +573,6 @@ return function(t)
         tag = "sales",
         location = "client",
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 5,
@@ -599,7 +583,6 @@ return function(t)
         tag = "sales",
         location = "client",
         workday_excluded = false,
-        logged = false,
       },
     })
   end)
@@ -623,7 +606,6 @@ return function(t)
       tag = nil,
       location = nil,
       workday_excluded = false,
-      logged = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -634,7 +616,6 @@ return function(t)
       tag = nil,
       location = nil,
       workday_excluded = false,
-      logged = false,
     })
   end)
 
@@ -659,7 +640,6 @@ return function(t)
         tag = nil,
         location = nil,
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 3,
@@ -670,7 +650,6 @@ return function(t)
         tag = "ClientA",
         location = "home",
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 4,
@@ -683,7 +662,6 @@ return function(t)
         tag = nil,
         location = nil,
         workday_excluded = false,
-        logged = false,
       },
       {
         row = 5,
@@ -694,7 +672,6 @@ return function(t)
         tag = nil,
         location = nil,
         workday_excluded = false,
-        logged = false,
       },
     })
   end)
@@ -717,7 +694,6 @@ return function(t)
       tag = "ooo",
       location = "office",
       workday_excluded = true,
-      logged = false,
     })
     t.eq(entries[2], {
       row = 3,
@@ -728,7 +704,6 @@ return function(t)
       tag = "ooo",
       location = "office",
       workday_excluded = true,
-      logged = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -739,7 +714,6 @@ return function(t)
       tag = "ProjectOrion",
       location = "office",
       workday_excluded = false,
-      logged = false,
     })
   end)
 
@@ -761,7 +735,6 @@ return function(t)
       tag = nil,
       location = nil,
       workday_excluded = false,
-      logged = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -772,7 +745,6 @@ return function(t)
       tag = nil,
       location = nil,
       workday_excluded = false,
-      logged = false,
     })
   end)
 
@@ -793,7 +765,6 @@ return function(t)
       tag = "ProjectOrion",
       location = "client",
       workday_excluded = false,
-      logged = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -804,7 +775,6 @@ return function(t)
       tag = "ProjectOrion",
       location = "client",
       workday_excluded = false,
-      logged = false,
     })
   end)
 
@@ -826,7 +796,6 @@ return function(t)
       tag = nil,
       location = nil,
       workday_excluded = false,
-      logged = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -837,7 +806,6 @@ return function(t)
       tag = nil,
       location = nil,
       workday_excluded = false,
-      logged = false,
     })
   end)
 
@@ -858,7 +826,6 @@ return function(t)
       tag = "internal",
       location = "office",
       workday_excluded = false,
-      logged = false,
     })
     t.eq(entries[3], {
       row = 4,
@@ -869,7 +836,6 @@ return function(t)
       tag = "internal",
       location = "office",
       workday_excluded = false,
-      logged = false,
     })
   end)
 

@@ -144,7 +144,7 @@ return function(t)
         path = "/tmp/2026-05-18.day",
         lines = {
           "--- log #ClientA q=30 ---",
-          "08:00 plan !L",
+          "08:00 plan !S",
           "08:20 plan",
           "08:40 done",
         },
@@ -154,7 +154,7 @@ return function(t)
         path = "/tmp/2026-05-19.day",
         lines = {
           "--- log #ClientA q=30 ---",
-          "08:00 plan !L",
+          "08:00 plan !S",
           "08:20 done",
         },
       },

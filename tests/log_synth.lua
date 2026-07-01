@@ -3,7 +3,7 @@
 -- Knows nothing about any specific invariant: given a seeded RNG (tests/rng.lua)
 -- and a mode name it emits a random VALID log -- header plus sorted
 -- timestamped entries with optional sticky tags/locations, notes, #ooo, clears
--- (#-/@-), !L, occasional UTC offsets (utc±H), occasional manual rounding nudges
+-- (#-/@-), !S, occasional UTC offsets (utc±H), occasional manual rounding nudges
 -- (round±N), occasionally closing at 24:00. Returns { lines, params }; `params`
 -- carries the sampled knobs (including `mode`) for failure reporting.
 --
@@ -15,7 +15,7 @@
 -- Modes only pick distributions; the emitted structure is identical:
 --   * maximal -- the general, assumption-free stress mode (whole clock, every q).
 --   * workday -- a ~7-to-5 day; several q values do not foot cleanly (1, 5, 10).
---   * billing -- precise client tracking (q = 1 or 0.1h), heavy !L, decimal hours.
+--   * billing -- precise client tracking (q = 1 or 0.1h), heavy !S, decimal hours.
 -- Reusable by any log property test.
 
 local WORDS = {
@@ -136,7 +136,7 @@ local MODE_CONFIG = {
     p_utc = 0.2,
     p_nudge = 0.15,
   },
-  -- Precise client tracking: exact q (1, or 0.1h buckets), heavy !L, decimal
+  -- Precise client tracking: exact q (1, or 0.1h buckets), heavy !S, decimal
   -- hours, a wider client (tag) pool, rare breaks.
   billing = {
     times = "bounded",
@@ -339,7 +339,7 @@ local function generate(rng, mode_name)
       end
 
       if rng:chance(params.p_log) then
-        parts[#parts + 1] = "!L"
+        parts[#parts + 1] = "!S"
       end
 
       lines[#lines + 1] = table.concat(parts, " ")

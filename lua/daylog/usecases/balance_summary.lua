@@ -23,7 +23,7 @@ local M = {}
 -- A delta of 0 clears the cursor target's nudge: on a summary row it removes every
 -- marker contributing to that row's scope; on an entry it removes that entry's marker.
 --
--- Frozen logged rows (`!L<minutes>`) are held at their committed value and the
+-- Frozen logged rows (`!S<minutes>`) are held at their committed value and the
 -- quantizer ignores any nudge on them, so they are never selectable: a balance step
 -- only ever lands on an un-frozen row. When the only candidates left in scope are
 -- logged -- because every other row has been driven to zero by a round-down, or

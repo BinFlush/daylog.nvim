@@ -28,8 +28,8 @@ local M = {}
 -- user `highlight` overrides keep working unchanged.
 -- Inline metadata tokens link to bright, mutually distinct standard groups (not
 -- Comment): a #tag is cyan-ish (Identifier), an @location blue-ish (Function), a
--- utc±H offset green-ish (Type), a round±N nudge red/orange-ish (Constant), and !L
--- orange-ish (Special). Headers (the log header and the summary/report section dividers)
+-- utc±H offset green-ish (Type), a round±N nudge red/orange-ish (Constant), and a logged
+-- marker (`!S`/`!T`/`!L`/`!W`) orange-ish (Special). Headers (the log header and the summary/report section dividers)
 -- are bold, so they read as structure and separate cleanly from a note in ANY theme -- a
 -- linked color was too theme-dependent (some themes render it identically to Comment).
 -- Only the (+Nm) rounding residual and free notes stay muted (Comment). A value is either a
@@ -121,7 +121,7 @@ local function summary_section_rows(analysis)
 end
 
 -- Rows to flag red because a block is broken: the offending source line(s) -- an out-of-order or
--- invalid entry, or a logging error (a `#ooo !L`, a conflicting or off-grid `!L`) -- AND the whole
+-- invalid entry, or a logging error (a `#ooo !S`, a conflicting or off-grid `!S`) -- AND the whole
 -- summary region of any block carrying such an error, so a stale/suspect summary reads as
 -- untrustworthy at a glance and clears the instant the error is fixed. Reuses the analyzer's own
 -- diagnostics plus the one shared `summary.logging_diagnostics`, so the red never disagrees with the

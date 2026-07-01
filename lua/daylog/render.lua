@@ -108,7 +108,7 @@ local function summary_item_label(item, show_tag)
   end
 
   if item.logged then
-    table.insert(parts, syntax.LOGGED_TOKEN)
+    table.insert(parts, syntax.logged_token("s"))
   end
 
   return table.concat(parts, " ")

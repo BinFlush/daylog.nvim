@@ -238,7 +238,7 @@ return function(t)
     local out = run(
       buffer_with_summary({
         "--- log #ClientA @office q=15 ---",
-        "08:00 plan !L45",
+        "08:00 plan !S45",
         "08:45 review",
         "09:30 done",
       }),
@@ -246,10 +246,10 @@ return function(t)
       1
     )
 
-    t.eq(out[2], "08:00 plan !L45")
+    t.eq(out[2], "08:00 plan !S45")
     t.eq(out[3], "08:45 review round+1")
     t.eq(out[row_of(out, "(-15m) review")], "1.00h (-15m) review round+1")
-    t.eq(out[row_of(out, "(+0m) plan")], "0.75h (+0m) plan !L")
+    t.eq(out[row_of(out, "(+0m) plan")], "0.75h (+0m) plan !S")
   end)
 
   t.test("balance errors when a round-down leaves only logged items", function()
@@ -257,7 +257,7 @@ return function(t)
     -- first step, then has only the frozen row left and refuses rather than touch it.
     local lines = buffer_with_summary({
       "--- log #ClientA q=15 ---",
-      "08:00 fixed !L30",
+      "08:00 fixed !S30",
       "08:30 work",
       "08:45 done",
     })
@@ -270,7 +270,7 @@ return function(t)
     -- The plan main row is entirely logged, so there is nothing un-frozen to nudge.
     local lines = buffer_with_summary({
       "--- log #ClientA q=15 ---",
-      "08:00 plan !L45",
+      "08:00 plan !S45",
       "08:45 review",
       "09:30 done",
     })
@@ -282,7 +282,7 @@ return function(t)
   t.test("balance refuses a frozen logged entry addressed directly", function()
     local lines = buffer_with_summary({
       "--- log #ClientA q=15 ---",
-      "08:00 plan !L45",
+      "08:00 plan !S45",
       "08:45 review",
       "09:30 done",
     })

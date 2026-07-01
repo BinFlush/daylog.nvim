@@ -47,21 +47,24 @@ function M.format(entry, current_tag, current_location, current_offset)
 
   -- The offset is emitted on change like #tag/@location, but has no clear token:
   -- once set it is always a concrete value, so a nil offset (no offsets in play)
-  -- emits nothing. The order is `#tag @location utc±H round±N !L`.
+  -- emits nothing. The order is `#tag @location utc±H round±N !S !T !L !W`.
   if entry.offset ~= nil and entry.offset ~= current_offset then
     table.insert(parts, syntax.utc_offset_token(entry.offset))
   end
 
-  -- The rounding nudge is per-entry and non-sticky (like !L): always emitted when
+  -- The rounding nudge is per-entry and non-sticky (like a logged marker): always emitted when
   -- nonzero, never inherited, no current_* comparison.
   if entry.nudge and entry.nudge ~= 0 then
     table.insert(parts, syntax.round_nudge_token(entry.nudge))
   end
 
-  -- A frozen committed value (minutes) is emitted as `!L<n>`; a bare `!L` stays
-  -- "logged but unfrozen". The number only ever appears here, never in the summary.
-  if entry.logged then
-    table.insert(parts, syntax.logged_token(entry.logged_minutes))
+  -- Logged markers, one per level present in `entry.logged` ({ level -> committed minutes | true }),
+  -- in the canonical `!S !T !L !W` order. A frozen value emits `!S<n>`; a bare marker (`true`) `!S`.
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
+    local committed = entry.logged and entry.logged[level]
+    if committed then
+      table.insert(parts, syntax.logged_token(level, committed ~= true and committed or nil))
+    end
   end
 
   return table.concat(parts, " ")
