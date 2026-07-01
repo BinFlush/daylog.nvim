@@ -20,6 +20,7 @@ local M = {}
 
 local REFUSE_OOO = "daylog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
+local NOT_A_SUMMARY_ROW = "daylog: put the cursor on an activity's summary row to log it"
 
 -- The frozen committed value to stamp on each source entry when marking !L. Marking a
 -- row logged merges it with any already-logged row of the same activity, so the new
@@ -74,9 +75,11 @@ function M.run(lines, cursor_row)
   end
 
   -- Only a main summary row carries loggable source entries; an entry, a tag /
-  -- location / logged / total row, or the cursor on nothing is not loggable.
+  -- location / logged / total row, or the cursor on nothing is not loggable -- and
+  -- none of those are stale (a genuinely stale/ambiguous row is already refused above),
+  -- so point the cursor at a main row rather than telling the user to regenerate.
   if not result.layout_row or result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
-    return nil, summary_cursor.STALE
+    return nil, NOT_A_SUMMARY_ROW
   end
 
   local block = result.ctx.block

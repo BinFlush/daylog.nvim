@@ -34,6 +34,10 @@ happen, but they are called out clearly in this changelog.
   and each `!L` value is the row's displayed duration regardless of logging order. Logging now obeys the
   same rounding a `round±N` nudge already does — summaries combining `!L` with a nudge render
   consistently with the un-logged case, so their derived output changes on upgrade.
+- **`:Daylog log` gives a clear message when the cursor isn't on a summary row.** Running it on an
+  entry line, a totals/tag row, or a blank used to report "summary row does not match the active log;
+  regenerate the summary" — misleading, since nothing was stale. It now says to put the cursor on an
+  activity's summary row; a genuinely out-of-date summary still asks you to regenerate.
 
 ### Added
 

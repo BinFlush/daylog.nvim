@@ -897,7 +897,7 @@ return function(t)
     }, 2)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: summary row does not match the active log; regenerate the summary")
+    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
   end)
 
   t.test("log_current refuses tag-total rows inside the summary block", function()
@@ -914,7 +914,7 @@ return function(t)
     }, 9)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: summary row does not match the active log; regenerate the summary")
+    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
   end)
 
   t.test("log_current refuses total rows", function()
@@ -931,7 +931,7 @@ return function(t)
     }, 9)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: summary row does not match the active log; regenerate the summary")
+    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
   end)
 
   t.test("log_current refuses the summary section header line", function()
@@ -1065,7 +1065,7 @@ return function(t)
       }, 6)
 
       t.eq(result, nil)
-      t.eq(err, "daylog: summary row does not match the active log; regenerate the summary")
+      t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
     end
   )
 
@@ -1080,7 +1080,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: summary row does not match the active log; regenerate the summary")
+    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
   end)
 
   t.test("log_current refuses labeled summary-like headers after the active log", function()
@@ -1097,7 +1097,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: summary row does not match the active log; regenerate the summary")
+    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
   end)
 
   t.test("log_current refuses summary-shaped block headers placed before the active log", function()
