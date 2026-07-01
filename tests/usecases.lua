@@ -878,11 +878,11 @@ return function(t)
     }, 2)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
+    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
   end)
 
-  t.test("log_current refuses tag-total rows inside the summary block", function()
-    local result, err = log_current.run({
+  t.test("log_current logs a tag-total row at the tag level", function()
+    local result = log_current.run({
       "--- log #ClientA ---",
       "08:00 implementation",
       "09:00 done",
@@ -894,8 +894,84 @@ return function(t)
       "1.00h (+0m) #ClientA",
     }, 9)
 
+    t.ok(result ~= nil, "a tag total row is loggable")
+    local marked = false
+    for _, edit in ipairs(result.edits) do
+      for _, line in ipairs(edit.lines) do
+        if line:find("!T60", 1, true) then
+          marked = true
+        end
+      end
+    end
+    t.ok(marked, "the tag's contributing entry is frozen at !T60")
+  end)
+
+  t.test("log_current unmarks a logged tag row", function()
+    local result = log_current.run({
+      "--- log #ClientA ---",
+      "08:00 implementation !T60",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #ClientA !T",
+    }, 9)
+
+    t.ok(result ~= nil, "a logged tag row is loggable")
+    local still_marked = false
+    for _, edit in ipairs(result.edits) do
+      for _, line in ipairs(edit.lines) do
+        if line:match("^%d%d:%d%d") and line:find("!T") then
+          still_marked = true
+        end
+      end
+    end
+    t.ok(not still_marked, "the tag marker is removed from the entry")
+  end)
+
+  t.test("log_current logs a location-total row at the location level", function()
+    local result = log_current.run({
+      "--- log @office ---",
+      "08:00 implementation",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation",
+      "",
+      "--- locations ---",
+      "1.00h (+0m) @office",
+    }, 9)
+
+    t.ok(result ~= nil, "a location total row is loggable")
+    local marked = false
+    for _, edit in ipairs(result.edits) do
+      for _, line in ipairs(edit.lines) do
+        if line:find("!L60", 1, true) then
+          marked = true
+        end
+      end
+    end
+    t.ok(marked, "the location's contributing entry is frozen at !L60")
+  end)
+
+  t.test("log_current refuses to log an out-of-office tag row", function()
+    local result, err = log_current.run({
+      "--- log ---",
+      "08:00 lunch #ooo",
+      "09:00 done",
+      "",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) lunch",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #ooo",
+    }, 10)
+
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
+    t.eq(err, "daylog: refusing to mark out-of-office time as logged")
   end)
 
   t.test("log_current refuses total rows", function()
@@ -912,7 +988,7 @@ return function(t)
     }, 9)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
+    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
   end)
 
   t.test("log_current refuses the summary section header line", function()
@@ -1046,7 +1122,7 @@ return function(t)
       }, 6)
 
       t.eq(result, nil)
-      t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
+      t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
     end
   )
 
@@ -1061,7 +1137,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
+    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
   end)
 
   t.test("log_current refuses labeled summary-like headers after the active log", function()
@@ -1078,7 +1154,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on an activity's summary row to log it")
+    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
   end)
 
   t.test("log_current refuses summary-shaped block headers placed before the active log", function()

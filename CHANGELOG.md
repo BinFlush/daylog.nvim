@@ -35,7 +35,11 @@ happen, but they are called out clearly in this changelog.
   split now) — a derived-output change, so summaries with logged work render differently on upgrade.
   `#ooo` time still cannot be logged at any level (now diagnosed per level). `:Daylog balance` acts on
   the main/workday axis only; tag and location totals round independently and are refused there.
-  Per-level `:Daylog log` from a tag/location/workday row (rather than by hand) is not yet wired.
+- **`:Daylog log` logs at the level of the row under the cursor.** On a main activity row it toggles
+  `!S` (as before); on a `--- tags ---` row it toggles `!T` for that whole tag; on a `--- locations ---`
+  row it toggles `!L` for that location — freezing the group at its displayed total and stamping the
+  committed value on its entries, or clearing the marker to unlog. `#ooo` rows are refused at every
+  level. (Logging the workday from its row still waits on the workday split; type `!W` by hand.)
 
 - **BREAKING — the logged marker `!L` is now `!S`.** Logging is becoming multi-level: an entry can be
   logged at the summary (`!S`), tag (`!T`), location (`!L`), or workday (`!W`) level, each independently.

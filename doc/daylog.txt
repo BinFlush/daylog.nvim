@@ -526,16 +526,19 @@ Rewrite all log blocks in chronological order.
                                                         *:Daylog-log*
 :Daylog log
 
-Toggle the summary-level logged state of the main summary row under the cursor. (Logging a
-tag, location, or the workday from their rows is not yet wired; type `!T`/`!L`/`!W` by hand for
-now.)
-- The cursor must be on a main summary row inside the summary section of the active
+Toggle the logged state of the summary row under the cursor, at the level that row reports: a
+main (activity) row logs at the summary level (`!S`), a `--- tags ---` row at the tag level
+(`!T`), a `--- locations ---` row at the location level (`!L`). (Logging the workday from its
+row is not yet wired; type `!W` by hand.)
+- The cursor must be on a main, tag, or location row inside the summary block of the active
   log. The summary is recomputed from source; the rendered row acts only as a
   selector.
-- The logged state is toggled: an unlogged row's source intervals gain a trailing
-  `!S<minutes>` -- freezing the row at its currently displayed duration -- and an
-  already logged row's lose it. The summary section is regenerated afterwards.
-- Tag, location, and total rows are not eligible; `#ooo` rows are refused.
+- The logged state is toggled: an unlogged row's contributing entries gain that level's marker
+  -- `!S<minutes>` / `!T<minutes>` / `!L<minutes>`, freezing the row at its currently displayed
+  duration -- and a logged row's lose it. Marking a tag or location freezes the whole group at
+  one committed value; the summary block is regenerated afterwards.
+- Total rows, the workday total, and entry lines are not eligible; `#ooo` rows are refused at
+  every level.
 - Summary rows that no longer match the recomputed summary are refused; run
   `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
 

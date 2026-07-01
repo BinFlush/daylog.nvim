@@ -6,30 +6,36 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
--- Toggle the logged state of the main summary row under the cursor.
+-- Toggle the logged state of the summary row under the cursor, at the level that row reports:
+-- a main (activity) row logs at the summary level (`!S`), a tag total at the tag level (`!T`), a
+-- location total at the location level (`!L`). The rendered row is only a selector: the active log is
+-- analyzed from source, the contributing entries gain or lose that level's marker, and the one summary
+-- is rebuilt from the updated source (a pure projection, so no note preservation is needed).
 --
--- A log has a single summary. The rendered row is only a selector: the active
--- log is analyzed from source, the matching summary item is recomputed, the
--- contributing source entries gain or lose a trailing !L, and the one summary is
--- rebuilt from the updated source. The summary is a pure projection, so the rebuild
--- needs no note preservation.
---
--- The cursor-to-row resolution and its staleness/ambiguity guard are the shared
--- summary_cursor.resolve; :Daylog log accepts only a main summary_item row (a tag,
--- location, logged, or total row is not loggable). Out-of-office rows cannot be
--- marked, and the contributing entries must already agree on their logged state.
+-- The levels are independent, so marking a tag does not touch the summary or location markers on the
+-- same entries. Out-of-office (`#ooo`) time can never be logged, at any level. Logging the workday
+-- (`!W`) or an activity/totals row from its rendered row is not wired yet -- type `!W` by hand.
 
 local REFUSE_OOO = "daylog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
-local NOT_A_SUMMARY_ROW = "daylog: put the cursor on an activity's summary row to log it"
+local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, or location row to log it"
 
--- The frozen committed value to stamp on each source entry when marking !L. Marking a
--- row logged merges it with any already-logged row of the same activity, so the new
--- commitment is the SUM of the two rows' currently displayed durations -- and, because
--- the value is replicated per row, it must be written onto EVERY entry in the merged
--- row: the ones logged now AND the ones already logged (whose value grows to the new
--- total). Computed from the pre-mark summary (rows still separate here), keyed by
--- source entry row. Returns the map for the target rows and the rows they absorb.
+-- The entry's logged table with `level` set to `committed` (the frozen minutes) on a mark, or removed
+-- (`committed == nil`) on an unmark -- preserving the entry's other levels. Always a table (never nil,
+-- which an override cannot use to clear a field); an empty one reads as "logged at no level"
+-- everywhere (every reader keys on `[level]`).
+local function set_level(entry_item, level, committed)
+  local logged = analyze.copy_logged(entry_item and entry_item.logged) or {}
+  logged[level] = committed
+  return logged
+end
+
+-- The frozen committed value to stamp on each source entry when marking `!S`. Marking a row logged
+-- merges it with any already-logged row of the same activity, so the new commitment is the SUM of the
+-- two rows' currently displayed durations -- and, because the value is replicated per row, it must be
+-- written onto EVERY entry in the merged row: the ones logged now AND the ones already logged (whose
+-- value grows to the new total). Keyed by activity identity (which includes location), so an activity
+-- spanning locations freezes each location's slice at its own committed value, matching the main base.
 local function frozen_values(block, target_rows)
   local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
 
@@ -69,32 +75,9 @@ local function frozen_values(block, target_rows)
   return frozen
 end
 
--- The entry's logged table with the summary (`s`) level set to `committed` (the frozen minutes) on a
--- mark, or removed (`committed == nil`) on an unmark -- preserving any tag/location/workday levels the
--- entry also carries. Always a table (never nil, which an override cannot use to clear a field); an
--- empty one reads as "logged at no level" everywhere (every reader keys on `.s` / `[level]`).
-local function set_summary_level(entry_item, committed)
-  local logged = analyze.copy_logged(entry_item and entry_item.logged) or {}
-  logged.s = committed
-  return logged
-end
-
-function M.run(lines, cursor_row)
-  local result, err = summary_cursor.resolve_or_entry(lines, cursor_row)
-  if not result then
-    return nil, err
-  end
-
-  -- Only a main summary row carries loggable source entries; an entry, a tag /
-  -- location / logged / total row, or the cursor on nothing is not loggable -- and
-  -- none of those are stale (a genuinely stale/ambiguous row is already refused above),
-  -- so point the cursor at a main row rather than telling the user to regenerate.
-  if not result.layout_row or result.layout_row.kind ~= render.LAYOUT_KIND.SUMMARY_ITEM then
-    return nil, NOT_A_SUMMARY_ROW
-  end
-
-  local block = result.ctx.block
-  local item = result.layout_row.item
+-- Toggle `!S` on a main summary row. The summary level splits its base by location, so the freeze is
+-- per (activity, location) slice via frozen_values; every merged entry takes the combined value.
+local function log_summary_row(analysis, block, item)
   local target_logged = not item.logged
 
   if target_logged and item.workday_excluded then
@@ -122,24 +105,87 @@ function M.run(lines, cursor_row)
 
   local frozen = target_logged and frozen_values(block, target_rows) or {}
 
-  -- One override per affected entry drives both the source-line rewrite and the summary rebuild, so
-  -- they cannot disagree. On mark, every entry the merge touches (`frozen` -- the newly logged rows
-  -- and any already-logged row they absorb) takes the combined committed total at the summary level;
-  -- on unmark the target entries drop their `!S` marker. Either way only the summary level moves --
-  -- set_summary_level keeps any `!T`/`!L`/`!W` the entry carries.
   local overrides = {}
   if target_logged then
     for row, minutes in pairs(frozen) do
-      overrides[row] = { logged = set_summary_level(entry_by_row[row], minutes) }
+      overrides[row] = { logged = set_level(entry_by_row[row], "s", minutes) }
     end
   else
     for row in pairs(target_rows) do
-      overrides[row] = { logged = set_summary_level(entry_by_row[row], nil) }
+      overrides[row] = { logged = set_level(entry_by_row[row], "s", nil) }
     end
   end
 
-  local edits = support.apply_entry_overrides(result.ctx.analysis, block, overrides)
-  return edits
+  return support.apply_entry_overrides(analysis, block, overrides)
+end
+
+-- Toggle `!T` / `!L` on a tag or location total row. A tag/location groups by a single field with no
+-- sub-split (unlike the summary level's location axis), so marking freezes the WHOLE group at its
+-- current displayed section total and stamps that one value on every one of its entries; unmarking
+-- drops the marker from the entries currently logged at the level.
+local function log_section_row(analysis, block, item, level)
+  local field = level == "t" and "tag" or "location"
+  local target_logged = not item.logged
+
+  local group = {}
+  for _, entry_item in ipairs(block.entry_items) do
+    if entry_item[field] == item[field] then
+      if target_logged and entry_item.workday_excluded then
+        return nil, REFUSE_OOO
+      end
+      group[#group + 1] = entry_item
+    end
+  end
+  if #group == 0 then
+    return nil, summary_cursor.STALE
+  end
+
+  local overrides = {}
+  if target_logged then
+    local totals = summary.summarize_block(block)
+    local rows = level == "t" and totals.tag_totals or totals.location_totals
+    local committed = 0
+    for _, row in ipairs(rows) do
+      if row[field] == item[field] then
+        committed = committed + row.duration
+      end
+    end
+
+    for _, entry_item in ipairs(group) do
+      overrides[entry_item.start_row] = { logged = set_level(entry_item, level, committed) }
+    end
+  else
+    for _, entry_item in ipairs(group) do
+      if entry_item.logged and entry_item.logged[level] ~= nil then
+        overrides[entry_item.start_row] = { logged = set_level(entry_item, level, nil) }
+      end
+    end
+  end
+
+  return support.apply_entry_overrides(analysis, block, overrides)
+end
+
+function M.run(lines, cursor_row)
+  local result, err = summary_cursor.resolve_or_entry(lines, cursor_row)
+  if not result then
+    return nil, err
+  end
+
+  local layout_row = result.layout_row
+  if not layout_row then
+    return nil, NOT_LOGGABLE
+  end
+
+  local K = render.LAYOUT_KIND
+  if layout_row.kind == K.SUMMARY_ITEM then
+    return log_summary_row(result.ctx.analysis, result.ctx.block, layout_row.item)
+  elseif layout_row.kind == K.TAG_TOTAL then
+    return log_section_row(result.ctx.analysis, result.ctx.block, layout_row.item, "t")
+  elseif layout_row.kind == K.LOCATION_TOTAL then
+    return log_section_row(result.ctx.analysis, result.ctx.block, layout_row.item, "l")
+  end
+
+  return nil, NOT_LOGGABLE
 end
 
 return M
