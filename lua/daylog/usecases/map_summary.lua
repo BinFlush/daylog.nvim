@@ -115,20 +115,31 @@ local function first_alias(ctx, rows)
   return nil
 end
 
--- Set `alias` (empty clears) on every entry in `rows`, refusing the whole edit if any is
--- logged. The override map then drives both the source-line rewrite and the rebuilt
--- projection through support.apply_entry_overrides, so they agree by construction.
+-- Set `alias` (empty clears) on every entry in `rows`, refusing the whole edit if any entry that
+-- would actually change is logged. Mapping an entry onto its own description is a no-op -- a bare row
+-- and `text => text` resolve identically -- so the target's bare form is the desired state: a ranged
+-- map of several items onto one of them (a,b,c,d,e => c) leaves c untouched rather than writing a
+-- redundant `c => c`, and a row already at the requested state contributes no edit. The override map
+-- then drives both the source-line rewrite and the rebuilt projection through
+-- support.apply_entry_overrides, so they agree by construction.
 local function apply_alias(ctx, rows, alias)
   local value = entry.sanitize_alias(alias)
 
-  local overrides = {}
+  local target = {}
   for _, row in ipairs(rows) do
-    overrides[row] = { alias = value }
+    target[row] = true
   end
 
+  local overrides = {}
   for _, item in ipairs(ctx.block.entry_items) do
-    if overrides[item.start_row] and item.logged then
-      return nil, M.REFUSE_LOGGED
+    if target[item.start_row] then
+      local desired = (value == item.text) and "" or value
+      if desired ~= (item.alias or "") then
+        if item.logged then
+          return nil, M.REFUSE_LOGGED
+        end
+        overrides[item.start_row] = { alias = desired }
+      end
     end
   end
 

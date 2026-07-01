@@ -277,6 +277,52 @@ return function(t)
     t.eq(err, map_summary.REFUSE_LOGGED)
   end)
 
+  t.test("a ranged map leaves an entry mapped onto its own description bare", function()
+    -- The visual-selection case: map a span of items onto one of them (=> c); that one is a no-op
+    -- (a bare row and `c => c` resolve identically), so it stays bare while the rest carry the alias.
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "08:00 a",
+      "09:00 b",
+      "10:00 c",
+      "11:00 d",
+      "12:00 done",
+    })
+
+    local out = run_range(lines, "08:00 a", "11:00 d", "c")
+
+    t.ok(has(out, "08:00 a => c"), "a mapped")
+    t.ok(has(out, "09:00 b => c"), "b mapped")
+    t.ok(has(out, "10:00 c"), "c stays bare")
+    t.ok(not has(out, "10:00 c => c"), "no redundant self-mapping alias is written")
+    t.ok(has(out, "11:00 d => c"), "d mapped")
+  end)
+
+  t.test("mapping an aliased entry onto its own description clears the alias", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 x => y",
+      "09:30 done",
+    })
+
+    local out = run(lines, "09:00 x", "x")
+
+    t.ok(has(out, "09:00 x"), "the alias is cleared, leaving the entry bare")
+    t.ok(not has(out, "09:00 x => y"), "the old alias is gone")
+    t.ok(not has(out, "09:00 x => x"), "no redundant self-mapping alias is written")
+  end)
+
+  t.test("mapping a bare entry onto its own description makes no edit", function()
+    local lines = buffer_with_summary({
+      "--- log q=1 d=hm ---",
+      "09:00 c",
+      "09:30 done",
+    })
+
+    local result = map_summary.run(lines, row_of(lines, "09:00 c"), "c")
+    t.eq(#result.edits, 0)
+  end)
+
   t.test("ignores non-entry lines in a range, mapping only the entries", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",

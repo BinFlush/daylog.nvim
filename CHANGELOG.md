@@ -31,6 +31,13 @@ happen, but they are called out clearly in this changelog.
   (resolved labels first, then the raw sides); the hover tooltip reports the raw item on the top row and
   the mapped label on the bottom.
 
+### Changed
+
+- **`:Daylog map` skips a no-op self-mapping.** Mapping an entry onto its own description no longer
+  writes a redundant `=> c` (a bare row and `c => c` report identically). A visual-range map onto one of
+  the selected items — `a b c d e` → `c` — now leaves `c` untouched; mapping an already-aliased entry
+  onto its own description clears the alias instead.
+
 ### Fixed
 
 - **Logging a manually-rounded row no longer changes an unrelated row, and `:Daylog log` is now
