@@ -60,7 +60,8 @@ Requires Neovim 0.8+ (and `curl`, only for external [sources](#sources)).
 - **`:Daylog repeat`** re-stamps an earlier activity (a standup, a recurring call) at the current
   time — cursor on its entry or summary row.
 - End the day with `:Daylog insert` then `done` — the last timestamp closes the task before it.
-- **`:Daylog log`** marks a summary row's time as reported elsewhere (`!S`); run it again to unmark.
+- **`:Daylog log`** marks a row's time as reported elsewhere, at that row's level — an activity
+  (`!S`), a tag (`!T`), or a location (`!L`), each independent; run it again to unmark.
 - **`:Daylog report monday..`** opens a live, read-only multi-day report (`report 7`, or any date
   range).
 
@@ -89,7 +90,7 @@ The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!S`, `=> alias`, `d=hm`)
 | `:Daylog repeat` | Repeat the activity under the cursor (entry or summary row) at the current time |
 | `:Daylog[!] report {range}` | Open a multi-day report — a count, a date range, or tokens like `monday..` (`!` for the range summary only — drops the per-day sections) |
 | `:Daylog export csv\|json [range]` | Export a day or range's summary as CSV/JSON into a scratch buffer (`:w` or yank) for a timesheet / invoicing / a script |
-| `:Daylog log` | Toggle the logged (`!S`) state of the summary row under the cursor |
+| `:Daylog log` | Toggle logged state at the cursor row's level — an activity (`!S`), a tag (`!T`), or a location (`!L`) |
 | `:Daylog balance [steps]` | Nudge the rounding of the row (or entry) under the cursor by ±N q-steps (`0` clears) |
 | `:[range]Daylog rename [name\|source]` | Rename the entry's text or a `#tag`/`@location` under the cursor; over a visual range, set every selected entry to one description (not activity summary rows — use `map` for the report label) |
 | `:[range]Daylog[!] map [label\|source]` | Map the entry, a summary row's entries, or a visual selection to a report label (`=> alias`); `!` clears |

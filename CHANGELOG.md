@@ -32,7 +32,8 @@ happen, but they are called out clearly in this changelog.
   changes what its tag or location reports — you log those separately. Each section quantizes on its own,
   so once per-level commitments diverge a tag total can differ from the sum of its activity rows by a
   rounding bucket. **The separate `--- logged ---` section is removed** (each section carries its own
-  split now) — a derived-output change, so summaries with logged work render differently on upgrade.
+  split now) — a derived-output change, so summaries with logged work render differently on upgrade;
+  `:Daylog refresh` (or auto-summary) reclaims a stale `--- logged ---` section left by an older version.
   `#ooo` time still cannot be logged at any level (now diagnosed per level). `:Daylog balance` acts on
   the main/workday axis only; tag and location totals round independently and are refused there.
 - **`:Daylog log` logs at the level of the row under the cursor.** On a main activity row it toggles

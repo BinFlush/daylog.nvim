@@ -6,6 +6,8 @@ return function(t)
   local analyze = require("daylog.analyze")
   local entry = require("daylog.entry")
   local syntax = require("daylog.syntax")
+  local summary = require("daylog.summary")
+  local render = require("daylog.render")
   local migrate = require("daylog.usecases.migrate_logging")
   local refresh_summaries = require("daylog.usecases.refresh_summaries")
   local support = require("daylog.usecases.support")
@@ -135,5 +137,67 @@ return function(t)
     local refreshed = support.apply_edits(migrated, refresh_summaries.run(migrated).edits)
     t.ok(has(refreshed, "08:00 a !S120"), "the entry is migrated to a frozen !S")
     t.ok(has(refreshed, "2.00h (+0m) a !S"), "the rebuilt summary marks the row logged")
+  end)
+
+  t.test("a fully multi-level log renders each section split by its own level", function()
+    local block = analyze.get_active_log(analyze.analyze(document.parse({
+      "--- log q=15 ---",
+      "08:00 build #Client @office !S120 !T120",
+      "10:00 build #Client @office",
+      "10:30 lunch #ooo",
+      "11:00 email #Internal @home !L30",
+      "11:30 done",
+    })))
+
+    t.eq(
+      render.summary_lines(summary.summarize_block(block), block.duration_format, {
+        leading_blank = false,
+        quantize_minutes = 15,
+      }),
+      {
+        "--- summary q=15 d=dec ---",
+        "2.00h (+0m) build !S", -- summary level: the !S slice held at 120
+        "0.50h (+0m) build",
+        "0.50h (+0m) lunch",
+        "0.50h (+0m) email",
+        "",
+        "--- tags ---",
+        "2.00h (+0m) #Client !T", -- tag level: the !T slice, independent of !S
+        "0.50h (+0m) #Client",
+        "0.50h (+0m) #ooo",
+        "0.50h (+0m) #Internal",
+        "",
+        "--- locations ---",
+        "3.00h (+0m) @office",
+        "0.50h (+0m) @home !L", -- location level: the !L slice
+        "",
+        "--- totals ---",
+        "3.50h (+0m) activity",
+        "3.00h (+0m) workday", -- #ooo lunch excluded from the workday
+      }
+    )
+  end)
+
+  t.test("refresh reclaims a stale --- logged --- section left by an older version", function()
+    local old = {
+      "--- log @office ---",
+      "08:00 work !S60",
+      "09:00 more",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) work !S",
+      "1.00h (+0m) more",
+      "",
+      "--- logged ---",
+      "1.00h (+0m) logged",
+      "1.00h (+0m) unlogged",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    }
+    local out = support.apply_edits(old, refresh_summaries.run(old).edits)
+    t.ok(not has(out, "logged ---"), "the stale --- logged --- section is removed")
+    t.ok(has(out, "1.00h (+0m) work !S"), "the summary is rebuilt with the main !S split")
   end)
 end

@@ -116,6 +116,9 @@ end
 
 -- The section words that head a generated summary section. Shared so the
 -- highlighter and the summary-region locator recognize the same headers.
+-- `logged` is no longer generated (each section carries its own logged split), but it stays
+-- recognized so refresh reclaims and removes a stale `--- logged ---` section left in a file written
+-- before that change.
 M.SUMMARY_SECTION_WORDS = {
   [M.SECTION.SUMMARY] = true,
   [M.SECTION.TAGS] = true,
