@@ -436,6 +436,53 @@ function M.logged_value_conflicts(entries)
   return conflicts
 end
 
+-- Semantic logging problems in a block that make its summary untrustworthy, each { row, message }:
+--   * a frozen `!L<n>` value that no longer fits the block's bucket (a hand-edit or a q change),
+--   * out-of-office (`#ooo`) time marked logged (`:Daylog log` refuses it; a hand-edit slips it in),
+--   * same-activity entries disagreeing on their `!L` value.
+-- One detector shared by refresh (which raises these as diagnostics) and the highlighter (which reddens
+-- the summary while any are present), so the warning and the red flag can never drift apart. PURE.
+function M.logging_diagnostics(block)
+  local out = {}
+  local bucket = block.quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+
+  for _, row in ipairs(M.fine_grained_quantized(block.entries, block.quantize_minutes)) do
+    if
+      row.logged_minutes ~= nil and (row.logged_minutes < 0 or row.logged_minutes % bucket ~= 0)
+    then
+      local at = row.source_entry_rows and row.source_entry_rows[1]
+      if at then
+        out[#out + 1] = {
+          row = at,
+          message = string.format(
+            "daylog: a frozen !L value no longer fits q=%d; re-run :Daylog log to recommit",
+            bucket
+          ),
+        }
+      end
+    end
+  end
+
+  for _, item in ipairs(block.entry_items) do
+    if item.logged and item.workday_excluded then
+      out[#out + 1] = {
+        row = item.start_row,
+        message = "daylog: out-of-office time cannot be logged; remove !L or #ooo",
+      }
+    end
+  end
+
+  for _, conflict in ipairs(M.logged_value_conflicts(block.entries)) do
+    out[#out + 1] = {
+      row = conflict.row,
+      message = "daylog: logged entries for this activity disagree on their "
+        .. "!L value; re-run :Daylog log to recommit",
+    }
+  end
+
+  return out
+end
+
 function M.combine_summaries(summaries)
   local summary_items = {}
   local tag_totals = {}

@@ -22,36 +22,9 @@ local M = {}
 -- final -- whether or not a summary exists yet. Each warning is { row, message };
 -- the shell publishes them as buffer diagnostics so they clear when fixed.
 
--- A frozen `!L<minutes>` value records what was committed externally, and the
--- quantizer holds the row there. That stays honest only while the value still fits a
--- bucket: it must be a non-negative multiple of the block's q. A q change or an edit
--- inside a logged interval can leave it off-grid; warn so the user re-runs :Daylog log
--- to recommit. (There is no "exceeds the log's total" failure: the un-frozen rows round
--- to their OWN total around the commitments, so frozen values never share a budget.) The
--- summary still renders around the stale value; this only surfaces the drift.
-local function frozen_drift_warnings(block)
-  local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
-
-  local warnings = {}
-  for _, row in ipairs(rows) do
-    if row.logged_minutes ~= nil then
-      if row.logged_minutes < 0 or row.logged_minutes % bucket_minutes ~= 0 then
-        local at = row.source_entry_rows and row.source_entry_rows[1]
-        if at then
-          warnings[#warnings + 1] = {
-            row = at,
-            message = string.format(
-              "daylog: a frozen !L value no longer fits q=%d; re-run :Daylog log to recommit",
-              bucket_minutes
-            ),
-          }
-        end
-      end
-    end
-  end
-
-  return warnings
-end
+-- The logging problems (frozen value off-grid, `#ooo` marked logged, same-activity `!L` values
+-- disagreeing) live in `summary.logging_diagnostics`, shared with the highlighter so a warning and
+-- its red flag can never disagree.
 
 -- A manual `round±N` marker is honest only while the row can absorb it. A round-down can be
 -- demanded past what the row holds -- typed too large by hand, or left stale by an edit that
@@ -114,20 +87,12 @@ function M.run(lines)
     -- wholesale and rewritten -- nothing inside it is authored -- while the body above
     -- the boundary is left untouched.
     if not analyze.find_block_diagnostic(work_analysis, block) then
-      for _, warning in ipairs(frozen_drift_warnings(block)) do
+      for _, warning in ipairs(summary.logging_diagnostics(block)) do
         warnings[#warnings + 1] = warning
       end
 
       for _, warning in ipairs(nudge_range_warnings(block)) do
         warnings[#warnings + 1] = warning
-      end
-
-      for _, conflict in ipairs(summary.logged_value_conflicts(block.entries)) do
-        warnings[#warnings + 1] = {
-          row = conflict.row,
-          message = "daylog: logged entries for this activity disagree on their "
-            .. "!L value; re-run :Daylog log to recommit",
-        }
       end
 
       -- Rebuild this valid log's summary from its entries -- creating one when missing --

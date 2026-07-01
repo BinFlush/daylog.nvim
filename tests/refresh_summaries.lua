@@ -709,4 +709,50 @@ return function(t)
 
     t.eq(result.warnings, {})
   end)
+
+  local function has_ooo_warning(warnings)
+    for _, w in ipairs(warnings) do
+      if w.message:match("out%-of%-office time cannot be logged") then
+        return w.row
+      end
+    end
+    return nil
+  end
+
+  t.test("refresh warns when out-of-office time is marked logged", function()
+    -- :Daylog log refuses #ooo, but a hand-typed `#ooo !L` slips an inert logged marker past it
+    -- (nothing in the workday-only logged section can account for it). Refresh must surface that.
+    local result = refresh_summaries.run({
+      "--- log ---",
+      "08:00 lunch #ooo !L30",
+      "09:00 done",
+    })
+
+    t.eq(has_ooo_warning(result.warnings), 2) -- pointed at the offending entry line
+
+    -- Order-independent: the same contradiction typed the other way (bare !L, then #ooo) still warns.
+    local reordered = refresh_summaries.run({
+      "--- log ---",
+      "08:00 lunch !L #ooo",
+      "09:00 done",
+    })
+    t.eq(has_ooo_warning(reordered.warnings), 2)
+  end)
+
+  t.test("refresh does not warn on #ooo without !L, or !L without #ooo", function()
+    local ooo_only = refresh_summaries.run({
+      "--- log ---",
+      "08:00 lunch #ooo",
+      "09:00 work #-",
+      "10:00 done",
+    })
+    t.eq(has_ooo_warning(ooo_only.warnings), nil)
+
+    local logged_only = refresh_summaries.run({
+      "--- log ---",
+      "08:00 work !L60",
+      "09:00 done",
+    })
+    t.eq(has_ooo_warning(logged_only.warnings), nil)
+  end)
 end

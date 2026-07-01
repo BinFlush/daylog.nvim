@@ -431,4 +431,55 @@ return function(t)
     -- The description before the arrow is not part of the alias.
     t.ok(group_at(2, col_of(2, "fix")) ~= "DaylogAlias", "the description is not the alias")
   end)
+
+  t.test("a logging error reddens the offending line and its whole summary", function()
+    load({
+      "--- log ---", -- 1
+      "08:00 lunch #ooo !L30", -- 2  the offending line (#ooo cannot be logged)
+      "09:00 work #-", -- 3
+      "11:00 done", -- 4
+      "", -- 5
+      "", -- 6
+      "--- summary q=15 d=dec ---", -- 7
+      "2.00h (+0m) work", -- 8
+      "0.50h (+30m) lunch !L", -- 9
+      "", -- 10
+      "--- tags ---", -- 11
+      "2.00h (+0m) (untagged)", -- 12
+      "0.50h (+30m) #ooo", -- 13
+      "", -- 14
+      "--- totals ---", -- 15
+      "2.50h (+30m) activity", -- 16
+      "2.00h (+0m) workday", -- 17
+    })
+    -- The offending entry line is red end to end (overriding the timestamp / #ooo / !L colours).
+    t.eq(group_at(2, 1), "DaylogError")
+    t.eq(group_at(2, col_of(2, "lunch")), "DaylogError")
+    t.eq(group_at(2, col_of(2, "#ooo")), "DaylogError")
+    -- The whole summary it feeds is red: the banner, a main row, a tag row, and a totals row.
+    t.eq(group_at(7, 1), "DaylogError")
+    t.eq(group_at(9, col_of(9, "lunch")), "DaylogError")
+    t.eq(group_at(13, col_of(13, "#ooo")), "DaylogError")
+    t.eq(group_at(16, col_of(16, "activity")), "DaylogError")
+    -- Clean lines are untouched: another entry and the log header stay their normal colour.
+    t.eq(group_at(3, 1), "DaylogTimestamp")
+    t.eq(group_at(1, 1), "DaylogHeader")
+  end)
+
+  t.test("a clean log has no error red anywhere", function()
+    load({
+      "--- log ---",
+      "08:00 a",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) a",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    })
+    for row = 1, 9 do
+      t.ok(group_at(row, 1) ~= "DaylogError", "line " .. row .. " must not be error-red")
+    end
+  end)
 end

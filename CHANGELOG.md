@@ -38,8 +38,20 @@ happen, but they are called out clearly in this changelog.
   the selected items — `a b c d e` → `c` — now leaves `c` untouched; mapping an already-aliased entry
   onto its own description clears the alias instead.
 
+### Added
+
+- **Broken logs are flagged in red.** When a log carries a logging error — out-of-office time marked
+  logged (`#ooo !L`), same-activity `!L` values that disagree, or a frozen value that no longer fits the
+  bucket — or a structural error (an out-of-order or invalid entry), the offending line **and** its
+  now-untrustworthy summary are highlighted red until the error is fixed, then clear on their own. The
+  colour is the `DaylogError` group, restylable via `:highlight`.
+
 ### Fixed
 
+- **A hand-typed `!L` on out-of-office (`#ooo`) time now warns.** `:Daylog log` already refuses to log
+  `#ooo` time, but a hand-edited `#ooo !L` slipped past it and rendered an inert logged marker with no
+  logged-section accounting and no diagnostic. `:Daylog refresh` now surfaces it — "out-of-office time
+  cannot be logged; remove !L or #ooo" — so the rule holds for hand-edits too.
 - **Logging a manually-rounded row no longer changes an unrelated row, and `:Daylog log` is now
   order-independent.** When an entry carried a `round±N` nudge and was then logged (`:Daylog log` /
   `!L`), the frozen row's residual used to be forced onto another activity's duration (and the day

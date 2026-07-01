@@ -55,6 +55,10 @@ M.GROUPS = {
   -- default = true still lets a theme/user override win.
   DaylogStraySign = { fg = "#d28a8a", ctermfg = 167 },
   DaylogBarLabel = "Comment",
+  -- A hard red for a broken block: the offending source line AND the whole (now-untrustworthy)
+  -- summary it feeds. Overrides the normal token colours so it reads as an error at a glance; a
+  -- theme/user can still restyle it (e.g. to a background) via `:highlight DaylogError`.
+  DaylogError = { fg = "#ff5f5f", ctermfg = 203, bold = true },
 }
 
 -- The per-activity colour groups DaylogBar{n} (time-bar block / legend-swatch background) and
@@ -65,6 +69,8 @@ M.GROUPS = {
 
 local BASE_PRIORITY = 100
 local TOKEN_PRIORITY = 110
+-- Above every token span, so the error red covers the whole line rather than leaving colour gaps.
+local ERROR_PRIORITY = 200
 
 -- The timestamp is always a zero-padded HH:MM (5 bytes); 24:00 included.
 local TIMESTAMP_WIDTH = 5
@@ -112,6 +118,51 @@ local function summary_section_rows(analysis)
   end
 
   return in_summary
+end
+
+-- Rows to flag red because a block is broken: the offending source line(s) -- an out-of-order or
+-- invalid entry, or a logging error (a `#ooo !L`, a conflicting or off-grid `!L`) -- AND the whole
+-- summary region of any block carrying such an error, so a stale/suspect summary reads as
+-- untrustworthy at a glance and clears the instant the error is fixed. Reuses the analyzer's own
+-- diagnostics plus the one shared `summary.logging_diagnostics`, so the red never disagrees with the
+-- refresh warning.
+local function error_rows(analysis)
+  local red = {}
+  local nodes = analysis.document.nodes
+
+  for _, block in ipairs(analysis.log_blocks) do
+    local logging = summary.logging_diagnostics(block)
+    for _, diagnostic in ipairs(logging) do
+      red[diagnostic.row] = true
+    end
+
+    -- A block-level structural error (out-of-order / invalid entry) points at its offending
+    -- line(s); red them, but only when they are entries -- a header problem falls back on its own
+    -- header highlighting and must not be painted red.
+    local structural = analyze.find_block_diagnostic(analysis, block)
+    if structural then
+      for _, at in ipairs({ structural.row, structural.row2 }) do
+        local node = at and nodes[at]
+        if
+          node
+          and (node.kind == syntax.NODE_KIND.ENTRY or node.kind == syntax.NODE_KIND.INVALID_ENTRY)
+        then
+          red[at] = true
+        end
+      end
+    end
+
+    if #logging > 0 or structural then
+      local region = summary_block.find(analysis, block)
+      if region then
+        for row = region.start_row, region.end_row - 1 do
+          red[row] = true
+        end
+      end
+    end
+  end
+
+  return red
 end
 
 -- The highlight group for a trailing-metadata / header token (a #tag, @location,
@@ -215,6 +266,7 @@ function M.spans(lines, parsed, analysis)
   analysis = analysis or analyze.analyze(parsed)
   local in_summary = summary_section_rows(analysis)
   local invalid_headers = invalid_header_rows(analysis)
+  local red_rows = error_rows(analysis)
   local spans = {}
 
   for row, line in ipairs(lines) do
@@ -242,6 +294,12 @@ function M.spans(lines, parsed, analysis)
         -- not a timestamp): a free note. A summary-shaped line outside a summary
         -- section is a note, not a summary row.
         push_note(spans, index, line)
+      end
+
+      -- Overlay the whole line in error red when the block is broken (offending line or its
+      -- untrustworthy summary); the high priority covers the token spans pushed above.
+      if red_rows[row] then
+        push(spans, index, 0, #line, "DaylogError", ERROR_PRIORITY)
       end
     end
   end
