@@ -29,7 +29,9 @@ Repeated tasks add up; durations round to buckets (15 min by default, `q=1` for 
 `(+Nm)` is each row's rounding error.
 
 In the editor each activity gets its own color — down the left margin and on its summary row — and
-the optional `:Daylog bar` draws a proportional, color-matched timeline of the day at the bottom.
+the optional `:Daylog bar` draws a proportional, color-matched timeline of the day at the bottom. Once
+you map entries to report labels (`=> alias`), the bar splits into two aligned rows — the raw items on
+top, the mapped labels below — for a before/after view of the mapping.
 
 ## Install
 

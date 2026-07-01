@@ -146,7 +146,7 @@ return function(t)
     t.eq(layout.legend[2].color_index, 2)
   end)
 
-  t.test("an aliased entry colours by its resolved label", function()
+  t.test("a mapped entry adds a raw 'before' bar under one shared legend", function()
     local layout = timebar.layout(
       entries({
         "--- log ---",
@@ -156,8 +156,65 @@ return function(t)
       }),
       20
     )
-    t.eq(#layout.legend, 1) -- both intervals resolve to one activity
+    -- resolved (after) bar: both intervals resolve to Project.
+    t.eq(layout.segments[1].label, "Project")
+    t.eq(layout.segments[2].label, "Project")
+    -- raw (before) bar: the => left-hand sides, same widths index-for-index.
+    t.eq(layout.raw_segments[1].label, "work")
+    t.eq(layout.raw_segments[2].label, "Project")
+    t.eq(layout.raw_segments[1].width, layout.segments[1].width)
+    t.eq(layout.raw_segments[2].width, layout.segments[2].width)
+    -- One shared legend: resolved label first, then the raw side.
+    t.eq(#layout.legend, 2)
     t.eq(layout.legend[1].label, "Project")
+    t.eq(layout.legend[2].label, "work")
+    -- 'work' (raw) gets its own colour; the bare 'Project' interval shares Project's colour in both bars.
+    t.eq(layout.segments[1].color_index, 1)
+    t.eq(layout.raw_segments[1].color_index, 2)
+    t.eq(layout.raw_segments[2].color_index, 1)
+  end)
+
+  t.test("the shared legend orders resolved labels first, then raw sides", function()
+    local layout = timebar.layout(
+      entries({
+        "--- log ---",
+        "08:00 fix login => Feature A",
+        "10:00 standup",
+        "11:00 write tests => Feature A",
+        "13:00 done",
+      }),
+      60
+    )
+    -- after: Feature A / standup / Feature A;  before: the three source items.
+    t.eq(layout.segments[1].label, "Feature A")
+    t.eq(layout.segments[2].label, "standup")
+    t.eq(layout.segments[3].label, "Feature A")
+    t.eq(layout.raw_segments[1].label, "fix login")
+    t.eq(layout.raw_segments[2].label, "standup")
+    t.eq(layout.raw_segments[3].label, "write tests")
+    -- Indices: resolved labels first (Feature A=1, standup=2), then raw sides (fix login=3, write tests=4).
+    t.eq(layout.legend[1].label, "Feature A")
+    t.eq(layout.legend[1].color_index, 1)
+    t.eq(layout.legend[2].label, "standup")
+    t.eq(layout.legend[2].color_index, 2)
+    t.eq(layout.legend[3].label, "fix login")
+    t.eq(layout.legend[3].color_index, 3)
+    t.eq(layout.legend[4].label, "write tests")
+    t.eq(layout.legend[4].color_index, 4)
+    -- standup (unmapped) shares one colour across both bars; both Feature A intervals share index 1.
+    t.eq(layout.segments[2].color_index, 2)
+    t.eq(layout.raw_segments[2].color_index, 2)
+    t.eq(layout.segments[1].color_index, 1)
+    t.eq(layout.segments[3].color_index, 1)
+  end)
+
+  t.test("an unmapped log has no raw bar (single bar as before)", function()
+    local layout =
+      timebar.layout(entries({ "--- log ---", "08:00 a", "09:00 b", "10:00 done" }), 40)
+    t.eq(layout.raw_segments, nil)
+    t.eq(#layout.legend, 2)
+    t.eq(layout.legend[1].label, "a")
+    t.eq(layout.legend[2].label, "b")
   end)
 
   t.test("nothing to show yields nil", function()

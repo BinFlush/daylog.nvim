@@ -44,8 +44,11 @@ end
 
 -- Build the bar layout for `entries`' active intervals over `width` cells, or nil when there is
 -- nothing to show (no intervals, a zero/negative span, or an invalid out-of-order log). Returns
--- { segments = { { width, color_index, label } }, legend = { { label, color_index } } }; zero-width
--- segments are dropped, but the legend still lists every activity in colour order.
+-- { segments = { { width, color_index, label } }, legend = { { label, color_index } },
+-- raw_segments = <same shape, or nil> }; zero-width segments are dropped, but the legend still lists
+-- every activity in colour order. `raw_segments` is set only when the log is mapped (some entry's raw
+-- description differs from its resolved label): the same-width segments coloured by raw description,
+-- for a "before mapping" bar. The legend then covers both bars' colours (resolved labels then raw).
 function M.layout(entries, width, now_minutes)
   if type(width) ~= "number" or width < 1 then
     return nil
@@ -68,12 +71,51 @@ function M.layout(entries, width, now_minutes)
   end
 
   local index, order = colors.indices(intervals)
+
+  -- The raw description (the `=>` left-hand side) of the entry starting each interval. `iv.text` is
+  -- the resolved label (alias or text); when they differ for any interval the log carries a mapping,
+  -- so a "before mapping" bar is worth drawing alongside the resolved one.
+  local by_row = {}
+  for _, e in ipairs(entries) do
+    by_row[e.row] = e
+  end
+  local function raw_of(iv)
+    return by_row[iv.source_entry_row].text
+  end
+
+  local mapped = false
+  for _, iv in ipairs(intervals) do
+    if raw_of(iv) ~= iv.text then
+      mapped = true
+      break
+    end
+  end
+
+  -- One shared colour map, so both bars and the single legend agree: resolved labels first (leaving the
+  -- resolved bar's colours exactly as before), then any raw sides that differ, appended in appearance
+  -- order. An unmapped interval keeps its one index in both bars.
+  if mapped then
+    for _, iv in ipairs(intervals) do
+      local raw = raw_of(iv)
+      if index[raw] == nil then
+        order[#order + 1] = raw
+        index[raw] = #order
+      end
+    end
+  end
+
   local widths = segment_widths(intervals, total, width)
 
   local segments = {}
+  local raw_segments = mapped and {} or nil
   for i, iv in ipairs(intervals) do
     if widths[i] > 0 then
       segments[#segments + 1] = { width = widths[i], color_index = index[iv.text], label = iv.text }
+      if mapped then
+        local raw = raw_of(iv)
+        raw_segments[#raw_segments + 1] =
+          { width = widths[i], color_index = index[raw], label = raw }
+      end
     end
   end
 
@@ -82,7 +124,9 @@ function M.layout(entries, width, now_minutes)
     legend[#legend + 1] = { label = label, color_index = index[label] }
   end
 
-  local result = { segments = segments, legend = legend }
+  -- raw_segments is present only when the log is mapped; the shell then stacks it above the resolved
+  -- bar for a before/after view. Unmapped logs return exactly as before (a single bar).
+  local result = { segments = segments, legend = legend, raw_segments = raw_segments }
 
   -- The "now" marker column: when the current time falls inside the bar's span -- i.e. the final
   -- entry is in the future relative to now -- mark where now sits so the shell can draw a line on the

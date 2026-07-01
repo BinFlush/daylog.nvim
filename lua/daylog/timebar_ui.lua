@@ -55,18 +55,16 @@ local function hide_hover()
   hover_win = nil
 end
 
--- The legend and bar as virtual-line chunk lists ({ {text, hl}, ... } per line), legend above the
--- bar. The bar is one coloured run of spaces per segment; the legend is a swatch + name per activity
--- in colour order, stopping before it would overflow `width`.
-local function bar_virt_lines(layout, width)
+-- One bar as a chunk list ({ {text, hl}, ... }): a coloured run of spaces per segment, split around the
+-- "now" marker -- a thin line glyph on the segment's own colour, so it reads as a subtle tick rather
+-- than a solid block -- when it falls inside a segment.
+local function build_bar_row(segments, now_col)
   local bar = {}
   local col = 0
-  for _, seg in ipairs(layout.segments) do
+  for _, seg in ipairs(segments) do
     local group = activity_hl.bar_group(seg.color_index)
-    -- Split the segment around the "now" marker -- a thin line glyph on the segment's own colour, so
-    -- it reads as a subtle tick rather than a solid block -- when it falls inside the segment.
-    if layout.now_col and layout.now_col > col and layout.now_col <= col + seg.width then
-      local before = layout.now_col - 1 - col
+    if now_col and now_col > col and now_col <= col + seg.width then
+      local before = now_col - 1 - col
       if before > 0 then
         bar[#bar + 1] = { string.rep(" ", before), group }
       end
@@ -80,7 +78,15 @@ local function bar_virt_lines(layout, width)
     end
     col = col + seg.width
   end
+  return bar
+end
 
+-- The legend and bar(s) as virtual-line chunk lists ({ {text, hl}, ... } per line), legend on top. The
+-- legend is a swatch + name per activity in colour order, stopping before it would overflow `width`.
+-- When the log is mapped, a "before mapping" bar coloured by raw description is stacked above the
+-- resolved bar (identical widths) for a before/after view. Returns the rows plus `bars`, a list of
+-- { row = <1-based row index>, segments } so the hover can map a pointer line back to its segments.
+local function bar_virt_lines(layout, width)
   local legend = {}
   local used = 0
   for _, item in ipairs(timebar.fit_legend(layout.legend, width)) do
@@ -96,12 +102,17 @@ local function bar_virt_lines(layout, width)
     used = used + item_width
   end
 
-  local rows = {}
+  local rows, bars = {}, {}
   if #legend > 0 then
     rows[#rows + 1] = legend
   end
-  rows[#rows + 1] = bar
-  return rows
+  if layout.raw_segments then
+    rows[#rows + 1] = build_bar_row(layout.raw_segments, layout.now_col)
+    bars[#bars + 1] = { row = #rows, segments = layout.raw_segments }
+  end
+  rows[#rows + 1] = build_bar_row(layout.segments, layout.now_col)
+  bars[#bars + 1] = { row = #rows, segments = layout.segments }
+  return rows, bars
 end
 
 -- The current local time in minutes, but only when `buf` is today's dated daylog file -- so the
@@ -281,8 +292,9 @@ function M.render(buf, lines, analysis)
 
   ensure_strip_autocmds()
 
+  local rows, bars = bar_virt_lines(layout, width)
   local content, hls = {}, {}
-  for i, row in ipairs(bar_virt_lines(layout, width)) do
+  for i, row in ipairs(rows) do
     local line_text, row_hls = flatten_chunks(row, i - 1)
     content[i] = line_text
     for _, h in ipairs(row_hls) do
@@ -325,8 +337,9 @@ function M.render(buf, lines, analysis)
       buf = sbuf,
       first_minutes = entries[1].minutes,
       last_minutes = entries[#entries].minutes,
-      segments = layout.segments,
-      bar_row = #content, -- the bar is the last strip row (below the legend); the hover targets it
+      -- Each bar's strip row + its segments; the hover maps the pointer line to the row it is on (the
+      -- raw bar reports the raw item, the resolved bar the mapped label). One entry unless mapped.
+      bars = bars,
     }
   else
     close_strip(dwin)
@@ -374,19 +387,32 @@ local function strip_by_win(win)
 end
 
 -- Mouse-move handler, installed buffer-locally in daylog files when `time_bar_hover` is on (and only
--- effective once the user has set `mousemoveevent`). Over the bar row (not the legend), it shows the
--- clock time + activity at the hovered column; anywhere else it hides the tooltip.
+-- effective once the user has set `mousemoveevent`). Over a bar row (not the legend), it shows the
+-- clock time + activity at the hovered column; anywhere else it hides the tooltip. With two bars the
+-- raw (top) row reports the raw item and the resolved (bottom) row its mapped label -- same time,
+-- different segment set.
 function M.on_mouse_move()
   local pos = vim.fn.getmousepos()
   local strip = strip_by_win(pos.winid)
-  if not (strip and strip.first_minutes and pos.wincol >= 1 and pos.line == strip.bar_row) then
+  if not (strip and strip.first_minutes and pos.wincol >= 1) then
+    hide_hover()
+    return
+  end
+  local segments
+  for _, b in ipairs(strip.bars or {}) do
+    if pos.line == b.row then
+      segments = b.segments
+      break
+    end
+  end
+  if not segments then
     hide_hover()
     return
   end
   local width = vim.api.nvim_win_get_width(strip.win)
   local minutes = timebar.time_at_column(strip.first_minutes, strip.last_minutes, width, pos.wincol)
   local text = entry.minutes_string(minutes)
-  local label = timebar.segment_label_at(strip.segments, pos.wincol)
+  local label = timebar.segment_label_at(segments, pos.wincol)
   if label then
     text = text .. "  " .. label
   end
