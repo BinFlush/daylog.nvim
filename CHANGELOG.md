@@ -22,6 +22,19 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Fixed
+
+- **Logging a manually-rounded row no longer changes an unrelated row, and `:Daylog log` is now
+  order-independent.** When an entry carried a `round±N` nudge and was then logged (`:Daylog log` /
+  `!L`), the frozen row's residual used to be forced onto another activity's duration (and the day
+  total) to keep an abstract whole-day rounded total; logging a second row could then even commit it at
+  the wrong value depending on which row was logged first. Frozen rows are now held at their committed
+  value and the remaining rows round to *their own* total (`quantize.frozen_aware_target`, used by both
+  the display and the committed-value path), so the day total is the honest sum of the displayed parts
+  and each `!L` value is the row's displayed duration regardless of logging order. Logging now obeys the
+  same rounding a `round±N` nudge already does — summaries combining `!L` with a nudge render
+  consistently with the un-logged case, so their derived output changes on upgrade.
+
 ### Added
 
 - **`:Daylog export csv|json [range]` writes a machine-readable summary.** Export a day or a range

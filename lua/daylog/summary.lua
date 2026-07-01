@@ -325,9 +325,7 @@ function M.summarize_entries(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
   local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
   local unrounded_summary = build_summary_from_rows(unrounded_rows)
-  local target_total =
-    quantize.round_to_nearest_bucket(unrounded_summary.activity_total, bucket_minutes)
-  local quantized_rows = quantize.quantize_rows(unrounded_rows, bucket_minutes, target_total)
+  local quantized_rows = quantize.quantize_fine_grained(unrounded_rows, bucket_minutes)
   local quantized_summary = build_summary_from_rows(quantized_rows)
 
   local summary = {
@@ -374,14 +372,7 @@ end
 function M.fine_grained_quantized(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
   local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
-
-  local activity_total = 0
-  for _, row in ipairs(unrounded_rows) do
-    activity_total = activity_total + row.duration
-  end
-
-  local target_total = quantize.round_to_nearest_bucket(activity_total, bucket_minutes)
-  return quantize.quantize_rows(unrounded_rows, bucket_minutes, target_total), bucket_minutes
+  return quantize.quantize_fine_grained(unrounded_rows, bucket_minutes), bucket_minutes
 end
 
 -- The activity-identity key of a fine-grained row or interval, EXCLUDING its logged state:

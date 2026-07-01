@@ -1,7 +1,6 @@
 local analyze = require("daylog.analyze")
 local diagnostics = require("daylog.diagnostics")
 local document = require("daylog.document")
-local quantize = require("daylog.quantize")
 local recover_headers = require("daylog.usecases.recover_headers")
 local summary = require("daylog.summary")
 local support = require("daylog.usecases.support")
@@ -24,26 +23,18 @@ local M = {}
 -- the shell publishes them as buffer diagnostics so they clear when fixed.
 
 -- A frozen `!L<minutes>` value records what was committed externally, and the
--- quantizer holds the row there. That stays honest only while it still reconciles
--- with the log: a value must be a non-negative multiple of the block's q (else it
--- cannot foot a bucket), and the frozen values together cannot exceed the log's
--- rounded activity total (else there is no budget left for the un-frozen rows). When
--- either breaks -- a q change, an edit inside a logged interval, deleted activity --
--- warn so the user re-runs :Daylog log to recommit. The summary still renders (the
--- quantizer re-foots honestly around the stale value); this only surfaces the drift.
+-- quantizer holds the row there. That stays honest only while the value still fits a
+-- bucket: it must be a non-negative multiple of the block's q. A q change or an edit
+-- inside a logged interval can leave it off-grid; warn so the user re-runs :Daylog log
+-- to recommit. (There is no "exceeds the log's total" failure: the un-frozen rows round
+-- to their OWN total around the commitments, so frozen values never share a budget.) The
+-- summary still renders around the stale value; this only surfaces the drift.
 local function frozen_drift_warnings(block)
   local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
 
   local warnings = {}
-  local frozen_total = 0
-  local activity_total = 0
-
   for _, row in ipairs(rows) do
-    activity_total = activity_total + (row.unrounded_duration or 0)
-
     if row.logged_minutes ~= nil then
-      frozen_total = frozen_total + row.logged_minutes
-
       if row.logged_minutes < 0 or row.logged_minutes % bucket_minutes ~= 0 then
         local at = row.source_entry_rows and row.source_entry_rows[1]
         if at then
@@ -57,13 +48,6 @@ local function frozen_drift_warnings(block)
         end
       end
     end
-  end
-
-  if frozen_total > quantize.round_to_nearest_bucket(activity_total, bucket_minutes) then
-    warnings[#warnings + 1] = {
-      row = block.start_row,
-      message = "daylog: frozen !L values exceed this log's rounded total; re-run :Daylog log to recommit",
-    }
   end
 
   return warnings

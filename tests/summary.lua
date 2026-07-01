@@ -569,8 +569,9 @@ return function(t)
 
   t.test("a frozen !L row holds its committed value when a later entry is appended", function()
     -- The reported bug: logging "logged item" at 1.00h (60m), then appending a
-    -- 2-minute task, used to restate it to 1.25h. Pinning holds it at 60 and the new
-    -- bucket flows to "other task" while the total stays the honest rounded value.
+    -- 2-minute task, used to restate it to 1.25h. Pinning holds it at 60; the un-frozen
+    -- rows round to their OWN nearest-bucket total, so a frozen row can never push them
+    -- around (the committed under-count lands on the total, not on an unrelated row).
     local before = summary.summarize_block(block_from_lines({
       "--- log ---",
       "00:00 logged item !L60",
@@ -585,14 +586,72 @@ return function(t)
       "01:07 other task",
       "01:09 new task",
     }))
-    -- logged item is unchanged; other task absorbs the leftover bucket.
+    -- logged item is unchanged; the 2-minute "other task" rounds to its own honest 0
+    -- instead of being inflated to a full bucket to prop up an abstract whole-day total.
     t.eq(after.summary_items[1].text, "logged item")
     t.eq(after.summary_items[1].duration, 60)
     t.eq(after.summary_items[1].error_minutes, 7)
     t.eq(after.summary_items[2].text, "other task")
-    t.eq(after.summary_items[2].duration, 15)
-    t.eq(after.summary_items[2].error_minutes, -13)
-    t.eq(after.activity_total, 75)
+    t.eq(after.summary_items[2].duration, 0)
+    t.eq(after.summary_items[2].error_minutes, 2)
+    t.eq(after.activity_total, 60)
+  end)
+
+  t.test("logging a manually-rounded row does not move an un-frozen row", function()
+    -- thing two is manually rounded down (round-1) then logged at that value (!L60). The
+    -- un-frozen "thing one" must keep its own honest 60 -- the nudge's residual lands on
+    -- the total (120, not the abstract round(128) = 135), never on an unrelated row.
+    local s = summary.summarize_entries(
+      block_from_lines({
+        "--- log ---",
+        "08:00 thing one",
+        "09:00 thing two round-1 !L60",
+        "10:08 done",
+      }).entries,
+      15
+    )
+
+    local by_text = {}
+    for _, item in ipairs(s.summary_items) do
+      by_text[item.text] = item
+    end
+    t.eq(by_text["thing one"].duration, 60)
+    t.eq(by_text["thing one"].error_minutes, 0)
+    t.eq(by_text["thing two"].duration, 60)
+    t.eq(by_text["thing two"].error_minutes, 8)
+    t.eq(by_text["thing two"].nudge, -1)
+    t.eq(by_text["thing two"].logged, true)
+    t.eq(s.activity_total, 120)
+
+    -- The logged/unlogged split follows: 60 logged (thing two), 60 unlogged (thing one).
+    local logged, unlogged
+    for _, total in ipairs(s.logged_totals) do
+      if total.logged then
+        logged = total
+      else
+        unlogged = total
+      end
+    end
+    t.eq(logged.duration, 60)
+    t.eq(unlogged.duration, 60)
+  end)
+
+  t.test("fine_grained_quantized matches the display whether or not a sibling is frozen", function()
+    -- :Daylog log commits the value fine_grained_quantized reports, so it must agree with
+    -- summarize_entries. The order-dependence bug: with thing two frozen, thing one used to
+    -- quantize to the stale whole-day target (75) here while the display showed 60 -- so
+    -- logging thing one second committed !L75. Both now use the frozen-aware target.
+    local function thing_one(second_line)
+      local block =
+        block_from_lines({ "--- log ---", "08:00 thing one", second_line, "10:08 done" })
+      for _, row in ipairs(summary.fine_grained_quantized(block.entries, block.quantize_minutes)) do
+        if row.text == "thing one" then
+          return row.duration
+        end
+      end
+    end
+    t.eq(thing_one("09:00 thing two round-1"), 60) -- thing two un-frozen
+    t.eq(thing_one("09:00 thing two round-1 !L60"), 60) -- thing two frozen: still 60, not 75
   end)
 
   t.test("logged_value_conflicts flags entries under one row that disagree on !L", function()

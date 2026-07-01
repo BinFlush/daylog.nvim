@@ -270,6 +270,13 @@ For each full-grain row `r`, start at `base(r) = floor(exact(r) / q) * q` with
 give one extra bucket to the `k` rows with the largest remainders, breaking ties
 by first-seen order. The per-row rounding error is `exact(r) - quantized(r)`.
 
+Logged (`!L<n>`) rows are frozen external commitments: each is held at its
+committed `n` and pulled out of the pass, so `A` above is the *un-frozen* exact
+total and the commitments are added back on top (`quantize.frozen_aware_target`).
+The day total is thus the honest sum of the displayed parts — the un-frozen rows
+round only among themselves, so a frozen row (including one carrying its own
+`round±N`) can never push an un-frozen row to prop up an abstract whole-day total.
+
 Quantized rows project into displayed sections:
 
 ```text

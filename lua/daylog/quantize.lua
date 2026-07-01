@@ -13,6 +13,28 @@ function M.round_to_nearest_bucket(minutes, bucket_minutes)
   return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
 end
 
+-- The quantization target for a set of fine-grained rows. Frozen (`logged_minutes`)
+-- rows are external commitments held at exactly their committed value, so they are not
+-- rounded: the un-frozen rows round to their OWN nearest-bucket total and the frozen
+-- commitments are added on top. The day total is thus the honest sum of the displayed
+-- parts -- a frozen row's manual `round±N` (which lowers only its own value) can no
+-- longer push an un-frozen row around to keep some abstract whole-day total. With no
+-- frozen rows this is just `round_to_nearest_bucket` of the whole, as before.
+function M.frozen_aware_target(rows, bucket_minutes)
+  local frozen_total = 0
+  local unfrozen_unrounded = 0
+
+  for _, row in ipairs(rows) do
+    if row.logged_minutes ~= nil then
+      frozen_total = frozen_total + row.logged_minutes
+    else
+      unfrozen_unrounded = unfrozen_unrounded + (row.unrounded_duration or row.duration)
+    end
+  end
+
+  return M.round_to_nearest_bucket(unfrozen_unrounded, bucket_minutes) + frozen_total
+end
+
 local function copy_rows(rows)
   local result = {}
 
@@ -50,8 +72,10 @@ end
 -- A row carrying `logged_minutes` is a frozen external commitment: it is held at
 -- exactly that value and pulled OUT of the largest-remainder pool, so the leftover
 -- buckets distribute only over the un-frozen rows against the reduced budget
--- `target_total - frozen_total`. The displayed total stays honest (still
--- `target_total`) while a committed row never moves when later entries are appended.
+-- `target_total - frozen_total`. With `target_total` from `frozen_aware_target` that
+-- budget is exactly the un-frozen rows' own nearest-bucket total, so a committed row
+-- never moves when later entries are appended, and its manual `round±N` can never push
+-- an un-frozen row around to prop up some abstract whole-day total.
 function M.quantize_rows(rows, bucket_minutes, target_total)
   local result = copy_rows(rows)
   local quantized_total = 0
@@ -121,6 +145,14 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   end
 
   return result
+end
+
+-- Quantize fine-grained rows the way daylog reports them: hold frozen (!L) rows at their
+-- commitment and round the un-frozen rows to their own bucket total (frozen_aware_target).
+-- The single entry point the display and the committed-value readers share, so they cannot
+-- drift apart (a past bug: the two computed the target separately and one lagged).
+function M.quantize_fine_grained(rows, bucket_minutes)
+  return M.quantize_rows(rows, bucket_minutes, M.frozen_aware_target(rows, bucket_minutes))
 end
 
 -- Reapply the rounded durations onto the unrounded ordered sections.

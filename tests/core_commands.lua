@@ -1178,7 +1178,8 @@ return function(t)
     t.eq(t.get_lines()[2], "00:00 logged item !L60")
 
     -- Append a third entry and refresh: largest-remainder alone would restate the
-    -- logged row to 1.25h, but the frozen value holds and the new task absorbs the bucket.
+    -- logged row to 1.25h, but the frozen value holds and the un-frozen rows round to
+    -- their own total (the 2-minute "other task" to 0), so nothing else is pushed around.
     local lines = t.get_lines()
     table.insert(lines, 4, "01:09 new task")
     t.set_lines(lines)
@@ -1194,8 +1195,41 @@ return function(t)
       return false
     end
     t.ok(has("1.00h (+7m) logged item !L"), "logged row should still read 1.00h")
-    t.ok(has("0.25h (-13m) other task"), "other task should absorb the leftover bucket")
-    t.ok(has("1.25h (-6m) workday"), "the total stays the honest rounded value")
+    t.ok(has("0.00h (+2m) other task"), "other task rounds to its own honest value")
+    t.ok(has("1.00h (+9m) workday"), "the total is the honest sum of the displayed parts")
+  end)
+
+  t.test("logging two rounded rows commits identical values in either order", function()
+    -- Reported order-dependence: `thing two round-1` then `thing one` used to commit
+    -- thing one at !L75 (stale whole-day target), while the reverse order gave !L60. The
+    -- committed value now tracks the frozen-aware display, so both orders converge.
+    local function summary_item_row(text)
+      for i, l in ipairs(t.get_lines()) do
+        if l:match("^%d[%d%.]*h %b()") and l:find(text, 1, true) then
+          return i
+        end
+      end
+    end
+    local function log_both(first, second)
+      t.reset({
+        "--- log ---",
+        "08:00 thing one",
+        "09:00 thing two round-1",
+        "10:08 done",
+      })
+      vim.cmd("Daylog refresh")
+      for _, text in ipairs({ first, second }) do
+        t.set_cursor(summary_item_row(text), 0)
+        vim.cmd("Daylog log")
+        vim.cmd("Daylog refresh")
+      end
+      return t.get_lines()
+    end
+
+    local two_then_one = log_both("thing two", "thing one")
+    t.eq(two_then_one, log_both("thing one", "thing two"))
+    t.eq(two_then_one[2], "08:00 thing one !L60")
+    t.eq(two_then_one[3], "09:00 thing two round-1 !L60")
   end)
 
   t.test("Daylog refresh warns when a frozen !L value no longer fits the bucket", function()
