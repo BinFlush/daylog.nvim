@@ -272,19 +272,61 @@ end
 -- log writes the number. The minutes ride on the marker itself rather than a separate token, so
 -- `round±N` remains the only free-standing rounding knob.
 
--- Parse a `!S`/`!T`/`!L`/`!W` logged marker (optionally frozen: `!S<minutes>`). Returns
--- (level, minutes) -- level one of "s"/"t"/"l"/"w", minutes a number or nil for a bare marker -- or
--- nil when the token is not a logged marker.
+-- Parse a compact logged marker: `!` then one or more level+value pairs, each a level letter
+-- (`S`/`T`/`L`/`W`) and an optional frozen minute count. So `!S225T525W525` and the separated
+-- `!S225 !T525 !W525` (one pair per token) -- and any mix -- both parse. Returns an ORDERED list of
+-- { level, minutes } (minutes nil for a bare marker), keeping repeats so the caller can reject a
+-- duplicated level, or nil when the token is not a logged marker (a stray non-level letter, or a value
+-- with no preceding level).
 function M.parse_logged_token(token)
-  local letter, digits = token:match("^!([STLW])(%d*)$")
-  if not letter then
+  local body = token:match("^!([A-Z%d]+)$")
+  if not body then
     return nil
   end
 
-  return LOGGED_LEVEL_OF[letter], digits ~= "" and tonumber(digits) or nil
+  local pairs_out = {}
+  local pos, len = 1, #body
+  while pos <= len do
+    local level = LOGGED_LEVEL_OF[body:sub(pos, pos)]
+    if not level then
+      return nil
+    end
+    pos = pos + 1
+    local digits = body:match("^%d*", pos)
+    pos = pos + #digits
+    pairs_out[#pairs_out + 1] = {
+      level = level,
+      minutes = digits ~= "" and tonumber(digits) or nil,
+    }
+  end
+
+  return pairs_out
 end
 
--- Render the logged marker for `level`: bare `!S`, or `!S<minutes>` when a frozen value is present.
+-- Render an entry's `logged` table ({ level -> minutes | true }) as one compact token: `!` then each
+-- present level's letter and frozen value in canonical S/T/L/W order (a bare marker contributes just its
+-- letter). Returns nil when nothing is logged. Parsing accepts the separated form too, so hand-written
+-- `!S60 !T120` round-trips to the compact `!S60T120`.
+function M.format_logged(logged)
+  if not logged then
+    return nil
+  end
+
+  local body = {}
+  for _, level in ipairs(M.LOGGED_LEVELS) do
+    local committed = logged[level]
+    if committed ~= nil then
+      body[#body + 1] = LOGGED_LETTER[level] .. (committed ~= true and committed or "")
+    end
+  end
+
+  if #body == 0 then
+    return nil
+  end
+  return "!" .. table.concat(body)
+end
+
+-- Render a single-level display marker (`!S`/`!T`/...) for a summary row, bare or `!S<minutes>`.
 function M.logged_token(level, minutes)
   local token = "!" .. LOGGED_LETTER[level]
   if minutes == nil then

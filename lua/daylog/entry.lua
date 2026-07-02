@@ -58,13 +58,11 @@ function M.format(entry, current_tag, current_location, current_offset)
     table.insert(parts, syntax.round_nudge_token(entry.nudge))
   end
 
-  -- Logged markers, one per level present in `entry.logged` ({ level -> committed minutes | true }),
-  -- in the canonical `!S !T !L !W` order. A frozen value emits `!S<n>`; a bare marker (`true`) `!S`.
-  for _, level in ipairs(syntax.LOGGED_LEVELS) do
-    local committed = entry.logged and entry.logged[level]
-    if committed then
-      table.insert(parts, syntax.logged_token(level, committed ~= true and committed or nil))
-    end
+  -- Logged markers ride in one compact token in canonical `S T L W` order (`!S60T120L90W480`); a bare
+  -- marker contributes just its letter (`!S`). Parsing still accepts the separated `!S60 !T120` form.
+  local logged = syntax.format_logged(entry.logged)
+  if logged then
+    table.insert(parts, logged)
   end
 
   return table.concat(parts, " ")

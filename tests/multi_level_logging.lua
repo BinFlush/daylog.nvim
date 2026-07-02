@@ -1,6 +1,6 @@
--- Phase 1 of multi-tier logging: the four level markers (!S summary, !T tag, !L location, !W workday)
--- parse and round-trip. Only !S acts on the summary yet (it is today's logging, renamed from !L);
--- !T/!L/!W are carried inert until Phase 2. Plus the one-time !L->!S migration.
+-- Multi-tier logging: the four level markers (!S summary, !T tag, !L location, !W workday) parse --
+-- compact (!S60T120L90W480) or separated (!S60 !T120 ...) -- round-trip to the compact form, and each
+-- acts on its own report section. Plus the one-time v0.1.x !L->!S migration.
 return function(t)
   local document = require("daylog.document")
   local analyze = require("daylog.analyze")
@@ -32,27 +32,46 @@ return function(t)
     t.eq(e.logged, { s = 60, t = 120, l = 90, w = 480 })
   end)
 
-  t.test("a bare marker stores true; the writer round-trips in fixed !S !T !L !W order", function()
-    local e = first_entry({ "--- log ---", "08:00 task !W !L !T", "09:00 done" })
-    t.eq(e.logged, { t = true, l = true, w = true })
-    t.eq(entry.format(e, nil, nil, nil), "08:00 task !T !L !W")
-  end)
+  t.test(
+    "a bare marker stores true; the writer emits one compact token in S/T/L/W order",
+    function()
+      local e = first_entry({ "--- log ---", "08:00 task !W !L !T", "09:00 done" })
+      t.eq(e.logged, { t = true, l = true, w = true })
+      t.eq(entry.format(e, nil, nil, nil), "08:00 task !TLW")
+    end
+  )
 
-  t.test("frozen values round-trip on every level", function()
+  t.test("frozen values round-trip on every level, in one compact token", function()
+    -- The separated form parses; the writer emits it compact.
     local e = first_entry({ "--- log ---", "08:00 x !S60 !T120 !L90 !W480", "09:00 done" })
-    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S60 !T120 !L90 !W480")
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S60T120L90W480")
   end)
 
-  t.test("parse_logged_token returns the level, or nil for a non-marker", function()
-    t.eq(select(1, syntax.parse_logged_token("!T30")), "t")
-    t.eq(select(2, syntax.parse_logged_token("!T30")), 30)
-    t.eq(syntax.parse_logged_token("!L"), "l")
+  t.test("parse_logged_token returns level+value pairs, or nil for a non-marker", function()
+    t.eq(syntax.parse_logged_token("!T30"), { { level = "t", minutes = 30 } })
+    t.eq(syntax.parse_logged_token("!L"), { { level = "l" } }) -- bare: minutes absent
+    t.eq(syntax.parse_logged_token("!S225T525W525"), {
+      { level = "s", minutes = 225 },
+      { level = "t", minutes = 525 },
+      { level = "w", minutes = 525 },
+    })
     t.eq(syntax.parse_logged_token("!X"), nil)
-    t.eq(syntax.parse_logged_token("!Slamas"), nil) -- letters after the level are not a marker
+    t.eq(syntax.parse_logged_token("!Slamas"), nil) -- lowercase after the level is not a marker
+    t.eq(syntax.parse_logged_token("!5"), nil) -- a value with no preceding level is not a marker
+  end)
+
+  t.test("the compact and separated forms parse identically, and write back compact", function()
+    local compact = first_entry({ "--- log ---", "08:00 x !S225T525W525", "09:00 done" })
+    local separated = first_entry({ "--- log ---", "08:00 x !S225 !T525 !W525", "09:00 done" })
+    t.eq(compact.logged, { s = 225, t = 525, w = 525 })
+    t.eq(separated.logged, compact.logged)
+    t.eq(entry.format(compact, nil, nil, nil), "08:00 x !S225T525W525")
+    t.eq(entry.format(separated, nil, nil, nil), "08:00 x !S225T525W525")
   end)
 
   t.test("two markers of the same level are the error; different levels are fine", function()
     t.eq(diagnostics({ "--- log ---", "08:00 t !T !T", "09:00 done" }), 1)
+    t.eq(diagnostics({ "--- log ---", "08:00 t !TT", "09:00 done" }), 1) -- a compact repeat too
     t.eq(diagnostics({ "--- log ---", "08:00 t !S !T !L !W", "09:00 done" }), 0)
   end)
 
@@ -67,13 +86,13 @@ return function(t)
     local out = support.apply_edits(old, migrate.run(old).edits)
     t.eq(out[2], "08:00 a @office !S60") -- frozen value preserved
     t.eq(out[3], "09:00 b !S") -- bare marker preserved
-    t.eq(out[4], "10:00 c !S45 !T30") -- only !L moves; a co-located !T is left alone
+    t.eq(out[4], "10:00 c !S45T30") -- only !L moves; a co-located !T is left alone (emitted compact)
   end)
 
   t.test("a frozen-zero marker (`!S0`) round-trips and stays frozen", function()
     local e = first_entry({ "--- log ---", "08:00 x !S0 !T0", "09:00 done" })
     t.eq(e.logged, { s = 0, t = 0 })
-    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S0 !T0")
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S0T0")
   end)
 
   t.test("leading zeros in a frozen value normalize (`!S007` -> `!S7`)", function()

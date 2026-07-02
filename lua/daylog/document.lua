@@ -51,9 +51,9 @@ local function parse_entry_control_token(token)
     return kind, value, clear
   end
 
-  local level, logged_minutes = syntax.parse_logged_token(token)
-  if level then
-    return syntax.TOKEN_KIND.LOGGED, { level = level, minutes = logged_minutes }, false
+  local logged_pairs = syntax.parse_logged_token(token)
+  if logged_pairs then
+    return syntax.TOKEN_KIND.LOGGED, logged_pairs, false
   end
 
   -- A `round±N` rounding-balance marker is per-entry and non-sticky (like a logged marker), so it
@@ -152,35 +152,38 @@ local function parse_entry_metadata(text)
   for i = split_index + 1, #tokens do
     local kind, value, clear = parse_entry_control_token(tokens[i])
 
-    -- Logging is per-level: two `!T` on one entry is the error, but `!S` beside `!T` is fine, so the
-    -- duplicate key is per-level for logged markers and per-kind for everything else.
-    local dup_key = kind
     if kind == syntax.TOKEN_KIND.LOGGED then
-      dup_key = kind .. ":" .. value.level
-    end
-    if seen[dup_key] then
-      if kind == syntax.TOKEN_KIND.LOGGED then
-        return nil, "duplicate trailing !" .. value.level:upper() .. " markers are not allowed"
+      -- Logging is per-level, and one token may carry several levels (`!S225T525W525`). Each level is
+      -- its own marker, so a repeat -- within this token or across tokens -- is the duplicate error.
+      -- The `logged` table is keyed by level ("s"/"t"/"l"/"w"), each holding its committed minutes or
+      -- `true` for a bare marker; the summary fold derives the row's scalar logged state from `.s`.
+      for _, pair in ipairs(value) do
+        local dup_key = "logged:" .. pair.level
+        if seen[dup_key] then
+          return nil, "duplicate trailing !" .. pair.level:upper() .. " markers are not allowed"
+        end
+        seen[dup_key] = true
+        result.logged = result.logged or {}
+        result.logged[pair.level] = pair.minutes ~= nil and pair.minutes or true
       end
-      return nil, DUPLICATE_METADATA[kind]
-    end
-    seen[dup_key] = true
+    else
+      -- Every other trailing control token is per-kind: at most one tag, location, offset, or nudge.
+      if seen[kind] then
+        return nil, DUPLICATE_METADATA[kind]
+      end
+      seen[kind] = true
 
-    if kind == syntax.TOKEN_KIND.TAG then
-      result.explicit_tag = value
-      result.explicit_tag_clear = clear or nil
-    elseif kind == syntax.TOKEN_KIND.LOCATION then
-      result.explicit_location = value
-      result.explicit_location_clear = clear or nil
-    elseif kind == syntax.TOKEN_KIND.OFFSET then
-      result.explicit_offset = value
-    elseif kind == syntax.TOKEN_KIND.NUDGE then
-      result.nudge = value
-    elseif kind == syntax.TOKEN_KIND.LOGGED then
-      -- One `logged` table keyed by level ("s"/"t"/"l"/"w"), each holding its committed minutes or
-      -- `true` for a bare marker. The summary fold derives the row's scalar logged state from `.s`.
-      result.logged = result.logged or {}
-      result.logged[value.level] = value.minutes ~= nil and value.minutes or true
+      if kind == syntax.TOKEN_KIND.TAG then
+        result.explicit_tag = value
+        result.explicit_tag_clear = clear or nil
+      elseif kind == syntax.TOKEN_KIND.LOCATION then
+        result.explicit_location = value
+        result.explicit_location_clear = clear or nil
+      elseif kind == syntax.TOKEN_KIND.OFFSET then
+        result.explicit_offset = value
+      elseif kind == syntax.TOKEN_KIND.NUDGE then
+        result.nudge = value
+      end
     end
   end
 

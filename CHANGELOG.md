@@ -50,6 +50,10 @@ happen, but they are called out clearly in this changelog.
   whole workday — freezing the group at its displayed total and stamping the committed value on its
   entries, or clearing the marker to unlog. `#ooo` rows (and the `non-work` total) are refused at every
   level.
+- **Logged markers write as one compact token.** An entry's markers ride in a single token in
+  `S T L W` order — `!S225T525W525` instead of `!S225 !T525 !W525` — for terser lines. The separated
+  form (and any mix) still parses, so existing logs keep working; the writer normalizes to the compact
+  token on the next rewrite.
 
 - **BREAKING — the logged marker `!L` is now `!S`.** Logging is becoming multi-level: an entry can be
   logged at the summary (`!S`), tag (`!T`), location (`!L`), or workday (`!W`) level, each independently.

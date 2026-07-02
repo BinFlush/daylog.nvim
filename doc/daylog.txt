@@ -135,10 +135,12 @@ Rules:
   See |daylog-mapping|.
 - A logged marker records that the interval has been reported to an external system, at one
   of four independent levels: `!S` (its summary row), `!T` (its tag), `!L` (its location), or
-  `!W` (the workday). An entry may carry several, e.g. `!S !T`. An optional minute count --
-  `!S<minutes>`, written by |:Daylog-log| -- freezes that level's row at its committed value,
-  so appending later entries can never restate it (see below). A bare marker is logged but
-  unfrozen. `#ooo` time can never be logged, at any level.
+  `!W` (the workday). An optional minute count -- `!S<minutes>`, written by |:Daylog-log| --
+  freezes that level's row at its committed value, so appending later entries can never restate
+  it (see below). A bare marker is logged but unfrozen. `#ooo` time can never be logged, at any
+  level. An entry may carry several levels in one compact token, in `S T L W` order:
+  `!S225T525W525` (mixing frozen and bare, e.g. `!S60T`). The separated form `!S225 !T525 !W525`
+  parses too; the writer always emits the compact token.
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
   |daylog-sticky-metadata|. It is only needed when the clock moves (travel or
   DST) and is invisible otherwise.
