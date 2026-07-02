@@ -194,13 +194,18 @@ function M.constrained_quantize(granules, bucket_minutes, commitments)
         ordered[#ordered + 1] = index
       end
       -- Give buckets to the rows that most want to round up (largest remainder), or take them off the
-      -- rows that most want to round down (smallest remainder), so the shift adds the least error.
+      -- rows that most want to round down (smallest remainder), so the shift adds the least error. Two
+      -- explicit branches, not the `cond and X or Y` idiom -- X (`ra > rb`) can be false, which would
+      -- collapse the idiom to `ra < rb` and yield a non-antisymmetric comparator (Lua rejects it).
       table.sort(ordered, function(a, b)
-        if remainder(result[a]) == remainder(result[b]) then
+        local ra, rb = remainder(result[a]), remainder(result[b])
+        if ra == rb then
           return a < b
         end
-        return up and remainder(result[a]) > remainder(result[b])
-          or remainder(result[a]) < remainder(result[b])
+        if up then
+          return ra > rb
+        end
+        return ra < rb
       end)
 
       local remaining = math.abs(delta) / bucket_minutes

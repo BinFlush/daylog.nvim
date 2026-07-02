@@ -338,8 +338,32 @@ local function generate(rng, mode_name)
         parts[#parts + 1] = syntax.round_nudge_token(rng:choice({ -2, -1, 1, 2 }))
       end
 
+      -- A logged commitment, exercising every level (!S/!T/!L/!W), bare AND numeric, compact AND
+      -- separated. A numeric value is an on-grid multiple of q perturbed around the interval, so it
+      -- lands both above and below each cell's honest total -- absorb, surplus-propagate, and
+      -- cross-cutting infeasible sets all get hit. Footing must hold for every one of these (the
+      -- infeasible set falls back to the honest quantization), so this is the net that proves the whole
+      -- commitment math -- constrained_quantize, the display split, and the feasibility fallback.
       if rng:chance(params.p_log) then
-        parts[#parts + 1] = "!S"
+        local markers = {}
+        for _, level in ipairs({ "S", "T", "L", "W" }) do
+          if rng:chance(0.45) then
+            local value = ""
+            if rng:chance(0.7) then
+              value = tostring(rng:int(0, 6) * params.q)
+            end
+            markers[#markers + 1] = level .. value
+          end
+        end
+        if #markers > 0 then
+          if rng:chance(0.5) then
+            parts[#parts + 1] = "!" .. table.concat(markers) -- compact
+          else
+            for _, marker in ipairs(markers) do
+              parts[#parts + 1] = "!" .. marker -- separated
+            end
+          end
+        end
       end
 
       lines[#lines + 1] = table.concat(parts, " ")

@@ -885,6 +885,32 @@ return function(t)
     t.ok(found, "expected a contradiction diagnostic")
   end)
 
+  t.test("logging the workday with !W splits the totals and foots", function()
+    -- Two non-#ooo activities (120 honest workday) plus a #ooo lunch; !W90 (under the honest workday)
+    -- splits the workday total into a reported 90 + a remaining 30, non-work stays one row, all foots.
+    local result = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 a #x @o !W90",
+      "09:00 b #y @o !W90",
+      "10:00 lunch #ooo",
+      "10:30 done",
+    }))
+    t.eq(result.activity_total, 150)
+    t.eq(result.workday_total, 120)
+    assert_activity_totals_match(t, result)
+    t.eq(total_duration(result.total_rows), 150)
+    local workday_logged, non_work
+    for _, row in ipairs(result.total_rows) do
+      if row.workday_excluded then
+        non_work = row.duration
+      elseif row.logged then
+        workday_logged = row.duration
+      end
+    end
+    t.eq(workday_logged, 90) -- reported slice held at the committed value
+    t.eq(non_work, 30) -- the #ooo lunch
+  end)
+
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
       "--- log @office q=30 ---",

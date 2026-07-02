@@ -249,7 +249,7 @@ return function(t)
     return minutes
   end
 
-  local function generate_entries()
+  local function generate_entries(quantize_minutes)
     local entry_count = math.random(2, 12)
     local minutes = generate_sorted_minutes(entry_count)
     local entries = {}
@@ -258,13 +258,31 @@ return function(t)
       local tag = denil(choice(TAGS))
       local location = denil(choice(LOCATIONS))
 
-      table.insert(entries, {
+      local semantic_entry = {
         minutes = minutes[index],
         text = choice(ACTIVITIES),
         tag = tag,
         location = location,
         workday_excluded = tag == "ooo",
-      })
+      }
+
+      -- Occasionally commit the entry at one or more levels, with on-grid values (so displayed
+      -- durations stay bucket multiples) that land above and below each cell's honest total. This
+      -- drives the split / absorb / surplus-propagate / cross-cutting paths through the semantic core.
+      -- #ooo can never be logged, so it is skipped there.
+      if tag ~= "ooo" and math.random() < 0.35 then
+        local logged = {}
+        for _, level in ipairs({ "s", "t", "l", "w" }) do
+          if math.random() < 0.4 then
+            logged[level] = math.random(0, 6) * quantize_minutes
+          end
+        end
+        if next(logged) ~= nil then
+          semantic_entry.logged = logged
+        end
+      end
+
+      table.insert(entries, semantic_entry)
     end
 
     return entries
@@ -274,8 +292,8 @@ return function(t)
     math.randomseed(SEED)
 
     for case_number = 1, CASES do
-      local entries = generate_entries()
       local quantize_minutes = choice(QUANTIZE_MINUTES)
+      local entries = generate_entries(quantize_minutes)
       local context = case_context(case_number, entries, quantize_minutes)
       local unrounded_summary = summary.summarize_entries(entries, 1)
       local quantized_summary = summary.summarize_entries(entries, quantize_minutes)
