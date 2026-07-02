@@ -35,8 +35,9 @@ return function(t)
 
   -- T1/T2/T3 at the minute level: pure partition-sum identities over the cells.
   local function assert_partition_invariants(ctx, s)
-    -- T1: each section is a partition that sums to its OWN total (tag/location
-    -- totals round on their own axis and can differ from activity after a nudge).
+    -- T1: each section is a partition that sums to its OWN total. A balance nudge is inherited by the
+    -- tag/location totals (they are the same time under a different grouping), so those totals differ
+    -- from activity only when a per-level `!S`/`!T`/`!L` commitment freezes a slice away from the rest.
     eq(sum_field(s.summary_items, "duration"), s.activity_total, ctx .. " T1 items=activity")
     eq(sum_field(s.tag_totals, "duration"), s.tag_total, ctx .. " T1 tags=tag_total")
     eq(sum_field(s.location_totals, "duration"), s.location_total, ctx .. " T1 locs=location_total")

@@ -180,27 +180,48 @@ local function append_field(list, field)
   return out
 end
 
+local GRANULE_FIELDS = { "text", "tag", "location", "workday_excluded", "logged" }
+
 local function project_section(intervals, key_fields, level, bucket_minutes)
-  local group_fields = append_field(key_fields, "logged")
-  local carry_fields = append_field(group_fields, "logged_minutes")
+  local display_fields = append_field(key_fields, "logged")
 
   local adapted = {}
   for _, interval in ipairs(intervals) do
     local committed = interval.logged_by_level and interval.logged_by_level[level]
     local logged = committed ~= nil and not interval.workday_excluded
 
-    local row = { duration = interval.duration }
-    for _, field in ipairs(key_fields) do
-      row[field] = interval[field]
-    end
-    row.logged = logged or nil
-    row.logged_minutes = (logged and type(committed) == "number") and committed or nil
-    adapted[#adapted + 1] = row
+    adapted[#adapted + 1] = {
+      text = interval.text,
+      tag = interval.tag,
+      location = interval.location,
+      workday_excluded = interval.workday_excluded,
+      duration = interval.duration,
+      nudge = interval.nudge,
+      logged = logged or nil,
+      logged_minutes = (logged and type(committed) == "number") and committed or nil,
+    }
   end
 
-  -- No source-row provenance on tag/location rows: nothing reads it (diagnostics anchor via the block's
-  -- entry_items), and omitting it keeps these rows the shape the reports and combine already expect.
-  local rows = projection.project_rows(adapted, group_fields, carry_fields, false)
+  -- Fold in two levels, exactly as the main summary does: first to activity granules (nudge "max" --
+  -- a granule's entries share one balance nudge), then to the section's display rows (nudge "sum" --
+  -- accumulate each granule's nudge). This is what carries a `round±N` balance from an activity into
+  -- its tag and location totals; quantize_rows then applies that summed nudge to the unfrozen slice
+  -- only, so a frozen `!T`/`!L` slice is unaffected. No source-row provenance -- nothing reads it on
+  -- these rows (diagnostics anchor via entry_items), and omitting it keeps their shape.
+  local granules = projection.project_rows(
+    adapted,
+    GRANULE_FIELDS,
+    append_field(GRANULE_FIELDS, "logged_minutes"),
+    false,
+    "max"
+  )
+  local rows = projection.project_rows(
+    granules,
+    display_fields,
+    append_field(display_fields, "logged_minutes"),
+    false,
+    "sum"
+  )
   local items = quantize.quantize_fine_grained(rows, bucket_minutes)
 
   local total = 0

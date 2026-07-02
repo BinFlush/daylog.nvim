@@ -200,4 +200,35 @@ return function(t)
     t.ok(not has(out, "logged ---"), "the stale --- logged --- section is removed")
     t.ok(has(out, "1.00h (+0m) work !S"), "the summary is rebuilt with the main !S split")
   end)
+
+  t.test("a balance nudge on an activity flows into its tag and location totals", function()
+    local function summ(lines)
+      return summary.summarize_block(analyze.get_active_log(analyze.analyze(document.parse(lines))))
+    end
+
+    -- q=30: 'a' is 40 min (floors to 30). Without a nudge every section foots to 60.
+    local base =
+      summ({ "--- log q=30 ---", "08:00 a #X @office", "08:40 b #Y @office", "09:00 done" })
+    t.eq(base.tag_total, 60)
+    t.eq(base.location_total, 60)
+
+    -- round+1 lifts 'a' one bucket; its tag (#X) and location (@office) inherit the shift and stay
+    -- footed with the balanced activity total.
+    local nudged =
+      summ({ "--- log q=30 ---", "08:00 a #X @office round+1", "08:40 b #Y @office", "09:00 done" })
+    t.eq(nudged.activity_total, 90)
+    t.eq(nudged.tag_total, 90)
+    t.eq(nudged.location_total, 90)
+
+    -- A frozen tag ignores the nudge on its own axis (held at its !T commitment), while the unfrozen
+    -- location still follows it.
+    local frozen = summ({
+      "--- log q=30 ---",
+      "08:00 a #X @office round+1 !T30",
+      "08:40 b #Y @office",
+      "09:00 done",
+    })
+    t.eq(frozen.tag_total, 60)
+    t.eq(frozen.location_total, 90)
+  end)
 end

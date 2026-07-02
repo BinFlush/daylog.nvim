@@ -1622,12 +1622,12 @@ return function(t)
     t.eq(s.workday_total, 60)
     t.eq(s.workday_nudge, 1)
 
-    -- The nudge shifts the MAIN axis only. The tag and location sections round on
-    -- their own axis (50 true -> 45 at q=15) and carry no nudge.
-    t.eq(s.tag_total, 45)
-    t.eq(s.tag_totals[1].nudge, nil)
-    t.eq(s.location_total, 45)
-    t.eq(s.location_totals[1].nudge, nil)
+    -- The nudge flows into the tag and location totals too -- they are the same time under a
+    -- different grouping -- so each section inherits the shift and stays footed with the balanced main.
+    t.eq(s.tag_total, 60)
+    t.eq(s.tag_totals[1].nudge, 1)
+    t.eq(s.location_total, 60)
+    t.eq(s.location_totals[1].nudge, 1)
   end)
 
   t.test("a no-nudge log summarizes with no nudge fields (zero overhead)", function()
