@@ -597,4 +597,20 @@ return function(t)
     t.eq(out[2], "08:00 gamma")
     t.eq(out[4], "10:00 alpha") -- the closing entry keeps its text
   end)
+
+  t.test("rename refuses a summary-logged entry; its commitment is tied to its identity", function()
+    -- Renaming a logged entry's text would carry its !S onto a new identity (silent under-reporting),
+    -- so rename refuses it like map does -- both by cursor and over a range.
+    local lines = { "--- log ---", "08:00 foo !S30", "09:00 bar !S30", "10:00 done" }
+    local cursor, cursor_err = rename_summary.run(lines, 2, "bar")
+    t.eq(cursor, nil)
+    t.eq(cursor_err, rename_summary.REFUSE_LOGGED)
+
+    local ranged, ranged_err = rename_summary.run_range(lines, 2, 3, "baz")
+    t.eq(ranged, nil)
+    t.eq(ranged_err, rename_summary.REFUSE_LOGGED)
+
+    -- An unlogged entry renames normally.
+    t.eq(rename({ "--- log ---", "08:00 foo", "09:00 done" }, 2, "bar")[2], "08:00 bar")
+  end)
 end
