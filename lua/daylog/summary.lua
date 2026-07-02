@@ -76,7 +76,7 @@ M.build_intervals = build_intervals
 -- The block's closing entry (its final entry) starts no interval, so its row never lands in a
 -- summary item's `source_entry_rows` -- yet it still carries an activity identity. Return its row
 -- when it WOULD group into `item` were another entry to follow it: same resolved text, tag, #ooo
--- exclusion, and logged state that `build_intervals`/`summarize_items` key on. Lets identity edits
+-- exclusion, and logged state that `build_intervals`/`build_granules` key on. Lets identity edits
 -- (:Daylog map / :Daylog rename) reach a same-activity entry that currently happens to close the log.
 -- Returns nil when there is no entry or it does not match. `entries` is the block's `entries` list
 -- (its `.row` equals the entry item's `start_row`, the coordinate the target sets use).
@@ -116,120 +116,211 @@ local function build_fine_grained_rows(intervals)
   )
 end
 
--- Main summary items fold across locations, concatenating provenance from
--- every fine-grained row that shares the same (text, tag, workday_excluded,
--- logged) identity.
-local function summarize_items(rows)
+-- The cell an interval/granule belongs to at each level: an activity for the summary level, a tag / a
+-- location for those. (`w`/workday handling is deferred with the totals reframe.)
+local function cell_key(row, level)
+  if level == "t" then
+    return row.tag or "\0notag"
+  elseif level == "l" then
+    return row.location or "\0noloc"
+  end
+  return table.concat({ row.text or "", row.tag or "", row.workday_excluded and "1" or "0" }, "\0")
+end
+
+-- Group intervals into granules -- the finest cell every partition coarsens: (text, tag, location,
+-- workday_excluded). Each granule carries its real duration, its balance nudge (shared across its
+-- entries, so folded by "max"), the per-level committed table (`logged_by_level`, identical within a
+-- granule since a commitment is written on all a cell's entries), and source provenance.
+local function build_granules(intervals)
   return projection.project_rows(
-    rows,
-    { "text", "tag", "workday_excluded", "logged" },
-    { "text", "tag", "workday_excluded", "logged" },
-    true
+    intervals,
+    { "text", "tag", "location", "workday_excluded" },
+    { "text", "tag", "location", "workday_excluded", "logged_by_level" },
+    true,
+    "max"
   )
 end
 
-local function summarize_metadata(rows, field)
-  return projection.project_rows(rows, { field }, { field })
-end
+-- Honest largest-remainder quantization of the granules, then SURPLUS inflation: for each committed
+-- cell (a numeric `!S`/`!T`/`!L` value) whose commitment exceeds the cell's honest rounded total, raise
+-- the cell's granules to the committed value (distributing the surplus to the largest remainders). A
+-- commitment at or below the honest total does NOT move a granule -- its "reported vs remaining" split
+-- is a display concern (build_section_rows), so the cell stays at its honest total and every partition
+-- still foots. Returns the quantized granules (with `duration`, `unrounded_duration`, `error_minutes`).
+local function quantize_granules(granules, intervals, bucket_minutes)
+  local unrounded_total = 0
+  for _, g in ipairs(granules) do
+    unrounded_total = unrounded_total + (g.unrounded_duration or g.duration)
+  end
+  local honest = quantize.quantize_rows(
+    granules,
+    bucket_minutes,
+    quantize.round_to_nearest_bucket(unrounded_total, bucket_minutes)
+  )
 
--- Project one row set into every reporting section.
--- Main summary items fold location away, while tag and location totals keep
--- their own label fields and all totals are derived from the same source rows.
-local function build_summary_from_rows(rows)
-  local activity_total = 0
-  local workday_total = 0
-  local activity_nudge = 0
-  local workday_nudge = 0
+  -- Collect only the OVER-committed cells (committed value beyond the cell's honest total). Those are
+  -- the ones whose surplus must inflate the cell (and so propagate to every partition); a commitment at
+  -- or below the honest total leaves the granules alone and is split at display time. The committed
+  -- value is read from the intervals (the source of truth -- robust to how granules fold). Index order
+  -- is preserved from `granules`, so member lists index straight into constrained_quantize's copy.
+  local commitments = {}
+  for _, level in ipairs({ "s", "t", "l" }) do
+    local committed = {}
+    for _, interval in ipairs(intervals) do
+      local value = interval.logged_by_level and interval.logged_by_level[level]
+      if type(value) == "number" and not interval.workday_excluded then
+        committed[cell_key(interval, level)] = value
+      end
+    end
 
-  for _, row in ipairs(rows) do
-    activity_total = activity_total + row.duration
-    activity_nudge = activity_nudge + (row.nudge or 0)
-
-    if not row.workday_excluded then
-      workday_total = workday_total + row.duration
-      workday_nudge = workday_nudge + (row.nudge or 0)
+    local members = {}
+    for index, g in ipairs(honest) do
+      if not g.workday_excluded then
+        local key = cell_key(g, level)
+        if committed[key] ~= nil then
+          members[key] = members[key] or {}
+          table.insert(members[key], index)
+        end
+      end
+    end
+    for key, member_indices in pairs(members) do
+      local current = 0
+      for _, index in ipairs(member_indices) do
+        current = current + honest[index].duration
+      end
+      if committed[key] > current then
+        commitments[#commitments + 1] = { members = member_indices, target = committed[key] }
+      end
     end
   end
 
-  return {
-    summary_items = summarize_items(rows),
-    tag_totals = summarize_metadata(rows, "tag"),
-    location_totals = summarize_metadata(rows, "location"),
-    activity_total = activity_total,
-    workday_total = workday_total,
-    activity_nudge = activity_nudge,
-    workday_nudge = workday_nudge,
-  }
-end
-
--- Project the intervals into one report section (tags or locations), split by `level`'s logged flag
--- and quantized INDEPENDENTLY -- frozen-aware on that level's committed values. The section rounds its
--- own real totals, so it foots to its own returned total, which can differ from the main activity
--- total by a bucket once per-level commitments diverge (the intended multi-level behavior). `key_fields`
--- are the section's grouping fields ({ "tag" } / { "location" }). Because the fold is exactly the
--- grouping (no location to collapse, unlike main), the quantized rows are the display items directly.
---
--- #ooo time can never be logged, so a workday-excluded interval always lands in the section's UNLOGGED
--- slice regardless of any contradictory marker it carries -- logging_diagnostics surfaces the mistake.
-local function append_field(list, field)
-  local out = {}
-  for i, value in ipairs(list) do
-    out[i] = value
+  if #commitments == 0 then
+    return honest
   end
-  out[#out + 1] = field
-  return out
+  return quantize.constrained_quantize(granules, bucket_minutes, commitments)
 end
 
-local GRANULE_FIELDS = { "text", "tag", "location", "workday_excluded", "logged" }
+local function key_of(row, key_fields)
+  local parts = {}
+  for _, field in ipairs(key_fields) do
+    parts[#parts + 1] = tostring(row[field])
+  end
+  return table.concat(parts, "\0")
+end
 
-local function project_section(intervals, key_fields, level, bucket_minutes)
-  local display_fields = append_field(key_fields, "logged")
+-- Build one report section (activities / tags / locations) from the shared quantized granules, split by
+-- `level`'s marker. The cell TOTAL and any balance nudge come from the granules -- so every section is a
+-- re-sum of the one quantization and they all foot -- while the logged/unlogged SPLIT comes from the
+-- intervals (the source of truth for which entries carry the marker and its committed value):
+--   * a committed cell renders a logged row shown at `V` plus an unlogged row shown at `total - V` (the
+--     honest remainder, which absorbs the commitment's over/under-shoot); the unlogged row is omitted
+--     when 0 (an over-commitment already inflated the cell in quantize_granules, so `total == V`);
+--   * a cell with only bare markers, or none, renders one honest row.
+-- Row residuals come from each slice's real duration; provenance is the slice's source rows, so
+-- :Daylog log / map / balance can recover the entries behind a rendered row. The nudge marker rides the
+-- unlogged/plain row (the live part); a frozen logged slice never carries one.
+local function build_section_rows(quantized, intervals, key_fields, level)
+  local total, nudge = {}, {}
+  for _, g in ipairs(quantized) do
+    local key = key_of(g, key_fields)
+    total[key] = (total[key] or 0) + g.duration
+    if g.nudge and g.nudge ~= 0 then
+      nudge[key] = (nudge[key] or 0) + g.nudge
+    end
+  end
 
-  local adapted = {}
+  local cells, order = {}, {}
   for _, interval in ipairs(intervals) do
-    local committed = interval.logged_by_level and interval.logged_by_level[level]
-    local logged = committed ~= nil and not interval.workday_excluded
-
-    adapted[#adapted + 1] = {
-      text = interval.text,
-      tag = interval.tag,
-      location = interval.location,
-      workday_excluded = interval.workday_excluded,
-      duration = interval.duration,
-      nudge = interval.nudge,
-      logged = logged or nil,
-      logged_minutes = (logged and type(committed) == "number") and committed or nil,
-    }
+    local key = key_of(interval, key_fields)
+    local cell = cells[key]
+    if not cell then
+      cell = {
+        key = key,
+        fields = {},
+        logged_real = 0,
+        unlogged_real = 0,
+        logged_rows = {},
+        unlogged_rows = {},
+      }
+      for _, field in ipairs(key_fields) do
+        cell.fields[field] = interval[field]
+      end
+      cells[key] = cell
+      order[#order + 1] = cell
+    end
+    local marker = interval.logged_by_level and interval.logged_by_level[level]
+    if marker ~= nil and not interval.workday_excluded then
+      cell.logged_real = cell.logged_real + interval.duration
+      cell.logged_rows[#cell.logged_rows + 1] = interval.source_entry_row
+      if type(marker) == "number" then
+        cell.committed = marker
+      else
+        cell.bare = true
+      end
+    else
+      cell.unlogged_real = cell.unlogged_real + interval.duration
+      cell.unlogged_rows[#cell.unlogged_rows + 1] = interval.source_entry_row
+    end
   end
 
-  -- Fold in two levels, exactly as the main summary does: first to activity granules (nudge "max" --
-  -- a granule's entries share one balance nudge), then to the section's display rows (nudge "sum" --
-  -- accumulate each granule's nudge). This is what carries a `round±N` balance from an activity into
-  -- its tag and location totals; quantize_rows then applies that summed nudge to the unfrozen slice
-  -- only, so a frozen `!T`/`!L` slice is unaffected. No source-row provenance -- nothing reads it on
-  -- these rows (diagnostics anchor via entry_items), and omitting it keeps their shape.
-  local granules = projection.project_rows(
-    adapted,
-    GRANULE_FIELDS,
-    append_field(GRANULE_FIELDS, "logged_minutes"),
-    false,
-    "max"
-  )
-  local rows = projection.project_rows(
-    granules,
-    display_fields,
-    append_field(display_fields, "logged_minutes"),
-    false,
-    "sum"
-  )
-  local items = quantize.quantize_fine_grained(rows, bucket_minutes)
-
-  local total = 0
-  for _, item in ipairs(items) do
-    total = total + item.duration
+  local function with_fields(cell)
+    local row = {}
+    for field, value in pairs(cell.fields) do
+      row[field] = value
+    end
+    return row
   end
 
-  return items, total
+  -- Only the main summary rows carry source-entry provenance: :Daylog log / map / split / rename /
+  -- balance act on activity rows and read it. Tag/location logging finds a cell's entries by its own
+  -- field (log_current.log_section_row), so those rows stay provenance-free, as they always have.
+  local main = level == "s"
+
+  local rows = {}
+  for _, cell in ipairs(order) do
+    local cell_total = total[cell.key] or 0
+    if cell.committed ~= nil then
+      local remainder = cell_total - cell.committed
+      local logged = with_fields(cell)
+      logged.logged = true
+      logged.duration = cell.committed
+      -- The logged row carries the marked entries' real. When the remaining slice is shown as its own
+      -- row it carries the unmarked real; when it is dropped -- an over-commitment inflated the cell so
+      -- remainder is 0 -- no other row carries the unmarked real, so the logged row absorbs it. This
+      -- keeps a section's rows a partition of the cell's real (their unrounded durations sum to it), so
+      -- this row's residual matches every other section that shows the same inflated time.
+      logged.unrounded_duration = cell.logged_real + (remainder > 0 and 0 or cell.unlogged_real)
+      logged.source_entry_rows = main and cell.logged_rows or nil
+      rows[#rows + 1] = logged
+
+      if remainder > 0 then
+        local unlogged = with_fields(cell)
+        unlogged.duration = remainder
+        unlogged.unrounded_duration = cell.unlogged_real
+        unlogged.source_entry_rows = main and cell.unlogged_rows or nil
+        unlogged.nudge = nudge[cell.key]
+        rows[#rows + 1] = unlogged
+      end
+    else
+      local row = with_fields(cell)
+      row.logged = cell.bare or nil
+      row.duration = cell_total
+      row.unrounded_duration = cell.logged_real + cell.unlogged_real
+      row.nudge = nudge[cell.key]
+      if main then
+        row.source_entry_rows = {}
+        for _, source_row in ipairs(cell.logged_rows) do
+          row.source_entry_rows[#row.source_entry_rows + 1] = source_row
+        end
+        for _, source_row in ipairs(cell.unlogged_rows) do
+          row.source_entry_rows[#row.source_entry_rows + 1] = source_row
+        end
+      end
+      rows[#rows + 1] = row
+    end
+  end
+
+  return quantize.apply_error_minutes(rows)
 end
 
 local function sort_by_duration(items)
@@ -340,38 +431,43 @@ end
 function M.summarize_entries(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
   local intervals = build_intervals(entries)
+  -- One shared quantization: granules (text, tag, location, work-class), rounded honestly + inflated
+  -- only where a commitment over-shoots. Every partition is a re-sum of these same granules, so all
+  -- foot to the same total and residual; commitments split a cell for DISPLAY (build_section_rows).
+  local quantized = quantize_granules(build_granules(intervals), intervals, bucket_minutes)
 
-  local unrounded_rows = build_fine_grained_rows(intervals)
-  local unrounded_summary = build_summary_from_rows(unrounded_rows)
-  local quantized_rows = quantize.quantize_fine_grained(unrounded_rows, bucket_minutes)
-  local quantized_summary = build_summary_from_rows(quantized_rows)
-
-  local tag_totals, tag_total = project_section(intervals, { "tag" }, "t", bucket_minutes)
-  local location_totals, location_total =
-    project_section(intervals, { "location" }, "l", bucket_minutes)
+  local activity_total, activity_real, activity_nudge = 0, 0, 0
+  local workday_total, workday_real, workday_nudge = 0, 0, 0
+  for _, g in ipairs(quantized) do
+    activity_total = activity_total + g.duration
+    activity_real = activity_real + (g.unrounded_duration or g.duration)
+    activity_nudge = activity_nudge + (g.nudge or 0)
+    if not g.workday_excluded then
+      workday_total = workday_total + g.duration
+      workday_real = workday_real + (g.unrounded_duration or g.duration)
+      workday_nudge = workday_nudge + (g.nudge or 0)
+    end
+  end
 
   local summary = {
-    summary_items = quantize.project_quantized_items(
-      unrounded_summary.summary_items,
-      quantized_summary.summary_items,
-      { "text", "tag", "workday_excluded", "logged" },
-      { "text", "tag", "workday_excluded", "logged" }
+    summary_items = build_section_rows(
+      quantized,
+      intervals,
+      { "text", "tag", "workday_excluded" },
+      "s"
     ),
-    tag_totals = tag_totals,
-    location_totals = location_totals,
-    activity_total = quantized_summary.activity_total,
-    workday_total = quantized_summary.workday_total,
-    tag_total = tag_total,
-    location_total = location_total,
-    activity_error_minutes = unrounded_summary.activity_total - quantized_summary.activity_total,
-    workday_error_minutes = unrounded_summary.workday_total - quantized_summary.workday_total,
+    tag_totals = build_section_rows(quantized, intervals, { "tag" }, "t"),
+    location_totals = build_section_rows(quantized, intervals, { "location" }, "l"),
+    activity_total = activity_total,
+    workday_total = workday_total,
+    -- Every section is a re-sum of the same granules, so tag/location foot to the activity total.
+    tag_total = activity_total,
+    location_total = activity_total,
+    activity_error_minutes = activity_real - activity_total,
+    workday_error_minutes = workday_real - workday_total,
   }
 
-  return finalize_summary(
-    summary,
-    quantized_summary.activity_nudge,
-    quantized_summary.workday_nudge
-  )
+  return finalize_summary(summary, activity_nudge, workday_nudge)
 end
 
 function M.summarize_block(block)

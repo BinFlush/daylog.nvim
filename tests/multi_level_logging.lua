@@ -220,15 +220,16 @@ return function(t)
     t.eq(nudged.tag_total, 90)
     t.eq(nudged.location_total, 90)
 
-    -- A frozen tag ignores the nudge on its own axis (held at its !T commitment), while the unfrozen
-    -- location still follows it.
+    -- The !T30 commitment splits the #X tag row for display (a logged 30 slice plus its unlogged
+    -- remainder), but every section is a projection of the one shared quantization, so the tag total
+    -- still foots to the balanced activity total (90), as does the unfrozen location.
     local frozen = summ({
       "--- log q=30 ---",
       "08:00 a #X @office round+1 !T30",
       "08:40 b #Y @office",
       "09:00 done",
     })
-    t.eq(frozen.tag_total, 60)
+    t.eq(frozen.tag_total, 90)
     t.eq(frozen.location_total, 90)
   end)
 end

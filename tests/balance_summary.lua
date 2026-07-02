@@ -325,14 +325,15 @@ return function(t)
     t.eq(result.cursor_row, big_row)
   end)
 
-  t.test("balancing a tag total is refused; tag totals round on their own axis", function()
+  t.test("balancing a tag total is refused; a tag row is not a valid balance target", function()
     local lines = buffer_with_summary({
       "--- log q=60 d=hm ---",
       "08:00 a #x",
       "09:00 b #y",
       "11:00 done",
     })
-    -- Tag and location totals now round independently, so balancing one is refused.
+    -- A tag/location total foots to the shared quantization; a nudge flows in from the activity axis
+    -- rather than being planned on the tag row itself, so choosing one as the target is refused.
     local x_row = row_of(lines, ") #x")
 
     local result, err = balance.run(lines, x_row, 2)

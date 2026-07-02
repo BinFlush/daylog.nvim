@@ -24,18 +24,22 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
-- **Logging is multi-level: tags and locations now split by their own logged state.** An entry can be
-  logged at the summary (`!S`), tag (`!T`), or location (`!L`) level independently (and `!W` for the
-  workday parses and round-trips). Each summary section now splits into a logged slice (held at its
-  committed value) and an unlogged slice, and a logged row renders with its level's marker (a logged tag
-  row shows `... #ClientA !T`, a logged location `... @home !L`). Logging an activity's summary no longer
-  changes what its tag or location reports — you log those separately. Each section quantizes on its own,
-  so once per-level commitments diverge a tag total can differ from the sum of its activity rows by a
-  rounding bucket. **The separate `--- logged ---` section is removed** (each section carries its own
-  split now) — a derived-output change, so summaries with logged work render differently on upgrade;
-  `:Daylog refresh` (or auto-summary) reclaims a stale `--- logged ---` section left by an older version.
-  `#ooo` time still cannot be logged at any level (now diagnosed per level). `:Daylog balance` acts on
-  the main/workday axis only; tag and location totals round independently and are refused there.
+- **Logging is multi-level, and every section still foots.** An entry can be logged at the summary
+  (`!S`), tag (`!T`), or location (`!L`) level independently (and `!W` for the workday parses and
+  round-trips). A logged section splits its cell into a reported slice (shown at the committed value) and
+  a remaining slice, and a logged row renders with its level's marker (a logged tag row shows
+  `... #ClientA !T`, a logged location `... @home !L`). All four sections are one shared quantization
+  projected four ways, so they always foot to the same total: a commitment that reports more or less than
+  the honest rounding is absorbed by the remaining slice (equal-and-opposite `(±Nm)` residuals), and an
+  over-commitment beyond the cell's tracked time propagates to every section. Logging an activity's
+  summary does not change what its tag or location reports — you log those separately. **The separate
+  `--- logged ---` section is removed** (each section carries its own split now) — a derived-output
+  change, so summaries with logged work render differently on upgrade; `:Daylog refresh` (or
+  auto-summary) reclaims a stale `--- logged ---` section left by an older version. `#ooo` time cannot be
+  logged at any level (diagnosed per level). A hand-typed bare marker (`!S` with no value) now just flags
+  the row logged rather than splitting it; only a committed value splits. `:Daylog balance` acts on an
+  activity or the workday total, and its nudge now flows into the tag and location totals too (they foot
+  to the balanced total); balancing directly on a tag or location row is refused.
 - **`:Daylog log` logs at the level of the row under the cursor.** On a main activity row it toggles
   `!S` (as before); on a `--- tags ---` row it toggles `!T` for that whole tag; on a `--- locations ---`
   row it toggles `!L` for that location — freezing the group at its displayed total and stamping the

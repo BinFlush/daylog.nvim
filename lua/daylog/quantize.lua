@@ -155,6 +155,78 @@ function M.quantize_fine_grained(rows, bucket_minutes)
   return M.quantize_rows(rows, bucket_minutes, M.frozen_aware_target(rows, bucket_minutes))
 end
 
+-- Quantize granule rows to buckets under cell-level commitments, treating each commitment as a
+-- rounding of its cell to a committed value. Two passes: (1) honest largest-remainder over all
+-- granules (respecting each granule's manual `nudge`); (2) shift each committed cell's granules so the
+-- cell sums to its `target` (a bucket multiple), moving buckets to the largest remainders (or off the
+-- smallest, for a round-down). Because every report partition is a re-sum of these same granules, all
+-- partitions then foot to the same total -- a commitment propagates everywhere the time appears, exactly
+-- like a nudge. `commitments` is a list of `{ members = {granule indices}, target = minutes }`; disjoint
+-- (single-level) and nested (laminar) commitments always succeed. Returns a fresh row list with
+-- `duration` + `error_minutes`.
+function M.constrained_quantize(granules, bucket_minutes, commitments)
+  local unrounded_total = 0
+  for _, row in ipairs(granules) do
+    unrounded_total = unrounded_total + (row.unrounded_duration or row.duration)
+  end
+
+  local result = M.quantize_rows(
+    granules,
+    bucket_minutes,
+    M.round_to_nearest_bucket(unrounded_total, bucket_minutes)
+  )
+
+  local function remainder(row)
+    return (row.unrounded_duration or row.duration) - row.duration
+  end
+
+  for _, commitment in ipairs(commitments or {}) do
+    local current = 0
+    for _, index in ipairs(commitment.members) do
+      current = current + result[index].duration
+    end
+
+    local delta = commitment.target - current
+    if delta ~= 0 then
+      local up = delta > 0
+      local ordered = {}
+      for _, index in ipairs(commitment.members) do
+        ordered[#ordered + 1] = index
+      end
+      -- Give buckets to the rows that most want to round up (largest remainder), or take them off the
+      -- rows that most want to round down (smallest remainder), so the shift adds the least error.
+      table.sort(ordered, function(a, b)
+        if remainder(result[a]) == remainder(result[b]) then
+          return a < b
+        end
+        return up and remainder(result[a]) > remainder(result[b])
+          or remainder(result[a]) < remainder(result[b])
+      end)
+
+      local remaining = math.abs(delta) / bucket_minutes
+      local cursor = 0
+      while remaining > 0 do
+        local index = ordered[(cursor % #ordered) + 1]
+        local row = result[index]
+        if up or row.duration >= bucket_minutes then
+          row.duration = row.duration + (up and bucket_minutes or -bucket_minutes)
+          remaining = remaining - 1
+        end
+        cursor = cursor + 1
+        if cursor > #ordered and not up then
+          -- every member is already at zero and we still owe a round-down: cannot go lower.
+          break
+        end
+      end
+    end
+  end
+
+  for _, row in ipairs(result) do
+    row.error_minutes = remainder(row)
+  end
+  return result
+end
+
 -- Reapply the rounded durations onto the unrounded ordered sections.
 -- The unrounded rows define the visible labels and true totals, while the rounded
 -- rows provide the displayed duration after one shared quantization pass.

@@ -24,9 +24,10 @@ local M = {}
 -- marker contributing to that row's scope; on an entry it removes that entry's marker.
 --
 -- Balancing acts on the main (summary-level) axis -- main rows, the activity total, and the workday
--- total -- because those share the one quantization base whose rounding a nudge shifts. The tag and
--- location sections quantize independently (each by its own level), so a main nudge does not move them
--- and they carry no nudge of their own yet; balancing is refused on a tag or location row.
+-- total. Every section is a re-sum of the one shared granule quantization, so a nudge planned here
+-- flows into the tag and location totals too (they stay footed with the balanced activity total).
+-- Choosing a tag or location row as the balance TARGET is refused for now -- balance an activity or
+-- the workday total (or an entry) instead.
 --
 -- Frozen logged rows (`!S<minutes>`) are held at their committed value and the
 -- quantizer ignores any nudge on them, so they are never selectable: a balance step
@@ -40,11 +41,11 @@ M.CANNOT_DOWN = "daylog: cannot round down further here; the contributing items 
 M.ONLY_LOGGED = "daylog: cannot balance here; the remaining items are all logged"
 M.NOTHING = "daylog: nothing to balance on this line"
 M.SECTION_NOT_BALANCEABLE =
-  "daylog: balance an activity or the workday total; tag and location totals round on their own"
+  "daylog: balance an activity or the workday total; a tag or location row can't be the balance target"
 
 -- The set of fine-grained rows a cursor line governs. A main row scopes its own
 -- (text, tag) across locations; the workday total scopes workday-eligible rows and the activity total
--- scopes all. (Tag and location totals are refused earlier -- they round independently.)
+-- scopes all. (Tag and location totals are refused earlier -- not a valid balance target.)
 local function scope_for(layout_row)
   local kind = layout_row.kind
   local item = layout_row.item

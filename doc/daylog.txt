@@ -153,13 +153,16 @@ Rules:
   `1.50h`.
 
 Logged markers are preserved by source rewrites such as copy and order. Each summary section
-splits itself by its own level: the summary rows by `!S`, the tag totals by `!T`, the location
-totals by `!L` -- a logged slice (held at its committed value) and an unlogged slice (still
-live). A logged row renders with its level's marker (a logged tag row `... #ClientA !T`, always
-bare -- the frozen minutes live only on the entry line). Because the levels are independent,
-logging an activity's summary does not change what its tag or location reports; you log those
-separately. Each section quantizes on its own, so once commitments differ across levels a tag
-total can differ from the sum of its activity rows by a rounding bucket.
+splits a committed cell by its own level: the summary rows by `!S`, the tag totals by `!T`, the
+location totals by `!L` -- a reported slice (shown at its committed value) and a remaining slice.
+A logged row renders with its level's marker (a logged tag row `... #ClientA !T`, always bare --
+the frozen minutes live only on the entry line). Because the levels are independent, logging an
+activity's summary does not change what its tag or location reports; you log those separately. A
+bare marker (`!T` with no number) just flags the row logged; only a committed value splits it.
+All four sections are one shared quantization, so they always foot to the same total: a
+commitment that reports more or less than the honest rounding is taken up by the remaining slice,
+and an over-commitment beyond the cell's tracked time inflates it and propagates to every
+section.
 
 Quantization normally distributes each log's rounding by largest remainder
 across every row at once, so adding an entry can shift the rounded duration of
@@ -620,8 +623,9 @@ clean total. This nudges the rounding to land it on the main (summary-level) axi
 
 - With the cursor on a summary row, the best contributing entry is rounded [steps]
   buckets further -- the least-error choice. The workday or activity total scopes all
-  its work and a main row its own activity. Tag and location totals round on their own
-  independent axis and are refused here (log or adjust their entries instead).
+  its work and a main row its own activity; the nudge flows into the tag and location
+  totals too, since every section foots to the same shared quantization. Balancing
+  directly on a tag or location row is refused (adjust the activity or its entries).
 - With the cursor on an entry, that entry is nudged directly.
 - The chosen entries gain a `round±N` marker; the summary is rebuilt and the marker is
   shown on every affected summary row. Run again to add more, with the opposite sign

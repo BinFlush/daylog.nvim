@@ -143,7 +143,9 @@ return function(t)
     })
   end)
 
-  t.test("multi-day report preserves logged separation through daily recomputation", function()
+  t.test("multi-day report preserves the logged flag through daily recomputation", function()
+    -- A bare `!S` flags the row as logged without splitting; aggregating across days keeps the
+    -- flag and foots to one honest row.
     local report = week.build_report({
       {
         date_label = "2026-05-18",
@@ -172,18 +174,10 @@ return function(t)
           text = "plan",
           tag = "ClientA",
           duration = 60,
-          unrounded_duration = 40,
-          error_minutes = -20,
+          unrounded_duration = 60,
+          error_minutes = 0,
           workday_excluded = false,
           logged = true,
-        },
-        {
-          text = "plan",
-          tag = "ClientA",
-          duration = 0,
-          unrounded_duration = 20,
-          error_minutes = 20,
-          workday_excluded = false,
         },
       },
       tag_totals = {

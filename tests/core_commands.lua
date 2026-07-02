@@ -1170,9 +1170,9 @@ return function(t)
     -- The source entry is frozen at its committed 60 minutes (1.00h).
     t.eq(t.get_lines()[2], "00:00 logged item !S60")
 
-    -- Append a third entry and refresh: largest-remainder alone would restate the
-    -- logged row to 1.25h, but the frozen value holds and the un-frozen rows round to
-    -- their own total (the 2-minute "other task" to 0), so nothing else is pushed around.
+    -- Append a third entry and refresh: the frozen logged slice holds at 1.00h, the block's
+    -- remaining honest time surfaces as an unlogged "logged item" slice, and the 2-minute
+    -- "other task" rounds to its own honest 0. The total is the honest sum of the parts.
     local lines = t.get_lines()
     table.insert(lines, 4, "01:09 new task")
     t.set_lines(lines)
@@ -1188,8 +1188,9 @@ return function(t)
       return false
     end
     t.ok(has("1.00h (+7m) logged item !S"), "logged row should still read 1.00h")
+    t.ok(has("0.25h (-15m) logged item"), "the unlogged remainder surfaces as its own row")
     t.ok(has("0.00h (+2m) other task"), "other task rounds to its own honest value")
-    t.ok(has("1.00h (+9m) workday"), "the total is the honest sum of the displayed parts")
+    t.ok(has("1.25h (-6m) workday"), "the total is the honest sum of the displayed parts")
   end)
 
   t.test("logging two rounded rows commits identical values in either order", function()
