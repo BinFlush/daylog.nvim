@@ -230,9 +230,26 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   end
 
   if #commitments == 0 then
-    return honest
+    return honest, true
   end
-  return quantize.constrained_quantize(granules, bucket_minutes, commitments)
+
+  local result = quantize.constrained_quantize(granules, bucket_minutes, commitments)
+  -- Feasibility. constrained_quantize applies commitments sequentially, so two over-committed cells at
+  -- different levels sharing a granule with contradictory targets (cross-cutting / non-laminar) can
+  -- leave a later commitment violating an earlier one. If any committed cell's members no longer sum to
+  -- its target, the set is jointly infeasible: fall back to the honest quantization -- so every section
+  -- still foots honestly instead of fabricating a value -- and signal it, so build_section_rows renders
+  -- without the split and logging_diagnostics warns.
+  for _, commitment in ipairs(commitments) do
+    local sum = 0
+    for _, index in ipairs(commitment.members) do
+      sum = sum + result[index].duration
+    end
+    if sum ~= commitment.target then
+      return honest, false
+    end
+  end
+  return result, true
 end
 
 local function key_of(row, key_fields)
@@ -254,7 +271,7 @@ end
 -- Row residuals come from each slice's real duration; provenance is the slice's source rows, so
 -- :Daylog log / map / balance can recover the entries behind a rendered row. The nudge marker rides the
 -- unlogged/plain row (the live part); a frozen logged slice never carries one.
-local function build_section_rows(quantized, intervals, key_fields, level)
+local function build_section_rows(quantized, intervals, key_fields, level, feasible)
   local total, nudge = {}, {}
   for _, g in ipairs(quantized) do
     local key = key_of(g, key_fields)
@@ -265,9 +282,14 @@ local function build_section_rows(quantized, intervals, key_fields, level)
   end
 
   -- The committed value per cell, summed across sub-scopes so a location-spanning `!S` is not last-wins.
-  local committed = committed_by_cell(intervals, level, function(interval)
-    return key_of(interval, key_fields)
-  end)
+  -- When the commitment set is jointly infeasible (cross-cutting contradiction), `feasible` is false and
+  -- every cell renders honestly (no split) so the section still foots -- the contradiction is surfaced
+  -- separately by logging_diagnostics.
+  local committed = feasible
+      and committed_by_cell(intervals, level, function(interval)
+        return key_of(interval, key_fields)
+      end)
+    or {}
 
   local cells, order = {}, {}
   for _, interval in ipairs(intervals) do
@@ -292,11 +314,9 @@ local function build_section_rows(quantized, intervals, key_fields, level)
     if marker ~= nil and not interval.workday_excluded then
       cell.logged_real = cell.logged_real + interval.duration
       cell.logged_rows[#cell.logged_rows + 1] = interval.source_entry_row
-      -- The committed VALUE comes from committed_by_cell (summed per sub-scope); a bare marker only
-      -- flags the cell logged.
-      if marker == true then
-        cell.bare = true
-      end
+      -- The committed VALUE comes from committed_by_cell; this flag marks the cell logged even when it
+      -- renders as one honest row (a bare marker, or a commitment suppressed because infeasible).
+      cell.logged = true
     else
       cell.unlogged_real = cell.unlogged_real + interval.duration
       cell.unlogged_rows[#cell.unlogged_rows + 1] = interval.source_entry_row
@@ -344,7 +364,7 @@ local function build_section_rows(quantized, intervals, key_fields, level)
       end
     else
       local row = with_fields(cell)
-      row.logged = cell.bare or nil
+      row.logged = cell.logged or nil
       row.duration = cell_total
       row.unrounded_duration = cell.logged_real + cell.unlogged_real
       row.nudge = nudge[cell.key]
@@ -496,7 +516,8 @@ function M.summarize_entries(entries, quantize_minutes)
   -- One shared quantization: granules (text, tag, location, work-class), rounded honestly + inflated
   -- only where a commitment over-shoots. Every partition is a re-sum of these same granules, so all
   -- foot to the same total and residual; commitments split a cell for DISPLAY (build_section_rows).
-  local quantized = quantize_granules(build_granules(intervals), intervals, bucket_minutes)
+  local quantized, feasible =
+    quantize_granules(build_granules(intervals), intervals, bucket_minutes)
 
   local activity_total, activity_real, activity_nudge = 0, 0, 0
   local workday_total, workday_real, workday_nudge = 0, 0, 0
@@ -516,13 +537,14 @@ function M.summarize_entries(entries, quantize_minutes)
       quantized,
       intervals,
       { "text", "tag", "workday_excluded" },
-      "s"
+      "s",
+      feasible
     ),
-    tag_totals = build_section_rows(quantized, intervals, { "tag" }, "t"),
-    location_totals = build_section_rows(quantized, intervals, { "location" }, "l"),
+    tag_totals = build_section_rows(quantized, intervals, { "tag" }, "t", feasible),
+    location_totals = build_section_rows(quantized, intervals, { "location" }, "l", feasible),
     -- The totals are a fourth partition: the workday cell (non-#ooo, loggable via !W) and the non-work
     -- cell (#ooo, never logged), which foot to the activity total exactly like tags and locations.
-    total_rows = build_section_rows(quantized, intervals, { "workday_excluded" }, "w"),
+    total_rows = build_section_rows(quantized, intervals, { "workday_excluded" }, "w", feasible),
     activity_total = activity_total,
     workday_total = workday_total,
     -- Every section is a re-sum of the same granules, so tag/location foot to the activity total.
@@ -690,6 +712,26 @@ function M.logging_diagnostics(block)
         ),
       }
     end
+  end
+
+  -- Cross-cutting commitments that cannot be jointly satisfied: two over-committed cells at different
+  -- levels share a granule with contradictory targets. quantize_granules then falls back to the honest
+  -- quantization (so every section still foots) and signals it here, so a committed value silently not
+  -- being honored is surfaced rather than hidden. Anchored at the earliest committed entry.
+  local _, feasible = quantize_granules(build_granules(intervals), intervals, bucket)
+  if not feasible then
+    local anchor
+    for _, item in ipairs(block.entry_items) do
+      for _, level in ipairs(syntax.LOGGED_LEVELS) do
+        if item.logged and type(item.logged[level]) == "number" then
+          anchor = anchor or item.start_row
+        end
+      end
+    end
+    out[#out + 1] = {
+      row = anchor or (block.entry_items[1] and block.entry_items[1].start_row) or 0,
+      message = "daylog: these logged commitments contradict each other and can't all be honored; adjust one",
+    }
   end
 
   return out

@@ -205,17 +205,24 @@ function M.constrained_quantize(granules, bucket_minutes, commitments)
 
       local remaining = math.abs(delta) / bucket_minutes
       local cursor = 0
+      local moved_this_cycle = false
       while remaining > 0 do
         local index = ordered[(cursor % #ordered) + 1]
         local row = result[index]
         if up or row.duration >= bucket_minutes then
           row.duration = row.duration + (up and bucket_minutes or -bucket_minutes)
           remaining = remaining - 1
+          moved_this_cycle = true
         end
         cursor = cursor + 1
-        if cursor > #ordered and not up then
-          -- every member is already at zero and we still owe a round-down: cannot go lower.
-          break
+        -- Round-down can run out of room (every member already at zero). Stop only after a FULL cycle
+        -- moved nothing -- not after a raw iteration count, which would abandon a still-feasible
+        -- reduction partway (`{90,30}` -> 0 must reach 0, not stop at 30). Up never gets stuck.
+        if not up and cursor % #ordered == 0 then
+          if not moved_this_cycle then
+            break
+          end
+          moved_this_cycle = false
         end
       end
     end

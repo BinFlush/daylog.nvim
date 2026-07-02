@@ -856,6 +856,35 @@ return function(t)
     end
   )
 
+  t.test("a cross-cutting infeasible commitment renders honestly and foots", function()
+    -- !T120 and !L90 commit the same 60m granule to contradictory over-values (non-laminar); the
+    -- quantizer can't satisfy both, so it falls back to the honest quantization -- every section foots
+    -- to 60 -- rather than fabricating a value that breaks footing.
+    local result = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "09:00 work #T @L !T120 !L90",
+      "10:00 stop",
+    }))
+    t.eq(result.activity_total, 60)
+    assert_activity_totals_match(t, result)
+    t.eq(total_duration(result.total_rows), 60)
+  end)
+
+  t.test("cross-cutting contradictory commitments are diagnosed", function()
+    local block = block_from_lines({
+      "--- log q=15 ---",
+      "09:00 work #T @L !T120 !L90",
+      "10:00 stop",
+    })
+    local found = false
+    for _, diagnostic in ipairs(summary.logging_diagnostics(block)) do
+      if diagnostic.message:find("contradict", 1, true) then
+        found = true
+      end
+    end
+    t.ok(found, "expected a contradiction diagnostic")
+  end)
+
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
       "--- log @office q=30 ---",
