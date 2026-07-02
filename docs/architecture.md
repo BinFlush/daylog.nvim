@@ -60,8 +60,11 @@ These dimensions each partition the interval set, so:
 
 ```text
 sum(item totals) = sum(tag totals) = sum(location totals) = activity total
-workday total    = sum(intervals where workday_excluded = false)
+workday total + non-work total = activity total   (non-work = #ooo time)
 ```
+
+The totals section is a fourth partition (`workday` = non-`#ooo`, `non-work` = `#ooo`), so it foots to
+the whole day exactly like tags and locations.
 
 The "activity text" an interval reports under is its **resolved label**: an entry's
 mapping alias (`=> label`) when it has one, else its own description. A bare entry and a
@@ -73,6 +76,33 @@ three the same. No command may assume an activity row is "really" a mapping or "
 bare description; both are first-class. (This is why renaming an entry may target a source
 item, and why renaming an activity _row_ — a group that may mix both — is refused; rename
 edits one entry's text, `:Daylog map` relabels the report.)
+
+## Logging
+
+An entry can be marked **logged** — reported to an external system — at any of four independent levels:
+`!S` (its summary row / activity), `!T` (its tag), `!L` (its location), `!W` (the workday). A frozen
+marker `!X<minutes>` commits that cell to a value; a bare `!X` only flags it. Markers write as one
+compact token in `S T L W` order (`!S225T525W525`); the separated form (`!S225 !T525`) parses too.
+`#ooo` time can never be logged. `:Daylog log` on a rendered row writes the marker on that cell's
+entries (a summary `!S` per (activity, location) slice, so a location-spanning activity's slices SUM);
+the markers live on the entries, so the summary stays a pure projection.
+
+Logging is **rounding that reports**. Every report section is a re-sum of ONE shared granule
+quantization, and a committed cell splits that honest total for display:
+
+```text
+reported slice  = the committed value V
+remaining slice = cell_total − V   (the honest remainder, which absorbs V's over/under-shoot)
+```
+
+so the cell — and every partition — still foots to its honest total (**absorb**). When `V` exceeds the
+cell's tracked time there is no remainder to absorb into, so the surplus inflates the cell's granules and
+propagates to every partition that contains them (**propagate**). The one honest limit: two
+over-commitments at cross-cutting levels (a tag and a location whose granule sets overlap without
+nesting) can contradict — no integer rounding satisfies both. The quantizer detects this after applying
+them, falls back to the honest quantization (so footing always holds), and `logging_diagnostics` warns
+that the commitments contradict. Diagnostics also flag an off-grid frozen value, a marker on `#ooo`, and
+same-cell values that disagree.
 
 ## Module overview
 
@@ -256,8 +286,8 @@ rounding error (`(+0m)` when exact). The summary header echoes the log's
 `syntax.summary_header` and regenerated on refresh, so the log header stays the
 single source of truth.
 
-Quantization rounds full-grain rows. The full grain is `activity text + tag +
-location + workday_excluded`; intervals sharing a grain are summed before
+Quantization rounds granules. The granule is `activity text + tag +
+location + workday_excluded`; intervals sharing a granule are summed before
 rounding. With bucket size `q` (default 15) and exact activity total `A`, the
 target rounded total is:
 
@@ -265,25 +295,24 @@ target rounded total is:
 Q = floor((A + q / 2) / q) * q
 ```
 
-For each full-grain row `r`, start at `base(r) = floor(exact(r) / q) * q` with
+For each granule `r`, start at `base(r) = floor(exact(r) / q) * q` with
 `remainder(r) = exact(r) - base(r)`. Let `B = sum base(r)` and `k = (Q - B) / q`;
 give one extra bucket to the `k` rows with the largest remainders, breaking ties
 by first-seen order. The per-row rounding error is `exact(r) - quantized(r)`.
 
-Logged (`!L<n>`) rows are frozen external commitments: each is held at its
-committed `n` and pulled out of the pass, so `A` above is the *un-frozen* exact
-total and the commitments are added back on top (`quantize.frozen_aware_target`).
-The day total is thus the honest sum of the displayed parts — the un-frozen rows
-round only among themselves, so a frozen row (including one carrying its own
-`round±N`) can never push an un-frozen row to prop up an abstract whole-day total.
+Logged commitments (`!S`/`!T`/`!L`/`!W<n>`) are handled per the **Logging** section above: the granule
+quantization stays honest, and a committed cell splits its honest total into a reported slice (`V`) and a
+remaining slice (`cell_total − V`) for display, so every section still foots. An over-commit beyond the
+cell's tracked time inflates its granules and propagates; a cross-cutting contradiction falls back to the
+honest quantization and is diagnosed (`quantize.constrained_quantize`, `summary.quantize_granules`).
 
-Quantized rows project into displayed sections:
+Quantized granules project into displayed sections:
 
 ```text
 main summary rows -> activity text + tag + workday_excluded
 tag totals        -> tag
 location totals   -> location
-overall totals    -> all rows
+overall totals    -> work-class (workday = non-#ooo, non-work = #ooo)
 ```
 
 Rows with `workday_excluded = true` contribute to activity totals but not workday
@@ -298,21 +327,22 @@ per-entry `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round
 
 The model is a single vector and a guarantee:
 
-- The **full-grain row** (`text+tag+location+workday_excluded+logged`) is the *only*
-  thing quantized. A nudge is one integer per row that overrides its bucket count
-  (`quantize.quantize_rows` second pass: `Q = max(0, base + (blocks + nudge)*q)`);
-  it changes only that row's value, never the row set or grouping.
+- The **granule** (`text + tag + location + workday_excluded`) is the *only* thing quantized; every
+  report section is a re-sum of the granules. A nudge is one integer per granule that overrides its
+  bucket count (`quantize.quantize_rows` second pass: `Q = max(0, base + (blocks + nudge)*q)`); it
+  changes only that granule's value, never the set or grouping. (A separate full-grain row that also
+  carries the `logged` flag feeds `:Daylog balance` and `logging_diagnostics`, not the display.)
 - A row's nudge is shared by all of its intervals, so the command marks **all** of
   them and they fold by signed max-magnitude (`projection.project_rows` `nudge_mode
   = "max"`); sections sum row nudges (`"sum"`) for the cumulative marker shown on
   every affected line.
-- **Footing is structural, not a rounding property.** Every displayed section is a
-  partition of the full-grain rows, and `Σ groups = Σ cells` holds for *any* cell
-  values — so no nudge configuration can break it. The corollaries follow: every
-  whole-cell level agrees on the activity total, `activity − workday = Σ ooo`, and
-  `displayed + residual = true` everywhere. The week aggregate (`combine_summaries`)
-  is the same partition one level up — pure sums of days, no re-quantization — so a
-  per-day nudge flows in unchanged.
+- **Footing is structural.** Every displayed section is a partition of the granules, and
+  `Σ groups = Σ cells` holds for *any* granule values — so no nudge configuration, and no feasible
+  commitment, can break it (a committed cell's reported + remaining slices sum to its granule total; an
+  infeasible cross-cutting set falls back to honest). The corollaries follow: every whole-cell level
+  agrees on the activity total, `activity − workday = Σ ooo`, and `displayed + residual = true`
+  everywhere. The week aggregate (`combine_summaries`) is the same partition one level up — pure sums of
+  days, no re-quantization — so a per-day nudge flows in unchanged.
 - The calculator distributes a requested group shift to the least-error rows
   (largest-remainder-optimal). A nudge necessarily moves one group on *every* axis
   it touches (each cell has a tag, a location, a title…); that coupling is inherent
