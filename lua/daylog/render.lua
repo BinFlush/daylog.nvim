@@ -14,20 +14,8 @@ local LAYOUT_KIND = {
 }
 M.LAYOUT_KIND = LAYOUT_KIND
 
-local function decimal_hours_string(minutes)
-  return string.format("%.2fh", minutes / 60)
-end
-
 local function hhmm_string(minutes)
   return string.format("%d:%02d", math.floor(minutes / 60), minutes % 60)
-end
-
-local function duration_string(minutes, duration_format)
-  if duration_format == syntax.DURATION_HM then
-    return hhmm_string(minutes)
-  end
-
-  return decimal_hours_string(minutes)
 end
 
 -- Distribute the 2-decimal-hour (centihour) display of a section's durations with
@@ -139,6 +127,11 @@ local function location_text(item)
   return "@" .. item.location
 end
 
+-- The totals partition labels its two cells by work-class: `workday` (non-#ooo) and `non-work` (#ooo).
+local function total_label(item)
+  return item.workday_excluded and "non-work" or "workday"
+end
+
 local function extend_lines(target, source)
   for _, line in ipairs(source) do
     table.insert(target, line)
@@ -169,16 +162,6 @@ end
 local function has_metadata_items(items, field)
   for _, item in ipairs(items or {}) do
     if item[field] ~= nil then
-      return true
-    end
-  end
-
-  return false
-end
-
-local function has_workday_excluded_items(items)
-  for _, item in ipairs(items or {}) do
-    if item.workday_excluded then
       return true
     end
   end
@@ -257,18 +240,6 @@ local function append_metadata_section(layout, items, opts)
   table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
 end
 
--- A totals row ("3.00h (+1m) workday"): the duration + rounding marker, the label, and any
--- footing nudge. The activity and workday totals differ only in label / total / error / nudge.
-local function total_layout_row(label, total, error_minutes, nudge, format)
-  local prefix = duration_with_error(duration_string(total, format), error_minutes)
-  return {
-    kind = LAYOUT_KIND.TOTAL,
-    section = "total",
-    total = label,
-    line = with_nudge(string.format("%s %s", prefix, label), nudge),
-  }
-end
-
 -- Build a structured summary layout that records both rendered text and the
 -- role each row plays.  Future commands can take a rendered summary row,
 -- recompute the same layout, and recover the underlying summary item via the
@@ -326,29 +297,20 @@ local function build_summary_layout(summary, duration_format, options)
 
   table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "total", line = headers.total })
 
-  if has_workday_excluded_items(summary.summary_items) then
-    table.insert(
-      layout,
-      total_layout_row(
-        "activity",
-        summary.activity_total,
-        summary.activity_error_minutes,
-        summary.activity_nudge,
-        format
-      )
-    )
+  -- The totals are the work-class partition: the workday cell (loggable via !W, so it can split into a
+  -- reported and a remaining row) and, when #ooo time exists, the non-work cell. They foot to the
+  -- activity total, so section_duration_strings distributes the display rounding across them.
+  local total_durations =
+    section_duration_strings(summary.total_rows or {}, summary.activity_total, format)
+  for i, item in ipairs(summary.total_rows or {}) do
+    table.insert(layout, {
+      kind = LAYOUT_KIND.TOTAL,
+      section = "total",
+      total = total_label(item),
+      line = with_nudge(metadata_line(item, total_durations[i], total_label, "w"), item.nudge),
+      item = item,
+    })
   end
-
-  table.insert(
-    layout,
-    total_layout_row(
-      "workday",
-      summary.workday_total,
-      summary.workday_error_minutes,
-      summary.workday_nudge,
-      format
-    )
-  )
 
   return layout
 end

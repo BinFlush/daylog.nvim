@@ -25,8 +25,8 @@ happen, but they are called out clearly in this changelog.
 ### Changed
 
 - **Logging is multi-level, and every section still foots.** An entry can be logged at the summary
-  (`!S`), tag (`!T`), or location (`!L`) level independently (and `!W` for the workday parses and
-  round-trips). A logged section splits its cell into a reported slice (shown at the committed value) and
+  (`!S`), tag (`!T`), location (`!L`), or workday (`!W`) level independently. A logged section splits its
+  cell into a reported slice (shown at the committed value) and
   a remaining slice, and a logged row renders with its level's marker (a logged tag row shows
   `... #ClientA !T`, a logged location `... @home !L`). All four sections are one shared quantization
   projected four ways, so they always foot to the same total: a commitment that reports more or less than
@@ -40,11 +40,16 @@ happen, but they are called out clearly in this changelog.
   the row logged rather than splitting it; only a committed value splits. `:Daylog balance` acts on an
   activity or the workday total, and its nudge now flows into the tag and location totals too (they foot
   to the balanced total); balancing directly on a tag or location row is refused.
+- **The `--- totals ---` section is a work-class partition, loggable with `!W`.** It now shows
+  `workday` (non-`#ooo` time) and, when there is out-of-office time, `non-work` (`#ooo`) — two cells that
+  foot to the whole day, replacing the old `activity` / `workday` pair. This is a derived-output change:
+  a day with `#ooo` renders `non-work` instead of an `activity` total on upgrade.
 - **`:Daylog log` logs at the level of the row under the cursor.** On a main activity row it toggles
   `!S` (as before); on a `--- tags ---` row it toggles `!T` for that whole tag; on a `--- locations ---`
-  row it toggles `!L` for that location — freezing the group at its displayed total and stamping the
-  committed value on its entries, or clearing the marker to unlog. `#ooo` rows are refused at every
-  level. (Logging the workday from its row still waits on the workday split; type `!W` by hand.)
+  row it toggles `!L` for that location; on the `--- totals ---` workday row it toggles `!W` for the
+  whole workday — freezing the group at its displayed total and stamping the committed value on its
+  entries, or clearing the marker to unlog. `#ooo` rows (and the `non-work` total) are refused at every
+  level.
 
 - **BREAKING — the logged marker `!L` is now `!S`.** Logging is becoming multi-level: an entry can be
   logged at the summary (`!S`), tag (`!T`), location (`!L`), or workday (`!W`) level, each independently.

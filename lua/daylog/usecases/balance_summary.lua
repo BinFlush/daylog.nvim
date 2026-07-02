@@ -59,13 +59,15 @@ local function scope_for(layout_row)
         and (row.logged == true) == (item.logged == true)
     end
   elseif kind == K.TOTAL then
-    if layout_row.total == "workday" then
+    -- The totals partition scopes its own work-class: the workday row the non-#ooo rows, the non-work
+    -- row the #ooo rows. (There is no longer a whole-day "activity" total row to scope everything.)
+    if layout_row.total == "non-work" then
       return function(row)
-        return not row.workday_excluded
+        return row.workday_excluded == true
       end
     end
-    return function()
-      return true
+    return function(row)
+      return not row.workday_excluded
     end
   end
 

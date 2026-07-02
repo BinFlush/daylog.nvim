@@ -13,12 +13,12 @@ local M = {}
 -- is rebuilt from the updated source (a pure projection, so no note preservation is needed).
 --
 -- The levels are independent, so marking a tag does not touch the summary or location markers on the
--- same entries. Out-of-office (`#ooo`) time can never be logged, at any level. Logging the workday
--- (`!W`) or an activity/totals row from its rendered row is not wired yet -- type `!W` by hand.
+-- same entries. Out-of-office (`#ooo`) time can never be logged, at any level -- so the totals' non-work
+-- row is refused, and only its workday row logs (`!W`, stamped on every non-#ooo entry).
 
 local REFUSE_OOO = "daylog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
-local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, or location row to log it"
+local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, location, or workday row to log it"
 
 -- The entry's logged table with `level` set to `committed` (the frozen minutes) on a mark, or removed
 -- (`committed == nil`) on an unmark -- preserving the entry's other levels. Always a table (never nil,
@@ -123,8 +123,10 @@ end
 -- sub-split (unlike the summary level's location axis), so marking freezes the WHOLE group at its
 -- current displayed section total and stamps that one value on every one of its entries; unmarking
 -- drops the marker from the entries currently logged at the level.
+local FIELD_BY_LEVEL = { t = "tag", l = "location", w = "workday_excluded" }
+
 local function log_section_row(analysis, block, item, level)
-  local field = level == "t" and "tag" or "location"
+  local field = FIELD_BY_LEVEL[level]
   local target_logged = not item.logged
 
   local group = {}
@@ -143,7 +145,12 @@ local function log_section_row(analysis, block, item, level)
   local overrides = {}
   if target_logged then
     local totals = summary.summarize_block(block)
-    local rows = level == "t" and totals.tag_totals or totals.location_totals
+    local rows = totals.tag_totals
+    if level == "l" then
+      rows = totals.location_totals
+    elseif level == "w" then
+      rows = totals.total_rows
+    end
     local committed = 0
     for _, row in ipairs(rows) do
       if row[field] == item[field] then
@@ -183,6 +190,10 @@ function M.run(lines, cursor_row)
     return log_section_row(result.ctx.analysis, result.ctx.block, layout_row.item, "t")
   elseif layout_row.kind == K.LOCATION_TOTAL then
     return log_section_row(result.ctx.analysis, result.ctx.block, layout_row.item, "l")
+  elseif layout_row.kind == K.TOTAL then
+    -- The totals partition: the workday row logs `!W`; the non-work (#ooo) row is refused inside
+    -- log_section_row, since #ooo time can never be logged.
+    return log_section_row(result.ctx.analysis, result.ctx.block, layout_row.item, "w")
   end
 
   return nil, NOT_LOGGABLE

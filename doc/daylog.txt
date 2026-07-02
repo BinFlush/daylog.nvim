@@ -311,7 +311,8 @@ GOTCHAS                                                      *daylog-gotchas*
   entries before the first marker are assumed to be at the header's offset.
 - Only trailing metadata tokens are parsed as metadata; multiple trailing tags,
   locations, or `utc` offsets are invalid.
-- `#ooo` counts as activity but is excluded from `workday` totals.
+- `#ooo` is excluded from the `workday` total and reported as `non-work`; the two foot to the
+  whole day.
 - Main summary rows do not split by location; locations are reported
   separately.
 - The active log is the latest `--- log ... ---` block in the file.
@@ -531,17 +532,17 @@ Rewrite all log blocks in chronological order.
 
 Toggle the logged state of the summary row under the cursor, at the level that row reports: a
 main (activity) row logs at the summary level (`!S`), a `--- tags ---` row at the tag level
-(`!T`), a `--- locations ---` row at the location level (`!L`). (Logging the workday from its
-row is not yet wired; type `!W` by hand.)
-- The cursor must be on a main, tag, or location row inside the summary block of the active
-  log. The summary is recomputed from source; the rendered row acts only as a
+(`!T`), a `--- locations ---` row at the location level (`!L`), and the `workday` row of
+`--- totals ---` at the workday level (`!W`).
+- The cursor must be on a main, tag, location, or workday total row inside the summary block of
+  the active log. The summary is recomputed from source; the rendered row acts only as a
   selector.
 - The logged state is toggled: an unlogged row's contributing entries gain that level's marker
-  -- `!S<minutes>` / `!T<minutes>` / `!L<minutes>`, freezing the row at its currently displayed
-  duration -- and a logged row's lose it. Marking a tag or location freezes the whole group at
-  one committed value; the summary block is regenerated afterwards.
-- Total rows, the workday total, and entry lines are not eligible; `#ooo` rows are refused at
-  every level.
+  -- `!S<minutes>` / `!T<minutes>` / `!L<minutes>` / `!W<minutes>`, freezing the row at its
+  currently displayed duration -- and a logged row's lose it. Marking a tag, location, or the
+  workday freezes the whole group at one committed value; the summary block is regenerated after.
+- The `non-work` total and entry lines are not eligible; `#ooo` rows (and the `non-work` total,
+  which is #ooo time) are refused at every level.
 - Summary rows that no longer match the recomputed summary are refused; run
   `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
 
@@ -622,9 +623,9 @@ remainder, so residuals can leave a day -- and a week -- a step or two short of 
 clean total. This nudges the rounding to land it on the main (summary-level) axis.
 
 - With the cursor on a summary row, the best contributing entry is rounded [steps]
-  buckets further -- the least-error choice. The workday or activity total scopes all
-  its work and a main row its own activity; the nudge flows into the tag and location
-  totals too, since every section foots to the same shared quantization. Balancing
+  buckets further -- the least-error choice. The workday total scopes its non-#ooo work and the
+  non-work total its #ooo work; a main row scopes its own activity. The nudge flows into the tag
+  and location totals too, since every section foots to the same shared quantization. Balancing
   directly on a tag or location row is refused (adjust the activity or its entries).
 - With the cursor on an entry, that entry is nudged directly.
 - The chosen entries gain a `round±N` marker; the summary is rebuilt and the marker is
@@ -1192,9 +1193,10 @@ derived from that same rounded base. Every row shows its rounding error in
 `(+Nm)` form (`+` rounded down, `-` rounded up, `(+0m)` when exact).
 
 Tag and location sections are omitted when they only contain placeholder buckets.
-The `activity` total is omitted when it is identical to `workday`.
-
-The special tag `#ooo` is excluded from `workday`, but included in `activity`.
+The `--- totals ---` section is the work-class partition: a `workday` row (non-#ooo time) and,
+when there is out-of-office time, a `non-work` row (`#ooo` time). The two foot to the whole day,
+and the `non-work` row is omitted when there is no `#ooo` time. Only the `workday` row is
+loggable (`!W`); `non-work` is refused, since `#ooo` time can never be logged.
 
 ==============================================================================
 DEVELOPMENT                                              *daylog-development*

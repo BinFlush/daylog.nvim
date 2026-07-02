@@ -67,8 +67,7 @@ return function(t)
         "",
         "--- summary q=15 d=dec ---",
         "",
-        "--- totals ---",
-        "0.00h (+0m) workday", -- no completed interval -> empty summary
+        "--- totals ---", -- no completed interval -> empty summary (no total rows)
       }
     )
   end)

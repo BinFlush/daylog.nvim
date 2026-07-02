@@ -117,12 +117,15 @@ local function build_fine_grained_rows(intervals)
 end
 
 -- The cell an interval/granule belongs to at each level: an activity for the summary level, a tag / a
--- location for those. (`w`/workday handling is deferred with the totals reframe.)
+-- location for those, and the work-class (workday vs non-work) for the totals level. #ooo time is the
+-- non-work cell and can never be logged, so `w` only ever commits the workday cell.
 local function cell_key(row, level)
   if level == "t" then
     return row.tag or "\0notag"
   elseif level == "l" then
     return row.location or "\0noloc"
+  elseif level == "w" then
+    return row.workday_excluded and "non-work" or "workday"
   end
   return table.concat({ row.text or "", row.tag or "", row.workday_excluded and "1" or "0" }, "\0")
 end
@@ -164,7 +167,7 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- value is read from the intervals (the source of truth -- robust to how granules fold). Index order
   -- is preserved from `granules`, so member lists index straight into constrained_quantize's copy.
   local commitments = {}
-  for _, level in ipairs({ "s", "t", "l" }) do
+  for _, level in ipairs({ "s", "t", "l", "w" }) do
     local committed = {}
     for _, interval in ipairs(intervals) do
       local value = interval.logged_by_level and interval.logged_by_level[level]
@@ -398,10 +401,31 @@ local function sort_summary_items(items)
   return items
 end
 
+-- The totals partition renders workday-first (it is the primary total, shown alone when there is no
+-- #ooo), then the non-work cell -- a fixed order rather than by-duration, so the non-work row appears
+-- below the workday rows when #ooo time exists instead of reordering them.
+local function order_total_rows(rows)
+  local ordered = {}
+  for _, row in ipairs(rows) do
+    if not row.workday_excluded then
+      ordered[#ordered + 1] = row
+    end
+  end
+  for _, row in ipairs(rows) do
+    if row.workday_excluded then
+      ordered[#ordered + 1] = row
+    end
+  end
+  return ordered
+end
+
 local function finalize_summary_order(summary)
   sort_summary_items(summary.summary_items)
   sort_by_duration(summary.tag_totals)
   sort_by_duration(summary.location_totals)
+  if summary.total_rows then
+    summary.total_rows = order_total_rows(summary.total_rows)
+  end
   return summary
 end
 
@@ -458,6 +482,9 @@ function M.summarize_entries(entries, quantize_minutes)
     ),
     tag_totals = build_section_rows(quantized, intervals, { "tag" }, "t"),
     location_totals = build_section_rows(quantized, intervals, { "location" }, "l"),
+    -- The totals are a fourth partition: the workday cell (non-#ooo, loggable via !W) and the non-work
+    -- cell (#ooo, never logged), which foot to the activity total exactly like tags and locations.
+    total_rows = build_section_rows(quantized, intervals, { "workday_excluded" }, "w"),
     activity_total = activity_total,
     workday_total = workday_total,
     -- Every section is a re-sum of the same granules, so tag/location foot to the activity total.
@@ -634,6 +661,7 @@ function M.combine_summaries(summaries)
   local summary_items = {}
   local tag_totals = {}
   local location_totals = {}
+  local total_rows = {}
   local activity_total = 0
   local workday_total = 0
   local tag_total = 0
@@ -664,6 +692,10 @@ function M.combine_summaries(summaries)
     for _, row in ipairs(item.location_totals or {}) do
       table.insert(location_totals, row)
     end
+
+    for _, row in ipairs(item.total_rows or {}) do
+      table.insert(total_rows, row)
+    end
   end
 
   local summary = {
@@ -681,6 +713,13 @@ function M.combine_summaries(summaries)
     ),
     location_totals = quantize.apply_error_minutes(
       projection.project_rows(location_totals, { "location", "logged" }, { "location", "logged" })
+    ),
+    total_rows = quantize.apply_error_minutes(
+      projection.project_rows(
+        total_rows,
+        { "workday_excluded", "logged" },
+        { "workday_excluded", "logged" }
+      )
     ),
     activity_total = activity_total,
     workday_total = workday_total,

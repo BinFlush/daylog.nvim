@@ -83,7 +83,6 @@ return function(t)
           "--- summary q=15 d=dec ---",
           "",
           "--- totals ---",
-          "0.00h (+0m) workday",
         },
       },
     })
@@ -125,7 +124,6 @@ return function(t)
           "--- summary q=15 d=dec ---",
           "",
           "--- totals ---",
-          "0.00h (+0m) workday",
         },
       },
     })

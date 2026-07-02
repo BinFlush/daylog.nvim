@@ -70,7 +70,6 @@ return function(t)
         "--- summary q=30 d=hm ---",
         "",
         "--- totals ---",
-        "0:00 (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
     end)
@@ -141,7 +140,6 @@ return function(t)
         "--- summary q=15 d=dec ---",
         "",
         "--- totals ---",
-        "0.00h (+0m) workday",
       })
       t.eq(vim.api.nvim_win_get_cursor(0), { 2, 6 })
     end)
@@ -250,7 +248,6 @@ return function(t)
         "--- summary q=15 d=dec ---",
         "",
         "--- totals ---",
-        "0.00h (+0m) workday",
       })
     end)
   end)
@@ -646,7 +643,6 @@ return function(t)
         "--- summary q=30 d=hm ---",
         "",
         "--- totals ---",
-        "0:00 (+0m) workday",
       })
     end)
   end)
@@ -1602,7 +1598,6 @@ return function(t)
         "--- summary q=15 d=dec ---",
         "",
         "--- totals ---",
-        "0.00h (+0m) workday",
       })
       -- The browsed day is left untouched.
       t.eq(vim.fn.readfile(past_path), {

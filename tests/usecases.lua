@@ -173,8 +173,8 @@ return function(t)
             "1.00h (+0m) (no location)",
             "",
             "--- totals ---",
-            "2.00h (+0m) activity",
             "1.00h (+0m) workday",
+            "1.00h (+0m) non-work",
           },
         },
       },
@@ -878,7 +878,7 @@ return function(t)
     }, 2)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
+    t.eq(err, "daylog: put the cursor on a summary, tag, location, or workday row to log it")
   end)
 
   t.test("log_current logs a tag-total row at the tag level", function()
@@ -974,8 +974,8 @@ return function(t)
     t.eq(err, "daylog: refusing to mark out-of-office time as logged")
   end)
 
-  t.test("log_current refuses total rows", function()
-    local result, err = log_current.run({
+  t.test("log_current logs the workday total row at the workday level", function()
+    local result = log_current.run({
       "--- log ---",
       "08:00 implementation",
       "09:00 done",
@@ -987,8 +987,65 @@ return function(t)
       "1.00h (+0m) workday",
     }, 9)
 
+    t.ok(result ~= nil, "the workday total row is loggable")
+    local marked = false
+    for _, edit in ipairs(result.edits) do
+      for _, line in ipairs(edit.lines) do
+        if line:find("!W60", 1, true) then
+          marked = true
+        end
+      end
+    end
+    t.ok(marked, "every non-#ooo entry is frozen at !W60")
+  end)
+
+  t.test("log_current unmarks a logged workday total row", function()
+    local result = log_current.run({
+      "--- log ---",
+      "08:00 implementation !W60",
+      "09:00 done !W60",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday !W",
+    }, 9)
+
+    t.ok(result ~= nil, "a logged workday total row is loggable")
+    local still_marked = false
+    for _, edit in ipairs(result.edits) do
+      for _, line in ipairs(edit.lines) do
+        if line:match("^%d%d:%d%d") and line:find("!W") then
+          still_marked = true
+        end
+      end
+    end
+    t.ok(not still_marked, "the workday marker is removed from every entry")
+  end)
+
+  t.test("log_current refuses to log the non-work total row", function()
+    local result, err = log_current.run({
+      "--- log ---",
+      "08:00 implementation",
+      "09:00 lunch #ooo",
+      "09:30 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation",
+      "0.50h (+0m) lunch",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) (untagged)",
+      "0.50h (+0m) #ooo",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+      "0.50h (+0m) non-work",
+    }, 16)
+
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
+    t.eq(err, "daylog: refusing to mark out-of-office time as logged")
   end)
 
   t.test("log_current refuses the summary section header line", function()
@@ -1122,7 +1179,7 @@ return function(t)
       }, 6)
 
       t.eq(result, nil)
-      t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
+      t.eq(err, "daylog: put the cursor on a summary, tag, location, or workday row to log it")
     end
   )
 
@@ -1137,7 +1194,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
+    t.eq(err, "daylog: put the cursor on a summary, tag, location, or workday row to log it")
   end)
 
   t.test("log_current refuses labeled summary-like headers after the active log", function()
@@ -1154,7 +1211,7 @@ return function(t)
     }, 6)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: put the cursor on a summary, tag, or location row to log it")
+    t.eq(err, "daylog: put the cursor on a summary, tag, location, or workday row to log it")
   end)
 
   t.test("log_current refuses summary-shaped block headers placed before the active log", function()

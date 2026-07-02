@@ -172,8 +172,8 @@ return function(t)
         "0.50h (+0m) @home !L", -- location level: the !L slice
         "",
         "--- totals ---",
-        "3.50h (+0m) activity",
         "3.00h (+0m) workday", -- #ooo lunch excluded from the workday
+        "0.50h (+0m) non-work", -- the #ooo lunch cell
       }
     )
   end)

@@ -199,10 +199,10 @@ return function(t)
     t.eq(err, balance.NOT_BALANCEABLE)
   end)
 
-  t.test("balance distinguishes the workday total (non-ooo) from the activity total", function()
-    -- work is non-ooo and exact (remainder 0); lunch is #ooo with the larger
-    -- remainder, so it is the activity total's best candidate but is excluded from
-    -- the workday total's scope.
+  t.test("balance distinguishes the workday total (non-ooo) from the non-work total", function()
+    -- work is non-ooo and exact (remainder 0); lunch is #ooo. Each total scopes only
+    -- its own work-class rows: the non-work total sees the #ooo lunch, the workday
+    -- total sees only the non-ooo work.
     local function sample_ooo()
       return buffer_with_summary({
         "--- log #ClientA @office q=15 ---",
@@ -212,18 +212,20 @@ return function(t)
       })
     end
 
-    -- The activity total spans all rows: +1 rounds up the larger-remainder #ooo row,
-    -- and leaves the workday total untouched.
-    local act = run(sample_ooo(), ") activity", 1)
-    t.eq(act[2], "08:00 work")
-    t.eq(act[3], "08:45 lunch #ooo round+1")
-    t.eq(act[row_of(act, ") workday")], "0.75h (+0m) workday")
+    -- The non-work total scopes the #ooo rows: +1 rounds up the lunch row and leaves
+    -- the workday total untouched.
+    local nw = run(sample_ooo(), ") non-work", 1)
+    t.eq(nw[2], "08:00 work")
+    t.eq(nw[3], "08:45 lunch #ooo round+1")
+    t.eq(nw[row_of(nw, ") workday")], "0.75h (+0m) workday")
+    t.eq(nw[row_of(nw, ") non-work")], "1.00h (-10m) non-work round+1")
 
-    -- The workday total excludes #ooo, so +1 must round up the non-ooo row instead.
+    -- The workday total excludes #ooo, so +1 must round up the non-ooo work row instead.
     local wd = run(sample_ooo(), ") workday", 1)
     t.eq(wd[2], "08:00 work round+1")
     t.eq(wd[3], "08:45 lunch #ooo")
     t.eq(wd[row_of(wd, ") workday")], "1.00h (-15m) workday round+1")
+    t.eq(wd[row_of(wd, ") non-work")], "0.75h (+5m) non-work")
   end)
 
   t.test("balance refuses when the cursor is not on a summary row or entry", function()

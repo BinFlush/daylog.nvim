@@ -34,7 +34,8 @@ return function(t)
   -- no-op on whole-minute durations). These helpers assert the unrounded shape by
   -- computing at q=1 and dropping the now-zero error fields.
   local function strip_errors(result)
-    local groups = { result.summary_items, result.tag_totals, result.location_totals }
+    local groups =
+      { result.summary_items, result.tag_totals, result.location_totals, result.total_rows }
 
     for _, group in ipairs(groups) do
       for _, item in ipairs(group) do
@@ -120,6 +121,18 @@ return function(t)
           unrounded_duration = 30,
         },
       },
+      total_rows = {
+        {
+          duration = 60,
+          unrounded_duration = 60,
+          workday_excluded = false,
+        },
+        {
+          duration = 15,
+          unrounded_duration = 15,
+          workday_excluded = true,
+        },
+      },
       activity_total = 75,
       workday_total = 60,
       tag_total = 75,
@@ -178,6 +191,18 @@ return function(t)
           unrounded_duration = 60,
         },
       },
+      total_rows = {
+        {
+          duration = 60,
+          unrounded_duration = 60,
+          workday_excluded = false,
+        },
+        {
+          duration = 60,
+          unrounded_duration = 60,
+          workday_excluded = true,
+        },
+      },
       activity_total = 120,
       workday_total = 60,
       tag_total = 120,
@@ -234,6 +259,18 @@ return function(t)
           location = "office",
           duration = 150,
           unrounded_duration = 150,
+        },
+      },
+      total_rows = {
+        {
+          duration = 120,
+          unrounded_duration = 120,
+          workday_excluded = false,
+        },
+        {
+          duration = 30,
+          unrounded_duration = 30,
+          workday_excluded = true,
         },
       },
       activity_total = 150,
@@ -298,6 +335,14 @@ return function(t)
           duration = 0,
           unrounded_duration = 12,
           error_minutes = 12,
+        },
+      },
+      total_rows = {
+        {
+          duration = 30,
+          unrounded_duration = 30,
+          error_minutes = 0,
+          workday_excluded = false,
         },
       },
       activity_total = 30,
@@ -366,6 +411,14 @@ return function(t)
           error_minutes = 20,
         },
       },
+      total_rows = {
+        {
+          duration = 60,
+          unrounded_duration = 60,
+          error_minutes = 0,
+          workday_excluded = false,
+        },
+      },
       activity_total = 60,
       workday_total = 60,
       tag_total = 60,
@@ -430,6 +483,20 @@ return function(t)
           error_minutes = 0,
         },
       },
+      total_rows = {
+        {
+          duration = 30,
+          unrounded_duration = 40,
+          error_minutes = 10,
+          workday_excluded = false,
+        },
+        {
+          duration = 30,
+          unrounded_duration = 20,
+          error_minutes = -10,
+          workday_excluded = true,
+        },
+      },
       activity_total = 60,
       workday_total = 30,
       tag_total = 60,
@@ -475,6 +542,14 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
+          },
+        },
+        total_rows = {
+          {
+            duration = 30,
+            unrounded_duration = 40,
+            error_minutes = 10,
+            workday_excluded = false,
           },
         },
         activity_total = 30,
@@ -528,8 +603,8 @@ return function(t)
         "3.00h (+0m) @home",
         "",
         "--- totals ---",
-        "6.00h (+0m) activity",
         "5.50h (+0m) workday",
+        "0.50h (+0m) non-work",
       })
 
       assert_activity_totals_match(t, summary.summarize_block(block))
@@ -566,8 +641,8 @@ return function(t)
       "2.00h (-30m) @home",
       "",
       "--- totals ---",
-      "5.00h (-30m) activity",
       "4.50h (-30m) workday",
+      "0.50h (+0m) non-work",
     })
 
     assert_activity_totals_match(t, summary.summarize_block(block))
@@ -606,8 +681,8 @@ return function(t)
       "3.00h (+0m) @office",
       "",
       "--- totals ---",
-      "7.00h (-60m) activity",
       "6.50h (-60m) workday",
+      "0.50h (+0m) non-work",
     })
 
     assert_activity_totals_match(t, summary.summarize_block(block))
@@ -833,6 +908,14 @@ return function(t)
           error_minutes = 20,
         },
       },
+      total_rows = {
+        {
+          duration = 60,
+          unrounded_duration = 60,
+          error_minutes = 0,
+          workday_excluded = false,
+        },
+      },
       activity_total = 60,
       workday_total = 60,
       tag_total = 60,
@@ -917,6 +1000,14 @@ return function(t)
           error_minutes = -13,
         },
       },
+      total_rows = {
+        {
+          duration = 60,
+          unrounded_duration = 51,
+          error_minutes = -9,
+          workday_excluded = false,
+        },
+      },
       activity_total = 60,
       workday_total = 60,
       tag_total = 60,
@@ -970,6 +1061,14 @@ return function(t)
           error_minutes = 17,
         },
       },
+      total_rows = {
+        {
+          duration = 30,
+          unrounded_duration = 34,
+          error_minutes = 4,
+          workday_excluded = false,
+        },
+      },
       activity_total = 30,
       workday_total = 30,
       tag_total = 30,
@@ -1009,6 +1108,14 @@ return function(t)
               error_minutes = -10,
             },
           },
+          total_rows = {
+            {
+              duration = 30,
+              unrounded_duration = 20,
+              error_minutes = -10,
+              workday_excluded = false,
+            },
+          },
           activity_total = 30,
           workday_total = 30,
           activity_error_minutes = -10,
@@ -1039,6 +1146,14 @@ return function(t)
               duration = 0,
               unrounded_duration = 20,
               error_minutes = 20,
+            },
+          },
+          total_rows = {
+            {
+              duration = 0,
+              unrounded_duration = 20,
+              error_minutes = 20,
+              workday_excluded = false,
             },
           },
           activity_total = 0,
@@ -1072,6 +1187,14 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
+          },
+        },
+        total_rows = {
+          {
+            duration = 30,
+            unrounded_duration = 40,
+            error_minutes = 10,
+            workday_excluded = false,
           },
         },
         activity_total = 30,
@@ -1115,6 +1238,14 @@ return function(t)
               error_minutes = -10,
             },
           },
+          total_rows = {
+            {
+              duration = 30,
+              unrounded_duration = 20,
+              error_minutes = -10,
+              workday_excluded = false,
+            },
+          },
           activity_total = 30,
           workday_total = 30,
           activity_error_minutes = -10,
@@ -1145,6 +1276,14 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
+            },
+          },
+          total_rows = {
+            {
+              duration = 30,
+              unrounded_duration = 20,
+              error_minutes = -10,
+              workday_excluded = false,
             },
           },
           activity_total = 30,
@@ -1187,6 +1326,14 @@ return function(t)
             duration = 60,
             unrounded_duration = 40,
             error_minutes = -20,
+          },
+        },
+        total_rows = {
+          {
+            duration = 60,
+            unrounded_duration = 40,
+            error_minutes = -20,
+            workday_excluded = false,
           },
         },
         activity_total = 60,
@@ -1238,6 +1385,14 @@ return function(t)
               error_minutes = 10,
             },
           },
+          total_rows = {
+            {
+              duration = 30,
+              unrounded_duration = 40,
+              error_minutes = 10,
+              workday_excluded = false,
+            },
+          },
           activity_total = 30,
           workday_total = 30,
           activity_error_minutes = 10,
@@ -1278,6 +1433,14 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
+          },
+        },
+        total_rows = {
+          {
+            duration = 30,
+            unrounded_duration = 40,
+            error_minutes = 10,
+            workday_excluded = false,
           },
         },
         activity_total = 30,
@@ -1329,6 +1492,9 @@ return function(t)
         location_totals = {
           { location = nil, duration = 30, unrounded_duration = 40, error_minutes = 10 },
         },
+        total_rows = {
+          { duration = 30, unrounded_duration = 40, error_minutes = 10, workday_excluded = false },
+        },
         activity_total = 30,
         workday_total = 30,
         activity_error_minutes = 10,
@@ -1360,6 +1526,9 @@ return function(t)
         },
         location_totals = {
           { location = nil, duration = 60, unrounded_duration = 80, error_minutes = 20 },
+        },
+        total_rows = {
+          { duration = 60, unrounded_duration = 80, error_minutes = 20, workday_excluded = false },
         },
         activity_total = 60,
         workday_total = 60,
@@ -1444,6 +1613,13 @@ return function(t)
           location = "office",
           duration = 120,
           unrounded_duration = 120,
+        },
+      },
+      total_rows = {
+        {
+          duration = 540,
+          unrounded_duration = 540,
+          workday_excluded = false,
         },
       },
       activity_total = 540,

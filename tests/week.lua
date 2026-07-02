@@ -57,6 +57,14 @@ return function(t)
                 error_minutes = -10,
               },
             },
+            total_rows = {
+              {
+                duration = 30,
+                unrounded_duration = 20,
+                error_minutes = -10,
+                workday_excluded = false,
+              },
+            },
             activity_total = 30,
             workday_total = 30,
             tag_total = 30,
@@ -97,6 +105,14 @@ return function(t)
                 error_minutes = 20,
               },
             },
+            total_rows = {
+              {
+                duration = 0,
+                unrounded_duration = 20,
+                error_minutes = 20,
+                workday_excluded = false,
+              },
+            },
             activity_total = 0,
             workday_total = 0,
             tag_total = 0,
@@ -131,6 +147,14 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
+          },
+        },
+        total_rows = {
+          {
+            duration = 30,
+            unrounded_duration = 40,
+            error_minutes = 10,
+            workday_excluded = false,
           },
         },
         activity_total = 30,
@@ -194,6 +218,14 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           error_minutes = 0,
+        },
+      },
+      total_rows = {
+        {
+          duration = 60,
+          unrounded_duration = 60,
+          error_minutes = 0,
+          workday_excluded = false,
         },
       },
       activity_total = 60,

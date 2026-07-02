@@ -97,7 +97,7 @@ return function(t)
     local K = render.LAYOUT_KIND
     for _, fmt in ipairs({ "dec", "hm" }) do
       local sections = { summary = {}, tag = {}, location = {} }
-      local activity, workday
+      local whole = 0
       for _, row in ipairs(render.summary_layout(s, fmt, {})) do
         if row.kind == K.SUMMARY_ITEM then
           sections.summary[#sections.summary + 1] = parse_duration(row.line, fmt)
@@ -106,19 +106,12 @@ return function(t)
         elseif row.kind == K.LOCATION_TOTAL then
           sections.location[#sections.location + 1] = parse_duration(row.line, fmt)
         elseif row.kind == K.TOTAL then
-          local value = parse_duration(row.line, fmt)
-          if row.line:find("activity") then
-            activity = value
-          elseif row.line:find("workday") then
-            workday = value
-          end
+          -- The totals are the work-class partition (workday + non-work), footing to
+          -- the whole day; sum every total row to recover the displayed whole that the
+          -- main section foots to. Tag and location sections foot to their OWN totals.
+          whole = whole + parse_duration(row.line, fmt)
         end
       end
-
-      -- When no #ooo work exists the activity row is omitted and the main
-      -- section foots to the workday total instead. Tag and location sections
-      -- foot to their OWN displayed totals.
-      local whole = activity or workday
       local checks = {
         { "summary", sections.summary, whole },
         { "tag", sections.tag, displayed(s.tag_total, fmt) },
