@@ -144,12 +144,44 @@ local function build_granules(intervals)
   )
 end
 
+-- The committed value of each cell at `level`, summed across the cell's distinct commitment sub-scopes.
+-- A summary-level (`!S`) commitment is frozen per (activity, location) slice (log_current.frozen_values
+-- keys by activity_identity_key), so an activity spanning locations carries several `!S` values that
+-- must be SUMMED, never last-wins; a tag/location/workday commitment is one value shared across the
+-- whole cell, so it is counted once. `cell_key_fn(interval)` groups intervals into the cells the caller
+-- wants -- the section cell for display, the per-granule/per-cell inflation scope for quantization.
+-- Read from the intervals (robust to how granules fold). #ooo never commits.
+local function committed_by_cell(intervals, level, cell_key_fn)
+  local scopes = {}
+  for _, interval in ipairs(intervals) do
+    local value = interval.logged_by_level and interval.logged_by_level[level]
+    if type(value) == "number" and not interval.workday_excluded then
+      local cell = cell_key_fn(interval)
+      local scope = level == "s" and M.activity_identity_key(interval) or cell
+      scopes[cell] = scopes[cell] or {}
+      scopes[cell][scope] = value
+    end
+  end
+
+  local totals = {}
+  for cell, by_scope in pairs(scopes) do
+    local sum = 0
+    for _, value in pairs(by_scope) do
+      sum = sum + value
+    end
+    totals[cell] = sum
+  end
+  return totals
+end
+
 -- Honest largest-remainder quantization of the granules, then SURPLUS inflation: for each committed
--- cell (a numeric `!S`/`!T`/`!L` value) whose commitment exceeds the cell's honest rounded total, raise
--- the cell's granules to the committed value (distributing the surplus to the largest remainders). A
--- commitment at or below the honest total does NOT move a granule -- its "reported vs remaining" split
--- is a display concern (build_section_rows), so the cell stays at its honest total and every partition
--- still foots. Returns the quantized granules (with `duration`, `unrounded_duration`, `error_minutes`).
+-- cell whose commitment exceeds the cell's honest rounded total, raise the cell's granules to the
+-- committed value (distributing the surplus to the largest remainders). A commitment at or below the
+-- honest total does NOT move a granule -- its "reported vs remaining" split is a display concern
+-- (build_section_rows), so the cell stays at its honest total and every partition still foots. The
+-- inflation SCOPE differs by level: `!S` is per (activity, location) granule, so each granule carries
+-- its own value; `!T`/`!L`/`!W` are one value over all a cell's granules. Returns the quantized granules
+-- (with `duration`, `unrounded_duration`, `error_minutes`).
 local function quantize_granules(granules, intervals, bucket_minutes)
   local unrounded_total = 0
   for _, g in ipairs(granules) do
@@ -161,25 +193,25 @@ local function quantize_granules(granules, intervals, bucket_minutes)
     quantize.round_to_nearest_bucket(unrounded_total, bucket_minutes)
   )
 
-  -- Collect only the OVER-committed cells (committed value beyond the cell's honest total). Those are
-  -- the ones whose surplus must inflate the cell (and so propagate to every partition); a commitment at
-  -- or below the honest total leaves the granules alone and is split at display time. The committed
-  -- value is read from the intervals (the source of truth -- robust to how granules fold). Index order
-  -- is preserved from `granules`, so member lists index straight into constrained_quantize's copy.
+  -- Collect only the OVER-committed cells (committed value beyond the cell's honest total): their
+  -- surplus must inflate the cell and propagate. A commitment at or below its honest total leaves the
+  -- granules alone (split at display time). The inflation scope is per-granule for `!S`
+  -- (activity_identity_key, incl. location) and per-cell for `!T`/`!L`/`!W`; committed_by_cell sums a
+  -- location-spanning `!S` correctly rather than last-wins. Index order is preserved from `granules`, so
+  -- member lists index straight into constrained_quantize's copy.
   local commitments = {}
   for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local committed = {}
-    for _, interval in ipairs(intervals) do
-      local value = interval.logged_by_level and interval.logged_by_level[level]
-      if type(value) == "number" and not interval.workday_excluded then
-        committed[cell_key(interval, level)] = value
-      end
+    local key_fn = level == "s" and function(row)
+      return M.activity_identity_key(row)
+    end or function(row)
+      return cell_key(row, level)
     end
+    local committed = committed_by_cell(intervals, level, key_fn)
 
     local members = {}
     for index, g in ipairs(honest) do
       if not g.workday_excluded then
-        local key = cell_key(g, level)
+        local key = key_fn(g)
         if committed[key] ~= nil then
           members[key] = members[key] or {}
           table.insert(members[key], index)
@@ -232,6 +264,11 @@ local function build_section_rows(quantized, intervals, key_fields, level)
     end
   end
 
+  -- The committed value per cell, summed across sub-scopes so a location-spanning `!S` is not last-wins.
+  local committed = committed_by_cell(intervals, level, function(interval)
+    return key_of(interval, key_fields)
+  end)
+
   local cells, order = {}, {}
   for _, interval in ipairs(intervals) do
     local key = key_of(interval, key_fields)
@@ -255,9 +292,9 @@ local function build_section_rows(quantized, intervals, key_fields, level)
     if marker ~= nil and not interval.workday_excluded then
       cell.logged_real = cell.logged_real + interval.duration
       cell.logged_rows[#cell.logged_rows + 1] = interval.source_entry_row
-      if type(marker) == "number" then
-        cell.committed = marker
-      else
+      -- The committed VALUE comes from committed_by_cell (summed per sub-scope); a bare marker only
+      -- flags the cell logged.
+      if marker == true then
         cell.bare = true
       end
     else
@@ -282,11 +319,12 @@ local function build_section_rows(quantized, intervals, key_fields, level)
   local rows = {}
   for _, cell in ipairs(order) do
     local cell_total = total[cell.key] or 0
-    if cell.committed ~= nil then
-      local remainder = cell_total - cell.committed
+    local committed_value = committed[cell.key]
+    if committed_value ~= nil then
+      local remainder = cell_total - committed_value
       local logged = with_fields(cell)
       logged.logged = true
-      logged.duration = cell.committed
+      logged.duration = committed_value
       -- The logged row carries the marked entries' real. When the remaining slice is shown as its own
       -- row it carries the unmarked real; when it is dropped -- an over-commitment inflated the cell so
       -- remainder is 0 -- no other row carries the unmarked real, so the logged row absorbs it. This

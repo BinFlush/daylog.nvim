@@ -828,24 +828,33 @@ return function(t)
     t.eq(#summary.logged_value_conflicts(split.entries), 0)
   end)
 
-  t.test("a frozen logged row's value sums across its locations", function()
-    -- One activity logged across two locations, each frozen at its own committed
-    -- duration: the main "build" rows sum to the footed activity total (90), with each
-    -- location keeping its committed slice (@here 60 + @there 30).
-    local result = summary.summarize_block(block_from_lines({
-      "--- log ---",
-      "08:00 build @here !S60",
-      "09:00 build @there !S30",
-      "09:30 done",
-    }))
-    local build_total = 0
-    for _, item in ipairs(result.summary_items) do
-      t.eq(item.text, "build")
-      build_total = build_total + item.duration
+  t.test(
+    "a summary commitment across locations sums into one logged row (not last-wins)",
+    function()
+      -- One activity logged across two locations, each frozen at its own committed duration. The main
+      -- section merges locations, so it must render ONE `build !S` row summing both slices (60 + 30 = 90)
+      -- -- not one slice's value with a phantom remainder row (the C2 last-wins bug).
+      local result = summary.summarize_block(block_from_lines({
+        "--- log ---",
+        "08:00 build @here !S60",
+        "09:00 build @there !S30",
+        "09:30 done",
+      }))
+      t.eq(#result.summary_items, 1)
+      t.eq(result.summary_items[1].text, "build")
+      t.eq(result.summary_items[1].logged, true)
+      t.eq(result.summary_items[1].duration, 90)
+      t.eq(result.summary_items[1].error_minutes, 0)
+      t.eq(result.activity_total, 90)
+      -- Each location keeps its own committed slice.
+      local by_location = {}
+      for _, item in ipairs(result.location_totals) do
+        by_location[item.location] = item.duration
+      end
+      t.eq(by_location.here, 60)
+      t.eq(by_location.there, 30)
     end
-    t.eq(build_total, 90)
-    t.eq(result.activity_total, 90)
-  end)
+  )
 
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
