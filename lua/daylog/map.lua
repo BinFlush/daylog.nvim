@@ -81,7 +81,14 @@ function M.summary(value, source_name, range)
   local target_buf = vim.api.nvim_get_current_buf()
   local do_run = runner(range, row)
   local function apply_map(label)
-    if label == nil or label == "" or label == current.alias then
+    -- nil/cancelled and empty are no-ops (clearing is the explicit `:Daylog! map`). Mapping onto the
+    -- current alias is a no-op only for a SINGLE target: over a range `current.alias` is just the FIRST
+    -- selected entry's, and the others may still change, so let the usecase decide there (it emits no
+    -- edit for an entry already at the label).
+    if label == nil or label == "" then
+      return
+    end
+    if not range and label == current.alias then
       return
     end
     apply(target_buf, label, do_run)

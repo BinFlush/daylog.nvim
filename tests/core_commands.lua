@@ -695,6 +695,27 @@ return function(t)
     t.ok(folded, "the three entries fold under the one alias")
   end)
 
+  t.test(
+    "Daylog map over a range still maps later entries when the first already has the alias",
+    function()
+      -- Regression: the shell's no-op guard compared the chosen label to the FIRST selected entry's
+      -- alias. With that entry already mapped to the target, the whole range was skipped, so a later
+      -- unmapped entry never got the alias ("nothing happens"). The short-circuit must be single-target.
+      t.reset({
+        "--- log q=1 d=hm ---",
+        "09:00 alpha => WORK-1",
+        "09:30 beta",
+        "10:00 done",
+      })
+      vim.cmd("Daylog refresh")
+
+      vim.cmd("2,3Daylog map WORK-1")
+
+      t.eq(t.get_lines()[2], "09:00 alpha => WORK-1") -- already mapped: unchanged
+      t.eq(t.get_lines()[3], "09:30 beta => WORK-1") -- previously skipped, now mapped
+    end
+  )
+
   t.test("Daylog! map over a line range clears every mapping in the selection", function()
     t.reset({
       "--- log q=1 d=hm ---",
