@@ -465,9 +465,10 @@ end
 -- Entry lines only -- summary and structural rows are skipped, so a ranged rename acts on the
 -- entries you selected, never the ambiguous activity grouping a summary row stands for.
 local function range_entry_rows(block, r1, r2)
+  local lo, hi = math.min(r1, r2), math.max(r1, r2)
   local rows = {}
   for _, item in ipairs(block.entry_items) do
-    if item.start_row >= r1 and item.start_row <= r2 then
+    if item.start_row >= lo and item.start_row <= hi then
       rows[#rows + 1] = item.start_row
     end
   end

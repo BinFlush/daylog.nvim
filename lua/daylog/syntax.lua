@@ -293,6 +293,11 @@ function M.parse_logged_token(token)
     end
     pos = pos + 1
     local digits = body:match("^%d*", pos)
+    -- A pathological digit run would overflow to `inf` and poison quantization. A real committed value
+    -- is minutes-in-a-day; cap the length well above that and treat anything longer as not a marker.
+    if #digits > 9 then
+      return nil
+    end
     pos = pos + #digits
     pairs_out[#pairs_out + 1] = {
       level = level,

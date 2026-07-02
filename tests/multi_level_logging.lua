@@ -58,6 +58,7 @@ return function(t)
     t.eq(syntax.parse_logged_token("!X"), nil)
     t.eq(syntax.parse_logged_token("!Slamas"), nil) -- lowercase after the level is not a marker
     t.eq(syntax.parse_logged_token("!5"), nil) -- a value with no preceding level is not a marker
+    t.eq(syntax.parse_logged_token("!S1234567890"), nil) -- an overlong value (would overflow) is not a marker
   end)
 
   t.test("the compact and separated forms parse identically, and write back compact", function()

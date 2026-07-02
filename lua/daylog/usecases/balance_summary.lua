@@ -270,7 +270,10 @@ local function same_target(a, b)
       and (a.item.workday_excluded == true) == (b.item.workday_excluded == true)
       and (a.item.logged == true) == (b.item.logged == true)
   elseif a.kind == K.TOTAL then
+    -- A split workday renders a logged and an unlogged row, both `total == "workday"`; include the
+    -- logged state so the cursor follows the row it balanced instead of snapping to the first one.
     return a.total == b.total
+      and (a.item and a.item.logged == true) == (b.item and b.item.logged == true)
   end
 
   return false

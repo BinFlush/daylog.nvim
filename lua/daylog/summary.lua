@@ -610,7 +610,9 @@ local function conflicts_at_level(intervals, level)
 
   for _, interval in ipairs(intervals) do
     local committed = interval.logged_by_level and interval.logged_by_level[level]
-    if committed ~= nil then
+    -- #ooo can never be logged; the out-of-office check already owns those entries, so skip them here
+    -- rather than double-reporting a mis-marked #ooo entry as both #ooo-logged and value-disagreeing.
+    if committed ~= nil and not interval.workday_excluded then
       local key = level_group_key(interval, level)
       local group = groups[key]
       if not group then
