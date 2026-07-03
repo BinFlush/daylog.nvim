@@ -55,26 +55,31 @@ local function hide_hover()
   hover_win = nil
 end
 
--- One bar as a chunk list ({ {text, hl}, ... }): a coloured run of spaces per segment, split around the
--- "now" marker -- a thin line glyph on the segment's own colour, so it reads as a subtle tick rather
--- than a solid block -- when it falls inside a segment.
+-- A dead period (a blank entry's interval) renders as this glyph on the gap highlight, so it reads as
+-- an explicit "nothing here" break rather than an activity's solid block or missing time.
+local GAP_GLYPH = "┊"
+
+-- One bar as a chunk list ({ {text, hl}, ... }): a coloured run of spaces per activity segment (or the
+-- gap glyph on the gap highlight for a dead period), split around the "now" marker -- a thin line glyph
+-- on the segment's own colour, so it reads as a subtle tick rather than a solid block.
 local function build_bar_row(segments, now_col)
   local bar = {}
   local col = 0
   for _, seg in ipairs(segments) do
-    local group = activity_hl.bar_group(seg.color_index)
+    local group = seg.gap and "DaylogBarGap" or activity_hl.bar_group(seg.color_index)
+    local fill = seg.gap and GAP_GLYPH or " "
     if now_col and now_col > col and now_col <= col + seg.width then
       local before = now_col - 1 - col
       if before > 0 then
-        bar[#bar + 1] = { string.rep(" ", before), group }
+        bar[#bar + 1] = { string.rep(fill, before), group }
       end
       bar[#bar + 1] = { "▏", group }
       local after = seg.width - before - 1
       if after > 0 then
-        bar[#bar + 1] = { string.rep(" ", after), group }
+        bar[#bar + 1] = { string.rep(fill, after), group }
       end
     else
-      bar[#bar + 1] = { string.rep(" ", seg.width), group }
+      bar[#bar + 1] = { string.rep(fill, seg.width), group }
     end
     col = col + seg.width
   end
@@ -409,8 +414,7 @@ function M.on_mouse_move()
     hide_hover()
     return
   end
-  local width = vim.api.nvim_win_get_width(strip.win)
-  local minutes = timebar.time_at_column(strip.first_minutes, strip.last_minutes, width, pos.wincol)
+  local minutes = timebar.time_at_column(segments, pos.wincol)
   local text = entry.minutes_string(minutes)
   local label = timebar.segment_label_at(segments, pos.wincol)
   if label then

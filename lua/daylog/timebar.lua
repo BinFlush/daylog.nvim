@@ -42,6 +42,26 @@ local function segment_widths(intervals, total, width)
   return floors
 end
 
+-- A dead period -- the interval a blank entry starts -- is not time-proportional in the bar: it is a
+-- single-cell marker that flags the gap without consuming it. GAP_WIDTH cells per contiguous run.
+local GAP_WIDTH = 1
+
+-- The 1-based bar column the clock minute `minutes` falls in, walking the (time-contiguous) segments:
+-- each segment owns a run of cells and is linear within its own [start, stop). The inverse of
+-- time_at_column; used to place the "now" marker across a bar whose axis is piecewise (gaps are thin).
+local function column_at_time(segments, minutes)
+  local left = 0
+  for _, seg in ipairs(segments) do
+    if minutes < seg.stop then
+      local span = seg.stop - seg.start
+      local within = span > 0 and math.floor((minutes - seg.start) / span * seg.width) or 0
+      return left + math.max(0, math.min(seg.width - 1, within)) + 1
+    end
+    left = left + seg.width
+  end
+  return math.max(1, left)
+end
+
 -- Build the bar layout for `entries`' active intervals over `width` cells, or nil when there is
 -- nothing to show (no intervals, a zero/negative span, or an invalid out-of-order log). Returns
 -- { segments = { { width, color_index, label } }, legend = { { label, color_index } },
@@ -104,17 +124,73 @@ function M.layout(entries, width, now_minutes)
     end
   end
 
-  local widths = segment_widths(intervals, total, width)
+  -- Walk the entries in time order into slots: each counted interval is one slot; a run of consecutive
+  -- blank entries collapses to one `gap` slot spanning to the next timestamp. Counted intervals are
+  -- taken from `intervals` in order (which skips blanks), so the counter tracks them one-for-one.
+  local slots = {}
+  local ci, i = 1, 1
+  while i <= #entries - 1 do
+    if summary.is_blank_entry(entries[i]) then
+      local gap_start = entries[i].minutes
+      while i <= #entries - 1 and summary.is_blank_entry(entries[i]) do
+        i = i + 1
+      end
+      slots[#slots + 1] = { gap = true, start = gap_start, stop = entries[i].minutes }
+    else
+      slots[#slots + 1] = { interval = intervals[ci] }
+      ci = ci + 1
+      i = i + 1
+    end
+  end
 
+  -- Reserve GAP_WIDTH cells per gap and spread the rest across the counted intervals proportionally.
+  -- A bar too narrow to hold the gaps plus one counted cell drops the markers (the counted bar wins).
+  local gap_count = 0
+  for _, slot in ipairs(slots) do
+    if slot.gap then
+      gap_count = gap_count + 1
+    end
+  end
+  local show_gaps = gap_count > 0 and width - gap_count * GAP_WIDTH >= 1
+  local widths =
+    segment_widths(intervals, total, show_gaps and width - gap_count * GAP_WIDTH or width)
+
+  -- Emit segments in time order. A counted segment carries its colour/label and its [start, stop) so
+  -- the piecewise now-marker and hover can map columns to clock time; a gap segment is a thin marker
+  -- (no colour/label) over its own dead span. Zero-width counted segments are dropped; gaps are not.
   local segments = {}
   local raw_segments = mapped and {} or nil
-  for i, iv in ipairs(intervals) do
-    if widths[i] > 0 then
-      segments[#segments + 1] = { width = widths[i], color_index = index[iv.text], label = iv.text }
-      if mapped then
-        local raw = raw_of(iv)
-        raw_segments[#raw_segments + 1] =
-          { width = widths[i], color_index = index[raw], label = raw }
+  local ii = 0
+  for _, slot in ipairs(slots) do
+    if slot.gap then
+      if show_gaps then
+        local gap = { width = GAP_WIDTH, gap = true, start = slot.start, stop = slot.stop }
+        segments[#segments + 1] = gap
+        if mapped then
+          raw_segments[#raw_segments + 1] = gap
+        end
+      end
+    else
+      ii = ii + 1
+      local iv = slot.interval
+      if widths[ii] > 0 then
+        segments[#segments + 1] = {
+          width = widths[ii],
+          color_index = index[iv.text],
+          label = iv.text,
+          start = iv.start,
+          stop = iv.stop,
+        }
+        if mapped then
+          local raw = raw_of(iv)
+          raw_segments[#raw_segments + 1] = {
+            width = widths[ii],
+            color_index = index[raw],
+            label = raw,
+            start = iv.start,
+            stop = iv.stop,
+          }
+        end
       end
     end
   end
@@ -125,7 +201,7 @@ function M.layout(entries, width, now_minutes)
   end
 
   -- raw_segments is present only when the log is mapped; the shell then stacks it above the resolved
-  -- bar for a before/after view. Unmapped logs return exactly as before (a single bar).
+  -- bar for a before/after view. Unmapped logs return a single bar.
   local result = { segments = segments, legend = legend, raw_segments = raw_segments }
 
   -- The "now" marker column: when the current time falls inside the bar's span -- i.e. the final
@@ -135,23 +211,29 @@ function M.layout(entries, width, now_minutes)
     local first = entries[1].minutes
     local last = entries[#entries].minutes
     if last > first and now_minutes >= first and now_minutes < last then
-      result.now_col =
-        math.min(math.floor((now_minutes - first) / (last - first) * width) + 1, width)
+      result.now_col = column_at_time(segments, now_minutes)
     end
   end
 
   return result
 end
 
--- The clock minutes at a 1-based bar column, the inverse of the now-marker mapping above: the bar's
--- x-axis is linear in time over [first, last], so column `col` of `width` sits at the cell's left
--- edge, first + (col-1)/width * (last-first). Rounded to the minute and clamped to the span.
-function M.time_at_column(first, last, width, col)
-  if width < 1 then
-    return first
+-- The clock minutes at a 1-based bar column, the inverse of column_at_time: the bar's x-axis is
+-- piecewise linear (a gap is a thin fixed cell, not time-proportional), so find the segment `col`
+-- lands in and interpolate within its own [start, stop) run. Past the last segment clamps to its
+-- stop. Pure; reads the layout's segments, which carry their time span.
+function M.time_at_column(segments, col)
+  local left = 0
+  for _, seg in ipairs(segments) do
+    if col <= left + seg.width then
+      local local_col = col - left
+      local raw = seg.start + math.floor((local_col - 1) / seg.width * (seg.stop - seg.start) + 0.5)
+      return math.max(seg.start, math.min(seg.stop, raw))
+    end
+    left = left + seg.width
   end
-  local raw = first + math.floor((col - 1) / width * (last - first) + 0.5)
-  return math.max(first, math.min(last, raw))
+  local last = segments[#segments]
+  return last and last.stop or 0
 end
 
 -- The activity label of the segment covering 1-based column `col` (segment widths sum to the bar

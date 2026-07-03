@@ -46,7 +46,9 @@ happen, but they are called out clearly in this changelog.
   logging marker, `=> alias`, or `round±N` on a blank raises the `blank_entry_metadata` diagnostic
   ("a blank entry cannot carry a tag, location, marker, alias, or round nudge"); a `utc` offset is
   allowed (it records a clock change during the gap). A blank is not a `:Daylog map` or `:Daylog rename`
-  target (both refuse it). `#ooo` is now an ordinary tag with no special meaning — an entry tagged
+  target (both refuse it), and `:Daylog log` never marks one at any level (`!S`/`!T`/`!L`/`!W`), even
+  though it inherits the sticky tag/location. In the time bar, a blank's dead period shows as a thin
+  `┊` gap marker (highlight `DaylogBarGap`) instead of silently collapsing. `#ooo` is now an ordinary tag with no special meaning — an entry tagged
   `#ooo` is fully counted, logged like any other, and given no special highlight. There is no migration:
   an old file using `#ooo` treats it as a normal tag, so its time becomes counted. The four `#ooo`
   v0.1.0 compat fixtures are removed.

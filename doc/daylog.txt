@@ -738,6 +738,9 @@ top row reports the raw item, the bottom row its mapped label.
   count; a `:q` in the log window closes the bar along with it.
 - On today's log, when the final entry is in the future (a planned end), a thin marker line
   on the bar shows where the current time falls.
+- A dead period (a blank entry's uncounted interval) shows as a thin `┊` marker between the
+  surrounding segments, so a gap is visible without taking time-proportional width. Its
+  highlight is `DaylogBarGap`.
 - An optional mouse-hover tooltip (|daylog-time-bar-hover|) shows the clock time and the
   activity under the pointer.
 - When the legend is wider than the window, long labels are abbreviated to a distinct prefix

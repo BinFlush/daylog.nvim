@@ -54,6 +54,9 @@ M.GROUPS = {
   -- default = true still lets a theme/user override win.
   DaylogStraySign = { fg = "#d28a8a", ctermfg = 167 },
   DaylogBarLabel = "Comment",
+  -- A dead period (a blank entry's uncounted interval) in the time bar: a dim marker glyph, so it
+  -- reads as a deliberate "nothing here" break rather than an activity block.
+  DaylogBarGap = "NonText",
   -- A hard red for a broken block: the offending source line AND the whole (now-untrustworthy)
   -- summary it feeds. Overrides the normal token colours so it reads as an error at a glance; a
   -- theme/user can still restyle it (e.g. to a background) via `:highlight DaylogError`.

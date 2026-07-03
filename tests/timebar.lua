@@ -8,11 +8,24 @@ return function(t)
   end
 
   t.test("time_at_column maps bar columns back to clock minutes", function()
-    -- 08:00 (480) -> 12:00 (720) over 80 cells: 3 minutes per cell, at each cell's left edge.
-    t.eq(timebar.time_at_column(480, 720, 80, 1), 480) -- the first cell -> the start
-    t.eq(timebar.time_at_column(480, 720, 80, 41), 600) -- 40 cells in -> +120m -> 10:00
-    t.eq(timebar.time_at_column(480, 720, 80, 100), 720) -- past the end clamps to the last entry
-    t.eq(timebar.time_at_column(480, 720, 0, 5), 480) -- a zero width never divides
+    -- one segment 08:00 (480) -> 12:00 (720) over 80 cells: 3 minutes per cell, at each cell's left edge.
+    local segs = { { width = 80, start = 480, stop = 720 } }
+    t.eq(timebar.time_at_column(segs, 1), 480) -- the first cell -> the start
+    t.eq(timebar.time_at_column(segs, 41), 600) -- 40 cells in -> +120m -> 10:00
+    t.eq(timebar.time_at_column(segs, 100), 720) -- past the end clamps to the last segment's stop
+  end)
+
+  t.test("time_at_column reads clock time piecewise across a thin gap", function()
+    -- 08:00-10:00 over 40 cells, a 1-cell gap for 10:00-11:00, then 11:00-12:00 over 40 cells.
+    local segs = {
+      { width = 40, start = 480, stop = 600 },
+      { width = 1, gap = true, start = 600, stop = 660 },
+      { width = 40, start = 660, stop = 720 },
+    }
+    t.eq(timebar.time_at_column(segs, 1), 480) -- first cell -> 08:00
+    t.eq(timebar.time_at_column(segs, 41), 600) -- the gap cell reports its start, 10:00
+    t.eq(timebar.time_at_column(segs, 42), 660) -- the first cell after the gap -> 11:00
+    t.eq(timebar.time_at_column(segs, 82), 720) -- past the end clamps to the last stop, 12:00
   end)
 
   t.test("segment_label_at finds the activity under a column", function()
@@ -127,6 +140,49 @@ return function(t)
     t.eq(layout.segments[1].color_index, 1) -- a appears first -> colour 1
     t.eq(layout.segments[2].label, "b")
     t.eq(layout.segments[2].color_index, 2)
+  end)
+
+  t.test("a blank entry becomes a thin gap marker, not a dropped interval", function()
+    -- 08:00 a (120), 10:00 blank -> 11:00 (a dead hour), 11:00 b (60). The gap is one marker cell; the
+    -- two activities split the remaining width, so the dead period is visible without consuming the bar.
+    local layout =
+      timebar.layout(entries({ "--- log ---", "08:00 a", "10:00", "11:00 b", "12:00 done" }), 41)
+    t.eq(#layout.segments, 3) -- a, gap, b in time order
+    t.eq(layout.segments[1].label, "a")
+    t.eq(layout.segments[2].gap, true)
+    t.eq(layout.segments[2].label, nil) -- a gap has no activity label
+    t.eq(layout.segments[2].width, 1)
+    t.eq(layout.segments[2].start, 600) -- 10:00
+    t.eq(layout.segments[2].stop, 660) -- 11:00
+    t.eq(layout.segments[3].label, "b")
+    t.eq(layout.segments[1].width + layout.segments[3].width, 40) -- the gap is not time-proportional
+    local total = 0
+    for _, seg in ipairs(layout.segments) do
+      total = total + seg.width
+    end
+    t.eq(total, 41) -- still fills the width exactly
+    -- the legend lists only real activities, never the gap
+    t.eq(#layout.legend, 2)
+  end)
+
+  t.test("consecutive blanks collapse into one gap marker", function()
+    local layout = timebar.layout(
+      entries({ "--- log ---", "08:00 a", "10:00", "10:30", "11:00 b", "12:00 done" }),
+      41
+    )
+    t.eq(#layout.segments, 3) -- a, one gap (spanning 10:00-11:00), b
+    t.eq(layout.segments[2].gap, true)
+    t.eq(layout.segments[2].start, 600) -- 10:00
+    t.eq(layout.segments[2].stop, 660) -- 11:00, the run of two blanks is one marker
+  end)
+
+  t.test("gap markers are dropped when the bar is too narrow to hold them", function()
+    -- width 1, one gap: width - gaps = 0 < 1, so the markers are dropped and the counted bar fills.
+    local layout =
+      timebar.layout(entries({ "--- log ---", "08:00 a", "10:00", "11:00 b", "12:00 done" }), 1)
+    for _, seg in ipairs(layout.segments) do
+      t.eq(seg.gap, nil)
+    end
   end)
 
   t.test("colours are assigned by first appearance, not duration", function()
