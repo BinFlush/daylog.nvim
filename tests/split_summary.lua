@@ -317,9 +317,9 @@ return function(t)
     t.eq(out[3], "09:00 meeting (2)")
   end)
 
-  t.test("split drops the alias on the parts", function()
-    -- Splitting distinguishes sub-activities, the opposite of collapsing under one
-    -- alias, so the parts lose the mapping (like they lose !S / nudge).
+  t.test("split suffixes the resolved label: a mapped entry keeps its description", function()
+    -- The `(n)` lands on the alias, so parts stay mapped and the description survives --
+    -- a bare and a mapped group split identically (the parts still lose !S / nudge).
     local out = run(
       buffer_with_summary({
         "--- log q=1 d=hm ---",
@@ -330,9 +330,30 @@ return function(t)
       { 1, 1 }
     )
 
-    t.eq(out[2], "08:00 meeting (1)")
-    t.eq(out[3], "09:00 meeting (2)")
-    t.ok(has(out, "1:00 (+0m) meeting (1)"), "the part is summarized by its own name")
-    t.ok(not has(out, "1:00 (+0m) MTG-1"), "nothing still maps to the alias")
+    t.eq(out[2], "08:00 meeting => MTG-1 (1)")
+    t.eq(out[3], "09:00 meeting => MTG-1 (2)")
+    t.ok(has(out, "1:00 (+0m) MTG-1 (1)"), "the part reports under its suffixed label")
+  end)
+
+  t.test("splitting a mapped GROUP reports exactly like the equivalent bare group", function()
+    -- Two entries mapped to one label: the parts group across entries under `label (n)`,
+    -- so the requested proportions land on the report rows (bare ≡ mapped).
+    local out = run(
+      buffer_with_summary({
+        "--- log q=1 d=hm ---",
+        "08:00 a => X",
+        "09:00 b => X",
+        "10:00 done",
+      }),
+      "(+0m) X",
+      { 3, 1 }
+    )
+
+    t.eq(out[2], "08:00 a => X (1)")
+    t.eq(out[3], "08:45 a => X (2)")
+    t.eq(out[4], "09:00 b => X (1)")
+    t.eq(out[5], "09:45 b => X (2)")
+    t.ok(has(out, "1:30 (+0m) X (1)"), "part 1 carries the 3-share across both entries")
+    t.ok(has(out, "0:30 (+0m) X (2)"), "part 2 carries the 1-share across both entries")
   end)
 end

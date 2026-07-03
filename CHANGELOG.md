@@ -103,6 +103,25 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- **Splitting a mapped group keeps the mapping.** `:Daylog split` on an aliased row now suffixes the
+  resolved label (`meeting => MTG-1 (1)`), so descriptions survive, parts group across the whole mapped
+  group, and a bare and a mapped group split identically. Previously the alias was dropped and each
+  entry's description was suffixed, fragmenting the split across rows.
+- **A ranged `:Daylog map`/`rename` skips a blank entry instead of refusing the whole selection.** A
+  visual range spanning a lunch break now maps/renames its entries; the single-cursor refusal on a
+  blank stays.
+- **A pasted title can no longer inject or corrupt a mapping.** `:Daylog insert` sanitization now
+  neutralizes every `=>` token (consecutive arrows and a leading arrow included), so an external
+  work-item title cannot silently become an alias, and an alias round-trips the formatter unchanged.
+- **Prose like `--- meeting summary ---` no longer fragments a log.** A section word in second position
+  is a structural header only after a report prefix (`day`/`range`); other `--- x ---` lines stay
+  notes, so entries after such prose no longer silently vanish from the summary.
+- **The work-item picker no longer crashes on a `null` field.** JSON nulls from the tracker (state,
+  changed-date, url) are filtered at the decode boundary and the ranker ignores non-string recency
+  values, instead of erroring inside the sort (and poisoning the cache until the next sync).
+- **`:Daylog now` with a drifted timezone no longer corrupts the entry.** Typing after the insert lands
+  in the gap before the recorded `utc±N` token (`11:00 meeting utc+1`); the shell previously jumped to
+  end-of-line, producing an unparseable `utc+1meeting`.
 - **Logging a manually-rounded row no longer changes an unrelated row, and `:Daylog log` is now
   order-independent.** When an entry carried a `round±N` nudge and was then logged (`:Daylog log` /
   `!S`), the frozen row's residual used to be forced onto another activity's duration (and the day

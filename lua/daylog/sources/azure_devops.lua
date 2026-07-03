@@ -29,6 +29,22 @@ local function encode_segment(segment)
   )
 end
 
+-- JSON codecs decode `null` to a truthy sentinel (vim.NIL) that `or` fallbacks do not catch and
+-- comparisons crash on; admit only genuinely typed values at the decode boundary.
+local function str(v)
+  if type(v) == "string" then
+    return v
+  end
+  return nil
+end
+
+local function tbl(v)
+  if type(v) == "table" then
+    return v
+  end
+  return {}
+end
+
 function M.new(_name, cfg, deps)
   local transport = deps.transport
   local json = deps.json
@@ -122,20 +138,22 @@ function M.new(_name, cfg, deps)
       end
 
       local items = {}
-      for _, work_item in ipairs(decoded.value or {}) do
-        local fields = work_item.fields or {}
-        local id = tostring(work_item.id or fields["System.Id"] or "")
+      for _, value in ipairs(tbl(tbl(decoded).value)) do
+        local work_item = tbl(value)
+        local fields = tbl(work_item.fields)
+        local raw_id = work_item.id or fields["System.Id"]
+        local id = (type(raw_id) == "string" or type(raw_id) == "number") and tostring(raw_id) or ""
         -- Skip a malformed entry with no id rather than emit an empty-id item.
         if id ~= "" then
           table.insert(items, {
             id = id,
-            title = fields["System.Title"] or "",
-            type = fields["System.WorkItemType"],
-            state = fields["System.State"],
+            title = str(fields["System.Title"]) or "",
+            type = str(fields["System.WorkItemType"]),
+            state = str(fields["System.State"]),
             -- A recency signal for the (cross-source) ranker; ADO returns ISO-8601.
-            updated = fields["System.ChangedDate"],
-            project = fields["System.TeamProject"],
-            url = work_item.url,
+            updated = str(fields["System.ChangedDate"]),
+            project = str(fields["System.TeamProject"]),
+            url = str(work_item.url),
           })
         end
       end
@@ -170,16 +188,17 @@ function M.new(_name, cfg, deps)
       end
 
       local ids = {}
-      for _, work_item in ipairs(decoded.workItems or {}) do
-        if work_item.id ~= nil then
-          table.insert(ids, tostring(work_item.id))
+      for _, work_item in ipairs(tbl(tbl(decoded).workItems)) do
+        local id = tbl(work_item).id
+        if type(id) == "string" or type(id) == "number" then
+          table.insert(ids, tostring(id))
         end
       end
 
       -- A flat WIQL query returns `workItems`; a tree or one-hop saved query returns
       -- `workItemRelations` and no `workItems`, which would otherwise hydrate to an empty
       -- picker indistinguishable from "no items". Surface the misconfiguration instead.
-      if #ids == 0 and decoded.workItemRelations ~= nil then
+      if #ids == 0 and tbl(decoded).workItemRelations ~= nil then
         return cb(
           nil,
           "daylog: this Azure DevOps query returns linked items; use a flat work-item query"

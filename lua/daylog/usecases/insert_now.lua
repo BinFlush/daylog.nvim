@@ -30,11 +30,13 @@ function M.run(lines, row, time, auto_offset)
     -- must trail the activity, which the user has not typed yet, so place it after a
     -- two-space gutter and land the cursor in the gap (#time + 1) -- typing then yields
     -- the canonical "HH:MM <text> utc±N". insert_entry_edit also compensates a follower
-    -- that was silently inheriting the old offset.
+    -- that was silently inheriting the old offset. `startinsert = "cursor"` keeps insert
+    -- mode AT the gap; a plain append would land the typed text after the utc token.
     local inserted_line = time .. "  " .. syntax.utc_offset_token(stamp)
     result =
       support.insert_entry_edit(ctx.block, minutes, inserted_line, state.tag, state.location, stamp)
     result.offset_change = { from = state.offset, to = stamp }
+    result.startinsert = "cursor"
   else
     result = {
       edits = {
@@ -44,11 +46,11 @@ function M.run(lines, row, time, auto_offset)
           lines = { time .. " " },
         },
       },
+      startinsert = true,
     }
   end
 
   result.cursor = { insert_index + 1, #time + 1 }
-  result.startinsert = true
   return result
 end
 

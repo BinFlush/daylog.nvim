@@ -619,4 +619,12 @@ return function(t)
     local _, err = rename_summary.run(lines, 3, "x") -- cursor on the 11:00 blank
     t.eq(err, rename_summary.REFUSE_BLANK)
   end)
+
+  t.test("a ranged rename skips a blank entry instead of refusing the selection", function()
+    local lines = { "--- log ---", "08:00 a", "12:00", "13:00 b", "14:00 done" }
+    local out = apply(lines, rename_summary.run_range(lines, 2, 4, "x")) -- spans the lunch blank
+    t.eq(out[2], "08:00 x")
+    t.eq(out[3], "12:00") -- the blank is untouched
+    t.eq(out[4], "13:00 x")
+  end)
 end

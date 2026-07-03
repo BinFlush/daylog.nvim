@@ -102,6 +102,39 @@ return function(t)
     t.ok(transport.seen[1].url:match("/wiql%?api%-version=7%.0$") ~= nil)
   end)
 
+  t.test("JSON nulls never leak into items (they would crash the ranker's sort)", function()
+    local transport = fake_transport(function(opts)
+      if opts.url:match("/wiql%?") then
+        return { status = 200, body = '{"workItems": [{"id": 1234}, {"id": 42}, null]}' }
+      end
+      -- Raw JSON as ADO sends it: null field values decode to a truthy sentinel, not nil.
+      return {
+        status = 200,
+        body = '{"value": [{"id": 1234, "fields": {"System.Title": "Fix login",'
+          .. ' "System.State": null, "System.ChangedDate": null}, "url": null},'
+          .. ' {"id": 42, "fields": {"System.Title": "Docs",'
+          .. ' "System.ChangedDate": "2026-06-19T10:00:00Z"}}]}',
+      }
+    end)
+
+    local source = new_source(base_cfg(), transport)
+    local result
+    source.fetch(function(items, err)
+      result = { items = items, err = err }
+    end)
+
+    t.eq(result.err, nil)
+    t.eq(result.items, {
+      { id = "1234", title = "Fix login" },
+      { id = "42", title = "Docs", updated = "2026-06-19T10:00:00Z" },
+    })
+
+    -- The full pipeline consequence: ranking items with absent recency must not error.
+    local rank = require("daylog.sources.rank")
+    local ordered = rank.order(result.items, { usage = {}, key_of = nil })
+    t.eq(#ordered, 2)
+  end)
+
   t.test("fetch errors on a non-flat (tree/one-hop) query instead of an empty picker", function()
     local hydrated = false
     local transport = fake_transport(function(opts)

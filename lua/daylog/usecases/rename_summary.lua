@@ -1,6 +1,7 @@
 local analyze = require("daylog.analyze")
 local entry = require("daylog.entry")
 local render = require("daylog.render")
+local summary = require("daylog.summary")
 local summary_cursor = require("daylog.usecases.summary_cursor")
 local support = require("daylog.usecases.support")
 
@@ -74,7 +75,7 @@ end
 -- picking one actually merges -- the rename keeps the tag). The current value and the placeholder
 -- buckets (nil tag/location) are excluded. Exported so the report-rename shell shares this
 -- candidate logic instead of keeping a second copy.
-function M.merge_candidates(summary, kind, current, current_tag)
+function M.merge_candidates(summarized, kind, current, current_tag)
   local seen = {}
   local candidates = {}
 
@@ -86,15 +87,15 @@ function M.merge_candidates(summary, kind, current, current_tag)
   end
 
   if kind == "tag" then
-    for _, item in ipairs(summary.tag_totals or {}) do
+    for _, item in ipairs(summarized.tag_totals or {}) do
       add(item.tag)
     end
   elseif kind == "location" then
-    for _, item in ipairs(summary.location_totals or {}) do
+    for _, item in ipairs(summarized.location_totals or {}) do
       add(item.location)
     end
   else
-    for _, item in ipairs(summary.summary_items or {}) do
+    for _, item in ipairs(summarized.summary_items or {}) do
       if item.tag == current_tag then
         add(item.text)
       end
@@ -307,7 +308,7 @@ local function build_rename(analysis, block, item, target, new_value)
     for _, entry_item in ipairs(block.entry_items) do
       if rows[entry_item.start_row] then
         -- A blank entry is uncounted and has no report identity; it is not renamable.
-        if entry_item.text == nil or entry_item.text == "" then
+        if summary.is_blank_entry(entry_item) then
           return nil, M.REFUSE_BLANK
         end
         if entry_item.logged and entry_item.logged.s then
@@ -472,7 +473,9 @@ local function range_entry_rows(block, r1, r2)
   local lo, hi = math.min(r1, r2), math.max(r1, r2)
   local rows = {}
   for _, item in ipairs(block.entry_items) do
-    if item.start_row >= lo and item.start_row <= hi then
+    -- A blank entry is uncounted and unrenamable; skip it like a structural line so a
+    -- selection spanning a lunch break still renames its entries.
+    if item.start_row >= lo and item.start_row <= hi and not summary.is_blank_entry(item) then
       rows[#rows + 1] = item.start_row
     end
   end

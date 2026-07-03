@@ -37,6 +37,16 @@ local function part_name(text, index)
   return text .. " " .. suffix
 end
 
+-- A part's identity: the `(n)` suffix lands on the RESOLVED label, so a mapped entry keeps its
+-- description and its parts group under `label (n)` -- exactly like a bare group's `text (n)`.
+-- Returns text, alias.
+local function part_identity(item, index)
+  if item.alias ~= nil and item.alias ~= "" then
+    return item.text, part_name(item.alias, index)
+  end
+  return part_name(item.text, index), nil
+end
+
 local function validate_weights(weights)
   if not weights or #weights == 0 then
     return { 1, 1 }
@@ -153,9 +163,11 @@ function M.run(lines, cursor_row, weights)
     if parts then
       local out_lines = {}
       for i, part in ipairs(parts) do
+        local text, alias = part_identity(entry_item, part.index)
         local fields = {
           minutes = entry_item.minutes + part.offset,
-          text = part_name(entry_item.text, part.index),
+          text = text,
+          alias = alias,
           tag = entry_item.tag,
           location = entry_item.location,
           offset = entry_item.offset,
@@ -189,9 +201,11 @@ function M.run(lines, cursor_row, weights)
     local parts = parts_by_row[semantic_entry.row]
     if parts then
       for _, part in ipairs(parts) do
+        local text, alias = part_identity(semantic_entry, part.index)
         modified[#modified + 1] = {
           minutes = semantic_entry.minutes + part.offset,
-          text = part_name(semantic_entry.text, part.index),
+          text = text,
+          alias = alias,
           tag = semantic_entry.tag,
           location = semantic_entry.location,
           offset = semantic_entry.offset,

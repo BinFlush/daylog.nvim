@@ -85,7 +85,11 @@ local function resolve_range_targets(lines, r1, r2)
   for row = lo, hi do
     local item = support.entry_item_at_row(ctx.block, row)
     if item then
-      add(item.start_row)
+      -- A blank entry is uncounted and has no report identity; skip it like any other
+      -- structural line so a selection spanning a lunch break still maps its entries.
+      if not summary.is_blank_entry(item) then
+        add(item.start_row)
+      end
     else
       -- A summary item row expands to every entry feeding it. A resolve error (STALE for the
       -- header / blanks inside the region, AMBIGUOUS) means "not a mappable row here", so it

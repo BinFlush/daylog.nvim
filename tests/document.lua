@@ -83,6 +83,27 @@ return function(t)
     t.eq(document.parse_line("--- summary q=15 d=dec ---").kind, "block_header")
   end)
 
+  t.test("a section word in second position is a boundary only after a report prefix", function()
+    -- Report headers stay recognized...
+    t.eq(document.parse_line("--- day summary 2026-05-04 q=15 ---").kind, "block_header")
+    t.eq(document.parse_line("--- range totals week 19 ---").kind, "block_header")
+    -- ...but prose containing a section word is a note, never a structural boundary.
+    t.eq(document.parse_line("--- meeting summary ---").kind, "note_line")
+    t.eq(document.parse_line("--- quarterly totals ---").kind, "note_line")
+
+    -- The load-bearing consequence: such prose inside a log cannot fragment it.
+    local analyze = require("daylog.analyze")
+    local analysis = analyze.analyze(document.parse({
+      "--- log ---",
+      "08:00 work",
+      "--- meeting summary ---",
+      "09:00 more",
+      "10:00 done",
+    }))
+    t.eq(#analysis.diagnostics, 0)
+    t.eq(#analysis.log_blocks[1].entries, 3)
+  end)
+
   t.test("document parse_line parses a single line directly", function()
     t.eq(document.parse_line("08:21 negotiate with goose #sales @client"), {
       kind = "entry",

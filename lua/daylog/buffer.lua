@@ -277,7 +277,9 @@ local function apply_result(result)
   end
 
   if result.startinsert then
-    vim.cmd("startinsert!")
+    -- `startinsert!` appends at end-of-line, discarding a mid-line cursor; "cursor" keeps
+    -- insert mode at the column the usecase placed (a gap before trailing metadata).
+    vim.cmd(result.startinsert == "cursor" and "startinsert" or "startinsert!")
   end
 
   if result.offset_change then

@@ -465,4 +465,13 @@ return function(t)
     local _, err = map_summary.run(lines, 3, "label") -- cursor on the 11:00 blank
     t.eq(err, map_summary.REFUSE_BLANK)
   end)
+
+  t.test("a ranged map skips a blank entry instead of refusing the selection", function()
+    local lines = { "--- log ---", "08:00 a", "12:00", "13:00 b", "14:00 done" }
+    local result = map_summary.run_range(lines, 2, 4, "TICKET") -- selection spans the lunch blank
+    local out = apply(lines, result)
+    t.eq(out[2], "08:00 a => TICKET")
+    t.eq(out[3], "12:00") -- the blank is untouched
+    t.eq(out[4], "13:00 b => TICKET")
+  end)
 end

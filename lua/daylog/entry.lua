@@ -101,12 +101,12 @@ function M.sanitize_text(text)
     return text
   end
 
-  -- ` => ` is the alias separator, so neutralize it inside activity text (a pasted or
-  -- source title like "Fix => prod" must not silently become an alias).
-  text = text:gsub(" => ", " (=>) ")
-
   local tokens = {}
   for token in text:gmatch("%S+") do
+    -- "=>" is the alias separator; wrap every such token so sanitized text can never grow an alias.
+    if token == "=>" then
+      token = "(=>)"
+    end
     table.insert(tokens, token)
   end
 

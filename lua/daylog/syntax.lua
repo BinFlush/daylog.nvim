@@ -128,11 +128,14 @@ M.SUMMARY_SECTION_WORDS = {
   [M.SECTION.TOTALS] = true,
 }
 
--- Whether a line is a generated summary-section header, in-file
--- (`--- summary q=.. d=.. ---`, `--- tags ---`, ...) or in a multi-day report
--- (`--- day summary <label> ---`, `--- week totals <label> ---`, ...): a section
--- word appears as the first or second word, which is exactly what render.lua emits.
--- Used by the highlighter, which highlights report sections too.
+-- The scope prefixes render.lua puts before a section word in report headers
+-- (`--- day summary <label> ---`, `--- range totals <label> ---`; `week` is legacy).
+local REPORT_PREFIXES = { day = true, week = true, range = true }
+
+-- Whether a line is a generated summary-section header, in-file (`--- summary q=.. d=.. ---`,
+-- `--- tags ---`) or in a report (`--- day summary <label> ---`). A section word in second
+-- position counts only after a known report prefix, so prose like `--- meeting summary ---`
+-- is not a structural boundary and can never fragment a log.
 function M.is_summary_section_header(raw)
   local content = raw:match("^%-%-%- (.+) %-%-%-$")
   if not content then
@@ -140,7 +143,10 @@ function M.is_summary_section_header(raw)
   end
 
   local first, second = content:match("^(%S+)%s*(%S*)")
-  return M.SUMMARY_SECTION_WORDS[first] == true or M.SUMMARY_SECTION_WORDS[second] == true
+  if M.SUMMARY_SECTION_WORDS[first] == true then
+    return true
+  end
+  return REPORT_PREFIXES[first] == true and M.SUMMARY_SECTION_WORDS[second] == true
 end
 
 -- Whether a line is one of the bare *in-file* summary-section headers a log's

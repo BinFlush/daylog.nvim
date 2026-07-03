@@ -181,6 +181,25 @@ return function(t)
     t.eq(ids(out), { "x", "y", "z" })
   end)
 
+  t.test("a non-string `updated` from a custom source ranks as missing, never crashes", function()
+    -- Sources are arbitrary tables; a decoded JSON null (truthy sentinel) or a number
+    -- must not reach the string comparator.
+    local items = {
+      { id = "weird", updated = {} },
+      { id = "num", updated = 20260101 },
+      { id = "real", updated = "2026-06-01" },
+    }
+
+    local out = rank.order(items, {
+      usage = {},
+      key_of = function()
+        return nil
+      end,
+    })
+
+    t.eq(ids(out), { "real", "weird", "num" })
+  end)
+
   t.test("build_insert_pool merges, dedups, and ranks items and activities", function()
     local sources = {
       {

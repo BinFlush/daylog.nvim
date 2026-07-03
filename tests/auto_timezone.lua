@@ -63,7 +63,9 @@ return function(t)
     -- lands in the gap (#"11:00" + 1 = 6) so typing yields "11:00 <text> utc+1".
     t.eq(written(result), { "11:00  utc+1" })
     t.eq(result.cursor, { 4, 6 })
-    t.ok(result.startinsert)
+    -- "cursor" tells the shell to enter insert mode AT the gap (plain startinsert);
+    -- a plain-true append (`startinsert!`) would jump past the utc token and corrupt it.
+    t.eq(result.startinsert, "cursor")
     t.eq(result.offset_change, { from = 120, to = 60 })
   end)
 

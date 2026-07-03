@@ -128,6 +128,9 @@ function M.order(items, ctx)
       item = item,
       index = index,
       score = score_for(used),
+      -- Sources are arbitrary tables; admit only a string here so the comparator never
+      -- compares a foreign type (a JSON-null sentinel, a number) against a string.
+      updated = type(item.updated) == "string" and item.updated or nil,
     }
   end
 
@@ -144,7 +147,7 @@ function M.order(items, ctx)
     end
 
     -- tracker recency: ISO-8601 sorts lexically; missing sorts last
-    local au, bu = a.item.updated, b.item.updated
+    local au, bu = a.updated, b.updated
     if au ~= bu then
       if au == nil then
         return false

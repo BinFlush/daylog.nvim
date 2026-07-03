@@ -13,6 +13,7 @@ return function(t)
       and node.explicit_location == nil
       and node.explicit_location_clear == nil
       and node.logged == nil
+      and node.alias == nil
   end
 
   local cases = {
@@ -48,5 +49,26 @@ return function(t)
 
   t.test("sanitize returns empty text unchanged", function()
     t.eq(entry.sanitize_text("   "), "")
+  end)
+
+  t.test("sanitize neutralizes every alias arrow, including consecutive and leading", function()
+    for _, case in ipairs({
+      { input = "Fix => prod", expected = "Fix (=>) prod" },
+      { input = "a => => b", expected = "a (=>) (=>) b" },
+      { input = "=> x", expected = "(=>) x" },
+      { input = "x =>", expected = "x (=>)" },
+    }) do
+      local out = entry.sanitize_text(case.input)
+      t.eq(out, case.expected)
+      t.ok(parses_clean(out), "sanitized text must not grow an alias: " .. case.input)
+    end
+  end)
+
+  t.test("a sanitized alias survives a format/parse round-trip", function()
+    local alias = entry.sanitize_alias("=> x")
+    local line = entry.format({ minutes = 540, text = "desc", alias = alias }, nil, nil, nil)
+    local node = document.parse_line(line)
+    t.eq(node.text, "desc")
+    t.eq(node.alias, alias)
   end)
 end
