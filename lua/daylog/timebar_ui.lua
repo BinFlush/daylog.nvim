@@ -8,10 +8,11 @@ local M = {}
 
 -- The colour-coded time bar (shell).
 --
--- A legend row above a bar row, shown in a fixed-height split reserved at the bottom of the daylog
--- window. Reserving real space means it is always visible (it does not scroll with the log) and
--- never overlays the summary/totals (the log window is shortened to make room). Its segments are the
--- active log's intervals -- width proportional to real duration, colour per activity. A global
+-- A centred legend row above a bar row (and when the log is mapped, a second bar with its own legend
+-- below, mirrored), shown in a fixed-height split reserved at the bottom of the daylog window.
+-- Reserving real space means it is always visible (it does not scroll with the log) and never overlays
+-- the summary/totals (the log window is shortened to make room). Its segments are the active log's
+-- intervals -- width proportional to real duration, colour per activity. A global
 -- on/off (the `time_bar` config is the initial state) carried across every daylog file; the buffer
 -- shell redraws it on each highlight pass via M.render. This module owns the panel: its window/split
 -- lifecycle, the scratch-buffer rendering, and the on/off state -- buffer.lua just calls in.
@@ -86,37 +87,49 @@ local function build_bar_row(segments, now_col)
   return bar
 end
 
--- The legend and bar(s) as virtual-line chunk lists ({ {text, hl}, ... } per line), legend on top. The
--- legend is a swatch + name per activity in colour order, stopping before it would overflow `width`.
--- When the log is mapped, a "before mapping" bar coloured by raw description is stacked above the
--- resolved bar (identical widths) for a before/after view. Returns the rows plus `bars`, a list of
--- { row = <1-based row index>, segments } so the hover can map a pointer line back to its segments.
-local function bar_virt_lines(layout, width)
-  local legend = {}
-  local used = 0
-  for _, item in ipairs(timebar.fit_legend(layout.legend, width)) do
+-- One legend row as a chunk list ({ {text, hl}, ... }): a swatch + name per activity in colour order,
+-- centred within the bar `width`. fit_legend abbreviates/evicts to fit; the true display width is
+-- guarded so a double-width (CJK/emoji) label never overflows, then the whole run is centred.
+local function legend_row(items, width)
+  local chunks, used = {}, 0
+  for _, item in ipairs(timebar.fit_legend(items, width)) do
     local name = " " .. item.text .. "  "
-    -- fit_legend already abbreviated/evicted by character count; this guards the true display width
-    -- so a double-width (CJK/emoji) label can never overflow the bar.
     local item_width = 2 + vim.fn.strdisplaywidth(name)
     if used + item_width > width then
       break
     end
-    legend[#legend + 1] = { "  ", activity_hl.bar_group(item.color_index) }
-    legend[#legend + 1] = { name, "DaylogBarLabel" }
+    chunks[#chunks + 1] = { "  ", activity_hl.bar_group(item.color_index) }
+    chunks[#chunks + 1] = { name, "DaylogBarLabel" }
     used = used + item_width
   end
+  local pad = math.floor((width - used) / 2)
+  if pad > 0 then
+    table.insert(chunks, 1, { string.rep(" ", pad), "DaylogBarLabel" })
+  end
+  return chunks
+end
 
+-- The bar(s) with their centred legends, as virtual-line chunk lists ({ {text, hl}, ... } per line).
+-- Unmapped: a centred legend above its bar. Mapped: the two bars sit adjacent with a legend on the
+-- outside of each -- raw legend / raw bar / resolved bar / resolved legend -- a mirrored before/after
+-- view. Returns the rows plus `bars`, a list of { row = <1-based row index>, segments } so the hover can
+-- map a pointer line back to a BAR row's segments (legend rows are not hover targets).
+local function bar_virt_lines(layout, width)
   local rows, bars = {}, {}
-  if #legend > 0 then
-    rows[#rows + 1] = legend
+  local function add_bar(segments)
+    rows[#rows + 1] = build_bar_row(segments, layout.now_col)
+    bars[#bars + 1] = { row = #rows, segments = segments }
   end
+
   if layout.raw_segments then
-    rows[#rows + 1] = build_bar_row(layout.raw_segments, layout.now_col)
-    bars[#bars + 1] = { row = #rows, segments = layout.raw_segments }
+    rows[#rows + 1] = legend_row(layout.raw_legend, width)
+    add_bar(layout.raw_segments)
+    add_bar(layout.segments)
+    rows[#rows + 1] = legend_row(layout.legend, width)
+  else
+    rows[#rows + 1] = legend_row(layout.legend, width)
+    add_bar(layout.segments)
   end
-  rows[#rows + 1] = build_bar_row(layout.segments, layout.now_col)
-  bars[#bars + 1] = { row = #rows, segments = layout.segments }
   return rows, bars
 end
 

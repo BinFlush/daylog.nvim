@@ -722,16 +722,17 @@ today and reach the full command set. `g?` runs it too when the default set is e
 
 Toggle the colour-coded time bar at the bottom of the window: a horizontal bar whose
 segments are the active log's intervals -- each width proportional to its real duration,
-each colour its activity (resolved label) -- with a legend. It lives in a small split
-reserved at the bottom of the daylog window, so it is always visible (it does not scroll
-with the log) and never overlays the summary; the log window is shortened to make room. It
-updates live as you edit.
+each colour its activity (resolved label) -- with a centred legend above it. It lives in a
+small split reserved at the bottom of the daylog window, so it is always visible (it does not
+scroll with the log) and never overlays the summary; the log window is shortened to make room.
+It updates live as you edit.
 
 When the active log has mapped entries (`=> alias`), the bar shows two aligned rows: the raw
 descriptions on top and the mapped report labels below, for a before/after view of the mapping.
-With no mappings the two rows would be identical, so only one bar is drawn. The single legend
-names every colour -- the resolved labels first, then the raw sides that differ; hovering the
-top row reports the raw item, the bottom row its mapped label.
+Each bar carries its own centred legend on its outer side -- the raw legend above the raw bar,
+the resolved legend below the resolved bar -- so each names only its own activities. With no
+mappings the two rows would be identical, so only one bar (with one legend above it) is drawn.
+Hovering the top row reports the raw item, the bottom row its mapped label.
 - A global toggle: it stays on (or off) as you move between daylog files in the daybook;
   `time_bar = true` is the initial state, and `<leader>db` toggles it in the opt-in set.
 - It is a real split window, so it appears in window navigation (`<C-w>`) and the window

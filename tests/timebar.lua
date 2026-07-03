@@ -202,7 +202,7 @@ return function(t)
     t.eq(layout.legend[2].color_index, 2)
   end)
 
-  t.test("a mapped entry adds a raw 'before' bar under one shared legend", function()
+  t.test("a mapped entry adds a raw 'before' bar with its own legend", function()
     local layout = timebar.layout(
       entries({
         "--- log ---",
@@ -220,17 +220,20 @@ return function(t)
     t.eq(layout.raw_segments[2].label, "Project")
     t.eq(layout.raw_segments[1].width, layout.segments[1].width)
     t.eq(layout.raw_segments[2].width, layout.segments[2].width)
-    -- One shared legend: resolved label first, then the raw side.
-    t.eq(#layout.legend, 2)
-    t.eq(layout.legend[1].label, "Project")
-    t.eq(layout.legend[2].label, "work")
+    -- Each bar names only its own activities: the resolved bar's legend is just Project; the raw bar's
+    -- legend is work then Project (its two distinct raw sides).
+    t.eq(layout.legend, { { label = "Project", color_index = 1 } })
+    t.eq(layout.raw_legend, {
+      { label = "work", color_index = 2 },
+      { label = "Project", color_index = 1 },
+    })
     -- 'work' (raw) gets its own colour; the bare 'Project' interval shares Project's colour in both bars.
     t.eq(layout.segments[1].color_index, 1)
     t.eq(layout.raw_segments[1].color_index, 2)
     t.eq(layout.raw_segments[2].color_index, 1)
   end)
 
-  t.test("the shared legend orders resolved labels first, then raw sides", function()
+  t.test("each bar's legend names only its own activities, in appearance order", function()
     local layout = timebar.layout(
       entries({
         "--- log ---",
@@ -248,15 +251,17 @@ return function(t)
     t.eq(layout.raw_segments[1].label, "fix login")
     t.eq(layout.raw_segments[2].label, "standup")
     t.eq(layout.raw_segments[3].label, "write tests")
-    -- Indices: resolved labels first (Feature A=1, standup=2), then raw sides (fix login=3, write tests=4).
-    t.eq(layout.legend[1].label, "Feature A")
-    t.eq(layout.legend[1].color_index, 1)
-    t.eq(layout.legend[2].label, "standup")
-    t.eq(layout.legend[2].color_index, 2)
-    t.eq(layout.legend[3].label, "fix login")
-    t.eq(layout.legend[3].color_index, 3)
-    t.eq(layout.legend[4].label, "write tests")
-    t.eq(layout.legend[4].color_index, 4)
+    -- Colours are one shared map (Feature A=1, standup=2, fix login=3, write tests=4), but each bar's
+    -- legend lists only its own distinct labels: the resolved bar, then the raw bar.
+    t.eq(layout.legend, {
+      { label = "Feature A", color_index = 1 },
+      { label = "standup", color_index = 2 },
+    })
+    t.eq(layout.raw_legend, {
+      { label = "fix login", color_index = 3 },
+      { label = "standup", color_index = 2 },
+      { label = "write tests", color_index = 4 },
+    })
     -- standup (unmapped) shares one colour across both bars; both Feature A intervals share index 1.
     t.eq(layout.segments[2].color_index, 2)
     t.eq(layout.raw_segments[2].color_index, 2)
@@ -323,7 +328,7 @@ return function(t)
       require("daylog").bar()
       local sw = strip_win()
       t.ok(sw ~= nil, "a strip window opens after toggling on")
-      t.eq(#vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(sw), 0, -1, false), 2) -- legend + bar
+      t.eq(#vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(sw), 0, -1, false), 2) -- labels + bar
 
       require("daylog").bar()
       t.ok(strip_win() == nil, "the strip is gone after toggling off")

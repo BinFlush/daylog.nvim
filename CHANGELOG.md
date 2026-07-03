@@ -79,9 +79,10 @@ happen, but they are called out clearly in this changelog.
 - **The time bar shows a before/after view of mappings.** When the active log has mapped entries
   (`=> alias`), `:Daylog bar` stacks two column-aligned rows — the raw descriptions on top, the mapped
   report labels below — so you can see at a glance what a mapping consolidates. With no mappings the two
-  rows would be identical, so a single bar renders as before. One shared legend names every colour
-  (resolved labels first, then the raw sides); the hover tooltip reports the raw item on the top row and
-  the mapped label on the bottom.
+  rows would be identical, so a single bar renders. The legend is centred above the bar, and when mapped
+  each bar carries its own centred legend on its outer side (the raw legend above the raw bar, the
+  resolved legend below the resolved bar) naming only its own activities; the hover tooltip reports the
+  raw item on the top row and the mapped label on the bottom.
 
 ### Changed
 
