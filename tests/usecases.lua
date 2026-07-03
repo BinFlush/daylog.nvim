@@ -173,8 +173,7 @@ return function(t)
             "1.00h (+0m) (no location)",
             "",
             "--- totals ---",
-            "1.00h (+0m) workday",
-            "1.00h (+0m) non-work",
+            "2.00h (+0m) workday",
           },
         },
       },
@@ -792,6 +791,42 @@ return function(t)
     })
   end)
 
+  t.test("log never marks a blank entry, at any level (it inherits sticky tag/location)", function()
+    -- A blank entry inherits the header's @home / #Proj, so a naive tag/location group would sweep it
+    -- in and stamp a marker on it -- which then trips the blank_entry_metadata diagnostic. Logging any
+    -- of the four rows must leave the blank (10:00) untouched and produce no diagnostics.
+    local refresh_summaries = require("daylog.usecases.refresh_summaries")
+    local analyze = require("daylog.analyze")
+    local document = require("daylog.document")
+    local base =
+      { "--- log @home #Proj q=15 ---", "08:00 work", "10:00", "11:00 more", "12:00 done" }
+    local rendered = support.apply_edits(base, refresh_summaries.run(base).edits)
+
+    local function log_row(needle)
+      local row
+      for i, line in ipairs(rendered) do
+        if line:find(needle, 1, true) then
+          row = i
+        end
+      end
+      local result = log_current.run(rendered, row)
+      local applied = support.apply_edits(rendered, result.edits)
+      local blank_marked = false
+      for _, line in ipairs(applied) do
+        if line:match("^10:00%s*!") then
+          blank_marked = true
+        end
+      end
+      return blank_marked, #analyze.analyze(document.parse(applied)).diagnostics
+    end
+
+    for _, needle in ipairs({ "@home", "#Proj", "workday", ") work" }) do
+      local blank_marked, diagnostics = log_row(needle)
+      t.eq(blank_marked, false)
+      t.eq(diagnostics, 0)
+    end
+  end)
+
   t.test("log_current leaves notes under entries untouched", function()
     local result = log_current.run({
       "--- log ---",
@@ -956,24 +991,6 @@ return function(t)
     t.ok(marked, "the location's contributing entry is frozen at !L60")
   end)
 
-  t.test("log_current refuses to log an out-of-office tag row", function()
-    local result, err = log_current.run({
-      "--- log ---",
-      "08:00 lunch #ooo",
-      "09:00 done",
-      "",
-      "",
-      "--- summary q=15 d=dec ---",
-      "1.00h (+0m) lunch",
-      "",
-      "--- tags ---",
-      "1.00h (+0m) #ooo",
-    }, 10)
-
-    t.eq(result, nil)
-    t.eq(err, "daylog: refusing to mark out-of-office time as logged")
-  end)
-
   t.test("log_current logs the workday total row at the workday level", function()
     local result = log_current.run({
       "--- log ---",
@@ -1022,30 +1039,6 @@ return function(t)
       end
     end
     t.ok(not still_marked, "the workday marker is removed from every entry")
-  end)
-
-  t.test("log_current refuses to log the non-work total row", function()
-    local result, err = log_current.run({
-      "--- log ---",
-      "08:00 implementation",
-      "09:00 lunch #ooo",
-      "09:30 done",
-      "",
-      "--- summary q=15 d=dec ---",
-      "1.00h (+0m) implementation",
-      "0.50h (+0m) lunch",
-      "",
-      "--- tags ---",
-      "1.00h (+0m) (untagged)",
-      "0.50h (+0m) #ooo",
-      "",
-      "--- totals ---",
-      "1.00h (+0m) workday",
-      "0.50h (+0m) non-work",
-    }, 16)
-
-    t.eq(result, nil)
-    t.eq(err, "daylog: refusing to mark out-of-office time as logged")
   end)
 
   t.test("log_current refuses the summary section header line", function()
@@ -1114,20 +1107,6 @@ return function(t)
         },
       },
     })
-  end)
-
-  t.test("log_current refuses #ooo summary rows", function()
-    local result, err = log_current.run({
-      "--- log ---",
-      "08:00 break #ooo",
-      "09:00 done",
-      "",
-      "--- summary q=15 d=dec ---",
-      "1.00h (+0m) break",
-    }, 6)
-
-    t.eq(result, nil)
-    t.eq(err, "daylog: refusing to mark out-of-office time as logged")
   end)
 
   t.test("log_current refuses stale summary rows that no longer match the source", function()
@@ -1424,7 +1403,6 @@ return function(t)
       explicit_location_clear = nil,
       tag = "internal",
       location = "home",
-      workday_excluded = false,
     })
   end)
 
@@ -1468,7 +1446,6 @@ return function(t)
       explicit_location_clear = nil,
       tag = "ClientA",
       location = "office",
-      workday_excluded = false,
     })
   end)
 

@@ -9,7 +9,6 @@ local LOGGED_LEVEL_OF = { S = "s", T = "t", L = "l", W = "w" }
 
 M.TAG_CLEAR_TOKEN = "#-"
 M.LOCATION_CLEAR_TOKEN = "@-"
-M.OUT_OF_OFFICE_TAG = "ooo"
 
 M.OPTION_QUANTIZE = "q"
 M.OPTION_DURATION = "d"

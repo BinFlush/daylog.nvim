@@ -199,10 +199,10 @@ return function(t)
     t.eq(err, balance.NOT_BALANCEABLE)
   end)
 
-  t.test("balance distinguishes the workday total (non-ooo) from the non-work total", function()
-    -- work is non-ooo and exact (remainder 0); lunch is #ooo. Each total scopes only
-    -- its own work-class rows: the non-work total sees the #ooo lunch, the workday
-    -- total sees only the non-ooo work.
+  t.test("the single workday total counts an #ooo tag; a blank is excluded", function()
+    -- #ooo is now an ordinary tag: it counts toward the one workday total (there is no separate
+    -- non-work total), and balancing that total can nudge the #ooo row. Uncounted time is instead a
+    -- blank entry, which reaches no total.
     local function sample_ooo()
       return buffer_with_summary({
         "--- log #ClientA @office q=15 ---",
@@ -212,20 +212,28 @@ return function(t)
       })
     end
 
-    -- The non-work total scopes the #ooo rows: +1 rounds up the lunch row and leaves
-    -- the workday total untouched.
-    local nw = run(sample_ooo(), ") non-work", 1)
-    t.eq(nw[2], "08:00 work")
-    t.eq(nw[3], "08:45 lunch #ooo round+1")
-    t.eq(nw[row_of(nw, ") workday")], "0.75h (+0m) workday")
-    t.eq(nw[row_of(nw, ") non-work")], "1.00h (-10m) non-work round+1")
+    -- One workday total that already includes the #ooo lunch (work 45m + lunch 50m -> 1.50h +5m),
+    -- and no separate non-work total exists.
+    local counted = sample_ooo()
+    t.eq(counted[row_of(counted, ") workday")], "1.50h (+5m) workday")
+    for _, line in ipairs(counted) do
+      t.ok(not line:find("non-work", 1, true), "there is no separate non-work total")
+    end
 
-    -- The workday total excludes #ooo, so +1 must round up the non-ooo work row instead.
-    local wd = run(sample_ooo(), ") workday", 1)
-    t.eq(wd[2], "08:00 work round+1")
-    t.eq(wd[3], "08:45 lunch #ooo")
-    t.eq(wd[row_of(wd, ") workday")], "1.00h (-15m) workday round+1")
-    t.eq(wd[row_of(wd, ") non-work")], "0.75h (+5m) non-work")
+    -- Balancing that single total up marks the #ooo row (its remainder is the largest).
+    local nudged = run(sample_ooo(), ") workday", 1)
+    t.eq(nudged[2], "08:00 work")
+    t.eq(nudged[3], "08:45 lunch #ooo round+1")
+    t.eq(nudged[row_of(nudged, ") workday")], "1.75h (-10m) workday round+1")
+
+    -- A blank entry, by contrast, reaches no total: the workday is just the 45m of counted work.
+    local blanked = buffer_with_summary({
+      "--- log #ClientA @office q=15 ---",
+      "08:00 work",
+      "08:45",
+      "09:35 done",
+    })
+    t.eq(blanked[row_of(blanked, ") workday")], "0.75h (+0m) workday")
   end)
 
   t.test("balance refuses when the cursor is not on a summary row or entry", function()

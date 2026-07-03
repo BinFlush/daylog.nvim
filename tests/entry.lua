@@ -7,19 +7,16 @@ return function(t)
     t.eq(parsed.text, "bake strudel")
     t.eq(parsed.tag, "ProjectOrion")
     t.eq(parsed.location, "office")
-    t.eq(parsed.workday_excluded, false)
   end)
 
   t.test("entry parse keeps explicit tag, location, and ooo tag", function()
     local parsed = entry.parse("08:04 bake strudel #sales @client", "ProjectOrion", "office")
     t.eq(parsed.tag, "sales")
     t.eq(parsed.location, "client")
-    t.eq(parsed.workday_excluded, false)
 
     parsed = entry.parse("08:04 coffee #ooo", "ProjectOrion", "office")
     t.eq(parsed.tag, "ooo")
     t.eq(parsed.location, "office")
-    t.eq(parsed.workday_excluded, true)
   end)
 
   t.test("entry parse keeps explicit clear tokens", function()
@@ -28,7 +25,6 @@ return function(t)
     t.eq(parsed.location, nil)
     t.eq(parsed.explicit_tag_clear, true)
     t.eq(parsed.explicit_location_clear, true)
-    t.eq(parsed.workday_excluded, false)
   end)
 
   t.test("entry parse keeps trailing !S without making it sticky", function()
@@ -67,7 +63,6 @@ return function(t)
         text = "first",
         tag = "ProjectOrion",
         location = "office",
-        workday_excluded = false,
       }, "ProjectOrion", "office"),
       "08:00 first"
     )
@@ -77,7 +72,6 @@ return function(t)
         text = "second",
         tag = "ProjectOrion",
         location = "client",
-        workday_excluded = false,
       }, "ProjectOrion", "office"),
       "08:00 second @client"
     )
@@ -87,13 +81,12 @@ return function(t)
         text = "third",
         tag = "sales",
         location = "client",
-        workday_excluded = false,
       }, "ProjectOrion", "office"),
       "08:00 third #sales @client"
     )
     t.eq(
       entry.format(
-        { minutes = 480, text = "break", tag = "ooo", location = "office", workday_excluded = true },
+        { minutes = 480, text = "break", tag = "ooo", location = "office" },
         "ProjectOrion",
         "office"
       ),
@@ -105,7 +98,6 @@ return function(t)
         text = "third",
         tag = "sales",
         location = "client",
-        workday_excluded = false,
         logged = { s = true },
       }, "ProjectOrion", "office"),
       "08:00 third #sales @client !S"
@@ -116,7 +108,6 @@ return function(t)
         text = "reset",
         tag = nil,
         location = nil,
-        workday_excluded = false,
         logged = { s = true },
       }, "ProjectOrion", "office"),
       "08:00 reset #- @- !S"

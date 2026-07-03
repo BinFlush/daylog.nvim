@@ -35,21 +35,30 @@ happen, but they are called out clearly in this changelog.
   summary does not change what its tag or location reports — you log those separately. **The separate
   `--- logged ---` section is removed** (each section carries its own split now) — a derived-output
   change, so summaries with logged work render differently on upgrade; `:Daylog refresh` (or
-  auto-summary) reclaims a stale `--- logged ---` section left by an older version. `#ooo` time cannot be
-  logged at any level (diagnosed per level). A hand-typed bare marker (`!S` with no value) now just flags
-  the row logged rather than splitting it; only a committed value splits. `:Daylog balance` acts on an
+  auto-summary) reclaims a stale `--- logged ---` section left by an older version. A hand-typed bare
+  marker (`!S` with no value) now just flags the row logged rather than splitting it; only a committed
+  value splits. `:Daylog balance` acts on an
   activity or the workday total, and its nudge now flows into the tag and location totals too (they foot
   to the balanced total); balancing directly on a tag or location row is refused.
-- **The `--- totals ---` section is a work-class partition, loggable with `!W`.** It now shows
-  `workday` (non-`#ooo` time) and, when there is out-of-office time, `non-work` (`#ooo`) — two cells that
-  foot to the whole day, replacing the old `activity` / `workday` pair. This is a derived-output change:
-  a day with `#ooo` renders `non-work` instead of an `activity` total on upgrade.
+- **BREAKING — `#ooo` and the out-of-office concept are removed; uncounted time is now a blank
+  entry.** A blank entry — a bare `HH:MM` timestamp with no activity text — starts no interval, so its
+  time is excluded from every report (a break or lunch). A blank carries no metadata: a tag, location,
+  logging marker, `=> alias`, or `round±N` on a blank raises the `blank_entry_metadata` diagnostic
+  ("a blank entry cannot carry a tag, location, marker, alias, or round nudge"); a `utc` offset is
+  allowed (it records a clock change during the gap). A blank is not a `:Daylog map` or `:Daylog rename`
+  target (both refuse it). `#ooo` is now an ordinary tag with no special meaning — an entry tagged
+  `#ooo` is fully counted, logged like any other, and given no special highlight. There is no migration:
+  an old file using `#ooo` treats it as a normal tag, so its time becomes counted. The four `#ooo`
+  v0.1.0 compat fixtures are removed.
+- **The `--- totals ---` section is a single `workday` total, loggable with `!W`.** It shows one
+  `workday` row — the whole counted day, which foots to the activity total (uncounted time is a blank
+  entry, which reaches no report), replacing the old `activity` / `workday` pair. It is still loggable
+  with `!W`, splitting into a reported and a remaining row like `!S`. This is a derived-output change.
 - **`:Daylog log` logs at the level of the row under the cursor.** On a main activity row it toggles
   `!S` (as before); on a `--- tags ---` row it toggles `!T` for that whole tag; on a `--- locations ---`
   row it toggles `!L` for that location; on the `--- totals ---` workday row it toggles `!W` for the
   whole workday — freezing the group at its displayed total and stamping the committed value on its
-  entries, or clearing the marker to unlog. `#ooo` rows (and the `non-work` total) are refused at every
-  level.
+  entries, or clearing the marker to unlog.
 - **Logged markers write as one compact token.** An entry's markers ride in a single token in
   `S T L W` order — `!S225T525W525` instead of `!S225 !T525 !W525` — for terser lines. The separated
   form (and any mix) still parses, so existing logs keep working; the writer normalizes to the compact
@@ -81,18 +90,14 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
-- **Broken logs are flagged in red.** When a log carries a logging error — out-of-office time marked
-  logged (`#ooo !S`), same-activity `!S` values that disagree, or a frozen value that no longer fits the
+- **Broken logs are flagged in red.** When a log carries a logging error — same-activity `!S` values
+  that disagree, or a frozen value that no longer fits the
   bucket — or a structural error (an out-of-order or invalid entry), the offending line **and** its
   now-untrustworthy summary are highlighted red until the error is fixed, then clear on their own. The
   colour is the `DaylogError` group, restylable via `:highlight`.
 
 ### Fixed
 
-- **A hand-typed `!S` on out-of-office (`#ooo`) time now warns.** `:Daylog log` already refuses to log
-  `#ooo` time, but a hand-edited `#ooo !S` slipped past it and rendered an inert logged marker with no
-  logged-section accounting and no diagnostic. `:Daylog refresh` now surfaces it — "out-of-office time
-  cannot be logged; remove !S or #ooo" — so the rule holds for hand-edits too.
 - **Logging a manually-rounded row no longer changes an unrelated row, and `:Daylog log` is now
   order-independent.** When an entry carried a `round±N` nudge and was then logged (`:Daylog log` /
   `!S`), the frozen row's residual used to be forced onto another activity's duration (and the day
@@ -112,7 +117,7 @@ happen, but they are called out clearly in this changelog.
 
 - **`:Daylog export csv|json [range]` writes a machine-readable summary.** Export a day or a range
   (the `report` date vocabulary, defaulting to today) as CSV or JSON into a scratch buffer you save or
-  yank -- one row per activity per day (`date, activity, tag, minutes, hours, logged, ooo`), carrying
+  yank -- one row per activity per day (`date, activity, tag, minutes, hours, logged`), carrying
   the same quantized numbers `:Daylog report` shows, ready for a timesheet / invoicing tool / script.
   `require("daylog").export(format, range)` returns the string for scripting.
 

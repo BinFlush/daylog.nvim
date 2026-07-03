@@ -159,7 +159,6 @@ function M.run(lines, cursor_row, weights)
           tag = entry_item.tag,
           location = entry_item.location,
           offset = entry_item.offset,
-          workday_excluded = entry_item.workday_excluded,
           logged = nil,
         }
         if i == 1 then
@@ -196,7 +195,6 @@ function M.run(lines, cursor_row, weights)
           tag = semantic_entry.tag,
           location = semantic_entry.location,
           offset = semantic_entry.offset,
-          workday_excluded = semantic_entry.workday_excluded,
           logged = nil,
           nudge = nil,
           row = semantic_entry.row,

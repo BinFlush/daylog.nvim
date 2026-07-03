@@ -55,19 +55,12 @@ local function scope_for(layout_row)
     return function(row)
       return row.text == item.text
         and row.tag == item.tag
-        and (row.workday_excluded == true) == (item.workday_excluded == true)
         and (row.logged == true) == (item.logged == true)
     end
   elseif kind == K.TOTAL then
-    -- The totals partition scopes its own work-class: the workday row the non-#ooo rows, the non-work
-    -- row the #ooo rows. (There is no longer a whole-day "activity" total row to scope everything.)
-    if layout_row.total == "non-work" then
-      return function(row)
-        return row.workday_excluded == true
-      end
-    end
-    return function(row)
-      return not row.workday_excluded
+    -- The totals are a single `workday` row = the whole counted day, so it scopes every row.
+    return function()
+      return true
     end
   end
 
@@ -267,7 +260,6 @@ local function same_target(a, b)
   if a.kind == K.SUMMARY_ITEM then
     return a.item.text == b.item.text
       and a.item.tag == b.item.tag
-      and (a.item.workday_excluded == true) == (b.item.workday_excluded == true)
       and (a.item.logged == true) == (b.item.logged == true)
   elseif a.kind == K.TOTAL then
     -- A split workday renders a logged and an unlogged row, both `total == "workday"`; include the

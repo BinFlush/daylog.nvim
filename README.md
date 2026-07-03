@@ -76,8 +76,9 @@ changed — or a rounding bucket (`q=`) in the header:
 17:00 done
 ```
 
-The rest of the grammar (`#-` / `@-` to clear, `#ooo`, `!S`, `=> alias`, `d=hm`) is in
-`:help daylog-format`.
+A bare `HH:MM` with no activity text is a **blank entry**: its interval is uncounted, so a break
+or lunch drops out of every total. The rest of the grammar (`#-` / `@-` to clear, `!S`,
+`=> alias`, `d=hm`) is in `:help daylog-format`.
 
 ## Commands
 

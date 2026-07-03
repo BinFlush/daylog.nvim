@@ -36,14 +36,14 @@ local function parse_duration(line, fmt)
 end
 
 -- Group a rendered summary layout into per-section displayed durations, the raw
--- rendered lines, and the totals. The totals partition foots to the whole day, so
--- the "whole" is the sum of every total row (workday + non-work); the workday row is
--- captured separately for the non-#ooo scope.
+-- rendered lines, and the totals. The totals section is a single `workday` row = the
+-- whole counted day, so the "whole" is the sum of the total row(s) and the main
+-- section foots to it.
 local function dissect(layout, fmt)
   local K = render.LAYOUT_KIND
   local sec = { summary = {}, tag = {}, location = {} }
   local rendered = {}
-  local whole, workday = 0, nil
+  local whole = 0
   for _, row in ipairs(layout) do
     rendered[#rendered + 1] = row.line
     if row.kind == K.SUMMARY_ITEM then
@@ -53,14 +53,10 @@ local function dissect(layout, fmt)
     elseif row.kind == K.LOCATION_TOTAL then
       sec.location[#sec.location + 1] = parse_duration(row.line, fmt)
     elseif row.kind == K.TOTAL then
-      local d = parse_duration(row.line, fmt)
-      whole = whole + d
-      if row.line:find("workday") then
-        workday = d
-      end
+      whole = whole + parse_duration(row.line, fmt)
     end
   end
-  return sec, rendered, whole, workday
+  return sec, rendered, whole
 end
 
 local function total(list)

@@ -21,7 +21,6 @@ local function activity_from_item(item)
     tag = item.tag,
     location = item.location,
     offset = item.offset,
-    workday_excluded = item.workday_excluded,
   }
 end
 
@@ -110,7 +109,6 @@ function M.close_edit(lines)
     tag = state.tag,
     location = state.location,
     offset = state.offset,
-    workday_excluded = state.tag == syntax.OUT_OF_OFFICE_TAG,
   }, minutes)
 end
 

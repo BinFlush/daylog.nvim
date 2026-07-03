@@ -164,7 +164,7 @@ return function(t)
       "--- log q=15 ---",
       "08:00 build #Client @office !S120 !T120",
       "10:00 build #Client @office",
-      "10:30 lunch #ooo",
+      "10:30",
       "11:00 email #Internal @home !L30",
       "11:30 done",
     })))
@@ -178,22 +178,19 @@ return function(t)
         "--- summary q=15 d=dec ---",
         "2.00h (+0m) build !S", -- summary level: the !S slice held at 120
         "0.50h (+0m) build",
-        "0.50h (+0m) lunch",
         "0.50h (+0m) email",
         "",
         "--- tags ---",
         "2.00h (+0m) #Client !T", -- tag level: the !T slice, independent of !S
         "0.50h (+0m) #Client",
-        "0.50h (+0m) #ooo",
         "0.50h (+0m) #Internal",
         "",
         "--- locations ---",
-        "3.00h (+0m) @office",
+        "2.50h (+0m) @office", -- the blank interval is uncounted, so @office loses that slice
         "0.50h (+0m) @home !L", -- location level: the !L slice
         "",
         "--- totals ---",
-        "3.00h (+0m) workday", -- #ooo lunch excluded from the workday
-        "0.50h (+0m) non-work", -- the #ooo lunch cell
+        "3.00h (+0m) workday", -- the blank interval is excluded from every total
       }
     )
   end)

@@ -3,10 +3,10 @@ return function(t)
   -- docs/architecture.md / the plan): footing and its corollaries are structural
   -- partition-sum identities, so they must hold for ANY per-cell nudge. This throws
   -- adversarial per-entry nudge vectors (wide range, mixed signs, forcing clamps) at
-  -- synthesized logs -- on top of the offsets/tags/locations/ooo/!S the synth
+  -- synthesized logs -- on top of the offsets/tags/locations/!S the synth
   -- already varies -- and asserts, for the day summary AND a combined week:
   --   T1  every section's rows sum to its own total;
-  --   T2  activity = Σtags = Σlocations, workday = Σlogged, activity - workday = Σooo;
+  --   T2  activity = Σtags = Σlocations = workday (uncounted time is a blank, excluded everywhere);
   --   T3  displayed + residual = true, per row and per section;
   --   (display) the rendered dec/hm rows foot to each section's shown total.
   -- The always-on footing fuzz only emits small random nudges; this is the strong,
@@ -42,18 +42,10 @@ return function(t)
     eq(sum_field(s.tag_totals, "duration"), s.tag_total, ctx .. " T1 tags=tag_total")
     eq(sum_field(s.location_totals, "duration"), s.location_total, ctx .. " T1 locs=location_total")
 
-    local workday, ooo = 0, 0
-    for _, item in ipairs(s.summary_items) do
-      if item.workday_excluded then
-        ooo = ooo + item.duration
-      else
-        workday = workday + item.duration
-      end
-    end
-    eq(workday, s.workday_total, ctx .. " T1 non-ooo items=workday")
-
-    -- T2: the activity/workday gap is exactly the out-of-office time.
-    eq(s.activity_total - s.workday_total, ooo, ctx .. " T2 activity-workday=ooo")
+    -- T2: uncounted time is a blank entry (excluded from every section), so the workday is the whole
+    -- counted day: every summary item counts toward it and it equals the activity total exactly.
+    eq(sum_field(s.summary_items, "duration"), s.workday_total, ctx .. " T1 items=workday")
+    eq(s.workday_total, s.activity_total, ctx .. " T2 workday=activity")
 
     -- T3: displayed + residual = true, per row and summed per section.
     local function residuals(list, name)
@@ -106,9 +98,9 @@ return function(t)
         elseif row.kind == K.LOCATION_TOTAL then
           sections.location[#sections.location + 1] = parse_duration(row.line, fmt)
         elseif row.kind == K.TOTAL then
-          -- The totals are the work-class partition (workday + non-work), footing to
-          -- the whole day; sum every total row to recover the displayed whole that the
-          -- main section foots to. Tag and location sections foot to their OWN totals.
+          -- The totals are a single workday row = the whole counted day; sum the total row(s) to
+          -- recover the displayed whole that the main section foots to. Tag and location sections
+          -- foot to their OWN totals.
           whole = whole + parse_duration(row.line, fmt)
         end
       end

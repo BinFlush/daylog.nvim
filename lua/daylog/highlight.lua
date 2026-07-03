@@ -40,7 +40,6 @@ M.GROUPS = {
   DaylogBlockHeader = { bold = true },
   DaylogTimestamp = "Statement",
   DaylogTag = "Identifier",
-  DaylogOoo = "WarningMsg",
   DaylogLocation = "Function",
   DaylogLogged = "Special",
   DaylogDuration = "Special",
@@ -121,7 +120,7 @@ local function summary_section_rows(analysis)
 end
 
 -- Rows to flag red because a block is broken: the offending source line(s) -- an out-of-order or
--- invalid entry, or a logging error (a `#ooo !S`, a conflicting or off-grid `!S`) -- AND the whole
+-- invalid entry, or a logging error (a conflicting or off-grid `!S`) -- AND the whole
 -- summary region of any block carrying such an error, so a stale/suspect summary reads as
 -- untrustworthy at a glance and clears the instant the error is fixed. Reuses the analyzer's own
 -- diagnostics plus the one shared `summary.logging_diagnostics`, so the red never disagrees with the
@@ -166,13 +165,10 @@ local function error_rows(analysis)
 end
 
 -- The highlight group for a trailing-metadata / header token (a #tag, @location,
--- clear, or !L), or nil when the token is not metadata. #ooo is distinguished.
+-- clear, or !L), or nil when the token is not metadata.
 local function control_group(token)
-  local kind, value = document.classify_control_token(token)
+  local kind = document.classify_control_token(token)
   if kind == syntax.TOKEN_KIND.TAG then
-    if value == syntax.OUT_OF_OFFICE_TAG then
-      return "DaylogOoo"
-    end
     return "DaylogTag"
   elseif kind == syntax.TOKEN_KIND.LOCATION then
     return "DaylogLocation"

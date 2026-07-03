@@ -367,8 +367,7 @@ return function(t)
       "1.00h (+0m) (no location)",
       "",
       "--- totals ---",
-      "1.00h (+0m) workday",
-      "1.00h (+0m) non-work",
+      "2.00h (+0m) workday",
     })
   end)
 

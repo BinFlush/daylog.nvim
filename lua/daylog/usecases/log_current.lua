@@ -13,10 +13,8 @@ local M = {}
 -- is rebuilt from the updated source (a pure projection, so no note preservation is needed).
 --
 -- The levels are independent, so marking a tag does not touch the summary or location markers on the
--- same entries. Out-of-office (`#ooo`) time can never be logged, at any level -- so the totals' non-work
--- row is refused, and only its workday row logs (`!W`, stamped on every non-#ooo entry).
+-- same entries. The `--- totals ---` workday row logs `!W`, stamped on every counted (non-blank) entry.
 
-local REFUSE_OOO = "daylog: refusing to mark out-of-office time as logged"
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, location, or workday row to log it"
 
@@ -80,10 +78,6 @@ end
 local function log_summary_row(analysis, block, item)
   local target_logged = not item.logged
 
-  if target_logged and item.workday_excluded then
-    return nil, REFUSE_OOO
-  end
-
   local source_rows = item.source_entry_rows or {}
   if #source_rows == 0 then
     return nil, summary_cursor.STALE
@@ -97,6 +91,11 @@ local function log_summary_row(analysis, block, item)
   local entry_by_row = {}
   for _, entry_item in ipairs(block.entry_items) do
     entry_by_row[entry_item.start_row] = entry_item
+    -- A blank entry is uncounted and never carries a marker; never target one. A blank starts no
+    -- interval, so it should not reach a summary row's source rows -- this is a defensive backstop.
+    if target_rows[entry_item.start_row] and summary.is_blank_entry(entry_item) then
+      target_rows[entry_item.start_row] = nil
+    end
     local entry_logged = entry_item.logged and entry_item.logged.s ~= nil
     if target_rows[entry_item.start_row] and (entry_logged or false) ~= (item.logged == true) then
       return nil, INCONSISTENT_SOURCE
@@ -123,18 +122,21 @@ end
 -- sub-split (unlike the summary level's location axis), so marking freezes the WHOLE group at its
 -- current displayed section total and stamps that one value on every one of its entries; unmarking
 -- drops the marker from the entries currently logged at the level.
-local FIELD_BY_LEVEL = { t = "tag", l = "location", w = "workday_excluded" }
+local FIELD_BY_LEVEL = { t = "tag", l = "location" }
 
 local function log_section_row(analysis, block, item, level)
   local field = FIELD_BY_LEVEL[level]
   local target_logged = not item.logged
 
+  -- A blank entry is uncounted and must never carry a marker; it inherits the sticky tag/location, so
+  -- it would otherwise match a tag/location cell (and it is part of the whole day). Exclude it up front
+  -- at every level. The workday (`w`) cell is then the whole counted day; a tag/location cell groups by
+  -- its own field value.
   local group = {}
   for _, entry_item in ipairs(block.entry_items) do
-    if entry_item[field] == item[field] then
-      if target_logged and entry_item.workday_excluded then
-        return nil, REFUSE_OOO
-      end
+    local in_cell = not summary.is_blank_entry(entry_item)
+      and (level == "w" or (field ~= nil and entry_item[field] == item[field]))
+    if in_cell then
       group[#group + 1] = entry_item
     end
   end
@@ -145,16 +147,16 @@ local function log_section_row(analysis, block, item, level)
   local overrides = {}
   if target_logged then
     local totals = summary.summarize_block(block)
-    local rows = totals.tag_totals
-    if level == "l" then
-      rows = totals.location_totals
-    elseif level == "w" then
-      rows = totals.total_rows
-    end
-    local committed = 0
-    for _, row in ipairs(rows) do
-      if row[field] == item[field] then
-        committed = committed + row.duration
+    local committed
+    if level == "w" then
+      committed = totals.activity_total -- the workday is the whole counted day
+    else
+      local rows = level == "l" and totals.location_totals or totals.tag_totals
+      committed = 0
+      for _, row in ipairs(rows) do
+        if row[field] == item[field] then
+          committed = committed + row.duration
+        end
       end
     end
 
@@ -191,8 +193,7 @@ function M.run(lines, cursor_row)
   elseif layout_row.kind == K.LOCATION_TOTAL then
     return log_section_row(result.ctx.analysis, result.ctx.block, layout_row.item, "l")
   elseif layout_row.kind == K.TOTAL then
-    -- The totals partition: the workday row logs `!W`; the non-work (#ooo) row is refused inside
-    -- log_section_row, since #ooo time can never be logged.
+    -- The totals row is the whole counted day: it logs `!W` on every non-blank entry.
     return log_section_row(result.ctx.analysis, result.ctx.block, layout_row.item, "w")
   end
 

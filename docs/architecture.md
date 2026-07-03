@@ -41,30 +41,44 @@ interval that starts at the entry.
 ```
 
 `#tag` and `@location` are sticky: if an entry omits one, it inherits the current
-value. `#-` clears the active tag and `@-` the active location. `#ooo` marks
-out-of-office time — it contributes to `activity` but not `workday`.
+value. `#-` clears the active tag and `@-` the active location.
+
+A **blank entry** — a bare `HH:MM` timestamp with no activity text — marks uncounted
+time. Its interval is excluded from every report ("not calculated in any shape or
+form"):
+
+```text
+08:00 planning
+11:00
+13:00 client followup
+```
+
+Here `11:00–13:00` is uncounted; only the two real activities count. A blank carries
+no reporting metadata — no tag, location, logging marker, `=> alias`, or `round±N`
+nudge — and any that slip in raise the `blank_entry_metadata` diagnostic. A `utc`
+offset is allowed (it records a clock change during the gap, not a report attribute).
+Notes may still follow a blank. A blank is neither a map nor a rename target.
 
 ## Reporting model
 
-All reporting starts from intervals. Each interval has:
+All reporting starts from intervals. Blank entries start no interval, so uncounted
+time never reaches the report. Each interval has:
 
 ```text
 duration
 activity text
 tag
 location
-workday_excluded
 ```
 
 These dimensions each partition the interval set, so:
 
 ```text
 sum(item totals) = sum(tag totals) = sum(location totals) = activity total
-workday total + non-work total = activity total   (non-work = #ooo time)
 ```
 
-The totals section is a fourth partition (`workday` = non-`#ooo`, `non-work` = `#ooo`), so it foots to
-the whole day exactly like tags and locations.
+The totals section is a single `workday` row — the whole counted day, which equals
+the activity total — so it foots to the same total as tags and locations.
 
 The "activity text" an interval reports under is its **resolved label**: an entry's
 mapping alias (`=> label`) when it has one, else its own description. A bare entry and a
@@ -83,7 +97,7 @@ An entry can be marked **logged** — reported to an external system — at any 
 `!S` (its summary row / activity), `!T` (its tag), `!L` (its location), `!W` (the workday). A frozen
 marker `!X<minutes>` commits that cell to a value; a bare `!X` only flags it. Markers write as one
 compact token in `S T L W` order (`!S225T525W525`); the separated form (`!S225 !T525`) parses too.
-`#ooo` time can never be logged. `:Daylog log` on a rendered row writes the marker on that cell's
+`:Daylog log` on a rendered row writes the marker on that cell's
 entries (a summary `!S` per (activity, location) slice, so a location-spanning activity's slices SUM);
 the markers live on the entries, so the summary stays a pure projection.
 
@@ -101,8 +115,8 @@ propagates to every partition that contains them (**propagate**). The one honest
 over-commitments at cross-cutting levels (a tag and a location whose granule sets overlap without
 nesting) can contradict — no integer rounding satisfies both. The quantizer detects this after applying
 them, falls back to the honest quantization (so footing always holds), and `logging_diagnostics` warns
-that the commitments contradict. Diagnostics also flag an off-grid frozen value, a marker on `#ooo`, and
-same-cell values that disagree.
+that the commitments contradict. Diagnostics also flag an off-grid frozen value and same-cell values
+that disagree.
 
 ## Module overview
 
@@ -227,13 +241,15 @@ the open reports.
 `document.lua` parses source lines into syntax nodes, preserving raw text, row
 numbers, line kinds, metadata tokens, header option tokens, and invalid time-like
 lines. It recognizes `#tag`, `#-`, `@location`, `@-`, `key=value`, `HH:MM`, and
-`--- log ... ---`, but assigns no business meaning — it parses `#ooo` as a
-tag, and `analyze.lua` decides it is excluded from workday.
+`--- log ... ---`, but assigns no business meaning — a bare `HH:MM` with no text is
+just an entry node with empty text.
 
 `analyze.lua` turns syntax into meaning: log block discovery, sticky
-tag/location state, clear-token semantics, `#ooo` exclusion, block-local
-`quantize` and `duration` interpretation, and diagnostics. A semantic entry
-carries both explicit and effective metadata:
+tag/location state, clear-token semantics, block-local `quantize` and `duration`
+interpretation, and diagnostics — including `blank_entry_metadata`, which flags a
+blank entry (empty text) that carries a tag, location, marker, alias, or round
+nudge (a `utc` offset is allowed). A semantic entry carries both explicit and
+effective metadata:
 
 ```lua
 {
@@ -242,7 +258,6 @@ carries both explicit and effective metadata:
   text = "planning",
   explicit_tag = nil, explicit_tag_clear = nil, tag = "ClientA",
   explicit_location = nil, explicit_location_clear = nil, location = "office",
-  workday_excluded = false,
 }
 ```
 
@@ -278,7 +293,9 @@ can become:
 
 `summary.lua` builds intervals from adjacent semantic entries (`entry[i] ->
 entry[i + 1]`); the final entry closes the previous interval and produces none of
-its own. There is one summary type, always quantized to the log's
+its own. A blank entry (empty text, `summary.is_blank_entry`) starts no interval,
+so `build_intervals` skips it and its gap lands in no report. There is one summary
+type, always quantized to the log's
 `q=<minutes>` bucket (default 15); `q=1` reproduces exact, unrounded
 durations. Durations render as decimal hours or `hh:mm`, each with its `(+Nm)`
 rounding error (`(+0m)` when exact). The summary header echoes the log's
@@ -286,9 +303,9 @@ rounding error (`(+0m)` when exact). The summary header echoes the log's
 `syntax.summary_header` and regenerated on refresh, so the log header stays the
 single source of truth.
 
-Quantization rounds granules. The granule is `activity text + tag +
-location + workday_excluded`; intervals sharing a granule are summed before
-rounding. With bucket size `q` (default 15) and exact activity total `A`, the
+Quantization rounds granules. The granule is `(text, tag, location)`; intervals
+sharing a granule are summed before rounding. With bucket size `q` (default 15)
+and exact activity total `A`, the
 target rounded total is:
 
 ```text
@@ -309,14 +326,11 @@ honest quantization and is diagnosed (`quantize.constrained_quantize`, `summary.
 Quantized granules project into displayed sections:
 
 ```text
-main summary rows -> activity text + tag + workday_excluded
+main summary rows -> activity text + tag
 tag totals        -> tag
 location totals   -> location
-overall totals    -> work-class (workday = non-#ooo, non-work = #ooo)
+overall totals    -> workday (the whole counted day)
 ```
-
-Rows with `workday_excluded = true` contribute to activity totals but not workday
-totals.
 
 ### Manual rounding balance (`round±N`)
 
@@ -327,7 +341,7 @@ per-entry `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round
 
 The model is a single vector and a guarantee:
 
-- The **granule** (`text + tag + location + workday_excluded`) is the *only* thing quantized; every
+- The **granule** (`(text, tag, location)`) is the *only* thing quantized; every
   report section is a re-sum of the granules. A nudge is one integer per granule that overrides its
   bucket count (`quantize.quantize_rows` second pass: `Q = max(0, base + (blocks + nudge)*q)`); it
   changes only that granule's value, never the set or grouping. (A separate full-grain row that also
@@ -340,7 +354,7 @@ The model is a single vector and a guarantee:
   `Σ groups = Σ cells` holds for *any* granule values — so no nudge configuration, and no feasible
   commitment, can break it (a committed cell's reported + remaining slices sum to its granule total; an
   infeasible cross-cutting set falls back to honest). The corollaries follow: every whole-cell level
-  agrees on the activity total, `activity − workday = Σ ooo`, and `displayed + residual = true`
+  agrees on the activity total, the `workday` total equals it, and `displayed + residual = true`
   everywhere. The week aggregate (`combine_summaries`) is the same partition one level up — pure sums of
   days, no re-quantization — so a per-day nudge flows in unchanged.
 - The calculator distributes a requested group shift to the least-error rows
@@ -354,7 +368,7 @@ every section's rows asserted to foot to its total in both duration formats.
 
 ## Summary ordering and rendering
 
-Main summary rows group by `activity text + tag + workday_excluded`; location is
+Main summary rows group by `activity text + tag`; location is
 reported only in location totals. Main rows never render location, render `#tag`
 only when the same activity text appears under multiple tags, and keep
 same-text/different-tag rows adjacent.
@@ -370,8 +384,8 @@ Tag and location totals sort by displayed duration, then exact duration, then
 first-seen order.
 
 `render.lua` turns semantic output objects into lines and owns presentation only:
-omit placeholder-only tag/location sections, omit `activity` when it equals
-`workday`, render missing tags as `(untagged)` and missing locations as
+omit placeholder-only tag/location sections, render the totals as a single
+`workday` row, render missing tags as `(untagged)` and missing locations as
 `(no location)`, and hide main-summary tags unless needed for disambiguation. It
 does not decide reporting semantics or ordering.
 
@@ -497,14 +511,13 @@ everything else is picker-agnostic.
 ## Error philosophy
 
 Prefer explicit syntax over silent semantic corruption. A rewrite emits `#-` / `@-`
-when it returns to untagged or unlocated work, and keeps `#ooo` out of workday
-while counting it in activity — rather than silently turning untagged work into
-`#ClientA`, no-location work into `@office`, or folding `#ooo` into workday.
+when it returns to untagged or unlocated work — rather than silently turning
+untagged work into `#ClientA` or no-location work into `@office`.
 
 ## Testing expectations
 
 Core areas under test: syntax parsing; sticky tag/location inheritance; `#-` and
-`@-`; `#ooo`; summaries and quantization (including `q=1` exactness); tag
+`@-`; blank entries (uncounted time); summaries and quantization (including `q=1` exactness); tag
 and location totals; copy, order, repeat (incl. from a summary row), rename, and
 insert behavior; equal-timestamp insertion; quantized summary invariants; and the
 parser-driven highlight spans (`tests/highlight.lua` is a contract test that the

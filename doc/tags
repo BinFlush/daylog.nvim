@@ -24,6 +24,7 @@ daylog-active-indicator	daylog.txt	/*daylog-active-indicator*
 daylog-auto-summary	daylog.txt	/*daylog-auto-summary*
 daylog-auto-timezone	daylog.txt	/*daylog-auto-timezone*
 daylog-balance	daylog.txt	/*daylog-balance*
+daylog-blank-entry	daylog.txt	/*daylog-blank-entry*
 daylog-commands	daylog.txt	/*daylog-commands*
 daylog-compatibility	daylog.txt	/*daylog-compatibility*
 daylog-config	daylog.txt	/*daylog-config*

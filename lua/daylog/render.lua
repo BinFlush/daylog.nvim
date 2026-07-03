@@ -127,9 +127,10 @@ local function location_text(item)
   return "@" .. item.location
 end
 
--- The totals partition labels its two cells by work-class: `workday` (non-#ooo) and `non-work` (#ooo).
-local function total_label(item)
-  return item.workday_excluded and "non-work" or "workday"
+-- The totals section is a single `workday` row -- the whole counted day (uncounted time is a blank
+-- entry, which reaches no report).
+local function total_label()
+  return "workday"
 end
 
 local function extend_lines(target, source)
@@ -297,9 +298,9 @@ local function build_summary_layout(summary, duration_format, options)
 
   table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "total", line = headers.total })
 
-  -- The totals are the work-class partition: the workday cell (loggable via !W, so it can split into a
-  -- reported and a remaining row) and, when #ooo time exists, the non-work cell. They foot to the
-  -- activity total, so section_duration_strings distributes the display rounding across them.
+  -- The totals are a single `workday` cell = the whole counted day, loggable via !W (so it can split
+  -- into a reported and a remaining row). It foots to the activity total, so section_duration_strings
+  -- distributes the display rounding across its row(s).
   local total_durations =
     section_duration_strings(summary.total_rows or {}, summary.activity_total, format)
   for i, item in ipairs(summary.total_rows or {}) do

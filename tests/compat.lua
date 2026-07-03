@@ -23,22 +23,12 @@ return function(t)
       expected_suffix = ".summary",
     },
     {
-      name = "out_of_office",
-      run = summarize,
-      expected_suffix = ".summary",
-    },
-    {
       name = "quantized",
       run = summarize,
       expected_suffix = ".summary",
     },
     {
       name = "summary_conflicting_tags",
-      run = summarize,
-      expected_suffix = ".summary",
-    },
-    {
-      name = "quantized_out_of_office",
       run = summarize,
       expected_suffix = ".summary",
     },

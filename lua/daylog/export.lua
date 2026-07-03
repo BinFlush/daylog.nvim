@@ -2,12 +2,12 @@
 --
 -- Renders the same per-day summary the report shows into CSV or JSON, so logged time can be fed into a
 -- timesheet / invoicing tool / script. One row per (day, activity, tag): the quantized minutes (what
--- you bill, per each log's q=), convenience decimal hours, and the logged / out-of-office flags. Takes
+-- you bill, per each log's q=), convenience decimal hours, and the logged flag. Takes
 -- a report object (from week.build_dates_report); no Neovim API.
 
 local M = {}
 
-local FIELDS = { "date", "activity", "tag", "minutes", "hours", "logged", "ooo" }
+local FIELDS = { "date", "activity", "tag", "minutes", "hours", "logged" }
 
 -- Decimal hours from whole minutes, locale-independently (avoid `%f`, whose decimal point follows the
 -- C locale and could be a comma -- which would corrupt CSV columns and JSON numbers).
@@ -31,7 +31,6 @@ local function rows(report)
         minutes = item.duration,
         hours = decimal_hours(item.duration),
         logged = item.logged == true,
-        ooo = item.workday_excluded == true,
       }
     end
   end
@@ -76,7 +75,7 @@ local function json_value(field, value)
     return tostring(value)
   elseif field == "hours" then
     return value -- already a locale-safe "N.NN" string -> a JSON number
-  elseif field == "logged" or field == "ooo" then
+  elseif field == "logged" then
     return value and "true" or "false"
   end
   return json_string(tostring(value))

@@ -3,7 +3,6 @@ local entry = require("daylog.entry")
 local render = require("daylog.render")
 local summary_cursor = require("daylog.usecases.summary_cursor")
 local support = require("daylog.usecases.support")
-local syntax = require("daylog.syntax")
 
 local M = {}
 
@@ -215,7 +214,6 @@ local function build_source_edits(block, ops)
   local renamed_entrys = support.modified_entries(block, function(copy)
     copy.tag = ops.rename_tag(copy.tag)
     copy.location = ops.rename_loc(copy.location)
-    copy.workday_excluded = copy.tag == syntax.OUT_OF_OFFICE_TAG
     copy.text = ops.text_for(copy.row, copy.text)
   end)
 
@@ -245,7 +243,6 @@ local function build_source_edits(block, ops)
       fields.tag = eff_tag
       fields.location = eff_location
       fields.offset = resolved.offset
-      fields.workday_excluded = eff_tag == syntax.OUT_OF_OFFICE_TAG
       local line =
         entry.format(fields, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
 

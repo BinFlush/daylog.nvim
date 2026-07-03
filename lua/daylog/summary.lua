@@ -59,7 +59,6 @@ local function build_intervals(entries)
         text = M.entry_summary_text(current),
         tag = current.tag,
         location = current.location,
-        workday_excluded = current.workday_excluded,
         logged = logged_s ~= nil and true or nil,
         -- The rounding nudge belongs to the entry that starts the interval; it sums
         -- up the fine-grained quantization row this interval folds into.
@@ -87,8 +86,8 @@ M.build_intervals = build_intervals
 
 -- The block's closing entry (its final entry) starts no interval, so its row never lands in a
 -- summary item's `source_entry_rows` -- yet it still carries an activity identity. Return its row
--- when it WOULD group into `item` were another entry to follow it: same resolved text, tag, #ooo
--- exclusion, and logged state that `build_intervals`/`build_granules` key on. Lets identity edits
+-- when it WOULD group into `item` were another entry to follow it: same resolved text, tag, and
+-- logged state that `build_intervals`/`build_granules` key on. Lets identity edits
 -- (:Daylog map / :Daylog rename) reach a same-activity entry that currently happens to close the log.
 -- Returns nil when there is no entry or it does not match. `entries` is the block's `entries` list
 -- (its `.row` equals the entry item's `start_row`, the coordinate the target sets use).
@@ -101,7 +100,6 @@ function M.closing_entry_row_for(entries, item)
   if
     M.entry_summary_text(last) == item.text
     and last.tag == item.tag
-    and (last.workday_excluded or false) == (item.workday_excluded or false)
     and (last.logged and last.logged.s ~= nil and true or nil) == item.logged
   then
     return last.row
@@ -118,8 +116,8 @@ end
 local function build_fine_grained_rows(intervals)
   return projection.project_rows(
     intervals,
-    { "text", "tag", "location", "workday_excluded", "logged" },
-    { "text", "tag", "location", "workday_excluded", "logged", "logged_minutes" },
+    { "text", "tag", "location", "logged" },
+    { "text", "tag", "location", "logged", "logged_minutes" },
     true,
     -- All intervals of one fine-grained row carry that row's single nudge, so fold
     -- by value (max magnitude), not by sum: marking some or all of an activity's
@@ -129,28 +127,28 @@ local function build_fine_grained_rows(intervals)
 end
 
 -- The cell an interval/granule belongs to at each level: an activity for the summary level, a tag / a
--- location for those, and the work-class (workday vs non-work) for the totals level. #ooo time is the
--- non-work cell and can never be logged, so `w` only ever commits the workday cell.
+-- location for those, and the whole day (`workday`) for the totals level -- uncounted time is a blank
+-- entry that never reaches here, so the totals are a single cell.
 local function cell_key(row, level)
   if level == "t" then
     return row.tag or "\0notag"
   elseif level == "l" then
     return row.location or "\0noloc"
   elseif level == "w" then
-    return row.workday_excluded and "non-work" or "workday"
+    return "workday"
   end
-  return table.concat({ row.text or "", row.tag or "", row.workday_excluded and "1" or "0" }, "\0")
+  return table.concat({ row.text or "", row.tag or "" }, "\0")
 end
 
--- Group intervals into granules -- the finest cell every partition coarsens: (text, tag, location,
--- workday_excluded). Each granule carries its real duration, its balance nudge (shared across its
+-- Group intervals into granules -- the finest cell every partition coarsens: (text, tag, location).
+-- Each granule carries its real duration, its balance nudge (shared across its
 -- entries, so folded by "max"), the per-level committed table (`logged_by_level`, identical within a
 -- granule since a commitment is written on all a cell's entries), and source provenance.
 local function build_granules(intervals)
   return projection.project_rows(
     intervals,
-    { "text", "tag", "location", "workday_excluded" },
-    { "text", "tag", "location", "workday_excluded", "logged_by_level" },
+    { "text", "tag", "location" },
+    { "text", "tag", "location", "logged_by_level" },
     true,
     "max"
   )
@@ -162,12 +160,12 @@ end
 -- must be SUMMED, never last-wins; a tag/location/workday commitment is one value shared across the
 -- whole cell, so it is counted once. `cell_key_fn(interval)` groups intervals into the cells the caller
 -- wants -- the section cell for display, the per-granule/per-cell inflation scope for quantization.
--- Read from the intervals (robust to how granules fold). #ooo never commits.
+-- Read from the intervals (robust to how granules fold).
 local function committed_by_cell(intervals, level, cell_key_fn)
   local scopes = {}
   for _, interval in ipairs(intervals) do
     local value = interval.logged_by_level and interval.logged_by_level[level]
-    if type(value) == "number" and not interval.workday_excluded then
+    if type(value) == "number" then
       local cell = cell_key_fn(interval)
       local scope = level == "s" and M.activity_identity_key(interval) or cell
       scopes[cell] = scopes[cell] or {}
@@ -222,12 +220,10 @@ local function quantize_granules(granules, intervals, bucket_minutes)
 
     local members = {}
     for index, g in ipairs(honest) do
-      if not g.workday_excluded then
-        local key = key_fn(g)
-        if committed[key] ~= nil then
-          members[key] = members[key] or {}
-          table.insert(members[key], index)
-        end
+      local key = key_fn(g)
+      if committed[key] ~= nil then
+        members[key] = members[key] or {}
+        table.insert(members[key], index)
       end
     end
     for key, member_indices in pairs(members) do
@@ -323,7 +319,7 @@ local function build_section_rows(quantized, intervals, key_fields, level, feasi
       order[#order + 1] = cell
     end
     local marker = interval.logged_by_level and interval.logged_by_level[level]
-    if marker ~= nil and not interval.workday_excluded then
+    if marker ~= nil then
       cell.logged_real = cell.logged_real + interval.duration
       cell.logged_rows[#cell.logged_rows + 1] = interval.source_entry_row
       -- The committed VALUE comes from committed_by_cell; this flag marks the cell logged even when it
@@ -471,31 +467,10 @@ local function sort_summary_items(items)
   return items
 end
 
--- The totals partition renders workday-first (it is the primary total, shown alone when there is no
--- #ooo), then the non-work cell -- a fixed order rather than by-duration, so the non-work row appears
--- below the workday rows when #ooo time exists instead of reordering them.
-local function order_total_rows(rows)
-  local ordered = {}
-  for _, row in ipairs(rows) do
-    if not row.workday_excluded then
-      ordered[#ordered + 1] = row
-    end
-  end
-  for _, row in ipairs(rows) do
-    if row.workday_excluded then
-      ordered[#ordered + 1] = row
-    end
-  end
-  return ordered
-end
-
 local function finalize_summary_order(summary)
   sort_summary_items(summary.summary_items)
   sort_by_duration(summary.tag_totals)
   sort_by_duration(summary.location_totals)
-  if summary.total_rows then
-    summary.total_rows = order_total_rows(summary.total_rows)
-  end
   return summary
 end
 
@@ -520,8 +495,6 @@ end
 -- bucket blocks go to the largest remainders. The main section already splits by the summary (`s`)
 -- level, and the balance system reads this same base, so it is left verbatim.
 -- The TAG and LOCATION sections quantize INDEPENDENTLY, each split by its own level (`t` / `l`) and
--- footing to its own total (project_section). `#ooo` rows participate everywhere but are excluded from
--- the workday total and can never be logged.
 function M.summarize_entries(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
   local intervals = build_intervals(entries)
@@ -532,41 +505,30 @@ function M.summarize_entries(entries, quantize_minutes)
     quantize_granules(build_granules(intervals), intervals, bucket_minutes)
 
   local activity_total, activity_real, activity_nudge = 0, 0, 0
-  local workday_total, workday_real, workday_nudge = 0, 0, 0
   for _, g in ipairs(quantized) do
     activity_total = activity_total + g.duration
     activity_real = activity_real + (g.unrounded_duration or g.duration)
     activity_nudge = activity_nudge + (g.nudge or 0)
-    if not g.workday_excluded then
-      workday_total = workday_total + g.duration
-      workday_real = workday_real + (g.unrounded_duration or g.duration)
-      workday_nudge = workday_nudge + (g.nudge or 0)
-    end
   end
 
   local summary = {
-    summary_items = build_section_rows(
-      quantized,
-      intervals,
-      { "text", "tag", "workday_excluded" },
-      "s",
-      feasible
-    ),
+    summary_items = build_section_rows(quantized, intervals, { "text", "tag" }, "s", feasible),
     tag_totals = build_section_rows(quantized, intervals, { "tag" }, "t", feasible),
     location_totals = build_section_rows(quantized, intervals, { "location" }, "l", feasible),
-    -- The totals are a fourth partition: the workday cell (non-#ooo, loggable via !W) and the non-work
-    -- cell (#ooo, never logged), which foot to the activity total exactly like tags and locations.
-    total_rows = build_section_rows(quantized, intervals, { "workday_excluded" }, "w", feasible),
+    -- Uncounted time is a blank entry that never reaches a granule, so all counted time is the workday:
+    -- the totals are a single `workday` cell (loggable via !W), footing to the activity total.
+    total_rows = build_section_rows(quantized, intervals, {}, "w", feasible),
     activity_total = activity_total,
-    workday_total = workday_total,
-    -- Every section is a re-sum of the same granules, so tag/location foot to the activity total.
+    -- With no #ooo, the workday is the whole counted day; every section is a re-sum of the same
+    -- granules, so all foot to the activity total.
+    workday_total = activity_total,
     tag_total = activity_total,
     location_total = activity_total,
     activity_error_minutes = activity_real - activity_total,
-    workday_error_minutes = workday_real - workday_total,
+    workday_error_minutes = activity_real - activity_total,
   }
 
-  return finalize_summary(summary, activity_nudge, workday_nudge)
+  return finalize_summary(summary, activity_nudge, activity_nudge)
 end
 
 function M.summarize_block(block)
@@ -574,7 +536,7 @@ function M.summarize_block(block)
 end
 
 -- The quantized fine-grained rows for a set of entries: the rounding-balance
--- granule keyed by text+tag+location+workday_excluded+logged, each carrying its
+-- granule keyed by text+tag+location+logged, each carrying its
 -- unrounded_duration, its quantized `duration` (with any current `nudge` applied),
 -- its current `nudge`, and `source_entry_rows` provenance. The balance calculator
 -- reasons over these to pick which row to nudge and which source entry to mark.
@@ -585,7 +547,7 @@ function M.fine_grained_quantized(entries, quantize_minutes)
 end
 
 -- The activity-identity key of a fine-grained row or interval, EXCLUDING its logged state:
--- the resolved text, tag, location, and #ooo exclusion that decide which fine-grained row an
+-- the resolved text, tag, and location that decide which fine-grained row an
 -- interval folds into. Logged is deliberately omitted, so an about-to-be-logged row finds the
 -- already-logged row of the same activity it will merge with (:Daylog log), and a logged-value
 -- conflict scan groups across the logged/unlogged divide. One definition keeps the merge key
@@ -596,7 +558,6 @@ function M.activity_identity_key(row)
     row.text or "",
     row.tag or "",
     row.location or "",
-    row.workday_excluded and "1" or "0",
   }, "\0")
 end
 
@@ -622,9 +583,7 @@ local function conflicts_at_level(intervals, level)
 
   for _, interval in ipairs(intervals) do
     local committed = interval.logged_by_level and interval.logged_by_level[level]
-    -- #ooo can never be logged; the out-of-office check already owns those entries, so skip them here
-    -- rather than double-reporting a mis-marked #ooo entry as both #ooo-logged and value-disagreeing.
-    if committed ~= nil and not interval.workday_excluded then
+    if committed ~= nil then
       local key = level_group_key(interval, level)
       local group = groups[key]
       if not group then
@@ -664,8 +623,6 @@ local LEVEL_NOUN = { s = "activity", t = "tag", l = "location", w = "workday" }
 -- Semantic logging problems in a block that make its summary untrustworthy, each { row, message }, for
 -- every level (`!S`/`!T`/`!L`/`!W`):
 --   * a frozen `!X<n>` value that no longer fits the block's bucket (a hand-edit or a q change),
---   * out-of-office (`#ooo`) time marked logged at any level (:Daylog log refuses it; a hand-edit slips
---     it in),
 --   * entries of one level-group disagreeing on their committed value.
 -- One detector shared by refresh (which raises these as diagnostics) and the highlighter (which reddens
 -- the summary while any are present), so the warning and the red flag can never drift apart. PURE.
@@ -691,23 +648,6 @@ function M.logging_diagnostics(block)
               bucket
             ),
           }
-        end
-      end
-    end
-  end
-
-  -- Out-of-office time can never be logged, at any level.
-  for _, item in ipairs(block.entry_items) do
-    if item.workday_excluded and item.logged then
-      for _, level in ipairs(syntax.LOGGED_LEVELS) do
-        if item.logged[level] then
-          out[#out + 1] = {
-            row = item.start_row,
-            message = "daylog: out-of-office time cannot be logged; remove !"
-              .. level:upper()
-              .. " or #ooo",
-          }
-          break
         end
       end
     end
@@ -796,12 +736,12 @@ function M.combine_summaries(summaries)
     summary_items = quantize.apply_error_minutes(
       projection.project_rows(
         summary_items,
-        { "text", "tag", "workday_excluded", "logged" },
-        { "text", "tag", "workday_excluded", "logged" }
+        { "text", "tag", "logged" },
+        { "text", "tag", "logged" }
       )
     ),
-    -- The `logged` field is part of the key so a tag's/location's logged and unlogged rows stay
-    -- separate across days (each section already carries its own split).
+    -- The `logged` field is part of the key so a section's logged and unlogged rows stay separate
+    -- across days (each section already carries its own split).
     tag_totals = quantize.apply_error_minutes(
       projection.project_rows(tag_totals, { "tag", "logged" }, { "tag", "logged" })
     ),
@@ -809,11 +749,7 @@ function M.combine_summaries(summaries)
       projection.project_rows(location_totals, { "location", "logged" }, { "location", "logged" })
     ),
     total_rows = quantize.apply_error_minutes(
-      projection.project_rows(
-        total_rows,
-        { "workday_excluded", "logged" },
-        { "workday_excluded", "logged" }
-      )
+      projection.project_rows(total_rows, { "logged" }, { "logged" })
     ),
     activity_total = activity_total,
     workday_total = workday_total,

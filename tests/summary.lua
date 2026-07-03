@@ -61,7 +61,7 @@ return function(t)
       "--- log #ProjectOrion @office ---",
       "08:00 plan",
       "08:30 call #sales @client",
-      "09:00 break #ooo",
+      "09:00",
       "09:15 done #ProjectOrion @office",
     })
 
@@ -72,7 +72,6 @@ return function(t)
           tag = "ProjectOrion",
           duration = 30,
           unrounded_duration = 30,
-          workday_excluded = false,
           source_entry_rows = { 2 },
         },
         {
@@ -80,16 +79,7 @@ return function(t)
           tag = "sales",
           duration = 30,
           unrounded_duration = 30,
-          workday_excluded = false,
           source_entry_rows = { 3 },
-        },
-        {
-          text = "break",
-          tag = "ooo",
-          duration = 15,
-          unrounded_duration = 15,
-          workday_excluded = true,
-          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -103,20 +93,15 @@ return function(t)
           duration = 30,
           unrounded_duration = 30,
         },
-        {
-          tag = "ooo",
-          duration = 15,
-          unrounded_duration = 15,
-        },
       },
       location_totals = {
         {
-          location = "client",
-          duration = 45,
-          unrounded_duration = 45,
+          location = "office",
+          duration = 30,
+          unrounded_duration = 30,
         },
         {
-          location = "office",
+          location = "client",
           duration = 30,
           unrounded_duration = 30,
         },
@@ -125,18 +110,12 @@ return function(t)
         {
           duration = 60,
           unrounded_duration = 60,
-          workday_excluded = false,
-        },
-        {
-          duration = 15,
-          unrounded_duration = 15,
-          workday_excluded = true,
         },
       },
-      activity_total = 75,
+      activity_total = 60,
       workday_total = 60,
-      tag_total = 75,
-      location_total = 75,
+      tag_total = 60,
+      location_total = 60,
     })
   end)
 
@@ -155,7 +134,6 @@ return function(t)
           tag = "ooo",
           duration = 60,
           unrounded_duration = 60,
-          workday_excluded = true,
           source_entry_rows = { 2 },
         },
         {
@@ -163,7 +141,6 @@ return function(t)
           tag = nil,
           duration = 60,
           unrounded_duration = 60,
-          workday_excluded = false,
           source_entry_rows = { 3 },
         },
       },
@@ -193,18 +170,12 @@ return function(t)
       },
       total_rows = {
         {
-          duration = 60,
-          unrounded_duration = 60,
-          workday_excluded = false,
-        },
-        {
-          duration = 60,
-          unrounded_duration = 60,
-          workday_excluded = true,
+          duration = 120,
+          unrounded_duration = 120,
         },
       },
       activity_total = 120,
-      workday_total = 60,
+      workday_total = 120,
       tag_total = 120,
       location_total = 120,
     })
@@ -213,12 +184,12 @@ return function(t)
   t.test("summary flags a bare !S row as logged without splitting, footing all sections", function()
     -- A bare marker (`!S` with no number) only flags its cell as logged; it renders one
     -- honest row per activity, and every section foots to the shared activity total. The
-    -- #ooo break carries a bare `!S` but can never be logged, so it stays unflagged.
+    -- trailing blank marks uncounted time and lands in no section.
     local block = block_from_lines({
       "--- log #ClientA @office ---",
       "08:00 implementation !S",
       "09:00 implementation",
-      "10:00 break #ooo !S",
+      "10:00",
       "10:30 done",
     })
 
@@ -229,17 +200,8 @@ return function(t)
           tag = "ClientA",
           duration = 120,
           unrounded_duration = 120,
-          workday_excluded = false,
           logged = true,
           source_entry_rows = { 2, 3 },
-        },
-        {
-          text = "break",
-          tag = "ooo",
-          duration = 30,
-          unrounded_duration = 30,
-          workday_excluded = true,
-          source_entry_rows = { 4 },
         },
       },
       tag_totals = {
@@ -248,35 +210,24 @@ return function(t)
           duration = 120,
           unrounded_duration = 120,
         },
-        {
-          tag = "ooo",
-          duration = 30,
-          unrounded_duration = 30,
-        },
       },
       location_totals = {
         {
           location = "office",
-          duration = 150,
-          unrounded_duration = 150,
+          duration = 120,
+          unrounded_duration = 120,
         },
       },
       total_rows = {
         {
           duration = 120,
           unrounded_duration = 120,
-          workday_excluded = false,
-        },
-        {
-          duration = 30,
-          unrounded_duration = 30,
-          workday_excluded = true,
         },
       },
-      activity_total = 150,
+      activity_total = 120,
       workday_total = 120,
-      tag_total = 150,
-      location_total = 150,
+      tag_total = 120,
+      location_total = 120,
     })
   end)
 
@@ -296,7 +247,6 @@ return function(t)
           duration = 30,
           unrounded_duration = 18,
           error_minutes = -12,
-          workday_excluded = false,
           source_entry_rows = { 3 },
         },
         {
@@ -305,7 +255,6 @@ return function(t)
           duration = 0,
           unrounded_duration = 12,
           error_minutes = 12,
-          workday_excluded = false,
           source_entry_rows = { 2 },
         },
       },
@@ -342,7 +291,6 @@ return function(t)
           duration = 30,
           unrounded_duration = 30,
           error_minutes = 0,
-          workday_excluded = false,
         },
       },
       activity_total = 30,
@@ -370,7 +318,6 @@ return function(t)
           duration = 60,
           unrounded_duration = 40,
           error_minutes = -20,
-          workday_excluded = false,
           source_entry_rows = { 3 },
         },
         {
@@ -379,7 +326,6 @@ return function(t)
           duration = 0,
           unrounded_duration = 20,
           error_minutes = 20,
-          workday_excluded = false,
           source_entry_rows = { 2 },
         },
       },
@@ -416,7 +362,6 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           error_minutes = 0,
-          workday_excluded = false,
         },
       },
       activity_total = 60,
@@ -433,7 +378,7 @@ return function(t)
       "--- log #ClientA @office q=30 ---",
       "08:00 implementation !S",
       "08:20 implementation",
-      "08:40 break #ooo !S",
+      "08:40",
       "09:00 done",
     })
 
@@ -445,22 +390,12 @@ return function(t)
           duration = 30,
           unrounded_duration = 40,
           error_minutes = 10,
-          workday_excluded = false,
           logged = true,
           source_entry_rows = { 2, 3 },
         },
-        {
-          text = "break",
-          tag = "ooo",
-          duration = 30,
-          unrounded_duration = 20,
-          error_minutes = -10,
-          workday_excluded = true,
-          source_entry_rows = { 4 },
-        },
       },
       -- Every section is a projection of the one shared quantization, so the tag rows
-      -- foot to the same activity total (60); no section rounds on an independent base.
+      -- foot to the same activity total (30); no section rounds on an independent base.
       tag_totals = {
         {
           tag = "ClientA",
@@ -468,19 +403,13 @@ return function(t)
           unrounded_duration = 40,
           error_minutes = 10,
         },
-        {
-          tag = "ooo",
-          duration = 30,
-          unrounded_duration = 20,
-          error_minutes = -10,
-        },
       },
       location_totals = {
         {
           location = "office",
-          duration = 60,
-          unrounded_duration = 60,
-          error_minutes = 0,
+          duration = 30,
+          unrounded_duration = 40,
+          error_minutes = 10,
         },
       },
       total_rows = {
@@ -488,20 +417,13 @@ return function(t)
           duration = 30,
           unrounded_duration = 40,
           error_minutes = 10,
-          workday_excluded = false,
-        },
-        {
-          duration = 30,
-          unrounded_duration = 20,
-          error_minutes = -10,
-          workday_excluded = true,
         },
       },
-      activity_total = 60,
+      activity_total = 30,
       workday_total = 30,
-      tag_total = 60,
-      location_total = 60,
-      activity_error_minutes = 0,
+      tag_total = 30,
+      location_total = 30,
+      activity_error_minutes = 10,
       workday_error_minutes = 10,
     })
   end)
@@ -523,7 +445,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
-            workday_excluded = false,
             logged = true,
             source_entry_rows = { 2, 3 },
           },
@@ -549,7 +470,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
-            workday_excluded = false,
           },
         },
         activity_total = 30,
@@ -574,12 +494,12 @@ return function(t)
     function()
       -- #Beta honest 180, committed !T120: the logged slice shows 120 (-30m) and the unlogged
       -- remainder 60 (+30m) absorbs the shortfall, so `design review`, `@home`, and the whole
-      -- day are unchanged and every section still foots to 360.
+      -- day are unchanged and every section still foots to 330.
       local block = block_from_lines({
         "--- log q=15 ---",
         "09:00 standup #Acme @office",
         "09:30 auth bugfix #Acme @office",
-        "11:30 lunch #ooo",
+        "11:30",
         "12:00 design review #Beta @home !T120",
         "13:30 design review",
         "15:00 done",
@@ -590,21 +510,18 @@ return function(t)
         "3.00h (+0m) design review",
         "2.00h (+0m) auth bugfix",
         "0.50h (+0m) standup",
-        "0.50h (+0m) lunch",
         "",
         "--- tags ---",
         "2.50h (+0m) #Acme",
         "2.00h (-30m) #Beta !T",
         "1.00h (+30m) #Beta",
-        "0.50h (+0m) #ooo",
         "",
         "--- locations ---",
-        "3.00h (+0m) @office",
         "3.00h (+0m) @home",
+        "2.50h (+0m) @office",
         "",
         "--- totals ---",
         "5.50h (+0m) workday",
-        "0.50h (+0m) non-work",
       })
 
       assert_activity_totals_match(t, summary.summarize_block(block))
@@ -614,12 +531,12 @@ return function(t)
   t.test("a numeric commitment above a cell's honest total inflates and propagates", function()
     -- #Beta honest 90, committed !T120: there is no unlogged slack to absorb into, so the
     -- surplus inflates the cell and propagates -- `design review` and `@home` rise to 120 and
-    -- the activity total to 300. One logged row, no unlogged remainder.
+    -- the activity total to 270. One logged row, no unlogged remainder.
     local block = block_from_lines({
       "--- log q=15 ---",
       "09:00 standup #Acme @office",
       "09:30 auth bugfix #Acme @office",
-      "11:30 lunch #ooo",
+      "11:30",
       "12:00 design review #Beta @home !T120",
       "13:30 done",
     })
@@ -629,20 +546,17 @@ return function(t)
       "2.00h (+0m) auth bugfix",
       "2.00h (-30m) design review",
       "0.50h (+0m) standup",
-      "0.50h (+0m) lunch",
       "",
       "--- tags ---",
       "2.50h (+0m) #Acme",
       "2.00h (-30m) #Beta !T",
-      "0.50h (+0m) #ooo",
       "",
       "--- locations ---",
-      "3.00h (+0m) @office",
+      "2.50h (+0m) @office",
       "2.00h (-30m) @home",
       "",
       "--- totals ---",
       "4.50h (-30m) workday",
-      "0.50h (+0m) non-work",
     })
 
     assert_activity_totals_match(t, summary.summarize_block(block))
@@ -658,7 +572,7 @@ return function(t)
       "--- log q=15 ---",
       "09:00 standup #Acme @office",
       "09:30 auth bugfix #Acme @office",
-      "11:30 lunch #ooo",
+      "11:30",
       "12:00 design review #Beta @home !T240",
       "13:30 design review",
       "15:00 done",
@@ -669,20 +583,17 @@ return function(t)
       "4.00h (-60m) design review",
       "2.00h (+0m) auth bugfix",
       "0.50h (+0m) standup",
-      "0.50h (+0m) lunch",
       "",
       "--- tags ---",
       "4.00h (-60m) #Beta !T",
       "2.50h (+0m) #Acme",
-      "0.50h (+0m) #ooo",
       "",
       "--- locations ---",
       "4.00h (-60m) @home",
-      "3.00h (+0m) @office",
+      "2.50h (+0m) @office",
       "",
       "--- totals ---",
       "6.50h (-60m) workday",
-      "0.50h (+0m) non-work",
     })
 
     assert_activity_totals_match(t, summary.summarize_block(block))
@@ -886,29 +797,30 @@ return function(t)
   end)
 
   t.test("logging the workday with !W splits the totals and foots", function()
-    -- Two non-#ooo activities (120 honest workday) plus a #ooo lunch; !W90 (under the honest workday)
-    -- splits the workday total into a reported 90 + a remaining 30, non-work stays one row, all foots.
+    -- Two activities make a 120 honest workday, plus a trailing blank marking uncounted time;
+    -- !W90 (under the honest workday) splits the single workday total into a reported 90 and a
+    -- remaining 30, and every section still foots.
     local result = summary.summarize_block(block_from_lines({
       "--- log q=15 ---",
       "08:00 a #x @o !W90",
       "09:00 b #y @o !W90",
-      "10:00 lunch #ooo",
+      "10:00",
       "10:30 done",
     }))
-    t.eq(result.activity_total, 150)
+    t.eq(result.activity_total, 120)
     t.eq(result.workday_total, 120)
     assert_activity_totals_match(t, result)
-    t.eq(total_duration(result.total_rows), 150)
-    local workday_logged, non_work
+    t.eq(total_duration(result.total_rows), 120)
+    local workday_logged, workday_remaining
     for _, row in ipairs(result.total_rows) do
-      if row.workday_excluded then
-        non_work = row.duration
-      elseif row.logged then
+      if row.logged then
         workday_logged = row.duration
+      else
+        workday_remaining = row.duration
       end
     end
     t.eq(workday_logged, 90) -- reported slice held at the committed value
-    t.eq(non_work, 30) -- the #ooo lunch
+    t.eq(workday_remaining, 30) -- the unlogged remainder of the workday
   end)
 
   t.test("a blank entry (bare timestamp) is uncounted -- excluded from every section", function()
@@ -951,7 +863,6 @@ return function(t)
           duration = 60,
           unrounded_duration = 40,
           error_minutes = -20,
-          workday_excluded = false,
           source_entry_rows = { 7 },
         },
         {
@@ -960,7 +871,6 @@ return function(t)
           duration = 0,
           unrounded_duration = 20,
           error_minutes = 20,
-          workday_excluded = false,
           source_entry_rows = { 6 },
         },
       },
@@ -997,7 +907,6 @@ return function(t)
           duration = 60,
           unrounded_duration = 60,
           error_minutes = 0,
-          workday_excluded = false,
         },
       },
       activity_total = 60,
@@ -1028,7 +937,6 @@ return function(t)
           duration = 30,
           unrounded_duration = 17,
           error_minutes = -13,
-          workday_excluded = false,
           source_entry_rows = { 2 },
         },
         {
@@ -1037,7 +945,6 @@ return function(t)
           duration = 30,
           unrounded_duration = 17,
           error_minutes = -13,
-          workday_excluded = false,
           source_entry_rows = { 3 },
         },
         {
@@ -1046,7 +953,6 @@ return function(t)
           duration = 0,
           unrounded_duration = 17,
           error_minutes = 17,
-          workday_excluded = false,
           source_entry_rows = { 4 },
         },
       },
@@ -1089,7 +995,6 @@ return function(t)
           duration = 60,
           unrounded_duration = 51,
           error_minutes = -9,
-          workday_excluded = false,
         },
       },
       activity_total = 60,
@@ -1119,7 +1024,6 @@ return function(t)
           duration = 30,
           unrounded_duration = 34,
           error_minutes = 4,
-          workday_excluded = false,
           source_entry_rows = { 2, 3 },
         },
       },
@@ -1150,7 +1054,6 @@ return function(t)
           duration = 30,
           unrounded_duration = 34,
           error_minutes = 4,
-          workday_excluded = false,
         },
       },
       activity_total = 30,
@@ -1173,7 +1076,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
-              workday_excluded = false,
             },
           },
           tag_totals = {
@@ -1197,7 +1099,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
-              workday_excluded = false,
             },
           },
           activity_total = 30,
@@ -1213,7 +1114,6 @@ return function(t)
               duration = 0,
               unrounded_duration = 20,
               error_minutes = 20,
-              workday_excluded = false,
             },
           },
           tag_totals = {
@@ -1237,7 +1137,6 @@ return function(t)
               duration = 0,
               unrounded_duration = 20,
               error_minutes = 20,
-              workday_excluded = false,
             },
           },
           activity_total = 0,
@@ -1254,7 +1153,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
-            workday_excluded = false,
           },
         },
         tag_totals = {
@@ -1278,7 +1176,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
-            workday_excluded = false,
           },
         },
         activity_total = 30,
@@ -1302,7 +1199,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
-              workday_excluded = false,
               logged = true,
             },
           },
@@ -1327,7 +1223,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
-              workday_excluded = false,
             },
           },
           activity_total = 30,
@@ -1343,7 +1238,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
-              workday_excluded = false,
             },
           },
           tag_totals = {
@@ -1367,7 +1261,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
-              workday_excluded = false,
             },
           },
           activity_total = 30,
@@ -1384,7 +1277,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 20,
             error_minutes = -10,
-            workday_excluded = false,
             logged = true,
           },
           {
@@ -1393,7 +1285,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 20,
             error_minutes = -10,
-            workday_excluded = false,
           },
         },
         tag_totals = {
@@ -1417,7 +1308,6 @@ return function(t)
             duration = 60,
             unrounded_duration = 40,
             error_minutes = -20,
-            workday_excluded = false,
           },
         },
         activity_total = 60,
@@ -1441,7 +1331,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 20,
               error_minutes = -10,
-              workday_excluded = false,
               logged = true,
             },
             {
@@ -1450,7 +1339,6 @@ return function(t)
               duration = 0,
               unrounded_duration = 20,
               error_minutes = 20,
-              workday_excluded = false,
             },
           },
           tag_totals = {
@@ -1474,7 +1362,6 @@ return function(t)
               duration = 30,
               unrounded_duration = 40,
               error_minutes = 10,
-              workday_excluded = false,
             },
           },
           activity_total = 30,
@@ -1491,7 +1378,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 20,
             error_minutes = -10,
-            workday_excluded = false,
             logged = true,
           },
           {
@@ -1500,7 +1386,6 @@ return function(t)
             duration = 0,
             unrounded_duration = 20,
             error_minutes = 20,
-            workday_excluded = false,
           },
         },
         tag_totals = {
@@ -1524,7 +1409,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 40,
             error_minutes = 10,
-            workday_excluded = false,
           },
         },
         activity_total = 30,
@@ -1558,7 +1442,6 @@ return function(t)
             duration = 30,
             unrounded_duration = 20,
             error_minutes = -10,
-            workday_excluded = false,
             logged = true,
           },
           {
@@ -1567,7 +1450,6 @@ return function(t)
             duration = 0,
             unrounded_duration = 20,
             error_minutes = 20,
-            workday_excluded = false,
           },
         },
         tag_totals = {
@@ -1577,7 +1459,7 @@ return function(t)
           { location = nil, duration = 30, unrounded_duration = 40, error_minutes = 10 },
         },
         total_rows = {
-          { duration = 30, unrounded_duration = 40, error_minutes = 10, workday_excluded = false },
+          { duration = 30, unrounded_duration = 40, error_minutes = 10 },
         },
         activity_total = 30,
         workday_total = 30,
@@ -1593,7 +1475,6 @@ return function(t)
             duration = 60,
             unrounded_duration = 40,
             error_minutes = -20,
-            workday_excluded = false,
             logged = true,
           },
           {
@@ -1602,7 +1483,6 @@ return function(t)
             duration = 0,
             unrounded_duration = 40,
             error_minutes = 40,
-            workday_excluded = false,
           },
         },
         tag_totals = {
@@ -1612,7 +1492,7 @@ return function(t)
           { location = nil, duration = 60, unrounded_duration = 80, error_minutes = 20 },
         },
         total_rows = {
-          { duration = 60, unrounded_duration = 80, error_minutes = 20, workday_excluded = false },
+          { duration = 60, unrounded_duration = 80, error_minutes = 20 },
         },
         activity_total = 60,
         workday_total = 60,
@@ -1642,7 +1522,6 @@ return function(t)
           tag = "ClientA",
           duration = 240,
           unrounded_duration = 240,
-          workday_excluded = false,
           source_entry_rows = { 2, 4 },
         },
         {
@@ -1650,7 +1529,6 @@ return function(t)
           tag = "ClientA",
           duration = 180,
           unrounded_duration = 180,
-          workday_excluded = false,
           source_entry_rows = { 6 },
         },
         {
@@ -1658,7 +1536,6 @@ return function(t)
           tag = "ClientA",
           duration = 60,
           unrounded_duration = 60,
-          workday_excluded = false,
           source_entry_rows = { 3 },
         },
         {
@@ -1666,7 +1543,6 @@ return function(t)
           tag = "internal",
           duration = 60,
           unrounded_duration = 60,
-          workday_excluded = false,
           source_entry_rows = { 5 },
         },
       },
@@ -1703,7 +1579,6 @@ return function(t)
         {
           duration = 540,
           unrounded_duration = 540,
-          workday_excluded = false,
         },
       },
       activity_total = 540,
@@ -1730,7 +1605,6 @@ return function(t)
           tag = "internal",
           duration = 120,
           unrounded_duration = 120,
-          workday_excluded = false,
           source_entry_rows = { 4 },
         },
         {
@@ -1738,7 +1612,6 @@ return function(t)
           tag = "ClientA",
           duration = 60,
           unrounded_duration = 60,
-          workday_excluded = false,
           source_entry_rows = { 2 },
         },
         {
@@ -1746,7 +1619,6 @@ return function(t)
           tag = "ClientA",
           duration = 180,
           unrounded_duration = 180,
-          workday_excluded = false,
           source_entry_rows = { 3 },
         },
       })
@@ -1767,7 +1639,6 @@ return function(t)
         tag = nil,
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 2 },
       },
       {
@@ -1775,7 +1646,6 @@ return function(t)
         tag = nil,
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 3 },
       },
     })
@@ -1796,7 +1666,6 @@ return function(t)
         tag = "ClientA",
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 2 },
       },
       {
@@ -1804,7 +1673,6 @@ return function(t)
         tag = "internal",
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 4 },
       },
       {
@@ -1812,7 +1680,6 @@ return function(t)
         tag = "ClientA",
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 3 },
       },
     })
@@ -1832,7 +1699,6 @@ return function(t)
         tag = nil,
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 2 },
       },
       {
@@ -1840,7 +1706,6 @@ return function(t)
         tag = "beta",
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 3 },
       },
     })
@@ -1883,7 +1748,7 @@ return function(t)
     t.eq(items[2].source_entry_rows, { 3 })
   end)
 
-  t.test("summary provenance records #ooo source rows on workday-excluded items", function()
+  t.test("summary provenance folds a repeated activity's source rows into one item", function()
     local block = block_from_lines({
       "--- log ---",
       "08:00 break #ooo",
@@ -1901,7 +1766,7 @@ return function(t)
       end
     end
 
-    t.eq(break_item.workday_excluded, true)
+    t.eq(break_item.tag, "ooo")
     t.eq(break_item.source_entry_rows, { 2, 4 })
   end)
 
@@ -2064,7 +1929,6 @@ return function(t)
         tag = nil,
         duration = 60,
         unrounded_duration = 60,
-        workday_excluded = false,
         source_entry_rows = { 2, 3 },
       },
       {
@@ -2072,7 +1936,6 @@ return function(t)
         tag = nil,
         duration = 15,
         unrounded_duration = 15,
-        workday_excluded = false,
         source_entry_rows = { 4 },
       },
     })

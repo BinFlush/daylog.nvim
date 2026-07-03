@@ -66,8 +66,8 @@ return function(t)
     t.eq(group_at(2, col_of(2, "#ClientA")), "DaylogTag")
     t.eq(group_at(2, col_of(2, "@office")), "DaylogLocation")
 
-    -- #ooo is highlighted distinctly from a plain tag.
-    t.eq(group_at(3, col_of(3, "#ooo")), "DaylogOoo")
+    -- #ooo carries no special meaning; it highlights as an ordinary tag.
+    t.eq(group_at(3, col_of(3, "#ooo")), "DaylogTag")
 
     -- Clear tokens read as ordinary tag/location metadata.
     t.eq(group_at(4, col_of(4, "#-")), "DaylogTag")
@@ -435,32 +435,31 @@ return function(t)
   t.test("a logging error reddens the offending line and its whole summary", function()
     load({
       "--- log ---", -- 1
-      "08:00 lunch #ooo !S30", -- 2  the offending line (#ooo cannot be logged)
+      "08:00 lunch #ClientA !S7", -- 2  the offending line (!S7 is off the q=15 grid)
       "09:00 work #-", -- 3
       "11:00 done", -- 4
       "", -- 5
       "", -- 6
       "--- summary q=15 d=dec ---", -- 7
       "2.00h (+0m) work", -- 8
-      "0.50h (+30m) lunch !S", -- 9
+      "1.00h (+0m) lunch !S", -- 9
       "", -- 10
       "--- tags ---", -- 11
       "2.00h (+0m) (untagged)", -- 12
-      "0.50h (+30m) #ooo", -- 13
+      "1.00h (+0m) #ClientA", -- 13
       "", -- 14
       "--- totals ---", -- 15
-      "2.50h (+30m) activity", -- 16
-      "2.00h (+0m) workday", -- 17
+      "3.00h (+0m) workday", -- 16
     })
-    -- The offending entry line is red end to end (overriding the timestamp / #ooo / !S colours).
+    -- The offending entry line is red end to end (overriding the timestamp / tag / !S colours).
     t.eq(group_at(2, 1), "DaylogError")
     t.eq(group_at(2, col_of(2, "lunch")), "DaylogError")
-    t.eq(group_at(2, col_of(2, "#ooo")), "DaylogError")
+    t.eq(group_at(2, col_of(2, "#ClientA")), "DaylogError")
     -- The whole summary it feeds is red: the banner, a main row, a tag row, and a totals row.
     t.eq(group_at(7, 1), "DaylogError")
     t.eq(group_at(9, col_of(9, "lunch")), "DaylogError")
-    t.eq(group_at(13, col_of(13, "#ooo")), "DaylogError")
-    t.eq(group_at(16, col_of(16, "activity")), "DaylogError")
+    t.eq(group_at(13, col_of(13, "#ClientA")), "DaylogError")
+    t.eq(group_at(16, col_of(16, "workday")), "DaylogError")
     -- Clean lines are untouched: another entry and the log header stay their normal colour.
     t.eq(group_at(3, 1), "DaylogTimestamp")
     t.eq(group_at(1, 1), "DaylogHeader")

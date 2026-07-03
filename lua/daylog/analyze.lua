@@ -48,7 +48,6 @@ local function copy_fields(src)
     location = src.location,
     offset = src.offset,
     nudge = src.nudge,
-    workday_excluded = src.workday_excluded,
     logged = copy_logged(src.logged),
     alias = src.alias,
   }
@@ -132,7 +131,6 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     -- The rounding nudge is per-entry and non-sticky (like logged): it is not
     -- inherited, so it is taken straight from the node with no current_* threading.
     nudge = node.nudge,
-    workday_excluded = resolved.tag == syntax.OUT_OF_OFFICE_TAG,
     -- Per-entry, non-sticky logged state: a table keyed by level ("s"/"t"/"l"/"w"), each holding its
     -- frozen committed minutes or `true` for a bare marker. `nil` when the entry logs no level. Only
     -- the summary level (`s`) drives the summary today; the tag/location/workday levels are carried

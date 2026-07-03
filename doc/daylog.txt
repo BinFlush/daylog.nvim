@@ -27,7 +27,7 @@ A log can track:
 - activity text
 - reporting tags
 - work locations
-- out-of-office time
+- uncounted time (blank entries)
 - quantized reporting totals (exact when `q=1`)
 
 Files ending in `.day` are detected as filetype `daylog` when the plugin is
@@ -45,11 +45,13 @@ Vocabulary (used throughout this help and the source):
             copy of the active log to iterate toward an outside system's shape.
   entry     One timestamped line, `HH:MM activity ...`. An entry starts an
             interval that the next entry closes.
+  blank     A bare `HH:MM` timestamp with no activity text. Its interval is
+            uncounted -- excluded from every report -- marking a break or lunch.
   interval  The span between two consecutive entries; durations come from these.
   summary   The generated, read-only projection of a log's entries. Never edited
             by hand; always safe to rebuild.
   tag       `#tag`, a sticky reporting label inherited until changed or cleared
-            (`#-`). `#ooo` is the special out-of-office tag.
+            (`#-`).
   location  `@location`, a sticky work location, cleared with `@-`.
   q= / d=   Per-log options: the quantize bucket and the duration format.
   !S        Marks an interval as already logged to an external system;
@@ -137,8 +139,8 @@ Rules:
   of four independent levels: `!S` (its summary row), `!T` (its tag), `!L` (its location), or
   `!W` (the workday). An optional minute count -- `!S<minutes>`, written by |:Daylog-log| --
   freezes that level's row at its committed value, so appending later entries can never restate
-  it (see below). A bare marker is logged but unfrozen. `#ooo` time can never be logged, at any
-  level. An entry may carry several levels in one compact token, in `S T L W` order:
+  it (see below). A bare marker is logged but unfrozen. An entry may carry several levels in one
+  compact token, in `S T L W` order:
   `!S225T525W525` (mixing frozen and bare, e.g. `!S60T`). The separated form `!S225 !T525 !W525`
   parses too; the writer always emits the compact token.
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
@@ -192,7 +194,6 @@ Examples:
   #ClientA
   #internal
   #sales
-  #ooo
 <
 
 `@location` is the current work location.
@@ -240,18 +241,41 @@ Example:
 >
   --- log ---
   08:00 planning
-  10:00 break #ooo
+  10:00 meeting #internal
   10:15 back to untagged work #-
   12:00 client call #ClientA @client
   13:00 back to untagged, no-location work #- @-
   14:00 done
 <
 
-The special tag `#ooo` means out of office.
+==============================================================================
+BLANK ENTRIES                                            *daylog-blank-entry*
 
-`#ooo` intervals count toward `activity`, but not toward `workday`.
+A blank entry is a bare `HH:MM` timestamp with no activity text. Its interval is
+uncounted -- it is excluded from every report -- so it marks time that should not
+be tracked, such as a break or lunch.
 
-`#ooo` is sticky until another tag or `#-` replaces it.
+>
+  --- log ---
+  08:00 started working
+  09:00 more work
+  11:00
+      a note about the break
+  13:00 came back
+  16:00
+<
+
+Here `11:00-13:00` is uncounted; only the three real activities count. The final
+`16:00` closes the last interval as usual.
+
+A blank entry carries no reporting metadata: a `#tag`, `@location`, logging
+marker (`!S` / `!T` / `!L` / `!W`), `=> alias`, or `round±N` nudge on a blank
+raises a diagnostic ("a blank entry cannot carry a tag, location, marker, alias,
+or round nudge"). A `utc±H[:MM]` offset is allowed -- it records a clock change
+during the gap. Notes may still follow a blank.
+
+A blank entry is not a mapping (|:Daylog-map|) or rename (|:Daylog-rename|)
+target; both commands refuse it.
 
                                                        *daylog-utc-offset*
 `utc±H[:MM]` records the absolute UTC offset of an entry: a third sticky
@@ -313,8 +337,8 @@ GOTCHAS                                                      *daylog-gotchas*
   entries before the first marker are assumed to be at the header's offset.
 - Only trailing metadata tokens are parsed as metadata; multiple trailing tags,
   locations, or `utc` offsets are invalid.
-- `#ooo` is excluded from the `workday` total and reported as `non-work`; the two foot to the
-  whole day.
+- A blank entry (a bare `HH:MM` with no activity text) is uncounted -- its
+  interval is excluded from every total. See |daylog-blank-entry|.
 - Main summary rows do not split by location; locations are reported
   separately.
 - The active log is the latest `--- log ... ---` block in the file.
@@ -445,7 +469,6 @@ One row per activity per day, carrying the report's quantized numbers:
 - `minutes` -- the quantized duration (what you bill, per that day's `q=`).
 - `hours` -- `minutes / 60`, to two decimals.
 - `logged` -- whether the row is marked `!S`.
-- `ooo` -- whether it is out-of-office (`#ooo`, excluded from the workday total).
 
 CSV is RFC 4180 (a header row; fields holding a comma or quote are quoted). JSON is a
 flat array of row objects. `require("daylog").export(format, range)` returns the
@@ -543,8 +566,7 @@ main (activity) row logs at the summary level (`!S`), a `--- tags ---` row at th
   -- `!S<minutes>` / `!T<minutes>` / `!L<minutes>` / `!W<minutes>`, freezing the row at its
   currently displayed duration -- and a logged row's lose it. Marking a tag, location, or the
   workday freezes the whole group at one committed value; the summary block is regenerated after.
-- The `non-work` total and entry lines are not eligible; `#ooo` rows (and the `non-work` total,
-  which is #ooo time) are refused at every level.
+- Entry lines are not eligible; the cursor must be on a rendered summary row.
 - Summary rows that no longer match the recomputed summary are refused; run
   `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
 
@@ -625,8 +647,8 @@ remainder, so residuals can leave a day -- and a week -- a step or two short of 
 clean total. This nudges the rounding to land it on the main (summary-level) axis.
 
 - With the cursor on a summary row, the best contributing entry is rounded [steps]
-  buckets further -- the least-error choice. The workday total scopes its non-#ooo work and the
-  non-work total its #ooo work; a main row scopes its own activity. The nudge flows into the tag
+  buckets further -- the least-error choice. The workday total scopes the whole counted day;
+  a main row scopes its own activity. The nudge flows into the tag
   and location totals too, since every section foots to the same shared quantization. Balancing
   directly on a tag or location row is refused (adjust the activity or its entries).
 - With the cursor on an entry, that entry is nudged directly.
@@ -650,7 +672,7 @@ arguments the activity is split evenly in two. The original total time is preser
 - Each of the activity's intervals is cut into consecutive sub-intervals, all
   inheriting its tag, location, and utc offset.
 - Time is split by whole minutes; a part whose total share rounds to zero does not
-  appear. Logged activities cannot be split (the command refuses); `#ooo` can.
+  appear. Logged activities cannot be split (the command refuses).
 - The summary is rebuilt. The cursor must be on a main summary row of the active log.
 
                                                         *:Daylog-refresh*
@@ -1195,10 +1217,9 @@ derived from that same rounded base. Every row shows its rounding error in
 `(+Nm)` form (`+` rounded down, `-` rounded up, `(+0m)` when exact).
 
 Tag and location sections are omitted when they only contain placeholder buckets.
-The `--- totals ---` section is the work-class partition: a `workday` row (non-#ooo time) and,
-when there is out-of-office time, a `non-work` row (`#ooo` time). The two foot to the whole day,
-and the `non-work` row is omitted when there is no `#ooo` time. Only the `workday` row is
-loggable (`!W`); `non-work` is refused, since `#ooo` time can never be logged.
+The `--- totals ---` section is a single `workday` row -- the whole counted day, which foots to
+the activity total (uncounted time is a blank entry, which reaches no report). It is loggable
+with `!W` (|:Daylog-log|), splitting into a reported and a remaining row like `!S`.
 
 ==============================================================================
 DEVELOPMENT                                              *daylog-development*

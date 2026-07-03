@@ -116,12 +116,8 @@ return function(t)
       )
     )
     test.ok(
-      unrounded_summary.workday_total <= unrounded_summary.activity_total,
-      fail(
-        context,
-        "workday_total must be less than or equal to activity_total",
-        vim.inspect(unrounded_summary)
-      )
+      unrounded_summary.workday_total == unrounded_summary.activity_total,
+      fail(context, "workday_total must equal activity_total", vim.inspect(unrounded_summary))
     )
 
     assert_non_negative(test, unrounded_summary.summary_items, "summary_items", context)
@@ -138,7 +134,7 @@ return function(t)
 
   local function assert_quantized_invariants(
     test,
-    unrounded_summary,
+    honest_summary,
     quantized_summary,
     quantize_minutes,
     context
@@ -208,25 +204,28 @@ return function(t)
       fail(context, "sum(location_totals.duration) must equal activity_total", payload)
     )
     test.ok(
-      quantized_summary.workday_total <= quantized_summary.activity_total,
-      fail(context, "workday_total must be less than or equal to activity_total", payload)
+      quantized_summary.workday_total == quantized_summary.activity_total,
+      fail(context, "workday_total must equal activity_total", payload)
     )
+    -- The reported error is measured against the honest exact total (the same entries summarized at
+    -- q=1 with their logged commitments stripped): a commitment inflates the quantized total but not
+    -- the honest real, so the honest exact -- not a commitment-inflated q=1 total -- is the reference.
     test.ok(
       quantized_summary.activity_error_minutes
-        == unrounded_summary.activity_total - quantized_summary.activity_total,
+        == honest_summary.activity_total - quantized_summary.activity_total,
       fail(
         context,
-        "activity_error_minutes must match exact.activity_total - quantized.activity_total",
-        string.format("exact=%s\nquantized=%s", vim.inspect(unrounded_summary), payload)
+        "activity_error_minutes must match honest.activity_total - quantized.activity_total",
+        string.format("honest=%s\nquantized=%s", vim.inspect(honest_summary), payload)
       )
     )
     test.ok(
       quantized_summary.workday_error_minutes
-        == unrounded_summary.workday_total - quantized_summary.workday_total,
+        == honest_summary.workday_total - quantized_summary.workday_total,
       fail(
         context,
-        "workday_error_minutes must match exact.workday_total - quantized.workday_total",
-        string.format("exact=%s\nquantized=%s", vim.inspect(unrounded_summary), payload)
+        "workday_error_minutes must match honest.workday_total - quantized.workday_total",
+        string.format("honest=%s\nquantized=%s", vim.inspect(honest_summary), payload)
       )
     )
 
@@ -263,14 +262,12 @@ return function(t)
         text = choice(ACTIVITIES),
         tag = tag,
         location = location,
-        workday_excluded = tag == "ooo",
       }
 
       -- Occasionally commit the entry at one or more levels, with on-grid values (so displayed
       -- durations stay bucket multiples) that land above and below each cell's honest total. This
       -- drives the split / absorb / surplus-propagate / cross-cutting paths through the semantic core.
-      -- #ooo can never be logged, so it is skipped there.
-      if tag ~= "ooo" and math.random() < 0.35 then
+      if math.random() < 0.35 then
         local logged = {}
         for _, level in ipairs({ "s", "t", "l", "w" }) do
           if math.random() < 0.4 then
@@ -288,6 +285,21 @@ return function(t)
     return entries
   end
 
+  -- The same entries with every logged commitment removed: their honest exact time, unaffected by a
+  -- commitment that inflates a quantized total, so it is the reference the reported error measures against.
+  local function without_commitments(entries)
+    local out = {}
+    for _, entry in ipairs(entries) do
+      local copy = {}
+      for key, value in pairs(entry) do
+        copy[key] = value
+      end
+      copy.logged = nil
+      out[#out + 1] = copy
+    end
+    return out
+  end
+
   t.test("random semantic summaries satisfy unrounded and quantized invariants", function()
     math.randomseed(SEED)
 
@@ -296,16 +308,11 @@ return function(t)
       local entries = generate_entries(quantize_minutes)
       local context = case_context(case_number, entries, quantize_minutes)
       local unrounded_summary = summary.summarize_entries(entries, 1)
+      local honest_summary = summary.summarize_entries(without_commitments(entries), 1)
       local quantized_summary = summary.summarize_entries(entries, quantize_minutes)
 
       assert_unrounded_invariants(t, unrounded_summary, context)
-      assert_quantized_invariants(
-        t,
-        unrounded_summary,
-        quantized_summary,
-        quantize_minutes,
-        context
-      )
+      assert_quantized_invariants(t, honest_summary, quantized_summary, quantize_minutes, context)
     end
   end)
 end

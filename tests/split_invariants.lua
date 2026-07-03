@@ -60,15 +60,23 @@ return function(t)
     return out, opts
   end
 
-  -- A cursor row sitting on the first non-logged main summary row, or nil.
-  local function first_splittable(block, buffer, log_count, opts)
+  -- A cursor row sitting on the first main summary row `split` can actually act on with these
+  -- weights, or nil. A non-logged row is not enough: a partially-committed entry renders a
+  -- non-logged *remainder* row backed by no splittable interval (split refuses it with NOTHING),
+  -- so the row is only a candidate once a trial split confirms it (a success, or an offset refusal
+  -- that the caller skips just the same).
+  local function first_splittable(block, buffer, log_count, opts, weights)
     local layout =
       render.summary_layout(summary.summarize_block(block), block.duration_format, opts)
     for _, row in ipairs(layout) do
       if row.kind == render.LAYOUT_KIND.SUMMARY_ITEM and not row.item.logged then
         for i = log_count + 1, #buffer do
           if buffer[i] == row.line then
-            return i
+            local _, err = split_summary.run(buffer, i, weights)
+            if err ~= split_summary.NOTHING then
+              return i
+            end
+            break
           end
         end
       end
@@ -85,10 +93,6 @@ return function(t)
 
     local before_minutes = raw_total(block)
     local buffer, opts = buffer_with_summary(block, wl.lines)
-    local cursor = first_splittable(block, buffer, #wl.lines, opts)
-    if not cursor then
-      return nil -- an all-logged day has nothing to split; skip
-    end
 
     -- A weight vector of 2..4 positive parts, varied by seed.
     local rng = Rng.new(seed * 31 + 7)
@@ -96,6 +100,11 @@ return function(t)
     local weights = {}
     for i = 1, n do
       weights[i] = rng:int(1, 5)
+    end
+
+    local cursor = first_splittable(block, buffer, #wl.lines, opts, weights)
+    if not cursor then
+      return nil -- no row with a splittable interval (all-logged / only remainder rows); skip
     end
 
     local result, err = split_summary.run(buffer, cursor, weights)
