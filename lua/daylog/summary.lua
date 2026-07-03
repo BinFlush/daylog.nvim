@@ -19,52 +19,64 @@ function M.entry_summary_text(e)
   return (e.alias ~= nil and e.alias ~= "") and e.alias or e.text
 end
 
+-- A blank entry -- a bare timestamp with no activity text -- marks uncounted time. Its interval is
+-- excluded from every report ("not calculated in any shape or form"), it is never a map/rename target,
+-- and it carries no tag/location/marker/alias/nudge (a diagnostic flags any that slip in). PURE.
+function M.is_blank_entry(entry)
+  return entry.text == nil or entry.text == ""
+end
+
 local function build_intervals(entries)
   local intervals = {}
 
   for i = 1, #entries - 1 do
     local current = entries[i]
-    local next_entry = entries[i + 1]
 
-    -- Durations are measured in effective UTC time (`local - offset`), so an
-    -- interval that spans a clock move -- a timezone crossing or a DST flip -- is
-    -- its true length rather than the apparent local delta. `start`/`stop` stay the
-    -- raw local clock (display only). With no offsets in play this is exactly
-    -- `next.minutes - current.minutes`, so a plain log is unchanged.
-    local current_effective = current.minutes - (current.offset or 0)
-    local next_effective = next_entry.minutes - (next_entry.offset or 0)
+    -- A blank entry starts uncounted time; skip its interval so it lands in no report, exactly like the
+    -- closing entry (which the `#entries - 1` bound already excludes).
+    if not M.is_blank_entry(current) then
+      local next_entry = entries[i + 1]
 
-    -- The row's scalar logged state is the summary (`s`) level of the entry's logged table: present
-    -- means logged, a number there is the frozen committed value, `true` is a bare (unfrozen) marker.
-    local logged_s = current.logged and current.logged.s
+      -- Durations are measured in effective UTC time (`local - offset`), so an
+      -- interval that spans a clock move -- a timezone crossing or a DST flip -- is
+      -- its true length rather than the apparent local delta. `start`/`stop` stay the
+      -- raw local clock (display only). With no offsets in play this is exactly
+      -- `next.minutes - current.minutes`, so a plain log is unchanged.
+      local current_effective = current.minutes - (current.offset or 0)
+      local next_effective = next_entry.minutes - (next_entry.offset or 0)
 
-    table.insert(intervals, {
-      start = current.minutes,
-      stop = next_entry.minutes,
-      duration = next_effective - current_effective,
-      -- A mapping alias resolves the grouping/display label: an aliased entry counts
-      -- toward, and is shown as, its target. The original text stays on the entry; every
-      -- downstream grouping keys on this resolved `text`.
-      text = M.entry_summary_text(current),
-      tag = current.tag,
-      location = current.location,
-      workday_excluded = current.workday_excluded,
-      logged = logged_s ~= nil and true or nil,
-      -- The rounding nudge belongs to the entry that starts the interval; it sums
-      -- up the fine-grained quantization row this interval folds into.
-      nudge = current.nudge,
-      -- A frozen committed value (minutes) rides on the entry that starts the
-      -- interval. Every interval of one fine-grained row carries the same value (the
-      -- row's committed duration), so the fold copies it through, never sums it. A bare
-      -- marker (`s == true`) freezes nothing, so the row's `logged_minutes` stays nil and
-      -- it rounds live like any un-frozen row.
-      logged_minutes = type(logged_s) == "number" and logged_s or nil,
-      -- The whole per-level logged table ({ level -> committed | true }), carried so the tag and
-      -- location sections can split themselves by their own level (project_section). The `logged` /
-      -- `logged_minutes` above are the summary (`s`) slice the main section and balance still key on.
-      logged_by_level = current.logged,
-      source_entry_row = current.row,
-    })
+      -- The row's scalar logged state is the summary (`s`) level of the entry's logged table: present
+      -- means logged, a number there is the frozen committed value, `true` is a bare (unfrozen) marker.
+      local logged_s = current.logged and current.logged.s
+
+      table.insert(intervals, {
+        start = current.minutes,
+        stop = next_entry.minutes,
+        duration = next_effective - current_effective,
+        -- A mapping alias resolves the grouping/display label: an aliased entry counts
+        -- toward, and is shown as, its target. The original text stays on the entry; every
+        -- downstream grouping keys on this resolved `text`.
+        text = M.entry_summary_text(current),
+        tag = current.tag,
+        location = current.location,
+        workday_excluded = current.workday_excluded,
+        logged = logged_s ~= nil and true or nil,
+        -- The rounding nudge belongs to the entry that starts the interval; it sums
+        -- up the fine-grained quantization row this interval folds into.
+        nudge = current.nudge,
+        -- A frozen committed value (minutes) rides on the entry that starts the
+        -- interval. Every interval of one fine-grained row carries the same value (the
+        -- row's committed duration), so the fold copies it through, never sums it. A bare
+        -- marker (`s == true`) freezes nothing, so the row's `logged_minutes` stays nil and
+        -- it rounds live like any un-frozen row.
+        logged_minutes = type(logged_s) == "number" and logged_s or nil,
+        -- The whole per-level logged table ({ level -> committed | true }), carried so the tag and
+        -- location sections can split themselves by their own level (project_section). The `logged` /
+        -- `logged_minutes` above are the summary (`s`) slice the main section and balance still key on.
+        logged_by_level = current.logged,
+        source_entry_row = current.row,
+      })
+    end
   end
 
   return intervals

@@ -155,6 +155,29 @@ local function analyze_entry_items(block, diagnostics)
     if node.kind == syntax.NODE_KIND.ENTRY then
       local entry = semantic_entry_from_node(node, current_tag, current_location, current_offset)
 
+      -- A blank entry (a bare timestamp) is uncounted and may carry no reporting metadata; flag any that
+      -- slipped in. A utc offset is allowed -- it records a clock change during the gap, not a report
+      -- attribute.
+      if
+        node.text == ""
+        and (
+          node.explicit_tag ~= nil
+          or node.explicit_tag_clear
+          or node.explicit_location ~= nil
+          or node.explicit_location_clear
+          or node.logged ~= nil
+          or node.alias ~= nil
+          or (node.nudge ~= nil and node.nudge ~= 0)
+        )
+      then
+        push_diagnostic(diagnostics, {
+          code = syntax.DIAGNOSTIC.BLANK_ENTRY_METADATA,
+          severity = "error",
+          row = node.row,
+          message = "a blank entry cannot carry a tag, location, marker, alias, or round nudge",
+        })
+      end
+
       current_tag = entry.tag
       current_location = entry.location
       current_offset = entry.offset

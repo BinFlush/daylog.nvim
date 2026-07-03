@@ -459,4 +459,10 @@ return function(t)
 
     t.eq(err, map_summary.NO_RANGE_ENTRIES)
   end)
+
+  t.test("map refuses a blank entry (uncounted, no report identity)", function()
+    local lines = { "--- log ---", "08:00 a", "11:00", "13:00 b", "14:00 done" }
+    local _, err = map_summary.run(lines, 3, "label") -- cursor on the 11:00 blank
+    t.eq(err, map_summary.REFUSE_BLANK)
+  end)
 end

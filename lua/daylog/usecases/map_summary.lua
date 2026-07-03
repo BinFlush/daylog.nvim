@@ -19,6 +19,7 @@ local M = {}
 -- -- its committed value is tied to its current identity; unlog, map, relog.
 
 M.REFUSE_LOGGED = "daylog: refusing to map a logged entry; unlog it first"
+M.REFUSE_BLANK = "daylog: a blank entry is uncounted and cannot be mapped"
 M.NOT_MAPPABLE = "daylog: put the cursor on a summary row or an entry to map it"
 M.NO_RANGE_ENTRIES = "daylog: nothing in the selection to map"
 
@@ -133,6 +134,10 @@ local function apply_alias(ctx, rows, alias)
   local overrides = {}
   for _, item in ipairs(ctx.block.entry_items) do
     if target[item.start_row] then
+      -- A blank entry is uncounted and has no report identity, so it can't be a mapping target.
+      if summary.is_blank_entry(item) then
+        return nil, M.REFUSE_BLANK
+      end
       local desired = (value == item.text) and "" or value
       if desired ~= (item.alias or "") then
         if item.logged and item.logged.s then

@@ -613,4 +613,10 @@ return function(t)
     -- An unlogged entry renames normally.
     t.eq(rename({ "--- log ---", "08:00 foo", "09:00 done" }, 2, "bar")[2], "08:00 bar")
   end)
+
+  t.test("rename refuses a blank entry (uncounted, no report identity)", function()
+    local lines = { "--- log ---", "08:00 a", "11:00", "13:00 b", "14:00 done" }
+    local _, err = rename_summary.run(lines, 3, "x") -- cursor on the 11:00 blank
+    t.eq(err, rename_summary.REFUSE_BLANK)
+  end)
 end

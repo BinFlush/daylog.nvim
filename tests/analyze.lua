@@ -1002,6 +1002,19 @@ return function(t)
     t.eq(analysis.diagnostics[1].code, "midnight_not_final")
   end)
 
+  t.test("analyze flags a blank entry that carries reporting metadata", function()
+    -- A blank entry (bare timestamp) is uncounted and may carry no tag/location/marker/alias/nudge.
+    for _, line in ipairs({ "11:00 #x", "11:00 @o", "11:00 !S", "11:00 round+1" }) do
+      local bad = analyze.analyze(document.parse({ "--- log ---", "08:00 a", line, "12:00 done" }))
+      t.eq(bad.diagnostics[1] and bad.diagnostics[1].code, "blank_entry_metadata")
+    end
+    -- A plain blank, and a blank carrying only a utc offset (a clock change), are fine.
+    t.eq(
+      #analyze.analyze(document.parse({ "--- log ---", "08:00 a", "11:00", "12:00 done" })).diagnostics,
+      0
+    )
+  end)
+
   t.test("analyze reports a duplicate header utc offset", function()
     local analysis = analyze.analyze(document.parse({
       "--- log utc+2 utc-4 ---",

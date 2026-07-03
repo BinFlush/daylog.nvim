@@ -69,6 +69,7 @@ M.SECTION = {
 -- diagnostics module (message formatting), so the two never drift apart.
 M.DIAGNOSTIC = {
   INVALID_ENTRY = "invalid_entry",
+  BLANK_ENTRY_METADATA = "blank_entry_metadata",
   UNORDERED_TIMESTAMPS = "unordered_timestamps",
   MIDNIGHT_NOT_FINAL = "midnight_not_final",
   MIXED_OFFSET = "mixed_offset",
@@ -91,6 +92,7 @@ M.DIAGNOSTIC_CATEGORY = {
 -- stamps this onto every diagnostic at production time.
 M.DIAGNOSTIC_CATEGORY_BY_CODE = {
   [M.DIAGNOSTIC.INVALID_ENTRY] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.BLANK_ENTRY_METADATA] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.UNORDERED_TIMESTAMPS] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.MIDNIGHT_NOT_FINAL] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.MIXED_OFFSET] = M.DIAGNOSTIC_CATEGORY.BLOCK,

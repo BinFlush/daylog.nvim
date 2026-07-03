@@ -911,6 +911,26 @@ return function(t)
     t.eq(non_work, 30) -- the #ooo lunch
   end)
 
+  t.test("a blank entry (bare timestamp) is uncounted -- excluded from every section", function()
+    -- The 11:00 blank marks an uncounted gap (11:00-13:00); a note may follow it. Only the three real
+    -- activities are counted, and every section foots to their total.
+    local result = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 started working",
+      "09:00 more work",
+      "11:00",
+      "    a comment about free time",
+      "13:00 came back",
+      "16:00",
+    }))
+    t.eq(result.activity_total, 360) -- 60 + 120 + 180; the 2h gap is excluded
+    t.eq(result.workday_total, 360)
+    assert_activity_totals_match(t, result)
+    for _, item in ipairs(result.summary_items) do
+      t.ok(item.text ~= "" and item.text ~= nil, "no blank row leaks into the summary")
+    end
+  end)
+
   t.test("quantized summary uses the selected block quantize", function()
     local block = block_at({
       "--- log @office q=30 ---",

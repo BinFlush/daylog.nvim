@@ -40,6 +40,7 @@ M.EMPTY_TEXT = "daylog: the activity text cannot be empty"
 M.SAME_NAME = "daylog: the new name matches the current name"
 M.NO_ENTRIES_IN_RANGE = "daylog: no entries in the selection to rename"
 M.REFUSE_LOGGED = "daylog: refusing to rename a logged entry; unlog it first"
+M.REFUSE_BLANK = "daylog: a blank entry is uncounted and cannot be renamed"
 
 -- Classify a summary layout row into a rename target { kind, current } -- a #tag or
 -- @location total. An activity summary row (SUMMARY_ITEM) is refused: rename does not act
@@ -307,8 +308,14 @@ local function build_rename(analysis, block, item, target, new_value)
     -- rename must too. Unlog, rename, relog. Tag/location renames keep `!T`/`!L` coherent, so only the
     -- item path is guarded.
     for _, entry_item in ipairs(block.entry_items) do
-      if rows[entry_item.start_row] and entry_item.logged and entry_item.logged.s then
-        return nil, M.REFUSE_LOGGED
+      if rows[entry_item.start_row] then
+        -- A blank entry is uncounted and has no report identity; it is not renamable.
+        if entry_item.text == nil or entry_item.text == "" then
+          return nil, M.REFUSE_BLANK
+        end
+        if entry_item.logged and entry_item.logged.s then
+          return nil, M.REFUSE_LOGGED
+        end
       end
     end
 
