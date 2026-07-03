@@ -211,13 +211,15 @@ function M.layout(entries, width, now_minutes)
     end
   end
 
-  -- Each bar carries its own legend (its distinct labels): the resolved/unmapped bar in `legend`, and
-  -- when mapped the raw "before" bar in `raw_legend`. The shell draws each centred alongside its bar.
+  -- Each bar carries its own labels, placed over their widest segment (`labels`, and `raw_labels` for the
+  -- raw "before" bar when mapped). `legend`/`raw_legend` keep the distinct-label colour ordering.
   local result = {
     segments = segments,
     legend = segments_legend(segments),
+    labels = M.label_placements(segments, width),
     raw_segments = raw_segments,
     raw_legend = raw_segments and segments_legend(raw_segments) or nil,
+    raw_labels = raw_segments and M.label_placements(raw_segments, width) or nil,
   }
 
   -- The "now" marker column: when the current time falls inside the bar's span -- i.e. the final
@@ -389,6 +391,136 @@ function M.fit_legend(items, width)
       text = text .. LEGEND_MARKER
     end
     out[#out + 1] = { text = text, color_index = items[i].color_index }
+  end
+  return out
+end
+
+-- Place each distinct label once, centred over its widest segment, resolving overlaps optimally. Returns
+-- { { text, color_index, col } } sorted by `col` (1-based left cell of the swatch). This is 1-D label
+-- placement: sort by target centre (crossing never helps), then minimise total squared displacement
+-- subject to non-overlap -- exactly isotonic regression, solved by Pool-Adjacent-Violators (PAVA). A
+-- crowded cluster pools into one block centred on its targets' centroid, members abutting. `fit_legend`
+-- first abbreviates and drops the least-present (smallest total footprint) so the survivors fit `width`,
+-- guaranteeing feasibility. All arithmetic is integer half-cells (×2), so it is exact and deterministic.
+function M.label_placements(segments, width)
+  -- Distinct labels: the centre (half-cells) of the WIDEST occurrence, and the total footprint (for
+  -- eviction priority), keyed by colour index. `appear` is the first-appearance tiebreak.
+  local info, order, left = {}, {}, 0
+  for _, seg in ipairs(segments) do
+    if seg.label then
+      local rec = info[seg.color_index]
+      if not rec then
+        rec = { widest = -1, total = 0, label = seg.label, appear = #order + 1 }
+        info[seg.color_index] = rec
+        order[#order + 1] = seg.color_index
+      end
+      rec.total = rec.total + seg.width
+      if seg.width > rec.widest then
+        rec.widest = seg.width
+        rec.center2 = 2 * left + seg.width
+      end
+    end
+    left = left + seg.width
+  end
+  if #order == 0 then
+    return {}
+  end
+
+  -- Abbreviate + drop the least-present: feed fit_legend in total-footprint order (appearance tiebreak),
+  -- so it keeps the most-present prefix and evicts the tail.
+  local by_presence = {}
+  for _, ci in ipairs(order) do
+    local rec = info[ci]
+    by_presence[#by_presence + 1] =
+      { label = rec.label, color_index = ci, total = rec.total, appear = rec.appear }
+  end
+  table.sort(by_presence, function(a, b)
+    if a.total ~= b.total then
+      return a.total > b.total
+    end
+    return a.appear < b.appear
+  end)
+
+  -- Placement items: target centre + width recomputed from the (possibly abbreviated) returned text.
+  local items = {}
+  for _, fit in ipairs(M.fit_legend(by_presence, width)) do
+    local rec = info[fit.color_index]
+    items[#items + 1] = {
+      text = fit.text,
+      color_index = fit.color_index,
+      center2 = rec.center2,
+      w = LEGEND_OVERHEAD + #utf8_chars(fit.text),
+      appear = rec.appear,
+    }
+  end
+  table.sort(items, function(a, b)
+    if a.center2 ~= b.center2 then
+      return a.center2 < b.center2
+    end
+    return a.appear < b.appear
+  end)
+
+  local n = #items
+  local sum_w = 0
+  for _, it in ipairs(items) do
+    sum_w = sum_w + it.w
+  end
+
+  -- keep==0 corner: a single label wider than the whole bar (fit_legend guarantees the rest fit). Place
+  -- at col 1; the shell drops it if it still overflows.
+  if sum_w > width then
+    local out = {}
+    for i = 1, n do
+      out[i] = { text = items[i].text, color_index = items[i].color_index, col = 1 }
+    end
+    return out
+  end
+
+  -- Isotonic targets in half-cells: t_i = centre_i - w_i - Σ_{j<i} 2·w_j.
+  local xmax = 2 * (width - sum_w)
+  local t, prefix2 = {}, 0
+  for i = 1, n do
+    t[i] = items[i].center2 - items[i].w - prefix2
+    prefix2 = prefix2 + 2 * items[i].w
+  end
+
+  -- PAVA: pooled blocks (sum, count) over the integer targets; merge while the previous block's mean
+  -- strictly exceeds the current one (integer cross-multiply, no floats).
+  local blocks = {}
+  for i = 1, n do
+    local cur = { sum = t[i], count = 1 }
+    while #blocks >= 1 and blocks[#blocks].sum * cur.count > cur.sum * blocks[#blocks].count do
+      local top = table.remove(blocks)
+      cur = { sum = top.sum + cur.sum, count = top.count + cur.count }
+    end
+    blocks[#blocks + 1] = cur
+  end
+
+  -- Snap to integer cells with a forward de-overlap pass. Each block value x = clamp(sum/count, 0, xmax)
+  -- (uniform box ⇒ clamp the block mean, monotonicity preserved); L_i = x + Σ_{j<i} 2·w_j, rounded.
+  local suffix_w, s = {}, 0
+  for i = n, 1, -1 do
+    s = s + items[i].w
+    suffix_w[i] = s
+  end
+  local out, idx, prefixw, right = {}, 0, 0, 0
+  for _, blk in ipairs(blocks) do
+    for _ = 1, blk.count do
+      idx = idx + 1
+      local it = items[idx]
+      local want
+      if blk.sum <= 0 then
+        want = prefixw -- x = 0
+      elseif blk.sum >= xmax * blk.count then
+        want = math.floor(xmax / 2) + prefixw -- x = xmax (even)
+      else
+        want = math.floor((blk.sum + 2 * prefixw * blk.count + blk.count) / (2 * blk.count)) -- round half up
+      end
+      local col_left = math.min(math.max(want, right), width - suffix_w[idx])
+      out[#out + 1] = { text = it.text, color_index = it.color_index, col = col_left + 1 }
+      right = col_left + it.w
+      prefixw = prefixw + it.w
+    end
   end
   return out
 end

@@ -8,11 +8,11 @@ local M = {}
 
 -- The colour-coded time bar (shell).
 --
--- A centred legend row above a bar row (and when the log is mapped, a second bar with its own legend
--- below, mirrored), shown in a fixed-height split reserved at the bottom of the daylog window.
--- Reserving real space means it is always visible (it does not scroll with the log) and never overlays
--- the summary/totals (the log window is shortened to make room). Its segments are the active log's
--- intervals -- width proportional to real duration, colour per activity. A global
+-- A label row above a bar row -- each label placed over its widest segment (and when the log is mapped,
+-- a second bar with its own labels below, mirrored) -- shown in a fixed-height split reserved at the
+-- bottom of the daylog window. Reserving real space means it is always visible (it does not scroll with
+-- the log) and never overlays the summary/totals (the log window is shortened to make room). Its
+-- segments are the active log's intervals -- width proportional to real duration, colour per activity. A global
 -- on/off (the `time_bar` config is the initial state) carried across every daylog file; the buffer
 -- shell redraws it on each highlight pass via M.render. This module owns the panel: its window/split
 -- lifecycle, the scratch-buffer rendering, and the on/off state -- buffer.lua just calls in.
@@ -87,33 +87,33 @@ local function build_bar_row(segments, now_col)
   return bar
 end
 
--- One legend row as a chunk list ({ {text, hl}, ... }): a swatch + name per activity in colour order,
--- centred within the bar `width`. fit_legend abbreviates/evicts to fit; the true display width is
--- guarded so a double-width (CJK/emoji) label never overflows, then the whole run is centred.
-local function legend_row(items, width)
-  local chunks, used = {}, 0
-  for _, item in ipairs(timebar.fit_legend(items, width)) do
-    local name = " " .. item.text .. "  "
+-- One label row as a chunk list ({ {text, hl}, ... }): each placement (swatch + name) drawn at its `col`
+-- from timebar.label_placements, which centres each label over its widest segment. `col` is char-based,
+-- so this guards the true display width -- a double-width (CJK/emoji) label that would collide with the
+-- next one or overrun the bar is dropped rather than overlapping.
+local function label_row(placements, width)
+  local chunks, cursor = {}, 0
+  for _, p in ipairs(placements) do
+    local name = " " .. p.text .. "  "
     local item_width = 2 + vim.fn.strdisplaywidth(name)
-    if used + item_width > width then
-      break
+    local col = p.col - 1
+    if col >= cursor and col + item_width <= width then
+      if col > cursor then
+        chunks[#chunks + 1] = { string.rep(" ", col - cursor), "DaylogBarLabel" }
+      end
+      chunks[#chunks + 1] = { "  ", activity_hl.bar_group(p.color_index) }
+      chunks[#chunks + 1] = { name, "DaylogBarLabel" }
+      cursor = col + item_width
     end
-    chunks[#chunks + 1] = { "  ", activity_hl.bar_group(item.color_index) }
-    chunks[#chunks + 1] = { name, "DaylogBarLabel" }
-    used = used + item_width
-  end
-  local pad = math.floor((width - used) / 2)
-  if pad > 0 then
-    table.insert(chunks, 1, { string.rep(" ", pad), "DaylogBarLabel" })
   end
   return chunks
 end
 
--- The bar(s) with their centred legends, as virtual-line chunk lists ({ {text, hl}, ... } per line).
--- Unmapped: a centred legend above its bar. Mapped: the two bars sit adjacent with a legend on the
--- outside of each -- raw legend / raw bar / resolved bar / resolved legend -- a mirrored before/after
--- view. Returns the rows plus `bars`, a list of { row = <1-based row index>, segments } so the hover can
--- map a pointer line back to a BAR row's segments (legend rows are not hover targets).
+-- The bar(s) with their placed label rows, as virtual-line chunk lists ({ {text, hl}, ... } per line).
+-- Unmapped: a label row above its bar. Mapped: the two bars sit adjacent with a label row on the outside
+-- of each -- raw labels / raw bar / resolved bar / resolved labels -- a mirrored before/after view.
+-- Returns the rows plus `bars`, a list of { row = <1-based row index>, segments } so the hover can map a
+-- pointer line back to a BAR row's segments (label rows are not hover targets).
 local function bar_virt_lines(layout, width)
   local rows, bars = {}, {}
   local function add_bar(segments)
@@ -122,12 +122,12 @@ local function bar_virt_lines(layout, width)
   end
 
   if layout.raw_segments then
-    rows[#rows + 1] = legend_row(layout.raw_legend, width)
+    rows[#rows + 1] = label_row(layout.raw_labels, width)
     add_bar(layout.raw_segments)
     add_bar(layout.segments)
-    rows[#rows + 1] = legend_row(layout.legend, width)
+    rows[#rows + 1] = label_row(layout.labels, width)
   else
-    rows[#rows + 1] = legend_row(layout.legend, width)
+    rows[#rows + 1] = label_row(layout.labels, width)
     add_bar(layout.segments)
   end
   return rows, bars

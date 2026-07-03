@@ -118,6 +118,95 @@ return function(t)
     )
   end)
 
+  -- label_placements: place each distinct label once, centred over its widest segment, resolving
+  -- overlaps optimally (isotonic regression / PAVA). Segments are hand-built; `col` is 1-based.
+  local function mkseg(width, color_index, label)
+    return { width = width, color_index = color_index, label = label }
+  end
+  local function mkgap(width)
+    return { width = width, gap = true }
+  end
+  local function cols(placements)
+    local out = {}
+    for _, p in ipairs(placements) do
+      out[#out + 1] = { p.text, p.color_index, p.col }
+    end
+    return out
+  end
+
+  t.test("label_placements centres a lone label over its segment", function()
+    t.eq(cols(timebar.label_placements({ mkseg(10, 1, "a") }, 10)), { { "a", 1, 3 } })
+  end)
+
+  t.test("label_placements leaves well-separated labels each over their target", function()
+    t.eq(
+      cols(timebar.label_placements({ mkseg(10, 1, "a"), mkseg(10, 2, "b") }, 20)),
+      { { "a", 1, 3 }, { "b", 2, 13 } }
+    )
+  end)
+
+  t.test("label_placements pools crowded labels around their centroid", function()
+    -- aa and bb sit close (cols 7-9, 10-12); their labels pool and spread abutting, not overlapping.
+    t.eq(
+      cols(
+        timebar.label_placements({ mkgap(6), mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 20)
+      ),
+      { { "aa", 1, 3 }, { "bb", 2, 10 } }
+    )
+  end)
+
+  t.test("label_placements packs a pooled cluster from the edge when it must", function()
+    -- aa + bb fill the whole width (Σ label widths == width): packed from col 1.
+    t.eq(
+      cols(timebar.label_placements({ mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 14)),
+      { { "aa", 1, 1 }, { "bb", 2, 8 } }
+    )
+  end)
+
+  t.test("label_placements sits a label over its LARGEST segment", function()
+    -- "a" appears as a width-2 and a width-5 segment; its label goes over the width-5 one.
+    t.eq(
+      cols(timebar.label_placements({ mkseg(2, 1, "a"), mkseg(10, 2, "b"), mkseg(5, 1, "a") }, 40)),
+      { { "b", 2, 5 }, { "a", 1, 13 } }
+    )
+  end)
+
+  t.test("label_placements abbreviates then drops the least-present when crowded", function()
+    -- alpha (footprint 8) and beta (footprint 5) can't both fit in 13 cells; beta is dropped.
+    t.eq(
+      cols(timebar.label_placements({ mkseg(8, 1, "alpha"), mkseg(5, 2, "beta") }, 13)),
+      { { "alpha", 1, 1 } }
+    )
+  end)
+
+  t.test("label_placements shows a single over-long label truncated at col 1", function()
+    t.eq(cols(timebar.label_placements({ mkseg(3, 1, "verylonglabel") }, 6)), { { "v…", 1, 1 } })
+  end)
+
+  t.test("label_placements ignores gap segments (no label for a dead period)", function()
+    local placements =
+      timebar.label_placements({ mkseg(10, 1, "a"), mkgap(4), mkseg(10, 1, "a") }, 24)
+    t.eq(#placements, 1) -- one distinct label; the gap gets none
+    t.eq(placements[1].text, "a")
+  end)
+
+  t.test("layout places labels for each bar independently", function()
+    local layout = timebar.layout(
+      entries({ "--- log ---", "08:00 fix => Feature", "10:00 standup", "11:00 done" }),
+      40
+    )
+    local function texts(pl)
+      local o = {}
+      for _, p in ipairs(pl) do
+        o[#o + 1] = p.text
+      end
+      table.sort(o)
+      return o
+    end
+    t.eq(texts(layout.labels), { "Feature", "standup" }) -- resolved bar
+    t.eq(texts(layout.raw_labels), { "fix", "standup" }) -- raw "before" bar
+  end)
+
   t.test("layout fills the width with segments proportional to real duration", function()
     -- a: 08:00-10:00 (120) + 10:30-12:00 (90) = 210; b: 10:00-10:30 (30). total 240.
     local layout = timebar.layout(
