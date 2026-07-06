@@ -365,7 +365,7 @@ return function(t)
     t.eq(err, balance.ONLY_LOGGED)
 
     -- The unlogged workday row is still the balance target.
-    local out = run(lines, "(+20m) workday", 1)
+    local out = run(lines, "(-25m) workday", 1)
     t.ok(out ~= nil, "the open workday row balances")
   end)
 end

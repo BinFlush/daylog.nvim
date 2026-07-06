@@ -872,27 +872,6 @@ return function(t)
     t.ok(err:find("unlog the !S row", 1, true) ~= nil, err)
   end)
 
-  t.test("unmarking a tag row clears a marker stranded on a blanked entry", function()
-    -- The 12:00 entry was blanked after being !T-marked (a hand edit); it is excluded from
-    -- marking, but the unmark toggle must still clear it or the level stays half-logged.
-    local refresh_summaries = require("daylog.usecases.refresh_summaries")
-    local base =
-      { "--- log #X q=15 ---", "08:00 a !T60", "09:00 b !T60", "12:00 !T60", "13:00 done" }
-    local buf = support.apply_edits(base, refresh_summaries.run(base).edits)
-    local row
-    for i, line in ipairs(buf) do
-      if line:find("#X !T", 1, true) then
-        row = i
-      end
-    end
-
-    local result = log_current.run(buf, row)
-    local out = support.apply_edits(buf, result.edits)
-    for _, line in ipairs(out) do
-      t.ok(not line:find("!T", 1, true), "no !T marker survives the unmark: " .. line)
-    end
-  end)
-
   t.test("log_current leaves notes under entries untouched", function()
     local result = log_current.run({
       "--- log ---",

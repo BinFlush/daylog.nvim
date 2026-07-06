@@ -6,36 +6,29 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
--- Toggle the logged state of the summary row under the cursor, at the level that row reports:
--- a main (activity) row logs at the summary level (`!S`), a tag total at the tag level (`!T`), a
--- location total at the location level (`!L`). The rendered row is only a selector: the active log is
--- analyzed from source, the contributing entries gain or lose that level's marker, and the one summary
--- is rebuilt from the updated source (a pure projection, so no note preservation is needed).
---
--- The levels are independent, so marking a tag does not touch the summary or location markers on the
--- same entries. The `--- totals ---` workday row logs `!W`, stamped on every counted (non-blank) entry.
+-- Toggle the logged state of the summary row under the cursor, at the level it reports: a main row
+-- logs `!S`, a tag total `!T`, a location total `!L`. The row is only a selector: the log is
+-- analyzed from source, contributing entries gain/lose the marker, and the summary is rebuilt.
+-- Levels are independent. The `--- totals ---` workday row logs `!W` on every non-blank entry.
 
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, location, or workday row to log it"
 local REMAINDER_ROW =
   "daylog: this row is the drift beyond the cell's committed value; unlog the !S row to re-log it"
 
--- The entry's logged table with `level` set to `committed` (the frozen minutes) on a mark, or removed
--- (`committed == nil`) on an unmark -- preserving the entry's other levels. Always a table (never nil,
--- which an override cannot use to clear a field); an empty one reads as "logged at no level"
--- everywhere (every reader keys on `[level]`).
+-- The entry's logged table with `level` set to `committed` (frozen minutes) on a mark, or removed
+-- on an unmark, preserving other levels. Always a table (never nil, which an override can't use to
+-- clear a field); an empty one reads as "logged at no level".
 local function set_level(entry_item, level, committed)
   local logged = analyze.copy_logged(entry_item and entry_item.logged) or {}
   logged[level] = committed
   return logged
 end
 
--- The frozen committed value to stamp on each source entry when marking `!S`. Marking a row logged
--- merges it with any already-logged row of the same activity, so the new commitment is the SUM of the
--- two rows' currently displayed durations -- and, because the value is replicated per row, it must be
--- written onto EVERY entry in the merged row: the ones logged now AND the ones already logged (whose
--- value grows to the new total). Keyed by activity identity (which includes location), so an activity
--- spanning locations freezes each location's slice at its own committed value, matching the main base.
+-- The frozen committed value to stamp per source entry when marking `!S`. Marking merges the row
+-- with any already-logged row of the same activity, so the commitment is the SUM of both rows'
+-- displayed durations, written onto EVERY entry in the merged row (newly and already logged). Keyed
+-- by activity identity (includes location), so each location's slice freezes on its own.
 local function frozen_values(block, target_rows)
   local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
 
@@ -80,9 +73,8 @@ end
 local function log_summary_row(analysis, block, item)
   local target_logged = not item.logged
 
-  -- The cursor row already matched the freshly recomputed layout, so an empty provenance
-  -- is not staleness: it is the remainder slice of a fully-marked cell whose real time
-  -- grew past its commitment. Regenerating cannot help; say what actually can.
+  -- An empty provenance here is not staleness (the layout was freshly recomputed): it is the
+  -- remainder slice of a fully-marked cell whose real time grew past its commitment.
   local source_rows = item.source_entry_rows or {}
   if #source_rows == 0 then
     return nil, REMAINDER_ROW
@@ -96,8 +88,8 @@ local function log_summary_row(analysis, block, item)
   local entry_by_row = {}
   for _, entry_item in ipairs(block.entry_items) do
     entry_by_row[entry_item.start_row] = entry_item
-    -- A blank entry is uncounted and never carries a marker; never target one. A blank starts no
-    -- interval, so it should not reach a summary row's source rows -- this is a defensive backstop.
+    -- A blank is uncounted and never carries a marker; it shouldn't reach a summary row's source
+    -- rows anyway -- defensive backstop.
     if target_rows[entry_item.start_row] and summary.is_blank_entry(entry_item) then
       target_rows[entry_item.start_row] = nil
     end
@@ -123,20 +115,18 @@ local function log_summary_row(analysis, block, item)
   return support.apply_entry_overrides(analysis, block, overrides)
 end
 
--- Toggle `!T` / `!L` on a tag or location total row. A tag/location groups by a single field with no
--- sub-split (unlike the summary level's location axis), so marking freezes the WHOLE group at its
--- current displayed section total and stamps that one value on every one of its entries; unmarking
--- drops the marker from the entries currently logged at the level.
+-- Toggle `!T` / `!L` on a tag or location total row. Groups by a single field (no sub-split), so
+-- marking freezes the WHOLE group at its displayed section total on every entry; unmarking drops
+-- the marker from the entries currently logged at the level.
 local FIELD_BY_LEVEL = { t = "tag", l = "location" }
 
 local function log_section_row(analysis, block, item, level)
   local field = FIELD_BY_LEVEL[level]
   local target_logged = not item.logged
 
-  -- A blank entry is uncounted and must never carry a marker; it inherits the sticky tag/location, so
-  -- it would otherwise match a tag/location cell (and it is part of the whole day). Exclude it up front
-  -- at every level. The workday (`w`) cell is then the whole counted day; a tag/location cell groups by
-  -- its own field value.
+  -- A blank inherits the sticky tag/location, so it would otherwise match a tag/location cell;
+  -- exclude it up front at every level. The `w` cell is the whole counted day; tag/location cells
+  -- group by their own field value.
   local group = {}
   for _, entry_item in ipairs(block.entry_items) do
     local in_cell = not summary.is_blank_entry(entry_item)
@@ -169,11 +159,8 @@ local function log_section_row(analysis, block, item, level)
       overrides[entry_item.start_row] = { logged = set_level(entry_item, level, committed) }
     end
   else
-    -- Unmark sweeps the cell INCLUDING blanks: a blank never receives a mark, but a hand
-    -- edit can strand one, and the toggle must actually clear the level.
-    for _, entry_item in ipairs(block.entry_items) do
-      local in_cell = level == "w" or (field ~= nil and entry_item[field] == item[field])
-      if in_cell and entry_item.logged and entry_item.logged[level] ~= nil then
+    for _, entry_item in ipairs(group) do
+      if entry_item.logged and entry_item.logged[level] ~= nil then
         overrides[entry_item.start_row] = { logged = set_level(entry_item, level, nil) }
       end
     end

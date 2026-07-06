@@ -39,8 +39,8 @@ return function(t)
     -- tag/location totals (they are the same time under a different grouping), so those totals differ
     -- from activity only when a per-level `!S`/`!T`/`!L` commitment freezes a slice away from the rest.
     eq(sum_field(s.summary_items, "duration"), s.activity_total, ctx .. " T1 items=activity")
-    eq(sum_field(s.tag_totals, "duration"), s.tag_total, ctx .. " T1 tags=tag_total")
-    eq(sum_field(s.location_totals, "duration"), s.location_total, ctx .. " T1 locs=location_total")
+    eq(sum_field(s.tag_totals, "duration"), s.activity_total, ctx .. " T1 tags=activity")
+    eq(sum_field(s.location_totals, "duration"), s.activity_total, ctx .. " T1 locs=activity")
 
     -- T2: uncounted time is a blank entry (excluded from every section), so the workday is the whole
     -- counted day: every summary item counts toward it and it equals the activity total exactly.

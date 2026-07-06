@@ -15,10 +15,10 @@ format-check:
     stylua --check lua tests plugin ftplugin
 
 test:
+    # cq on failure so a red suite exits non-zero (a trailing +qa! would swallow it).
     nvim --headless -i NONE -u NONE \
       "+set rtp+=." \
-      "+lua dofile('tests/run.lua')" \
-      +qa!
+      "+lua local ok, err = pcall(function() dofile('tests/run.lua') end); if ok then vim.cmd('qa!') else io.stderr:write(tostring(err) .. '\n'); vim.cmd('cq') end"
 
 # Property-fuzz sweep of the summary footing invariant; the always-on `test`
 # runs a fast fixed-seed sample of the same fuzz. Args (all optional):

@@ -33,10 +33,8 @@ local function parse_metadata_token(token)
     return syntax.TOKEN_KIND.LOCATION, location, false
   end
 
-  -- A `utc±H[:MM]` offset is sticky metadata too; the value is signed minutes and
-  -- there is no clear form (you change the offset, you do not unset it). Shared by
-  -- the entry trailing-run scan (via parse_entry_control_token) and the header
-  -- tokenizer (parse_log_tokens), so both recognize it with one grammar.
+  -- A `utc±H[:MM]` offset is sticky metadata (signed minutes, no clear form) recognized by both
+  -- the entry trailing-run scan and the header tokenizer with one grammar.
   local offset = syntax.parse_utc_offset(token)
   if offset ~= nil then
     return syntax.TOKEN_KIND.OFFSET, offset, false
@@ -56,9 +54,8 @@ local function parse_entry_control_token(token)
     return syntax.TOKEN_KIND.LOGGED, logged_pairs, false
   end
 
-  -- A `round±N` rounding-balance marker is per-entry and non-sticky (like a logged marker), so it
-  -- is recognized here in the entry trailing run only -- never in the log header
-  -- (parse_log_tokens uses parse_metadata_token, which does not see it).
+  -- A `round±N` marker is per-entry and non-sticky, recognized here in the entry trailing run only,
+  -- never in the log header.
   local nudge = syntax.parse_round_nudge(token)
   if nudge ~= nil then
     return syntax.TOKEN_KIND.NUDGE, nudge, false
@@ -106,8 +103,7 @@ local function parse_log_tokens(text)
   return result
 end
 
--- At most one trailing token of each kind is allowed; a second of the same kind is the one
--- rule, with this per-kind message. Keyed by syntax.TOKEN_KIND.
+-- At most one trailing token of each kind; the per-kind message for a second. Keyed by TOKEN_KIND.
 local DUPLICATE_METADATA = {
   [syntax.TOKEN_KIND.TAG] = "multiple trailing tags are not allowed",
   [syntax.TOKEN_KIND.LOCATION] = "multiple trailing locations are not allowed",
@@ -153,10 +149,8 @@ local function parse_entry_metadata(text)
     local kind, value, clear = parse_entry_control_token(tokens[i])
 
     if kind == syntax.TOKEN_KIND.LOGGED then
-      -- Logging is per-level, and one token may carry several levels (`!S225T525W525`). Each level is
-      -- its own marker, so a repeat -- within this token or across tokens -- is the duplicate error.
-      -- The `logged` table is keyed by level ("s"/"t"/"l"/"w"), each holding its committed minutes or
-      -- `true` for a bare marker; the summary fold derives the row's scalar logged state from `.s`.
+      -- Logging is per-level and one token may carry several (`!S225T525W525`); a repeated level is
+      -- the duplicate error. `logged` is keyed by level, each holding committed minutes or `true`.
       for _, pair in ipairs(value) do
         local dup_key = "logged:" .. pair.level
         if seen[dup_key] then
@@ -198,9 +192,7 @@ local function parse_entry_metadata(text)
 end
 
 local function parse_header(line, row)
-  -- "log" must be its own word: followed by whitespace (before any options)
-  -- or by the closing dashes directly. This rejects "--- logx ---" and
-  -- "--- log#sales ---" (they are not log headers).
+  -- "log" must be its own word (whitespace or the closing dashes after it), rejecting "--- logx ---".
   local options_text = line:match("^%-%-%- log%s+(.-)%s*%-%-%-$")
   if options_text == nil and line:match("^%-%-%- log%-%-%-$") then
     options_text = ""
@@ -219,13 +211,9 @@ local function parse_header(line, row)
     }
   end
 
-  -- Only a recognized header is a structural boundary: a log header (matched above)
-  -- or a generated summary/report section header. An unrecognized `--- x ---` (a
-  -- stray `--- notes ---`, or a corrupted header) is NOT a boundary -- it falls
-  -- through to a NOTE_LINE, so it can never silently fragment a log. A daylog holds
-  -- only logs and their generated summaries; everything else is prose. Recovery of a
-  -- corrupted log header still works: it keys off orphan entries + the raw line text,
-  -- not on this node kind (see usecases/refresh_summaries.lua).
+  -- Only a recognized header (a log header, or a generated summary/report section header) is a
+  -- structural boundary; an unrecognized `--- x ---` falls through to a NOTE_LINE so it can never
+  -- silently fragment a log.
   local text = line:match("^%-%-%- (.+) %-%-%-$")
   if text and syntax.is_summary_section_header(line) then
     return {
@@ -239,12 +227,9 @@ local function parse_header(line, row)
   return nil
 end
 
--- An entry's optional alias: ` => label` is the target the entry maps to in the summary.
--- The trailing metadata (#tag/@location/utc/round/!L) is peeled first and attaches to the
--- entry as on any line, so by the time this runs the input is `description => label` and
--- the alias is the run after the LAST ` => ` (multi-word allowed). The text is already
--- whitespace-normalized, so the separator is a single ` => `. Returns (description, alias)
--- with alias non-empty, or (text, nil).
+-- Split an entry's optional ` => label` alias off `description => label` on the LAST ` => `
+-- (metadata already peeled, text already whitespace-normalized). Returns (description, alias) or
+-- (text, nil).
 local function split_alias(text)
   local before, alias = text:match("^(.+) => (.+)$")
   if not before then
@@ -260,10 +245,8 @@ local function parse_entry(line, row)
     return nil
   end
 
-  -- A summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp plus a
-  -- (+Nm) rounding marker; treat it as a note, not an entry. This keeps a d=hm summary
-  -- row that leaks into a log body (e.g. after its summary header is deleted) from
-  -- being miscounted as a real entry; the highlighter (highlight.lua) shares the rule.
+  -- A summary row ("16:00 (+0m) workday") is an entry timestamp plus a (+Nm) marker; treat it as a
+  -- note so a leaked summary row is never miscounted as an entry (the highlighter shares the rule).
   if rest:match("^%s+%([%+%-]%d+m%)") then
     return nil
   end
@@ -280,8 +263,7 @@ local function parse_entry(line, row)
   hh = tonumber(hh)
   mm = tonumber(mm)
 
-  -- 24:00 is a valid end-of-day boundary; it lets a log close its final
-  -- task at midnight, contiguous with the next day's 00:00.
+  -- 24:00 is a valid end-of-day boundary, letting a log close its final task at midnight.
   local valid_time = (hh <= 23 and mm <= 59) or (hh == 24 and mm == 0)
   if not valid_time then
     return {
@@ -293,8 +275,7 @@ local function parse_entry(line, row)
   end
 
   local text = normalize_text(rest:gsub("^%s+", ""))
-  -- Peel the trailing metadata run first (so it attaches to the entry/its alias exactly
-  -- as on any line), then split the remaining `description => label` on the last ` => `.
+  -- Peel the trailing metadata run first, then split the remaining `description => label`.
   local metadata, err = parse_entry_metadata(text)
   if err then
     return {
@@ -335,9 +316,12 @@ local function parse_line(line, row)
     return entry
   end
 
-  -- A near-miss timestamp ("9:00 standup") would silently become a note and its interval
-  -- vanish from the summary; flag it instead of corrupting the report silently.
-  if line:match("^%d:%d%d$") or line:match("^%d:%d%d%s") then
+  -- A near-miss timestamp ("9:00 standup") would silently become a note; flag it instead. A single-digit
+  -- H:MM followed by a (±Nm) marker is an hm-format summary row (e.g. "1:00 (+0m) foo"), not an entry.
+  if
+    (line:match("^%d:%d%d$") or line:match("^%d:%d%d%s"))
+    and not line:match("^%d:%d%d%s+%([%+%-]%d+m%)")
+  then
     return {
       kind = syntax.NODE_KIND.INVALID_ENTRY,
       row = row,
@@ -362,15 +346,12 @@ local function parse_line(line, row)
   }
 end
 
--- Classify a single whitespace-delimited token as log metadata: returns
--- (kind, value, clear) for a #tag / @location / #- / @- / !L, or nil otherwise.
--- Exposed so the highlighter (highlight.lua) classifies trailing-run and header
--- tokens with the very same grammar the parser uses, rather than a second copy.
+-- Classify a whitespace-delimited token as log metadata, returning (kind, value, clear) or nil.
+-- Exposed so the highlighter uses the parser's grammar rather than a second copy.
 M.classify_control_token = parse_entry_control_token
 
--- The remaining functions expose this parser's token grammar with byte positions,
--- so the highlighter is a pure projection of the parse and owns no patterns of its
--- own -- there is one grammar, here.
+-- The remaining functions expose this parser's token grammar with byte positions, so the
+-- highlighter is a pure projection of the parse and owns no patterns of its own.
 
 -- The whitespace-delimited tokens of a line, each with 0-based byte spans:
 -- { col_start, col_end, text }. The split matches every other token scan here.
@@ -382,10 +363,8 @@ function M.tokens(line)
   return result
 end
 
--- The 1-based index where a line's trailing run of metadata tokens (#tag / @location / utc /
--- round / !L, any order) begins, scanning backward over `tokens` (from M.tokens); #tokens + 1
--- when the line ends in no metadata. The parser peels this run off the end and the highlighter
--- colors it -- one definition of where the trailing metadata starts, for both.
+-- The 1-based index where a line's trailing metadata run begins (#tokens + 1 when none), scanning
+-- `tokens` backward -- one definition of where trailing metadata starts, for parser and highlighter.
 function M.trailing_metadata_start(tokens)
   local start = #tokens + 1
   for i = #tokens, 1, -1 do
@@ -398,11 +377,8 @@ function M.trailing_metadata_start(tokens)
   return start
 end
 
--- The byte span of an entry's ` => label` alias -- from the `=>` token through the last
--- label word, excluding the trailing metadata run that follows it -- as 0-based
--- { col_start, col_end } (end exclusive), or nil when the line has no alias. Mirrors the
--- parser (peel trailing metadata, then the last ` => `) so the highlighter colors exactly
--- what the parser reads as the alias.
+-- The 0-based byte span { col_start, col_end } of an entry's ` => label` alias (end exclusive),
+-- or nil. Mirrors the parser so the highlighter colors exactly what it reads as the alias.
 function M.alias_span(line)
   local tokens = M.tokens(line)
 
@@ -418,9 +394,8 @@ function M.alias_span(line)
     end
   end
 
-  -- A real alias needs a non-empty description before the arrow (mirroring parse_entry's
-  -- `(.+) => (.+)`): index 3 is the earliest arrow with a description token (2) after the
-  -- timestamp (1), so `08:00 => foo` -- where the arrow follows only the timestamp -- is none.
+  -- A real alias needs a description before the arrow: index 3 is the earliest valid arrow (after
+  -- timestamp + description), so `08:00 => foo` is none.
   if not arrow or arrow < 3 then
     return nil
   end
@@ -428,9 +403,8 @@ function M.alias_span(line)
   return { col_start = tokens[arrow].col_start, col_end = tokens[last_label].col_end }
 end
 
--- The (+Nm) / (-Nm) rounding markers on a line as 0-based byte spans. This is the
--- same marker shape parse_entry refuses to read as an entry (so a summary row never
--- counts as one); reusing it keeps the reader and the highlighter in lockstep.
+-- The (+Nm) / (-Nm) rounding markers on a line as 0-based byte spans -- the same shape parse_entry
+-- refuses to read as an entry, keeping reader and highlighter in lockstep.
 function M.quant_error_spans(line)
   local spans = {}
   for start, text in line:gmatch("()(%([%+%-]%d+m%))") do
@@ -439,11 +413,9 @@ function M.quant_error_spans(line)
   return spans
 end
 
--- The byte length of a line's leading summary-duration token, or nil. A decimal
--- ("2.00h") or a single-digit-hour h:mm ("0:30") is always a duration (neither can
--- be an entry timestamp, which is a zero-padded HH:MM). A two-digit-hour HH:MM
--- ("16:00") is a duration only immediately before a rounding marker -- otherwise it
--- is an entry timestamp -- mirroring the entry/summary split parse_entry makes.
+-- The byte length of a line's leading summary-duration token, or nil. A decimal ("2.00h") or a
+-- single-digit-hour h:mm ("0:30") is always a duration; a two-digit HH:MM ("16:00") only when it
+-- precedes a rounding marker -- else it is an entry timestamp, mirroring parse_entry's split.
 function M.summary_duration_length(line)
   local decimal = line:match("^%d+%.%d+h")
   if decimal then
@@ -467,9 +439,7 @@ function M.parse_line(line, row)
   return parse_line(line, row or 1)
 end
 
--- Parse a daylog file into syntax-preserving line nodes.
--- The returned document keeps every input line as an explicit node so later
--- semantic analysis can preserve source layout while deriving log meaning.
+-- Parse a daylog file into syntax-preserving line nodes, one per input line.
 function M.parse(lines)
   local nodes = {}
 
