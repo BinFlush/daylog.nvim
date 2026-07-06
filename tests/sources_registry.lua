@@ -36,6 +36,12 @@ return function(t)
     t.ok(tostring(err):match("is missing to_entry_text") ~= nil, tostring(err))
   end)
 
+  t.test("register raises the clean user-facing message, without a file:line prefix", function()
+    local ok, err = pcall(registry.register, "REG_LEVEL", "nope")
+    t.ok(not ok)
+    t.eq(err, "daylog: source 'REG_LEVEL' must be a table")
+  end)
+
   t.test("register rejects a non-function search", function()
     local source = valid_source()
     source.search = "nope"

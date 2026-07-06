@@ -79,6 +79,7 @@ function M.sync(name, opts, cb)
   cb = cb or function() end
 
   if in_flight[name] then
+    warn("daylog: sync already running for " .. name)
     return cb(false)
   end
 
@@ -90,8 +91,15 @@ function M.sync(name, opts, cb)
 
   in_flight[name] = true
 
+  -- The pcall below also catches an error raised *inside* the fetch callback when the
+  -- source calls back synchronously (the throw propagates out of source.fetch). In that
+  -- case the callback has already run, so the error branch must not call cb again --
+  -- `finished` records that the callback was reached.
+  local finished = false
+
   local ok, err = pcall(function()
     source.fetch(function(items, fetch_err)
+      finished = true
       in_flight[name] = false
 
       if not items then
@@ -115,7 +123,9 @@ function M.sync(name, opts, cb)
   if not ok then
     in_flight[name] = false
     warn("daylog: sync failed: " .. tostring(err))
-    cb(false)
+    if not finished then
+      cb(false)
+    end
   end
 end
 

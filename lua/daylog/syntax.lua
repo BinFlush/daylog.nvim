@@ -208,11 +208,11 @@ function M.parse_offset_value(value)
 
   hours = tonumber(hours)
   minutes = tonumber(minutes)
-  if hours > 14 or minutes > 59 then
+  -- Real-world offsets span -12:00..+14:00; cap the total so e.g. +14:59 fails to parse.
+  local total = hours * 60 + minutes
+  if minutes > 59 or total > 14 * 60 then
     return nil
   end
-
-  local total = hours * 60 + minutes
   if sign == "-" then
     total = -total
   end

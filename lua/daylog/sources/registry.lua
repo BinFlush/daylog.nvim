@@ -106,7 +106,9 @@ end
 function M.register(name, source)
   local err = validate(name, source)
   if err then
-    error(err)
+    -- Level 0: the message is already user-facing ("daylog: ..."); a position prefix
+    -- ("registry.lua:109:") would only obscure it.
+    error(err, 0)
   end
 
   registered[name] = source

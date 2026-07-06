@@ -335,6 +335,17 @@ local function parse_line(line, row)
     return entry
   end
 
+  -- A near-miss timestamp ("9:00 standup") would silently become a note and its interval
+  -- vanish from the summary; flag it instead of corrupting the report silently.
+  if line:match("^%d:%d%d$") or line:match("^%d:%d%d%s") then
+    return {
+      kind = syntax.NODE_KIND.INVALID_ENTRY,
+      row = row,
+      raw = line,
+      message = "entry timestamps use two-digit hours (write 0" .. line:sub(1, 4) .. ")",
+    }
+  end
+
   if line == "" then
     return {
       kind = syntax.NODE_KIND.BLANK_LINE,

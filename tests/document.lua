@@ -83,6 +83,16 @@ return function(t)
     t.eq(document.parse_line("--- summary q=15 d=dec ---").kind, "block_header")
   end)
 
+  t.test("a single-digit-hour timestamp is flagged, not silently a note", function()
+    local node = document.parse_line("9:00 standup")
+    t.eq(node.kind, "invalid_entry")
+    t.eq(node.message, "entry timestamps use two-digit hours (write 09:00)")
+    t.eq(document.parse_line("9:00").kind, "invalid_entry")
+    -- Prose merely containing a clock is untouched; only a line-leading near-miss flags.
+    t.eq(document.parse_line("meet at 9:00").kind, "note_line")
+    t.eq(document.parse_line("9:00am-ish start").kind, "note_line")
+  end)
+
   t.test("a section word in second position is a boundary only after a report prefix", function()
     -- Report headers stay recognized...
     t.eq(document.parse_line("--- day summary 2026-05-04 q=15 ---").kind, "block_header")
@@ -423,6 +433,9 @@ return function(t)
     t.eq(syntax.parse_utc_offset("utc+2:60"), nil)
     t.eq(syntax.parse_utc_offset("utc+99"), nil)
     t.eq(syntax.parse_utc_offset("utcby"), nil)
+    -- The TOTAL is capped at the real-world maximum (+14:00), not hours and minutes separately.
+    t.eq(syntax.parse_utc_offset("utc+14"), 840)
+    t.eq(syntax.parse_utc_offset("utc+14:59"), nil)
 
     -- The canonical token: ":MM" appears only when nonzero, and 0 is "utc+0".
     t.eq(syntax.utc_offset_token(0), "utc+0")

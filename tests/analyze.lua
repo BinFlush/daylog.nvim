@@ -269,7 +269,8 @@ return function(t)
   end)
 
   t.test("analyze rejects quantize values tonumber would accept but are not integers", function()
-    for _, value in ipairs({ "inf", "0x10", "1e2", "5.0", "+5" }) do
+    -- The digit run beyond the day cap would otherwise overflow into a float bucket (1e20).
+    for _, value in ipairs({ "inf", "0x10", "1e2", "5.0", "+5", "1441", "99999999999999999999" }) do
       local analysis = analyze.analyze(document.parse({
         "--- log q=" .. value .. " ---",
         "08:00 work",
@@ -282,10 +283,15 @@ return function(t)
           category = "structural",
           severity = "error",
           row = 1,
-          message = "log header option q must be a positive integer",
+          message = "log header option q must be a positive integer of minutes (at most 1440)",
         },
       })
     end
+
+    -- The day itself is the cap: q=1440 stays valid.
+    local ok = analyze.analyze(document.parse({ "--- log q=1440 ---", "08:00 work", "09:00 done" }))
+    t.eq(ok.diagnostics, {})
+    t.eq(ok.log_blocks[1].quantize_minutes, 1440)
   end)
 
   t.test("analyze reports invalid log header metadata and options", function()
@@ -315,7 +321,7 @@ return function(t)
         category = "structural",
         severity = "error",
         row = 1,
-        message = "log header option q must be a positive integer",
+        message = "log header option q must be a positive integer of minutes (at most 1440)",
       },
       {
         code = "invalid_log_header_option",
@@ -459,7 +465,7 @@ return function(t)
         category = "structural",
         severity = "error",
         row = 4,
-        message = "log header option q must be a positive integer",
+        message = "log header option q must be a positive integer of minutes (at most 1440)",
       },
       {
         code = "invalid_log_header_option",

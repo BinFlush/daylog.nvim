@@ -108,7 +108,14 @@ local function daybook_lines(path)
   end
 
   if vim.fn.filereadable(path) == 1 then
-    return vim.fn.readfile(path)
+    -- vim.fn.readfile keeps the trailing \r on dos-format (CRLF) files, whereas a
+    -- loaded buffer strips it -- strip it here too so disk-read labels group with
+    -- buffer-read ones instead of splitting into separate report rows.
+    local lines = vim.fn.readfile(path)
+    for i, line in ipairs(lines) do
+      lines[i] = (line:gsub("\r$", ""))
+    end
+    return lines
   end
 
   return nil

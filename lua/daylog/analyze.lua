@@ -331,13 +331,18 @@ local function interpret_log_header(header, diagnostics)
 
         -- tonumber alone accepts inf, hex (0x10), scientific (1e2), floats (5.0)
         -- and signs (+5); require a plain run of digits so only true positive
-        -- integers are taken.
-        if token.value:match("^%d+$") == nil or quantize_minutes <= 0 then
+        -- integers are taken, capped at a day so an absurd run of digits cannot
+        -- overflow into a float bucket.
+        if
+          token.value:match("^%d+$") == nil
+          or quantize_minutes <= 0
+          or quantize_minutes > 1440
+        then
           push_diagnostic(diagnostics, {
             code = syntax.DIAGNOSTIC.INVALID_LOG_HEADER_OPTION,
             severity = "error",
             row = header.row,
-            message = "log header option q must be a positive integer",
+            message = "log header option q must be a positive integer of minutes (at most 1440)",
           })
         else
           result.quantize_minutes = quantize_minutes

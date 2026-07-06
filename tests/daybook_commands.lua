@@ -794,6 +794,21 @@ return function(t)
     end)
   end)
 
+  t.test("daybook_lines strips the trailing CR readfile keeps on dos-format files", function()
+    -- vim.fn.readfile preserves the \r of CRLF line endings; without stripping it,
+    -- labels read from disk would group separately from the same labels read from a
+    -- loaded buffer (which never carries the \r).
+    local daybook_io = require("daylog.daybook_io")
+    local path = vim.fn.tempname() .. ".day"
+    vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
+    vim.fn.writefile({ "--- log ---\r", "08:00 review\r", "09:00 done\r" }, path)
+
+    local lines = daybook_io.daybook_lines(path)
+    vim.fn.delete(path)
+
+    t.eq(lines, { "--- log ---", "08:00 review", "09:00 done" })
+  end)
+
   t.test("a range report expands a home-relative daybook root before building it", function()
     local now = os.time({
       year = 2026,

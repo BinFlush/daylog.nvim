@@ -205,17 +205,26 @@ function M.build_insert_pool(sources, ctx)
     end
   end
 
-  for key, used in pairs(usage) do
+  -- pairs() walks usage in hash order, which would make the `order` tie-break (and so the
+  -- final row order on a score tie) nondeterministic -- collect the leftover keys and sort
+  -- them so tied activities always come out alphabetically.
+  local activity_keys = {}
+  for key in pairs(usage) do
     if not seen[key] then
-      rows[#rows + 1] = {
-        kind = "activity",
-        text = key,
-        key = key,
-        display = key,
-        score = score_for(used),
-        order = #rows + 1,
-      }
+      activity_keys[#activity_keys + 1] = key
     end
+  end
+  table.sort(activity_keys)
+
+  for _, key in ipairs(activity_keys) do
+    rows[#rows + 1] = {
+      kind = "activity",
+      text = key,
+      key = key,
+      display = key,
+      score = score_for(usage[key]),
+      order = #rows + 1,
+    }
   end
 
   table.sort(rows, function(a, b)

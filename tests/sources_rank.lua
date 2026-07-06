@@ -254,6 +254,23 @@ return function(t)
     t.eq(rows[1].source, "A")
   end)
 
+  t.test("build_insert_pool orders tied activities deterministically by key", function()
+    -- Activities come out of a hash map; on a full score tie they must sort by key,
+    -- not by whatever order pairs() happened to walk the table in.
+    local usage = {}
+    for _, key in ipairs({ "zeta", "mike", "alpha", "tango", "echo", "quebec" }) do
+      usage[key] = { score = 50 }
+    end
+
+    local rows = rank.build_insert_pool({}, { usage = usage })
+
+    local keys = {}
+    for i, row in ipairs(rows) do
+      keys[i] = row.key
+    end
+    t.eq(keys, { "alpha", "echo", "mike", "quebec", "tango", "zeta" })
+  end)
+
   t.test("build_insert_pool puts an item before an activity on a score tie", function()
     local sources = {
       {

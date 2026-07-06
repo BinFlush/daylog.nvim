@@ -244,6 +244,23 @@ return function(t)
     t.ok(captured.err:match("401") ~= nil)
   end)
 
+  t.test("a 203 response (the ADO sign-in page) reports an authentication failure", function()
+    -- Azure DevOps answers a bad/expired PAT with HTTP 203 and an HTML sign-in page,
+    -- which must not masquerade as "invalid JSON response".
+    local transport = fake_transport(function()
+      return { status = 203, body = "<html>Sign in to your account</html>" }
+    end)
+
+    local source = new_source(base_cfg(), transport)
+    local captured
+    source.fetch(function(items, err)
+      captured = { items = items, err = err }
+    end)
+
+    t.eq(captured.items, nil)
+    t.eq(captured.err, "daylog: ADO sync failed: authentication failed (check your PAT)")
+  end)
+
   t.test("fetch reports a token failure without calling the transport", function()
     local transport = fake_transport(function()
       return { status = 200, body = "{}" }

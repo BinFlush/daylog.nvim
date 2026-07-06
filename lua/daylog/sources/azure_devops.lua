@@ -97,6 +97,13 @@ function M.new(_name, cfg, deps)
         return cb(nil, "daylog: ADO sync failed: " .. err)
       end
 
+      -- Azure DevOps answers an invalid/expired PAT with HTTP 203 + an HTML sign-in
+      -- page, which would otherwise pass the 2xx check and fail opaquely in the JSON
+      -- decode below -- name the real problem instead.
+      if response.status == 203 then
+        return cb(nil, "daylog: ADO sync failed: authentication failed (check your PAT)")
+      end
+
       if response.status < 200 or response.status >= 300 then
         return cb(nil, "daylog: ADO sync failed: HTTP " .. tostring(response.status))
       end
