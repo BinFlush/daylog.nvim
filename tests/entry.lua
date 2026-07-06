@@ -31,7 +31,7 @@ return function(t)
     local parsed = entry.parse("08:04 bake strudel !S #sales @client", "ProjectOrion", "office")
     t.eq(parsed.tag, "sales")
     t.eq(parsed.location, "client")
-    t.eq(parsed.logged, { s = true })
+    t.eq(parsed.logged, { s = {} })
 
     parsed = entry.parse("08:04 bake strudel", "ProjectOrion", "office")
     t.eq(parsed.logged, nil)
@@ -98,7 +98,7 @@ return function(t)
         text = "third",
         tag = "sales",
         location = "client",
-        logged = { s = true },
+        logged = { s = {} },
       }, "ProjectOrion", "office"),
       "08:00 third #sales @client !S"
     )
@@ -108,7 +108,7 @@ return function(t)
         text = "reset",
         tag = nil,
         location = nil,
-        logged = { s = true },
+        logged = { s = {} },
       }, "ProjectOrion", "office"),
       "08:00 reset #- @- !S"
     )
@@ -145,7 +145,7 @@ return function(t)
         tag = "sales",
         location = "client",
         offset = 120,
-        logged = { s = true },
+        logged = { s = {} },
       }, "ProjectOrion", "office", nil),
       "08:00 x #sales @client utc+2 !S"
     )
@@ -179,7 +179,7 @@ return function(t)
         location = "client",
         offset = 120,
         nudge = 1,
-        logged = { s = true },
+        logged = { s = {} },
       }, "ProjectOrion", "office", nil),
       "08:00 x #sales @client utc+2 round+1 !S"
     )
@@ -193,19 +193,24 @@ return function(t)
 
   t.test("entry parse reads a frozen !S value; a bare !S has none", function()
     local parsed = entry.parse("08:00 plan !S60", "ClientA", "office")
-    t.eq(parsed.logged, { s = 60 })
+    t.eq(parsed.logged, { s = { minutes = 60 } })
 
     parsed = entry.parse("08:00 plan !S", "ClientA", "office")
-    t.eq(parsed.logged, { s = true })
+    t.eq(parsed.logged, { s = {} })
   end)
 
   t.test("entry format emits a frozen !S value, bare when absent", function()
     t.eq(
-      entry.format({ minutes = 480, text = "plan", logged = { s = 60 } }, nil, nil, nil),
+      entry.format(
+        { minutes = 480, text = "plan", logged = { s = { minutes = 60 } } },
+        nil,
+        nil,
+        nil
+      ),
       "08:00 plan !S60"
     )
     t.eq(
-      entry.format({ minutes = 480, text = "plan", logged = { s = true } }, nil, nil, nil),
+      entry.format({ minutes = 480, text = "plan", logged = { s = {} } }, nil, nil, nil),
       "08:00 plan !S"
     )
     -- A logged table with no levels (what an unmark leaves) emits no marker.
@@ -224,7 +229,7 @@ return function(t)
     local parsed = entry.parse("09:00 fix login => BUG-123 Fix the login #ProjectOrion !S30")
     t.eq(parsed.text, "fix login")
     t.eq(parsed.tag, "ProjectOrion")
-    t.eq(parsed.logged, { s = 30 })
+    t.eq(parsed.logged, { s = { minutes = 30 } })
     t.eq(parsed.alias, "BUG-123 Fix the login")
   end)
 

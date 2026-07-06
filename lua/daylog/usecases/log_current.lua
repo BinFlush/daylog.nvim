@@ -16,12 +16,12 @@ local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, location, or wor
 local REMAINDER_ROW =
   "daylog: this row is the drift beyond the cell's committed value; unlog the !S row to re-log it"
 
--- The entry's logged table with `level` set to `committed` (frozen minutes) on a mark, or removed
--- on an unmark, preserving other levels. Always a table (never nil, which an override can't use to
--- clear a field); an empty one reads as "logged at no level".
+-- The entry's logged table with `level` frozen at `committed` minutes on a mark (`{ minutes }`), or
+-- removed on an unmark, preserving other levels. Always a table (never nil, which an override can't
+-- use to clear a field); an empty one reads as "logged at no level".
 local function set_level(entry_item, level, committed)
   local logged = analyze.copy_logged(entry_item and entry_item.logged) or {}
-  logged[level] = committed
+  logged[level] = committed ~= nil and { minutes = committed } or nil
   return logged
 end
 

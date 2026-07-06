@@ -29,14 +29,19 @@ return function(t)
 
   t.test("every level parses into the one logged table, keyed by level", function()
     local e = first_entry({ "--- log ---", "08:00 fix #c @o !S60 !T120 !L90 !W480", "09:00 done" })
-    t.eq(e.logged, { s = 60, t = 120, l = 90, w = 480 })
+    t.eq(e.logged, {
+      s = { minutes = 60 },
+      t = { minutes = 120 },
+      l = { minutes = 90 },
+      w = { minutes = 480 },
+    })
   end)
 
   t.test(
     "a bare marker stores true; the writer emits one compact token in S/T/L/W order",
     function()
       local e = first_entry({ "--- log ---", "08:00 task !W !L !T", "09:00 done" })
-      t.eq(e.logged, { t = true, l = true, w = true })
+      t.eq(e.logged, { t = {}, l = {}, w = {} })
       t.eq(entry.format(e, nil, nil, nil), "08:00 task !TLW")
     end
   )
@@ -55,6 +60,11 @@ return function(t)
       { level = "t", minutes = 525 },
       { level = "w", minutes = 525 },
     })
+    -- A pair carries its bracketed name list, canonicalized (deduped + sorted).
+    t.eq(syntax.parse_logged_token("!S[a]60T[a,b]120"), {
+      { level = "s", minutes = 60, names = { "a" } },
+      { level = "t", minutes = 120, names = { "a", "b" } },
+    })
     t.eq(syntax.parse_logged_token("!X"), nil)
     t.eq(syntax.parse_logged_token("!Slamas"), nil) -- lowercase after the level is not a marker
     t.eq(syntax.parse_logged_token("!5"), nil) -- a value with no preceding level is not a marker
@@ -64,7 +74,7 @@ return function(t)
   t.test("the compact and separated forms parse identically, and write back compact", function()
     local compact = first_entry({ "--- log ---", "08:00 x !S225T525W525", "09:00 done" })
     local separated = first_entry({ "--- log ---", "08:00 x !S225 !T525 !W525", "09:00 done" })
-    t.eq(compact.logged, { s = 225, t = 525, w = 525 })
+    t.eq(compact.logged, { s = { minutes = 225 }, t = { minutes = 525 }, w = { minutes = 525 } })
     t.eq(separated.logged, compact.logged)
     t.eq(entry.format(compact, nil, nil, nil), "08:00 x !S225T525W525")
     t.eq(entry.format(separated, nil, nil, nil), "08:00 x !S225T525W525")
@@ -92,13 +102,13 @@ return function(t)
 
   t.test("a frozen-zero marker (`!S0`) round-trips and stays frozen", function()
     local e = first_entry({ "--- log ---", "08:00 x !S0 !T0", "09:00 done" })
-    t.eq(e.logged, { s = 0, t = 0 })
+    t.eq(e.logged, { s = { minutes = 0 }, t = { minutes = 0 } })
     t.eq(entry.format(e, nil, nil, nil), "08:00 x !S0T0")
   end)
 
   t.test("leading zeros in a frozen value normalize (`!S007` -> `!S7`)", function()
     local e = first_entry({ "--- log ---", "08:00 x !S007", "09:00 done" })
-    t.eq(e.logged, { s = 7 })
+    t.eq(e.logged, { s = { minutes = 7 } })
     t.eq(entry.format(e, nil, nil, nil), "08:00 x !S7")
   end)
 
@@ -115,9 +125,43 @@ return function(t)
     end
   end)
 
+  t.test("named markers parse into { minutes, names } and re-emit compact and canonical", function()
+    local e = first_entry({ "--- log ---", "08:00 x !S[a]60 !T[a,b]120", "09:00 done" })
+    t.eq(e.logged, {
+      s = { minutes = 60, names = { "a" } },
+      t = { minutes = 120, names = { "a", "b" } },
+    })
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S[a]60T[a,b]120")
+  end)
+
+  t.test("a name list is a set: duplicates drop and names sort", function()
+    local e = first_entry({ "--- log ---", "08:00 x !T[b,a,a]", "09:00 done" })
+    t.eq(e.logged, { t = { names = { "a", "b" } } })
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !T[a,b]")
+  end)
+
+  t.test("names are case-sensitive, so two casings are distinct set members", function()
+    local e = first_entry({ "--- log ---", "08:00 x !T[Boss,boss]", "09:00 done" })
+    t.eq(e.logged, { t = { names = { "Boss", "boss" } } })
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !T[Boss,boss]")
+  end)
+
+  t.test("a malformed name list is not a marker, so the whole token stays literal text", function()
+    for _, bad in ipairs({ "!T[]", "!T[a,]", "!T[,b]", "!T[a,,b]", "!T[a!]" }) do
+      t.eq(syntax.parse_logged_token(bad), nil)
+      local e = first_entry({ "--- log ---", "08:00 meet " .. bad, "09:00 done" })
+      t.eq(e.text, "meet " .. bad)
+      t.eq(e.logged, nil)
+    end
+  end)
+
+  t.test("sanitize_text neutralizes a named marker like any trailing marker", function()
+    t.eq(entry.sanitize_text("meet !T[boss]60"), "meet (!T[boss]60)")
+  end)
+
   t.test("an entry logged only at a non-summary level has no summary state", function()
     local e = first_entry({ "--- log ---", "08:00 task !T", "09:00 done" })
-    t.eq(e.logged, { t = true })
+    t.eq(e.logged, { t = {} })
     t.eq(e.logged.s, nil)
     t.eq(entry.format(e, nil, nil, nil), "08:00 task !T")
   end)

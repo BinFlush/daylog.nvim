@@ -49,8 +49,8 @@ local function build_intervals(entries)
         logged = logged_s ~= nil and true or nil,
         nudge = current.nudge,
         -- Every interval of one fine-grained row carries the same frozen value, so the fold copies it
-        -- through, never sums it; a bare marker (`s == true`) freezes nothing (stays nil, rounds live).
-        logged_minutes = type(logged_s) == "number" and logged_s or nil,
+        -- through, never sums it; a bare marker freezes nothing (stays nil, rounds live).
+        logged_minutes = syntax.committed_minutes(logged_s),
         -- Whole per-level logged table, so tag/location sections split by their own level; `logged` /
         -- `logged_minutes` above are the summary (`s`) slice.
         logged_by_level = current.logged,
@@ -130,8 +130,9 @@ end
 local function committed_by_cell(intervals, level, cell_key_fn)
   local scopes = {}
   for _, interval in ipairs(intervals) do
-    local value = interval.logged_by_level and interval.logged_by_level[level]
-    if type(value) == "number" then
+    local marker = interval.logged_by_level and interval.logged_by_level[level]
+    local value = syntax.committed_minutes(marker)
+    if value ~= nil then
       local cell = cell_key_fn(interval)
       local scope = level == "s" and M.activity_identity_key(interval) or cell
       scopes[cell] = scopes[cell] or {}
@@ -503,7 +504,8 @@ local function conflicts_at_level(intervals, level)
         order[#order + 1] = group
       end
 
-      local token = type(committed) == "number" and tostring(committed) or "nil"
+      local minutes = syntax.committed_minutes(committed)
+      local token = minutes ~= nil and tostring(minutes) or "nil"
       if not group.values[token] then
         group.values[token] = true
         group.distinct = group.distinct + 1
@@ -543,8 +545,8 @@ function M.logging_diagnostics(block)
   local seen_off_grid = {}
   for _, item in ipairs(block.entry_items) do
     for _, level in ipairs(syntax.LOGGED_LEVELS) do
-      local committed = item.logged and item.logged[level]
-      if type(committed) == "number" and (committed < 0 or committed % bucket ~= 0) then
+      local committed = syntax.committed_minutes(item.logged and item.logged[level])
+      if committed ~= nil and (committed < 0 or committed % bucket ~= 0) then
         local key = level .. "\0" .. level_group_key(item, level)
         if not seen_off_grid[key] then
           seen_off_grid[key] = true
@@ -583,7 +585,7 @@ function M.logging_diagnostics(block)
     local anchor
     for _, item in ipairs(block.entry_items) do
       for _, level in ipairs(syntax.LOGGED_LEVELS) do
-        if item.logged and type(item.logged[level]) == "number" then
+        if item.logged and syntax.committed_minutes(item.logged[level]) ~= nil then
           anchor = anchor or item.start_row
         end
       end

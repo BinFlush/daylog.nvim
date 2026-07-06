@@ -253,13 +253,46 @@ end
 -- never moves as later entries are appended. A bare marker (`!S`) is logged-but-unfrozen; only
 -- :Daylog log writes the number.
 
--- Parse a compact logged marker (`!` then level+value pairs, e.g. `!S225T525W525`; the separated
--- `!S225 !T525 !W525` also parses). Returns an ORDERED list of { level, minutes } (minutes nil for
--- a bare marker), keeping repeats so the caller can reject a duplicated level, or nil when the token
--- is not a logged marker.
+-- Parse a bracket body (`a,b`) into a canonical (deduped, sorted) name list, or nil when it is empty
+-- or holds an empty or illegally-charactered element. Names use the tag charset and are case-sensitive.
+local function parse_name_list(inner)
+  if inner == "" then
+    return nil
+  end
+
+  local seen, names = {}, {}
+  local start = 1
+  while true do
+    local comma = inner:find(",", start, true)
+    local element = inner:sub(start, comma and comma - 1 or #inner)
+    if element:match("^[%w_%-]+$") == nil then
+      return nil
+    end
+    if not seen[element] then
+      seen[element] = true
+      names[#names + 1] = element
+    end
+    if not comma then
+      break
+    end
+    start = comma + 1
+  end
+
+  table.sort(names)
+  return names
+end
+
+-- Parse a compact logged marker (`!` then level pairs, e.g. `!S[a]225T[a,b]525W525`; the separated
+-- `!S225 !T525` also parses). Each pair is a level letter, an optional bracketed name list, then an
+-- optional frozen value. Returns an ORDERED list of { level, minutes, names } (minutes/names nil when
+-- absent), keeping repeats so the caller can reject a duplicated level, or nil when the token is not
+-- a logged marker.
 function M.parse_logged_token(token)
-  local body = token:match("^!([A-Z%d]+)$")
-  if not body then
+  if token:sub(1, 1) ~= "!" then
+    return nil
+  end
+  local body = token:sub(2)
+  if body == "" then
     return nil
   end
 
@@ -271,6 +304,20 @@ function M.parse_logged_token(token)
       return nil
     end
     pos = pos + 1
+
+    local names
+    if body:sub(pos, pos) == "[" then
+      local close = body:find("]", pos + 1, true)
+      if not close then
+        return nil
+      end
+      names = parse_name_list(body:sub(pos + 1, close - 1))
+      if not names then
+        return nil
+      end
+      pos = close + 1
+    end
+
     local digits = body:match("^%d*", pos)
     -- A pathological digit run would overflow to `inf` and poison quantization; cap the length and
     -- treat anything longer as not a marker.
@@ -278,17 +325,40 @@ function M.parse_logged_token(token)
       return nil
     end
     pos = pos + #digits
+
     pairs_out[#pairs_out + 1] = {
       level = level,
       minutes = digits ~= "" and tonumber(digits) or nil,
+      names = names,
     }
   end
 
   return pairs_out
 end
 
--- Render an entry's `logged` table as one compact token (`!` + each present level's letter and
--- frozen value in canonical S/T/L/W order), or nil when nothing is logged.
+-- The frozen committed minutes of a per-level logged value, or nil when unfrozen.
+function M.committed_minutes(v)
+  return type(v) == "table" and v.minutes or nil
+end
+
+-- A `\0`-joined canonical key of a per-level logged value's names, `""` when it carries none.
+function M.names_key(v)
+  if type(v) == "table" and v.names and #v.names > 0 then
+    return table.concat(v.names, "\0")
+  end
+  return ""
+end
+
+-- The display suffix for a per-level logged value's names (`"[a,b]"`), `""` when it carries none.
+function M.format_names(v)
+  if type(v) == "table" and v.names and #v.names > 0 then
+    return "[" .. table.concat(v.names, ",") .. "]"
+  end
+  return ""
+end
+
+-- Render an entry's `logged` table as one compact token (`!` + each present level's letter, name
+-- list, and frozen value in canonical S/T/L/W order), or nil when nothing is logged.
 function M.format_logged(logged)
   if not logged then
     return nil
@@ -298,7 +368,9 @@ function M.format_logged(logged)
   for _, level in ipairs(M.LOGGED_LEVELS) do
     local committed = logged[level]
     if committed ~= nil then
-      body[#body + 1] = LOGGED_LETTER[level] .. (committed ~= true and committed or "")
+      body[#body + 1] = LOGGED_LETTER[level]
+        .. M.format_names(committed)
+        .. (M.committed_minutes(committed) or "")
     end
   end
 
@@ -308,14 +380,15 @@ function M.format_logged(logged)
   return "!" .. table.concat(body)
 end
 
--- Render a single-level display marker (`!S`/`!T`/...) for a summary row, bare or `!S<minutes>`.
-function M.logged_token(level, minutes)
+-- Render a single-level display marker (`!S`/`!T[a,b]`/...) for a summary row; bare when `names` is
+-- nil or empty, else carrying the (already canonical) name list.
+function M.logged_token(level, names)
   local token = "!" .. LOGGED_LETTER[level]
-  if minutes == nil then
+  if not names or #names == 0 then
     return token
   end
 
-  return token .. minutes
+  return token .. "[" .. table.concat(names, ",") .. "]"
 end
 
 return M

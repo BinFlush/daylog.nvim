@@ -144,7 +144,8 @@ local function parse_entry_metadata(text)
 
     if kind == syntax.TOKEN_KIND.LOGGED then
       -- Logging is per-level and one token may carry several (`!S225T525W525`); a repeated level is
-      -- the duplicate error. `logged` is keyed by level, each holding committed minutes or `true`.
+      -- the duplicate error. `logged` is keyed by level, each a `{ minutes, names }` table (both
+      -- optional; a bare marker is `{}`).
       for _, pair in ipairs(value) do
         local dup_key = "logged:" .. pair.level
         if seen[dup_key] then
@@ -152,7 +153,7 @@ local function parse_entry_metadata(text)
         end
         seen[dup_key] = true
         result.logged = result.logged or {}
-        result.logged[pair.level] = pair.minutes ~= nil and pair.minutes or true
+        result.logged[pair.level] = { minutes = pair.minutes, names = pair.names }
       end
     else
       -- Every other trailing control token is per-kind: at most one tag, location, offset, or nudge.
