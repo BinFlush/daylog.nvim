@@ -143,6 +143,38 @@ return function(t)
     t.ok(not has_unordered_diagnostic(), "Daylog order should clear the diagnostic")
   end)
 
+  t.test("the load-time settle pass publishes diagnostics before any edit", function()
+    t.reset({
+      "--- log ---",
+      "09:00 later",
+      "08:00 earlier",
+    })
+    local buf = vim.api.nvim_get_current_buf()
+    t.eq(#vim.diagnostic.get(buf), 0)
+
+    -- The ftplugin runs exactly this on load; the warnings it computes must be published.
+    require("daylog").refresh_indicators(buf)
+    t.ok(has_unordered_diagnostic(), "expected diagnostics on open, before any edit")
+  end)
+
+  t.test("commands.register replaces a stale :Daylog definition", function()
+    vim.api.nvim_create_user_command("Daylog", function()
+      error("stale :Daylog closure")
+    end, {})
+
+    require("daylog.commands").register()
+
+    with_captured_notify(function(messages)
+      vim.cmd("Daylog bogus")
+      t.eq(messages, {
+        {
+          message = "daylog: unknown verb 'bogus' -- try :Daylog <Tab>",
+          level = vim.log.levels.WARN,
+        },
+      })
+    end)
+  end)
+
   t.test("log order rewrites all log blocks", function()
     t.reset({
       "--- log #ProjectOrion @office ---",
@@ -226,9 +258,10 @@ return function(t)
         "--- totals ---",
         "1.00h (+0m) workday",
         "",
+        "",
         "--- log ---",
       })
-      t.eq(vim.api.nvim_win_get_cursor(0), { 11, 0 })
+      t.eq(vim.api.nvim_win_get_cursor(0), { 12, 0 })
     end)
   end)
 
@@ -273,6 +306,7 @@ return function(t)
       "",
       "12:00",
       "",
+      "",
       "--- log #sales @client ---",
       "11:00 tea",
       "note tea",
@@ -314,6 +348,7 @@ return function(t)
       "11:00 tea",
       "12:00",
       "",
+      "",
       "--- log #sales @client q=30 ---",
       "11:00 tea",
       "12:00",
@@ -347,6 +382,7 @@ return function(t)
       "08:00 break #ooo @home",
       "09:00 resume #- @-",
       "10:00 done",
+      "",
       "",
       "--- log ---",
       "08:00 break #ooo @home",

@@ -41,11 +41,18 @@ function M.run(lines)
     table.insert(rendered, line)
   end
 
+  -- The canonical inter-log separator is two blanks; render.log_lines provides one, so top
+  -- up from whatever the buffer's tail already holds (never remove) -- otherwise the very
+  -- next refresh rewrites the seam.
+  local extra = math.max(0, 1 - support.trailing_blank_count(lines))
+  for _ = 1, extra do
+    table.insert(rendered, 1, "")
+  end
+
   -- Move the cursor onto the new copy so the window scrolls to it and it is visibly
-  -- clear something happened. `render.log_lines` emits a leading blank then the header,
-  -- appended at `#lines`, so the new log header sits at `#lines + 2`.
+  -- clear something happened: the header follows the separator blanks.
   local result = support.append_edit(lines, rendered)
-  result.cursor = { #lines + 2, 0 }
+  result.cursor = { #lines + extra + 2, 0 }
   return result
 end
 

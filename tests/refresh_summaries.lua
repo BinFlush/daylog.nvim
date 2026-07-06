@@ -708,6 +708,25 @@ return function(t)
     t.eq(result.warnings, {})
   end)
 
+  t.test(
+    "the below-zero warning judges the displayed (granule) base, not the balance base",
+    function()
+      -- The two quantization bases legitimately differ inside a committed cell: on the
+      -- fine-grained (balance) base this round-3 would clamp, but the displayed granule row
+      -- never goes below zero -- so no warning may fire against a summary that renders fine.
+      local result = refresh_summaries.run({
+        "--- log q=15 ---",
+        "08:00 plan !S30",
+        "09:00 plan round-3",
+        "09:30 done",
+      })
+
+      for _, warning in ipairs(result.warnings) do
+        t.ok(not warning.message:match("below zero"), "no below-zero warning: " .. warning.message)
+      end
+    end
+  )
+
   local function has_blank_metadata_warning(warnings)
     for _, w in ipairs(warnings) do
       if w.message:match("a blank entry cannot carry") then

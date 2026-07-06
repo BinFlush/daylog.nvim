@@ -307,8 +307,9 @@ end
 -- One-time migration from the v0.1.x single summary-logged `!L` to `!S` (the letter is now location).
 -- Rewrites the entry markers, then refreshes so the summaries reflect the recovered summary logging.
 function M.migrate_logging()
-  run_buffer_usecase(migrate_logging.run)
-  apply_refresh(false)
+  if run_buffer_usecase(migrate_logging.run) then
+    apply_refresh(false)
+  end
 end
 
 -- Jump to the `|step|`-th existing log before (step < 0) or after (step > 0)
@@ -842,37 +843,61 @@ function M.bar()
   buffer.toggle_time_bar()
 end
 
+-- Remove the daylog keymaps a previous apply recorded on `buf` (b:daylog_applied_maps), so a
+-- re-setup replaces the set instead of stacking a custom table on top of the defaults.
+local function clear_applied_keymaps(buf)
+  for _, m in ipairs(vim.b[buf].daylog_applied_maps or {}) do
+    pcall(vim.keymap.del, m.mode, m.lhs, { buffer = buf })
+  end
+  vim.b[buf].daylog_applied_maps = nil
+end
+
 -- Apply the configured keymaps buffer-locally to a daylog buffer (true -> the default set, a
--- table -> the user's own lhs -> rhs). Each map carries a description so which-key can label it.
+-- table -> the user's own lhs -> rhs), first clearing any previously applied set. Each map
+-- carries a description so which-key can label it; the applied { mode, lhs } pairs are recorded
+-- in b:daylog_applied_maps so a later setup() can remove them.
 local function apply_keymaps(buf)
+  clear_applied_keymaps(buf)
+
   local keymaps = config.get().keymaps
   if not keymaps then
     return
   end
 
-  if keymaps == true then
-    for _, m in ipairs(DEFAULT_KEYMAPS) do
-      vim.keymap.set(
-        m.mode or "n",
-        m.lhs,
-        m.rhs,
-        { buffer = buf, silent = true, desc = "Daylog: " .. m.desc }
-      )
-    end
-    return
+  local applied = {}
+  local function set_map(mode, lhs, rhs, desc)
+    vim.keymap.set(mode, lhs, rhs, { buffer = buf, silent = true, desc = desc })
+    applied[#applied + 1] = { mode = mode, lhs = lhs }
   end
 
-  for lhs, rhs in pairs(keymaps) do
-    vim.keymap.set("n", lhs, rhs, { buffer = buf, silent = true, desc = "Daylog (user map)" })
+  if keymaps == true then
+    for _, m in ipairs(DEFAULT_KEYMAPS) do
+      set_map(m.mode or "n", m.lhs, m.rhs, "Daylog: " .. m.desc)
+    end
+  else
+    for lhs, rhs in pairs(keymaps) do
+      set_map("n", lhs, rhs, "Daylog (user map)")
+    end
+  end
+
+  vim.b[buf].daylog_applied_maps = applied
+end
+
+local function each_loaded_daylog_buffer(fn)
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].filetype == "daylog" then
+      fn(buf)
+    end
   end
 end
 
 -- (Re)install the FileType hook applying the opt-in keymaps to each daylog buffer. The augroup
 -- clears on re-setup so a config change never stacks hooks; already-open daylog buffers get the
--- maps immediately.
+-- new maps immediately (their previous set cleared), and turning keymaps off removes it.
 local function setup_keymaps()
   local group = vim.api.nvim_create_augroup("DaylogKeymaps", { clear = true })
   if not config.get().keymaps then
+    each_loaded_daylog_buffer(clear_applied_keymaps)
     return
   end
 
@@ -884,11 +909,7 @@ local function setup_keymaps()
     end,
   })
 
-  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].filetype == "daylog" then
-      apply_keymaps(buf)
-    end
-  end
+  each_loaded_daylog_buffer(apply_keymaps)
 end
 
 function M.setup(options)

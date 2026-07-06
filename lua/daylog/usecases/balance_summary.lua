@@ -58,7 +58,12 @@ local function scope_for(layout_row)
         and (row.logged == true) == (item.logged == true)
     end
   elseif kind == K.TOTAL then
-    -- The totals are a single `workday` row = the whole counted day, so it scopes every row.
+    -- The frozen (!W) totals slice is pinned at its committed value, exactly like a logged
+    -- main row -- refuse it rather than silently nudging the other slice. The unlogged
+    -- workday row is the balance target and scopes every counted row.
+    if item and item.logged then
+      return nil, M.ONLY_LOGGED
+    end
     return function()
       return true
     end
@@ -180,9 +185,9 @@ end
 -- picks the rows to nudge and the source entries to mark. A delta of 0 clears every
 -- nudge contributing to the scope.
 local function summary_entry_changes(block, layout_row, delta)
-  local scope = scope_for(layout_row)
+  local scope, scope_err = scope_for(layout_row)
   if not scope then
-    return nil, M.NOTHING
+    return nil, scope_err or M.NOTHING
   end
 
   local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)

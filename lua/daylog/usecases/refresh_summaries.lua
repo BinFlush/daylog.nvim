@@ -33,7 +33,9 @@ local M = {}
 -- out-of-range marker is corrected rather than silently honored. The summary still renders
 -- (clamped), mirroring the frozen-drift surfacing above.
 local function nudge_range_warnings(block)
-  local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+  -- Judge on the granule base the displayed summary re-sums, so the warning and the
+  -- rendered row can never disagree about whether the clamp fired.
+  local rows = summary.quantized_granules(block.entries, block.quantize_minutes)
 
   local warnings = {}
   for _, row in ipairs(rows) do

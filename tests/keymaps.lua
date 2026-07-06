@@ -70,6 +70,48 @@ return function(t)
     end)
   end)
 
+  t.test("re-setup with keymaps off removes the maps from open daylog buffers", function()
+    with_daylog_setup({ keymaps = true }, function()
+      as_daylog_buffer()
+      t.ok(#buffer_maps() > 0, "the default set is applied first")
+
+      require("daylog").setup({})
+      t.eq(#buffer_maps(), 0)
+      t.eq(#vim.api.nvim_buf_get_keymap(0, "x"), 0)
+    end)
+  end)
+
+  t.test("re-setup with a custom table replaces the default set, never stacking", function()
+    with_daylog_setup({ keymaps = true }, function()
+      as_daylog_buffer()
+      t.ok(buffer_map("]d") ~= nil, "the default set is applied first")
+
+      require("daylog").setup({ keymaps = { ["<C-n>"] = "<Cmd>Daylog new<CR>" } })
+      t.eq(#buffer_maps(), 1)
+      t.ok(buffer_map("]d") == nil, "the default ]d is removed on re-setup")
+      t.eq(#vim.api.nvim_buf_get_keymap(0, "x"), 0)
+    end)
+  end)
+
+  t.test("re-running setup with keymaps = true does not stack duplicates", function()
+    with_daylog_setup({ keymaps = true }, function()
+      as_daylog_buffer()
+      local normal_count = #buffer_maps()
+
+      require("daylog").setup({ keymaps = true })
+      t.eq(#buffer_maps(), normal_count)
+      t.eq(#vim.api.nvim_buf_get_keymap(0, "x"), 2)
+    end)
+  end)
+
+  t.test("the keymaps table is copied: post-setup mutation cannot bypass validation", function()
+    local user = { ["<C-n>"] = "<Cmd>Daylog new<CR>" }
+    with_daylog_setup({ keymaps = user }, function()
+      user["<C-x>"] = 42 -- invalid rhs; setup would have rejected it
+      t.eq(require("daylog.config").get().keymaps, { ["<C-n>"] = "<Cmd>Daylog new<CR>" })
+    end)
+  end)
+
   t.test("keymaps are not applied outside a daylog buffer", function()
     with_daylog_setup({ keymaps = true }, function()
       t.reset({ "scratch" })

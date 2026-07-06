@@ -15,14 +15,6 @@ local function warn(message)
   require("daylog.buffer").warn(message)
 end
 
-local function ensure_user_command(name, callback, options)
-  if vim.fn.exists(":" .. name) == 2 then
-    return
-  end
-
-  vim.api.nvim_create_user_command(name, callback, options or {})
-end
-
 local function parse_positive_integer(value)
   if type(value) ~= "string" or value:match("^%d+$") == nil then
     return nil, "daylog: days count must be a positive integer"
@@ -255,13 +247,25 @@ local VERBS = {
   end,
 }
 
--- Register the single :Daylog command. Idempotent (the exists-guard), so both plugin load and
--- setup() can call it. The dispatch lazy-requires the init module on first invocation, so the
+-- The verb names :Daylog dispatches, sorted -- derived from the dispatch table so a consumer
+-- (:checkhealth) can never drift from what actually runs.
+function M.verb_names()
+  local names = {}
+  for name in pairs(VERBS) do
+    names[#names + 1] = name
+  end
+  table.sort(names)
+  return names
+end
+
+-- Register the single :Daylog command. nvim_create_user_command replaces an existing definition,
+-- so both plugin load and setup() can call it and a reload never leaves a stale closure behind.
+-- The dispatch lazy-requires the init module on first invocation, so the
 -- command is available the moment the plugin loads without pulling the implementation at startup.
 function M.register()
   -- Bare :Daylog opens today; :Daylog <verb> dispatches through VERBS; :Daylog! <verb> selects
   -- the verb's variant; a range applies to map.
-  ensure_user_command("Daylog", function(args)
+  vim.api.nvim_create_user_command("Daylog", function(args)
     local api = require("daylog")
     local verb = args.fargs[1]
     if not verb then

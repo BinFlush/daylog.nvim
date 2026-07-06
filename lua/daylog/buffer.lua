@@ -103,6 +103,7 @@ end
 -- next render re-creates the static groups. (The per-activity colour groups reset themselves in
 -- daylog.activity_hl.)
 vim.api.nvim_create_autocmd("ColorScheme", {
+  group = vim.api.nvim_create_augroup("DaylogColorScheme", { clear = true }),
   callback = function()
     highlight_groups_defined = false
   end,
@@ -123,8 +124,23 @@ local function render_stray(buf)
   vim.fn.sign_unplace("daylog_stray", { buffer = buf })
 
   local active_start = vim.b[buf].daylog_active_start
-  local row = vim.api.nvim_win_get_cursor(0)[1]
-  if active_start and row < active_start then
+  if not active_start then
+    return
+  end
+
+  -- Read the cursor from a window actually showing `buf`: the current window when it does, else
+  -- the first that does (highlight passes also run over non-current buffers -- toggle_time_bar --
+  -- whose rows the current window's cursor says nothing about). No window showing it, no mark.
+  local win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_get_buf(win) ~= buf then
+    win = vim.fn.win_findbuf(buf)[1]
+  end
+  if not win then
+    return
+  end
+
+  local row = vim.api.nvim_win_get_cursor(win)[1]
+  if row < active_start then
     ensure_stray_sign()
     vim.fn.sign_place(0, "daylog_stray", "DaylogStray", buf, { lnum = row, priority = 6 })
   end
@@ -210,26 +226,11 @@ local function toggle_time_bar()
   end
 end
 
--- Refresh the clean/dirty gate (any diagnostic in any log hides the bars) and re-render. The
--- SETTLE path -- normal-mode edits, leaving insert, command edits, load -- so the gate (and the
--- heavier refresh_summaries it needs) holds steady through an insert session, matching when the
--- diagnostics themselves refresh.
-local function refresh_indicators(buf)
-  buf = resolve_buf(buf)
-  if not vim.api.nvim_buf_is_valid(buf) then
-    return
-  end
-
-  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  vim.b[buf].daylog_clean = #refresh_summaries.run(lines).warnings == 0
-  highlight_buffer(buf)
-end
-
--- Publish the log's problems (e.g. out-of-order timestamps) as buffer
--- diagnostics. They are recomputed and replace the previous set on every refresh,
+-- Publish the log's problems (e.g. out-of-order timestamps) as diagnostics on `buf` (default the
+-- current buffer). They are recomputed and replace the previous set on every refresh,
 -- so they clear themselves as soon as the log is valid again -- however it
 -- was fixed -- and render inline in any mode.
-local function publish_diagnostics(warnings)
+local function publish_diagnostics(warnings, buf)
   local items = {}
 
   for _, warning in ipairs(warnings or {}) do
@@ -242,7 +243,25 @@ local function publish_diagnostics(warnings)
     })
   end
 
-  vim.diagnostic.set(diagnostic_namespace, 0, items)
+  vim.diagnostic.set(diagnostic_namespace, resolve_buf(buf), items)
+end
+
+-- Refresh the clean/dirty gate (any diagnostic in any log hides the bars), publish the warnings
+-- it computed as buffer diagnostics, and re-render. The SETTLE path -- normal-mode edits, leaving
+-- insert, command edits, load -- so the gate (and the heavier refresh_summaries it needs) holds
+-- steady through an insert session; publishing here means a broken file shows its diagnostics on
+-- open, before any edit.
+local function refresh_indicators(buf)
+  buf = resolve_buf(buf)
+  if not vim.api.nvim_buf_is_valid(buf) then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local warnings = refresh_summaries.run(lines).warnings
+  publish_diagnostics(warnings, buf)
+  vim.b[buf].daylog_clean = #warnings == 0
+  highlight_buffer(buf)
 end
 
 -- Recompute and publish the buffer's log diagnostics from its current text.
@@ -370,7 +389,7 @@ local function apply_refresh(join)
   end
 
   refreshing = true
-  pcall(function()
+  local ok, err = pcall(function()
     if join then
       pcall(vim.cmd, "undojoin")
     end
@@ -380,6 +399,10 @@ local function apply_refresh(join)
     end)
   end)
   refreshing = false
+
+  if not ok then
+    warn("daylog: summary refresh failed: " .. tostring(err))
+  end
 end
 
 M.warn = warn

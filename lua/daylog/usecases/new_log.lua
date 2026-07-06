@@ -1,4 +1,5 @@
 local render = require("daylog.render")
+local support = require("daylog.usecases.support")
 local text = require("daylog.text")
 
 local M = {}
@@ -31,8 +32,10 @@ function M.run(lines, defaults)
     }
   end
 
+  -- The canonical inter-log separator is two blanks after a summary zone; top up from
+  -- whatever the buffer's tail already holds so the next refresh finds nothing to rewrite.
   local appended_lines = {}
-  if lines[#lines] ~= "" then
+  for _ = support.trailing_blank_count(lines) + 1, 2 do
     table.insert(appended_lines, "")
   end
   table.insert(appended_lines, header)

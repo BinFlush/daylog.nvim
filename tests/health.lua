@@ -86,6 +86,12 @@ return function(t)
     return false
   end
 
+  -- The one honest :Daylog line health reports, built from the same dispatch-derived verb list.
+  local function daylog_available_line()
+    local verbs = require("daylog.commands").verb_names()
+    return string.format(":Daylog is available (%d verbs: %s)", #verbs, table.concat(verbs, ", "))
+  end
+
   t.test("setup can run more than once", function()
     daylog.setup()
 
@@ -105,21 +111,18 @@ return function(t)
     t.ok(includes(reports.start, "daylog.nvim"))
     t.ok(includes(reports.ok, 'require("daylog") succeeded'))
     t.ok(includes(reports.ok, "daylog.setup is available"))
-    t.ok(includes(reports.ok, ":Daylog insert is available"))
-    t.ok(includes(reports.ok, ":Daylog today is available"))
-    t.ok(includes(reports.ok, ":Daylog day is available"))
-    t.ok(includes(reports.ok, ":Daylog next is available"))
-    t.ok(includes(reports.ok, ":Daylog prev is available"))
-    t.ok(includes(reports.ok, ":Daylog report is available"))
-    t.ok(includes(reports.ok, ":Daylog repeat is available"))
-    t.ok(includes(reports.ok, ":Daylog copy is available"))
-    t.ok(includes(reports.ok, ":Daylog order is available"))
-    t.ok(includes(reports.ok, ":Daylog log is available"))
-    t.ok(includes(reports.ok, ":Daylog rename is available"))
-    t.ok(includes(reports.ok, ":Daylog map is available"))
-    t.ok(includes(reports.ok, ":Daylog balance is available"))
-    t.ok(includes(reports.ok, ":Daylog split is available"))
-    t.ok(includes(reports.ok, ":Daylog refresh is available"))
+    t.ok(includes(reports.ok, daylog_available_line()))
+
+    -- The verb list is derived from the dispatch table, sorted, and includes the verbs the old
+    -- hardcoded health list had drifted past.
+    local verbs = require("daylog.commands").verb_names()
+    local sorted = vim.deepcopy(verbs)
+    table.sort(sorted)
+    t.eq(verbs, sorted)
+    for _, verb in ipairs({ "bar", "export", "keys", "migrate", "sync", "today", "insert" }) do
+      t.ok(vim.tbl_contains(verbs, verb), verb .. " should be a dispatchable verb")
+    end
+
     t.ok(includes(reports.ok, "example.day detects as daylog"))
     t.ok(includes(reports.ok, ":help daylog.nvim is available"))
     t.ok(includes(reports.start, "Pickers"))
@@ -144,7 +147,7 @@ return function(t)
     t.eq(#reports.warn, 0)
     t.ok(includes(reports.start, "daylog.nvim"))
     t.ok(includes(reports.ok, 'require("daylog") succeeded'))
-    t.ok(includes(reports.ok, ":Daylog insert is available"))
+    t.ok(includes(reports.ok, daylog_available_line()))
   end)
 
   t.test("health check does not reset the user's configuration", function()
@@ -196,7 +199,7 @@ return function(t)
 
     t.ok(includes(reports.start, "Sources"))
     t.ok(includes(reports.ok, "source ADO (azure_devops) is configured"))
-    t.ok(includes(reports.ok, ":Daylog sync is available"))
+    t.ok(includes(reports.ok, daylog_available_line()))
 
     local warned = false
     for _, item in ipairs(reports.warn) do

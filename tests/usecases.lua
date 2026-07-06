@@ -36,28 +36,51 @@ return function(t)
         {
           start_index = 1,
           end_index = 1,
-          lines = { "", "--- log #ClientA @office q=30 d=hm ---" },
+          lines = { "", "", "--- log #ClientA @office q=30 d=hm ---" },
         },
       },
-      cursor = { 3, 0 },
+      cursor = { 4, 0 },
     })
   end)
 
-  t.test("new_log usecase reuses a trailing blank line when appending", function()
-    local result = new_log.run({ "notes", "" }, {
-      tag = "ClientA",
-    })
-
-    t.eq(result, {
+  t.test("new_log tops the separator up to the canonical two blanks", function()
+    -- One trailing blank already there -> add one; two already there -> add none.
+    t.eq(new_log.run({ "notes", "" }, { tag = "ClientA" }), {
       edits = {
         {
           start_index = 2,
           end_index = 2,
-          lines = { "--- log #ClientA ---" },
+          lines = { "", "--- log #ClientA ---" },
         },
       },
-      cursor = { 3, 0 },
+      cursor = { 4, 0 },
     })
+    t.eq(new_log.run({ "notes", "", "" }, { tag = "ClientA" }).edits[1].lines, {
+      "--- log #ClientA ---",
+    })
+  end)
+
+  t.test("copy and new leave a canonical seam the next refresh does not rewrite", function()
+    local refresh_summaries = require("daylog.usecases.refresh_summaries")
+    local base = { "--- log q=15 ---", "08:00 a", "09:00 done" }
+    local buf = support.apply_edits(base, refresh_summaries.run(base).edits)
+
+    -- :Daylog copy appends a fully canonical log+summary: zero refresh churn.
+    local copied = append_copy.run(buf, 1)
+    local after_copy = support.apply_edits(buf, copied.edits)
+    t.eq(#refresh_summaries.run(after_copy).edits, 0)
+    t.eq(after_copy[copied.cursor[1]], "--- log q=15 ---") -- the cursor lands on the new header
+
+    -- :Daylog new appends header-after-two-blanks; the only refresh edit is creating the
+    -- new (empty) log's summary, never a rewrite of the previous zone's seam.
+    local created = new_log.run(buf, {})
+    local after_new = support.apply_edits(buf, created.edits)
+    t.eq(after_new[#buf + 1], "")
+    t.eq(after_new[#buf + 2], "")
+    t.eq(after_new[#buf + 3], "--- log ---")
+    for _, edit in ipairs(refresh_summaries.run(after_new).edits) do
+      t.ok(edit.start_index >= #buf + 2, "no refresh edit touches the previous zone")
+    end
   end)
 
   t.test("insert_now usecase returns an edit script and cursor action", function()
@@ -154,6 +177,7 @@ return function(t)
           end_index = 4,
           lines = {
             "",
+            "",
             "--- log ---",
             "08:00 break #ooo @home",
             "09:00 resume #- @-",
@@ -177,7 +201,7 @@ return function(t)
           },
         },
       },
-      cursor = { 6, 0 },
+      cursor = { 7, 0 },
     })
   end)
 
@@ -199,6 +223,7 @@ return function(t)
           end_index = 5,
           lines = {
             "",
+            "",
             "--- log ---",
             "08:00 plan",
             "10:00 done",
@@ -214,7 +239,7 @@ return function(t)
           },
         },
       },
-      cursor = { 7, 0 },
+      cursor = { 8, 0 },
     })
   end)
 
@@ -231,6 +256,7 @@ return function(t)
           start_index = 3,
           end_index = 3,
           lines = {
+            "",
             "",
             "--- log #ClientA @office ---",
             "08:00 plan @client !S",
@@ -251,7 +277,7 @@ return function(t)
           },
         },
       },
-      cursor = { 5, 0 },
+      cursor = { 6, 0 },
     })
   end)
 
@@ -268,6 +294,7 @@ return function(t)
           start_index = 3,
           end_index = 3,
           lines = {
+            "",
             "",
             "--- log #sales @client d=hm ---",
             "11:00 tea",
@@ -288,7 +315,7 @@ return function(t)
           },
         },
       },
-      cursor = { 5, 0 },
+      cursor = { 6, 0 },
     })
   end)
 
@@ -296,9 +323,9 @@ return function(t)
     local input = { "--- log ---", "08:00 plan", "09:00 done" }
     local result = append_copy.run(input)
 
-    -- The cursor lands on the second appended line -- the copy's header.
+    -- The cursor lands on the copy's header, after the two separator blanks.
     local offset = result.cursor[1] - #input
-    t.eq(offset, 2)
+    t.eq(offset, 3)
     t.ok(result.edits[1].lines[offset]:find("^%-%-%- log"), "the cursor is on the new log header")
   end)
 
@@ -824,6 +851,45 @@ return function(t)
       local blank_marked, diagnostics = log_row(needle)
       t.eq(blank_marked, false)
       t.eq(diagnostics, 0)
+    end
+  end)
+
+  t.test("log on a committed cell's drift remainder names the real remedy", function()
+    -- The cell is fully marked (!S60) but its real time grew to 67m; the 15m remainder row
+    -- has no unlogged source entries, so logging it must explain itself -- "regenerate the
+    -- summary" (the stale message) reproduces the very same row.
+    local refresh_summaries = require("daylog.usecases.refresh_summaries")
+    local base = { "--- log ---", "00:00 logged item !S60", "01:07 other task", "01:09 done" }
+    local buf = support.apply_edits(base, refresh_summaries.run(base).edits)
+    local row
+    for i, line in ipairs(buf) do
+      if line:find(") logged item", 1, true) and not line:find("!S", 1, true) then
+        row = i
+      end
+    end
+
+    local _, err = log_current.run(buf, row)
+    t.ok(err:find("unlog the !S row", 1, true) ~= nil, err)
+  end)
+
+  t.test("unmarking a tag row clears a marker stranded on a blanked entry", function()
+    -- The 12:00 entry was blanked after being !T-marked (a hand edit); it is excluded from
+    -- marking, but the unmark toggle must still clear it or the level stays half-logged.
+    local refresh_summaries = require("daylog.usecases.refresh_summaries")
+    local base =
+      { "--- log #X q=15 ---", "08:00 a !T60", "09:00 b !T60", "12:00 !T60", "13:00 done" }
+    local buf = support.apply_edits(base, refresh_summaries.run(base).edits)
+    local row
+    for i, line in ipairs(buf) do
+      if line:find("#X !T", 1, true) then
+        row = i
+      end
+    end
+
+    local result = log_current.run(buf, row)
+    local out = support.apply_edits(buf, result.edits)
+    for _, line in ipairs(out) do
+      t.ok(not line:find("!T", 1, true), "no !T marker survives the unmark: " .. line)
     end
   end)
 
@@ -1468,6 +1534,15 @@ return function(t)
         },
       },
     })
+  end)
+
+  t.test("carryover close_edit refuses an already-closed log", function()
+    -- A 24:00 (or blank) final entry means nothing is running; a second close would
+    -- duplicate the boundary even if the caller's running-entry gate were bypassed.
+    local _, err = carryover.close_edit({ "--- log ---", "08:00 work", "24:00" })
+    t.eq(err, "daylog: the log is already closed")
+    local _, err2 = carryover.close_edit({ "--- log ---", "08:00 work", "18:00" })
+    t.eq(err2, "daylog: the log is already closed")
   end)
 
   t.test("carryover close_edit appends a bare 24:00 boundary", function()

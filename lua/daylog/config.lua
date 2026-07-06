@@ -240,13 +240,17 @@ local function normalize_keymaps(value)
     error("daylog: keymaps must be a boolean or a table of { lhs = rhs }")
   end
 
+  -- Copy the entries (like every other normalizer), so mutating the user's table after setup
+  -- cannot bypass validation.
+  local result = {}
   for lhs, rhs in pairs(value) do
     if type(lhs) ~= "string" or (type(rhs) ~= "string" and type(rhs) ~= "function") then
       error("daylog: keymaps entries must map a string lhs to a string or function rhs")
     end
+    result[lhs] = rhs
   end
 
-  return value
+  return result
 end
 
 local SOURCE_DEFAULT_TTL = 1800

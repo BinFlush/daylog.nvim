@@ -424,6 +424,16 @@ function M.append_edit(lines, appended_lines)
   }
 end
 
+-- Blank lines already at the buffer's tail, so appenders can top the inter-log separator
+-- up to the canonical two blanks instead of emitting a seam the next refresh rewrites.
+function M.trailing_blank_count(lines)
+  local count = 0
+  while count < #lines and lines[#lines - count] == "" do
+    count = count + 1
+  end
+  return count
+end
+
 -- Apply a list of replace edits ({ start_index, end_index, lines }, 0-based, disjoint,
 -- sorted highest-start-first) to a plain line list, returning the new list -- the pure
 -- mirror of the shell's nvim_buf_set_lines apply. Highest-first ordering keeps each edit's

@@ -351,4 +351,21 @@ return function(t)
     t.eq(result, nil)
     t.eq(err, balance.SECTION_NOT_BALANCEABLE)
   end)
+
+  t.test("the frozen (!W) totals slice refuses balance instead of nudging its sibling", function()
+    local lines = buffer_with_summary({
+      "--- log q=15 ---",
+      "08:00 a !W30",
+      "09:00 b",
+      "09:50 done",
+    })
+
+    -- The committed slice is pinned, exactly like a logged main row.
+    local _, err = run(lines, "workday !W", 1)
+    t.eq(err, balance.ONLY_LOGGED)
+
+    -- The unlogged workday row is still the balance target.
+    local out = run(lines, "(+20m) workday", 1)
+    t.ok(out ~= nil, "the open workday row balances")
+  end)
 end

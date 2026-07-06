@@ -1,3 +1,4 @@
+local commands = require("daylog.commands")
 local config = require("daylog.config")
 local sources_sync = require("daylog.sources.sync")
 local sources_registry = require("daylog.sources.registry")
@@ -62,28 +63,6 @@ local function has_help_tag(name)
   return false
 end
 
--- The verbs the single :Daylog command dispatches; health lists each so a user can confirm
--- the surface is wired (they all live behind one command now).
-local VERBS = {
-  "today",
-  "day",
-  "next",
-  "prev",
-  "report",
-  "insert",
-  "repeat",
-  "new",
-  "copy",
-  "order",
-  "log",
-  "balance",
-  "split",
-  "map",
-  "rename",
-  "refresh",
-  "sync",
-}
-
 function M.check()
   start("daylog.nvim")
 
@@ -110,11 +89,11 @@ function M.check()
   -- live configuration and refresh autocmds. The command checks below verify
   -- that setup has already been run.
   start("Commands")
-  -- One :Daylog command dispatches every verb; confirm it exists, then list the verbs.
+  -- One :Daylog command dispatches every verb; confirm it exists and report the verb list
+  -- straight from the dispatch table, so this line can never drift from what actually runs.
   if has_command("Daylog") then
-    for _, verb in ipairs(VERBS) do
-      ok(":Daylog " .. verb .. " is available")
-    end
+    local verbs = commands.verb_names()
+    ok(string.format(":Daylog is available (%d verbs: %s)", #verbs, table.concat(verbs, ", ")))
   else
     report_error(":Daylog is missing", {
       "Run require('daylog').setup() during startup.",

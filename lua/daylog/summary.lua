@@ -546,6 +546,14 @@ function M.fine_grained_quantized(entries, quantize_minutes)
   return quantize.quantize_fine_grained(unrounded_rows, bucket_minutes), bucket_minutes
 end
 
+-- The quantized granules exactly as the displayed summary re-sums them, for callers judging
+-- display-level facts (an out-of-range nudge) on the same base the render shows. PURE.
+function M.quantized_granules(entries, quantize_minutes)
+  local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+  local intervals = build_intervals(entries)
+  return (quantize_granules(build_granules(intervals), intervals, bucket_minutes))
+end
+
 -- The activity-identity key of a fine-grained row or interval, EXCLUDING its logged state:
 -- the resolved text, tag, and location that decide which fine-grained row an
 -- interval folds into. Logged is deliberately omitted, so an about-to-be-logged row finds the

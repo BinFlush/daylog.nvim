@@ -103,6 +103,24 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- **`:Daylog copy` and `:Daylog new` emit the canonical two-blank separator**, so the next refresh no
+  longer rewrites the seam (an extra undo block on every copy/new). The `copy_active_block` compat
+  fixture is updated deliberately for this derived-output change.
+- **Re-running `setup()` replaces buffer-local keymaps instead of stacking them**, and turning keymaps
+  off removes them from open daylog buffers.
+- **Diagnostics publish on file open** (the settle pass already computed them and threw them away), and
+  they publish to the buffer they belong to rather than whichever buffer is current.
+- **Balancing the frozen (`!W`) totals slice is refused** like any logged row, instead of silently
+  nudging the unlogged slice while the cursor stays parked on the frozen one.
+- **The below-zero `round±N` warning judges the displayed summary**, so it no longer fires against a
+  row that renders fine inside a committed cell.
+- **Logging the drift remainder of a fully-committed cell names the real remedy** ("unlog the `!S` row
+  to re-log it") instead of suggesting a summary regeneration that reproduces the same row.
+- **Unmarking a tag/location/workday row also clears a marker stranded on a blanked entry**, so the
+  toggle actually clears the level.
+- **`:checkhealth daylog` reports the real verb list** (derived from the command table; it had drifted
+  and fabricated per-verb checks), the stray-cursor mark reads the cursor of the window actually
+  showing the buffer, and `:Daylog now`'s drifted-timezone insert is covered above.
 - **Splitting a mapped group keeps the mapping.** `:Daylog split` on an aliased row now suffixes the
   resolved label (`meeting => MTG-1 (1)`), so descriptions survive, parts group across the whole mapped
   group, and a bare and a mapped group split identically. Previously the alias was dropped and each

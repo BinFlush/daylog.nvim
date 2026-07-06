@@ -17,6 +17,8 @@ local M = {}
 
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, location, or workday row to log it"
+local REMAINDER_ROW =
+  "daylog: this row is the drift beyond the cell's committed value; unlog the !S row to re-log it"
 
 -- The entry's logged table with `level` set to `committed` (the frozen minutes) on a mark, or removed
 -- (`committed == nil`) on an unmark -- preserving the entry's other levels. Always a table (never nil,
@@ -78,9 +80,12 @@ end
 local function log_summary_row(analysis, block, item)
   local target_logged = not item.logged
 
+  -- The cursor row already matched the freshly recomputed layout, so an empty provenance
+  -- is not staleness: it is the remainder slice of a fully-marked cell whose real time
+  -- grew past its commitment. Regenerating cannot help; say what actually can.
   local source_rows = item.source_entry_rows or {}
   if #source_rows == 0 then
-    return nil, summary_cursor.STALE
+    return nil, REMAINDER_ROW
   end
 
   local target_rows = {}
@@ -164,8 +169,11 @@ local function log_section_row(analysis, block, item, level)
       overrides[entry_item.start_row] = { logged = set_level(entry_item, level, committed) }
     end
   else
-    for _, entry_item in ipairs(group) do
-      if entry_item.logged and entry_item.logged[level] ~= nil then
+    -- Unmark sweeps the cell INCLUDING blanks: a blank never receives a mark, but a hand
+    -- edit can strand one, and the toggle must actually clear the level.
+    for _, entry_item in ipairs(block.entry_items) do
+      local in_cell = level == "w" or (field ~= nil and entry_item[field] == item[field])
+      if in_cell and entry_item.logged and entry_item.logged[level] ~= nil then
         overrides[entry_item.start_row] = { logged = set_level(entry_item, level, nil) }
       end
     end

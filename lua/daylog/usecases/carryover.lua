@@ -101,6 +101,15 @@ function M.close_edit(lines)
     return nil, err
   end
 
+  -- Already closed (a 24:00 or blank final entry): nothing runs, so appending a second
+  -- close would duplicate the boundary. The caller's running-entry gate normally prevents
+  -- this; the usecase must not depend on it.
+  local entries = ctx.block.entries
+  local last = entries[#entries]
+  if last and (last.text == "" or last.minutes == syntax.END_OF_DAY_MINUTES) then
+    return nil, "daylog: the log is already closed"
+  end
+
   local minutes = syntax.END_OF_DAY_MINUTES
   local state = support.get_insert_state(ctx.block, minutes)
 
