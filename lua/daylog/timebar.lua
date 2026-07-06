@@ -63,28 +63,13 @@ local function column_at_time(segments, minutes)
   return math.max(1, left)
 end
 
--- The legend for one bar: its distinct activity labels in first-appearance order, each
--- { label, color_index }. Gap segments (no label) are skipped. Each bar carries its own legend so the
--- raw and resolved bars name only their own segments.
-local function segments_legend(segments)
-  local seen, out = {}, {}
-  for _, seg in ipairs(segments) do
-    if seg.label and not seen[seg.label] then
-      seen[seg.label] = true
-      out[#out + 1] = { label = seg.label, color_index = seg.color_index }
-    end
-  end
-  return out
-end
-
 -- Build the bar layout for `entries`' active intervals over `width` cells, or nil when there is
 -- nothing to show (no intervals, a zero/negative span, or an invalid out-of-order log). Returns
--- { segments = { { width, color_index, label, start, stop } }, legend = { { label, color_index } },
--- raw_segments = <same shape, or nil>, raw_legend = <same shape, or nil> }. Each segment carries its
+-- { segments = { { width, color_index, label, start, stop } }, labels = <placements>,
+-- raw_segments = <same shape, or nil>, raw_labels = <same shape, or nil> }. Each segment carries its
 -- [start, stop) clock span; zero-width counted segments are dropped, but a blank entry's dead period is
--- kept as a thin `gap` segment. `legend` names the resolved (or unmapped) bar's activities; when the log
--- is mapped (some entry's raw description differs from its resolved label) `raw_segments`/`raw_legend`
--- carry the "before mapping" bar coloured by raw description, so each bar renders its own legend.
+-- kept as a thin `gap` segment. When the log is mapped (some entry's raw description differs from its
+-- resolved label) `raw_segments`/`raw_labels` carry the "before mapping" bar coloured by raw description.
 function M.layout(entries, width, now_minutes)
   if type(width) ~= "number" or width < 1 then
     return nil
@@ -211,14 +196,12 @@ function M.layout(entries, width, now_minutes)
     end
   end
 
-  -- Each bar carries its own labels, placed over their widest segment (`labels`, and `raw_labels` for the
-  -- raw "before" bar when mapped). `legend`/`raw_legend` keep the distinct-label colour ordering.
+  -- Each bar carries its own labels, placed over their widest segment (`labels`, and `raw_labels` for
+  -- the raw "before" bar when mapped).
   local result = {
     segments = segments,
-    legend = segments_legend(segments),
     labels = M.label_placements(segments, width),
     raw_segments = raw_segments,
-    raw_legend = raw_segments and segments_legend(raw_segments) or nil,
     raw_labels = raw_segments and M.label_placements(raw_segments, width) or nil,
   }
 

@@ -1,5 +1,3 @@
-local projection = require("daylog.projection")
-
 local M = {}
 
 -- Quantization math.
@@ -51,12 +49,7 @@ local function copy_rows(rows)
   return result
 end
 
--- Set each item's error_minutes to exact-minus-displayed (unrounded - rounded). This
--- is the same quantity project_quantized_items derives during a quantization pass,
--- only here the items already carry both durations (the combine path re-projects
--- already-rounded day rows, whose duration == unrounded_duration, giving a 0 error).
--- The two paths are kept separate on purpose -- unifying them would add a pass and
--- couple two helpers in the footing-critical path to save one subtraction.
+-- Set each item's error_minutes to exact-minus-displayed (unrounded - rounded).
 function M.apply_error_minutes(items)
   for _, item in ipairs(items) do
     item.error_minutes = (item.unrounded_duration or item.duration) - item.duration
@@ -236,45 +229,6 @@ function M.constrained_quantize(granules, bucket_minutes, commitments)
   for _, row in ipairs(result) do
     row.error_minutes = remainder(row)
   end
-  return result
-end
-
--- Reapply the rounded durations onto the unrounded ordered sections.
--- The unrounded rows define the visible labels and true totals, while the rounded
--- rows provide the displayed duration after one shared quantization pass.
--- Provenance, when present on the unrounded item, flows into the projection so
--- visible rows can still be traced back to source.
-function M.project_quantized_items(unrounded_items, quantized_items, key_fields, fields)
-  local result = {}
-  local quantized_index = projection.items_by_fields(quantized_items, key_fields)
-
-  for _, item in ipairs(unrounded_items) do
-    local projected = {}
-    local quantized_item = projection.get_nested(quantized_index, item, key_fields)
-
-    for _, field in ipairs(fields) do
-      projected[field] = item[field]
-    end
-
-    -- The unrounded and rounded projections should stay aligned. Falling back to zero
-    -- keeps this helper defensive if an internal mismatch ever slips through.
-    projected.duration = quantized_item and quantized_item.duration or 0
-    projected.unrounded_duration = item.unrounded_duration
-    projected.error_minutes = item.duration - (quantized_item and quantized_item.duration or 0)
-    -- Carry the cumulative manual nudge through to the displayed item so render can
-    -- surface the round±N marker. Sparse: only set when nonzero, so an unbalanced
-    -- summary keeps its exact shape.
-    if quantized_item and quantized_item.nudge and quantized_item.nudge ~= 0 then
-      projected.nudge = quantized_item.nudge
-    end
-
-    if item.source_entry_rows then
-      projected.source_entry_rows = item.source_entry_rows
-    end
-
-    table.insert(result, projected)
-  end
-
   return result
 end
 

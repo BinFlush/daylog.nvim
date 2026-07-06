@@ -120,17 +120,4 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows, 
   return order
 end
 
--- Index items by their key fields for later lookup with `get_nested`.
-function M.items_by_fields(items, key_fields)
-  local result = {}
-
-  for _, item in ipairs(items) do
-    put_nested(result, item, key_fields, item)
-  end
-
-  return result
-end
-
-M.get_nested = get_nested
-
 return M

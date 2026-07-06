@@ -283,8 +283,8 @@ return function(t)
       total = total + seg.width
     end
     t.eq(total, 41) -- still fills the width exactly
-    -- the legend lists only real activities, never the gap
-    t.eq(#layout.legend, 2)
+    -- the placed labels name only real activities, never the gap
+    t.eq(#layout.labels, 2)
   end)
 
   t.test("consecutive blanks collapse into one gap marker", function()
@@ -318,13 +318,13 @@ return function(t)
       30
     )
     -- small appears first (even though big is longer), so it keeps colour 1 -- the order is stable.
-    t.eq(layout.legend[1].label, "small")
-    t.eq(layout.legend[1].color_index, 1)
-    t.eq(layout.legend[2].label, "big")
-    t.eq(layout.legend[2].color_index, 2)
+    t.eq(layout.segments[1].label, "small")
+    t.eq(layout.segments[1].color_index, 1)
+    t.eq(layout.segments[2].label, "big")
+    t.eq(layout.segments[2].color_index, 2)
   end)
 
-  t.test("a mapped entry adds a raw 'before' bar with its own legend", function()
+  t.test("a mapped entry adds a raw 'before' bar coloured by its own sides", function()
     local layout = timebar.layout(
       entries({
         "--- log ---",
@@ -342,20 +342,13 @@ return function(t)
     t.eq(layout.raw_segments[2].label, "Project")
     t.eq(layout.raw_segments[1].width, layout.segments[1].width)
     t.eq(layout.raw_segments[2].width, layout.segments[2].width)
-    -- Each bar names only its own activities: the resolved bar's legend is just Project; the raw bar's
-    -- legend is work then Project (its two distinct raw sides).
-    t.eq(layout.legend, { { label = "Project", color_index = 1 } })
-    t.eq(layout.raw_legend, {
-      { label = "work", color_index = 2 },
-      { label = "Project", color_index = 1 },
-    })
     -- 'work' (raw) gets its own colour; the bare 'Project' interval shares Project's colour in both bars.
     t.eq(layout.segments[1].color_index, 1)
     t.eq(layout.raw_segments[1].color_index, 2)
     t.eq(layout.raw_segments[2].color_index, 1)
   end)
 
-  t.test("each bar's legend names only its own activities, in appearance order", function()
+  t.test("colours are one shared map across the resolved and raw bars", function()
     local layout = timebar.layout(
       entries({
         "--- log ---",
@@ -373,31 +366,23 @@ return function(t)
     t.eq(layout.raw_segments[1].label, "fix login")
     t.eq(layout.raw_segments[2].label, "standup")
     t.eq(layout.raw_segments[3].label, "write tests")
-    -- Colours are one shared map (Feature A=1, standup=2, fix login=3, write tests=4), but each bar's
-    -- legend lists only its own distinct labels: the resolved bar, then the raw bar.
-    t.eq(layout.legend, {
-      { label = "Feature A", color_index = 1 },
-      { label = "standup", color_index = 2 },
-    })
-    t.eq(layout.raw_legend, {
-      { label = "fix login", color_index = 3 },
-      { label = "standup", color_index = 2 },
-      { label = "write tests", color_index = 4 },
-    })
-    -- standup (unmapped) shares one colour across both bars; both Feature A intervals share index 1.
-    t.eq(layout.segments[2].color_index, 2)
-    t.eq(layout.raw_segments[2].color_index, 2)
+    -- One shared map (resolved labels first: Feature A=1, standup=2; then raw sides: fix login=3,
+    -- write tests=4). standup (unmapped) shares one colour across both bars; both Feature A share 1.
     t.eq(layout.segments[1].color_index, 1)
+    t.eq(layout.segments[2].color_index, 2)
     t.eq(layout.segments[3].color_index, 1)
+    t.eq(layout.raw_segments[1].color_index, 3)
+    t.eq(layout.raw_segments[2].color_index, 2)
+    t.eq(layout.raw_segments[3].color_index, 4)
   end)
 
   t.test("an unmapped log has no raw bar (single bar as before)", function()
     local layout =
       timebar.layout(entries({ "--- log ---", "08:00 a", "09:00 b", "10:00 done" }), 40)
     t.eq(layout.raw_segments, nil)
-    t.eq(#layout.legend, 2)
-    t.eq(layout.legend[1].label, "a")
-    t.eq(layout.legend[2].label, "b")
+    t.eq(#layout.segments, 2)
+    t.eq(layout.segments[1].label, "a")
+    t.eq(layout.segments[2].label, "b")
   end)
 
   t.test("nothing to show yields nil", function()
