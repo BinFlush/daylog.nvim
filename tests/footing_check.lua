@@ -120,8 +120,8 @@ function M.check(sub, mode)
     local sec, rendered, activity = dissect(render.summary_layout(s, fmt, {}), fmt)
     local checks = {
       { "summary items", sec.summary, activity },
-      { "tag totals", sec.tag, displayed(s.tag_total, fmt) },
-      { "location totals", sec.location, displayed(s.location_total, fmt) },
+      { "tag totals", sec.tag, displayed(s.activity_total, fmt) },
+      { "location totals", sec.location, displayed(s.activity_total, fmt) },
     }
     for _, c in ipairs(checks) do
       local name, rows, want = c[1], c[2], c[3]

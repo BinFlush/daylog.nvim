@@ -64,11 +64,7 @@ return function(t)
               },
             },
             activity_total = 30,
-            workday_total = 30,
-            tag_total = 30,
-            location_total = 30,
             activity_error_minutes = -10,
-            workday_error_minutes = -10,
           },
         },
         {
@@ -110,11 +106,7 @@ return function(t)
               },
             },
             activity_total = 0,
-            workday_total = 0,
-            tag_total = 0,
-            location_total = 0,
             activity_error_minutes = 20,
-            workday_error_minutes = 20,
           },
         },
       },
@@ -152,11 +144,7 @@ return function(t)
           },
         },
         activity_total = 30,
-        workday_total = 30,
-        tag_total = 30,
-        location_total = 30,
         activity_error_minutes = 10,
-        workday_error_minutes = 10,
       },
     })
   end)
@@ -221,11 +209,7 @@ return function(t)
         },
       },
       activity_total = 60,
-      workday_total = 60,
-      tag_total = 60,
-      location_total = 60,
       activity_error_minutes = 0,
-      workday_error_minutes = 0,
     })
   end)
 
@@ -255,7 +239,7 @@ return function(t)
     t.eq(#report.days, 1)
     t.eq(report.days[1].date_label, "2026-05-20")
     t.eq(report.summary.activity_total, 60)
-    t.eq(report.summary.workday_total, 60)
+    t.eq(report.summary.activity_total, 60)
   end)
 
   t.test("build_report aborts on invalid files and includes the file path", function()
@@ -298,7 +282,7 @@ return function(t)
 
     t.eq(#report.days, 1)
     t.eq(report.days[1].date_label, "2026-05-19")
-    t.eq(report.summary.workday_total, 60)
+    t.eq(report.summary.activity_total, 60)
   end)
 
   t.test("build_report aborts on timestamped entries with no log header", function()

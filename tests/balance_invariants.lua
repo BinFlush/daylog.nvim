@@ -44,8 +44,7 @@ return function(t)
 
     -- T2: uncounted time is a blank entry (excluded from every section), so the workday is the whole
     -- counted day: every summary item counts toward it and it equals the activity total exactly.
-    eq(sum_field(s.summary_items, "duration"), s.workday_total, ctx .. " T1 items=workday")
-    eq(s.workday_total, s.activity_total, ctx .. " T2 workday=activity")
+    eq(sum_field(s.summary_items, "duration"), s.activity_total, ctx .. " T1 items=total")
 
     -- T3: displayed + residual = true, per row and summed per section.
     local function residuals(list, name)
@@ -106,8 +105,8 @@ return function(t)
       end
       local checks = {
         { "summary", sections.summary, whole },
-        { "tag", sections.tag, displayed(s.tag_total, fmt) },
-        { "location", sections.location, displayed(s.location_total, fmt) },
+        { "tag", sections.tag, displayed(s.activity_total, fmt) },
+        { "location", sections.location, displayed(s.activity_total, fmt) },
       }
       for _, check in ipairs(checks) do
         local rows, want = check[2], check[3]

@@ -115,10 +115,6 @@ return function(t)
         vim.inspect(unrounded_summary)
       )
     )
-    test.ok(
-      unrounded_summary.workday_total == unrounded_summary.activity_total,
-      fail(context, "workday_total must equal activity_total", vim.inspect(unrounded_summary))
-    )
 
     assert_non_negative(test, unrounded_summary.summary_items, "summary_items", context)
     assert_non_negative(test, unrounded_summary.tag_totals, "tag_totals", context)
@@ -146,14 +142,6 @@ return function(t)
       quantized_summary.activity_total,
       quantize_minutes,
       "activity_total",
-      context,
-      payload
-    )
-    assert_bucket_value(
-      test,
-      quantized_summary.workday_total,
-      quantize_minutes,
-      "workday_total",
       context,
       payload
     )
@@ -203,10 +191,6 @@ return function(t)
       sum_durations(quantized_summary.location_totals) == quantized_summary.activity_total,
       fail(context, "sum(location_totals.duration) must equal activity_total", payload)
     )
-    test.ok(
-      quantized_summary.workday_total == quantized_summary.activity_total,
-      fail(context, "workday_total must equal activity_total", payload)
-    )
     -- The reported error is measured against the honest exact total (the same entries summarized at
     -- q=1 with their logged commitments stripped): a commitment inflates the quantized total but not
     -- the honest real, so the honest exact -- not a commitment-inflated q=1 total -- is the reference.
@@ -216,15 +200,6 @@ return function(t)
       fail(
         context,
         "activity_error_minutes must match honest.activity_total - quantized.activity_total",
-        string.format("honest=%s\nquantized=%s", vim.inspect(honest_summary), payload)
-      )
-    )
-    test.ok(
-      quantized_summary.workday_error_minutes
-        == honest_summary.workday_total - quantized_summary.workday_total,
-      fail(
-        context,
-        "workday_error_minutes must match honest.workday_total - quantized.workday_total",
         string.format("honest=%s\nquantized=%s", vim.inspect(honest_summary), payload)
       )
     )

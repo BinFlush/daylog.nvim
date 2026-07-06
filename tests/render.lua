@@ -78,7 +78,6 @@ return function(t)
           },
         },
         activity_total = 180,
-        workday_total = 180,
       }),
       {
         "",
@@ -137,9 +136,7 @@ return function(t)
           },
         },
         activity_total = 30,
-        workday_total = 30,
         activity_error_minutes = 0,
-        workday_error_minutes = 0,
       }),
       {
         "",
@@ -201,9 +198,7 @@ return function(t)
           },
         },
         activity_total = 90,
-        workday_total = 90,
         activity_error_minutes = 0,
-        workday_error_minutes = 0,
       }),
       {
         "",
@@ -257,7 +252,6 @@ return function(t)
           },
         },
         activity_total = 90,
-        workday_total = 90,
       }, "hm"),
       {
         "",
@@ -312,9 +306,7 @@ return function(t)
           },
         },
         activity_total = 90,
-        workday_total = 90,
         activity_error_minutes = 5,
-        workday_error_minutes = 5,
       }, "hm"),
       {
         "",
@@ -367,9 +359,6 @@ return function(t)
           },
         },
         activity_total = 120,
-        workday_total = 120,
-        tag_total = 120,
-        location_total = 120,
       }),
       {
         "",
@@ -433,11 +422,7 @@ return function(t)
           },
         },
         activity_total = 60,
-        workday_total = 60,
-        tag_total = 60,
-        location_total = 60,
         activity_error_minutes = -20,
-        workday_error_minutes = -20,
       }),
       {
         "",
@@ -498,9 +483,7 @@ return function(t)
                 },
               },
               activity_total = 60,
-              workday_total = 60,
               activity_error_minutes = 8,
-              workday_error_minutes = 8,
             },
           },
         },
@@ -538,9 +521,7 @@ return function(t)
             },
           },
           activity_total = 60,
-          workday_total = 60,
           activity_error_minutes = 8,
-          workday_error_minutes = 8,
         },
       }, "hm"),
       {
@@ -587,9 +568,7 @@ return function(t)
                 },
               },
               activity_total = 60,
-              workday_total = 60,
               activity_error_minutes = 8,
-              workday_error_minutes = 8,
             },
           },
         },
@@ -613,9 +592,7 @@ return function(t)
             },
           },
           activity_total = 60,
-          workday_total = 60,
           activity_error_minutes = 8,
-          workday_error_minutes = 8,
         },
       }, "hm"),
       {
@@ -664,9 +641,7 @@ return function(t)
                   },
                 },
                 activity_total = 15,
-                workday_total = 15,
                 activity_error_minutes = 5,
-                workday_error_minutes = 5,
               },
             },
           },
@@ -704,9 +679,7 @@ return function(t)
               },
             },
             activity_total = 60,
-            workday_total = 60,
             activity_error_minutes = 8,
-            workday_error_minutes = 8,
           },
         },
         "hm",
@@ -758,11 +731,7 @@ return function(t)
                 },
               },
               activity_total = 60,
-              workday_total = 60,
-              tag_total = 60,
-              location_total = 60,
               activity_error_minutes = 0,
-              workday_error_minutes = 0,
             },
           },
         },
@@ -787,11 +756,7 @@ return function(t)
             },
           },
           activity_total = 60,
-          workday_total = 60,
-          tag_total = 60,
-          location_total = 60,
           activity_error_minutes = 0,
-          workday_error_minutes = 0,
         },
       }, "hm"),
       {
@@ -851,9 +816,7 @@ return function(t)
                 },
               },
               activity_total = 60,
-              workday_total = 60,
               activity_error_minutes = 8,
-              workday_error_minutes = 8,
             },
           },
         },
@@ -891,9 +854,7 @@ return function(t)
             },
           },
           activity_total = 60,
-          workday_total = 60,
           activity_error_minutes = 8,
-          workday_error_minutes = 8,
         },
       }, "hm"),
       {
@@ -940,9 +901,7 @@ return function(t)
                   },
                 },
                 activity_total = 15,
-                workday_total = 15,
                 activity_error_minutes = 5,
-                workday_error_minutes = 5,
               },
             },
           },
@@ -980,9 +939,7 @@ return function(t)
               },
             },
             activity_total = 60,
-            workday_total = 60,
             activity_error_minutes = 8,
-            workday_error_minutes = 8,
           },
         },
         "hm",
@@ -1047,9 +1004,6 @@ return function(t)
         },
       },
       activity_total = 120,
-      workday_total = 120,
-      tag_total = 120,
-      location_total = 120,
     }
 
     local layout = render.summary_layout(summary)
@@ -1091,7 +1045,6 @@ return function(t)
         },
       },
       activity_total = 120,
-      workday_total = 120,
     })
 
     local summary_rows = collect_layout_rows(layout, function(row)
@@ -1132,9 +1085,6 @@ return function(t)
         },
       },
       activity_total = 60,
-      workday_total = 60,
-      tag_total = 60,
-      location_total = 60,
     })
 
     local function find_by_line(line)
@@ -1178,9 +1128,7 @@ return function(t)
         },
       },
       activity_total = 30,
-      workday_total = 30,
       activity_error_minutes = 10,
-      workday_error_minutes = 10,
     })
 
     local summary_row = find_layout_row(layout, function(row)

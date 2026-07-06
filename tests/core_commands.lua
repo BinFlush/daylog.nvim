@@ -424,6 +424,7 @@ return function(t)
       "10:00 reset #- @-",
       "11:00 done",
       "",
+      "",
       "--- log ---",
       "08:00 plan",
       "09:00 client #ClientA @home",

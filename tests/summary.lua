@@ -44,7 +44,6 @@ return function(t)
     end
 
     result.activity_error_minutes = nil
-    result.workday_error_minutes = nil
     return result
   end
 
@@ -113,9 +112,6 @@ return function(t)
         },
       },
       activity_total = 60,
-      workday_total = 60,
-      tag_total = 60,
-      location_total = 60,
     })
   end)
 
@@ -175,9 +171,6 @@ return function(t)
         },
       },
       activity_total = 120,
-      workday_total = 120,
-      tag_total = 120,
-      location_total = 120,
     })
   end)
 
@@ -225,9 +218,6 @@ return function(t)
         },
       },
       activity_total = 120,
-      workday_total = 120,
-      tag_total = 120,
-      location_total = 120,
     })
   end)
 
@@ -294,11 +284,7 @@ return function(t)
         },
       },
       activity_total = 30,
-      workday_total = 30,
-      tag_total = 30,
-      location_total = 30,
       activity_error_minutes = 0,
-      workday_error_minutes = 0,
     })
   end)
 
@@ -365,11 +351,7 @@ return function(t)
         },
       },
       activity_total = 60,
-      workday_total = 60,
-      tag_total = 60,
-      location_total = 60,
       activity_error_minutes = 0,
-      workday_error_minutes = 0,
     })
   end)
 
@@ -420,11 +402,7 @@ return function(t)
         },
       },
       activity_total = 30,
-      workday_total = 30,
-      tag_total = 30,
-      location_total = 30,
       activity_error_minutes = 10,
-      workday_error_minutes = 10,
     })
   end)
 
@@ -473,11 +451,7 @@ return function(t)
           },
         },
         activity_total = 30,
-        workday_total = 30,
-        tag_total = 30,
-        location_total = 30,
         activity_error_minutes = 10,
-        workday_error_minutes = 10,
       })
     end
   end)
@@ -676,9 +650,9 @@ return function(t)
     t.eq(by_text["thing one"].error_minutes, 0)
     t.eq(by_text["thing two"].duration, 60)
     t.eq(by_text["thing two"].error_minutes, 8)
-    -- The manual round-1 nudge lands on the total, not on the frozen logged row (a
+    -- The manual round-1 nudge lands on the totals row, not on the frozen logged row (a
     -- committed slice is displayed at its pinned value and carries no per-row nudge).
-    t.eq(s.activity_nudge, -1)
+    t.eq(s.total_rows[#s.total_rows].nudge, -1)
     t.eq(by_text["thing two"].logged, true)
     t.eq(s.activity_total, 120)
 
@@ -808,7 +782,6 @@ return function(t)
       "10:30 done",
     }))
     t.eq(result.activity_total, 120)
-    t.eq(result.workday_total, 120)
     assert_activity_totals_match(t, result)
     t.eq(total_duration(result.total_rows), 120)
     local workday_logged, workday_remaining
@@ -836,7 +809,6 @@ return function(t)
       "16:00",
     }))
     t.eq(result.activity_total, 360) -- 60 + 120 + 180; the 2h gap is excluded
-    t.eq(result.workday_total, 360)
     assert_activity_totals_match(t, result)
     for _, item in ipairs(result.summary_items) do
       t.ok(item.text ~= "" and item.text ~= nil, "no blank row leaks into the summary")
@@ -910,11 +882,7 @@ return function(t)
         },
       },
       activity_total = 60,
-      workday_total = 60,
-      tag_total = 60,
-      location_total = 60,
       activity_error_minutes = 0,
-      workday_error_minutes = 0,
     })
   end)
 
@@ -998,11 +966,7 @@ return function(t)
         },
       },
       activity_total = 60,
-      workday_total = 60,
-      tag_total = 60,
-      location_total = 60,
       activity_error_minutes = -9,
-      workday_error_minutes = -9,
     })
 
     assert_activity_totals_match(t, quantized)
@@ -1057,11 +1021,7 @@ return function(t)
         },
       },
       activity_total = 30,
-      workday_total = 30,
-      tag_total = 30,
-      location_total = 30,
       activity_error_minutes = 4,
-      workday_error_minutes = 4,
     })
   end)
 
@@ -1102,9 +1062,7 @@ return function(t)
             },
           },
           activity_total = 30,
-          workday_total = 30,
           activity_error_minutes = -10,
-          workday_error_minutes = -10,
         },
         {
           summary_items = {
@@ -1140,9 +1098,7 @@ return function(t)
             },
           },
           activity_total = 0,
-          workday_total = 0,
           activity_error_minutes = 20,
-          workday_error_minutes = 20,
         },
       }),
       {
@@ -1179,11 +1135,7 @@ return function(t)
           },
         },
         activity_total = 30,
-        workday_total = 30,
-        tag_total = 30,
-        location_total = 30,
         activity_error_minutes = 10,
-        workday_error_minutes = 10,
       }
     )
   end)
@@ -1226,9 +1178,7 @@ return function(t)
             },
           },
           activity_total = 30,
-          workday_total = 30,
           activity_error_minutes = -10,
-          workday_error_minutes = -10,
         },
         {
           summary_items = {
@@ -1264,9 +1214,7 @@ return function(t)
             },
           },
           activity_total = 30,
-          workday_total = 30,
           activity_error_minutes = -10,
-          workday_error_minutes = -10,
         },
       }),
       {
@@ -1311,11 +1259,7 @@ return function(t)
           },
         },
         activity_total = 60,
-        workday_total = 60,
-        tag_total = 60,
-        location_total = 60,
         activity_error_minutes = -20,
-        workday_error_minutes = -20,
       }
     )
   end)
@@ -1365,9 +1309,7 @@ return function(t)
             },
           },
           activity_total = 30,
-          workday_total = 30,
           activity_error_minutes = 10,
-          workday_error_minutes = 10,
         },
       }),
       {
@@ -1412,11 +1354,7 @@ return function(t)
           },
         },
         activity_total = 30,
-        workday_total = 30,
-        tag_total = 30,
-        location_total = 30,
         activity_error_minutes = 10,
-        workday_error_minutes = 10,
       }
     )
   end)
@@ -1462,9 +1400,7 @@ return function(t)
           { duration = 30, unrounded_duration = 40, error_minutes = 10 },
         },
         activity_total = 30,
-        workday_total = 30,
         activity_error_minutes = 10,
-        workday_error_minutes = 10,
       }
 
       t.eq(summary.combine_summaries({ day, day }), {
@@ -1495,11 +1431,7 @@ return function(t)
           { duration = 60, unrounded_duration = 80, error_minutes = 20 },
         },
         activity_total = 60,
-        workday_total = 60,
-        tag_total = 60,
-        location_total = 60,
         activity_error_minutes = 20,
-        workday_error_minutes = 20,
       })
     end
   )
@@ -1582,9 +1514,6 @@ return function(t)
         },
       },
       activity_total = 540,
-      workday_total = 540,
-      tag_total = 540,
-      location_total = 540,
     })
   end)
 
@@ -1858,14 +1787,14 @@ return function(t)
     t.eq(s.summary_items[1].duration, 60) -- 1.00h, one bucket above the floor
     t.eq(s.summary_items[1].error_minutes, -10) -- 50 true - 60 displayed
     t.eq(s.summary_items[1].nudge, 1)
-    t.eq(s.workday_total, 60)
-    t.eq(s.workday_nudge, 1)
+    t.eq(s.activity_total, 60)
+    t.eq(s.total_rows[1].nudge, 1)
 
     -- The nudge flows into the tag and location totals too -- they are the same time under a
     -- different grouping -- so each section inherits the shift and stays footed with the balanced main.
-    t.eq(s.tag_total, 60)
+    t.eq(total_duration(s.tag_totals), 60)
     t.eq(s.tag_totals[1].nudge, 1)
-    t.eq(s.location_total, 60)
+    t.eq(total_duration(s.location_totals), 60)
     t.eq(s.location_totals[1].nudge, 1)
   end)
 
@@ -1878,8 +1807,7 @@ return function(t)
     local s = summary.summarize_block(block)
 
     t.eq(s.summary_items[1].nudge, nil)
-    t.eq(s.activity_nudge, nil)
-    t.eq(s.workday_nudge, nil)
+    t.eq(s.total_rows[1].nudge, nil)
   end)
 
   t.test("a manual nudge keeps each section a partition that sums to its total", function()
@@ -1891,9 +1819,9 @@ return function(t)
     })
     local s = summary.summarize_block(block)
 
-    t.eq(total_duration(s.summary_items), s.workday_total)
-    t.eq(total_duration(s.tag_totals), s.tag_total)
-    t.eq(total_duration(s.location_totals), s.location_total)
+    t.eq(total_duration(s.summary_items), s.activity_total)
+    t.eq(total_duration(s.tag_totals), s.activity_total)
+    t.eq(total_duration(s.location_totals), s.activity_total)
   end)
 
   t.test("a nudge on one day reconciles the combined week total and residual", function()
@@ -1907,9 +1835,8 @@ return function(t)
     local fri = day({ "--- log #ClientA q=15 ---", "08:00 wrapup round+1", "08:50 done" })
 
     local week = summary.combine_summaries({ mon, tue, fri })
-    t.eq(week.workday_total, 150) -- 45 + 45 + 60 = 2.50h
-    t.eq(week.workday_error_minutes, 0) -- +5 +5 -10 cancel
-    t.eq(week.workday_nudge, 1)
+    t.eq(week.activity_total, 150) -- 45 + 45 + 60 = 2.50h
+    t.eq(week.activity_error_minutes, 0) -- +5 +5 -10 cancel
   end)
 
   t.test("summary groups aliased entries under their target label", function()

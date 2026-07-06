@@ -474,61 +474,31 @@ local function finalize_summary_order(summary)
   return summary
 end
 
--- Apply the shared summary tail: attach the manual-nudge totals sparsely (only when nonzero, so a log
--- with no manual balancing produces the identical structure), then order every section. Both
--- summarize_entries and combine_summaries finish through this so the sparse-nudge invariant is defined
--- once. The per-level logged/unlogged split lives inside each section now, not in a separate section.
-local function finalize_summary(summary, activity_nudge, workday_nudge)
-  if activity_nudge ~= 0 then
-    summary.activity_nudge = activity_nudge
-  end
-  if workday_nudge ~= 0 then
-    summary.workday_nudge = workday_nudge
-  end
-
-  return finalize_summary_order(summary)
-end
-
--- Build the full quantized summary for a set of entries.
--- The MAIN summary (and the activity/workday totals) is quantized on the one shared summary-level base:
--- the activity total rounds to the nearest bucket, each fine-grained row rounds down, and the remaining
--- bucket blocks go to the largest remainders. The main section already splits by the summary (`s`)
--- level, and the balance system reads this same base, so it is left verbatim.
--- The TAG and LOCATION sections quantize INDEPENDENTLY, each split by its own level (`t` / `l`) and
+-- Build the full quantized summary for a set of entries. One shared quantization: the granules
+-- round honestly and inflate only where a commitment over-shoots (quantize_granules); every
+-- section is a re-sum of those same granules, so all foot to the one activity total.
 function M.summarize_entries(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
   local intervals = build_intervals(entries)
-  -- One shared quantization: granules (text, tag, location, work-class), rounded honestly + inflated
-  -- only where a commitment over-shoots. Every partition is a re-sum of these same granules, so all
-  -- foot to the same total and residual; commitments split a cell for DISPLAY (build_section_rows).
   local quantized, feasible =
     quantize_granules(build_granules(intervals), intervals, bucket_minutes)
 
-  local activity_total, activity_real, activity_nudge = 0, 0, 0
+  local activity_total, activity_real = 0, 0
   for _, g in ipairs(quantized) do
     activity_total = activity_total + g.duration
     activity_real = activity_real + (g.unrounded_duration or g.duration)
-    activity_nudge = activity_nudge + (g.nudge or 0)
   end
 
-  local summary = {
+  return finalize_summary_order({
     summary_items = build_section_rows(quantized, intervals, { "text", "tag" }, "s", feasible),
     tag_totals = build_section_rows(quantized, intervals, { "tag" }, "t", feasible),
     location_totals = build_section_rows(quantized, intervals, { "location" }, "l", feasible),
-    -- Uncounted time is a blank entry that never reaches a granule, so all counted time is the workday:
-    -- the totals are a single `workday` cell (loggable via !W), footing to the activity total.
+    -- Uncounted time is a blank entry that never reaches a granule, so the totals are one
+    -- `workday` cell (loggable via !W) equal to the activity total.
     total_rows = build_section_rows(quantized, intervals, {}, "w", feasible),
     activity_total = activity_total,
-    -- With no #ooo, the workday is the whole counted day; every section is a re-sum of the same
-    -- granules, so all foot to the activity total.
-    workday_total = activity_total,
-    tag_total = activity_total,
-    location_total = activity_total,
     activity_error_minutes = activity_real - activity_total,
-    workday_error_minutes = activity_real - activity_total,
-  }
-
-  return finalize_summary(summary, activity_nudge, activity_nudge)
+  })
 end
 
 function M.summarize_block(block)
@@ -705,23 +675,11 @@ function M.combine_summaries(summaries)
   local location_totals = {}
   local total_rows = {}
   local activity_total = 0
-  local workday_total = 0
-  local tag_total = 0
-  local location_total = 0
   local activity_error_minutes = 0
-  local workday_error_minutes = 0
-  local activity_nudge = 0
-  local workday_nudge = 0
 
   for _, item in ipairs(summaries or {}) do
     activity_total = activity_total + item.activity_total
-    workday_total = workday_total + item.workday_total
-    tag_total = tag_total + (item.tag_total or item.activity_total)
-    location_total = location_total + (item.location_total or item.activity_total)
     activity_error_minutes = activity_error_minutes + (item.activity_error_minutes or 0)
-    workday_error_minutes = workday_error_minutes + (item.workday_error_minutes or 0)
-    activity_nudge = activity_nudge + (item.activity_nudge or 0)
-    workday_nudge = workday_nudge + (item.workday_nudge or 0)
 
     for _, row in ipairs(item.summary_items or {}) do
       table.insert(summary_items, row)
@@ -760,14 +718,10 @@ function M.combine_summaries(summaries)
       projection.project_rows(total_rows, { "logged" }, { "logged" })
     ),
     activity_total = activity_total,
-    workday_total = workday_total,
-    tag_total = tag_total,
-    location_total = location_total,
     activity_error_minutes = activity_error_minutes,
-    workday_error_minutes = workday_error_minutes,
   }
 
-  return finalize_summary(summary, activity_nudge, workday_nudge)
+  return finalize_summary_order(summary)
 end
 
 return M

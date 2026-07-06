@@ -218,6 +218,14 @@ return function(t)
     t.ok(has(out, "1.00h (+0m) work !S"), "the summary is rebuilt with the main !S split")
   end)
 
+  local function section_total(rows)
+    local total = 0
+    for _, row in ipairs(rows) do
+      total = total + row.duration
+    end
+    return total
+  end
+
   t.test("a balance nudge on an activity flows into its tag and location totals", function()
     local function summ(lines)
       return summary.summarize_block(analyze.get_active_log(analyze.analyze(document.parse(lines))))
@@ -226,16 +234,16 @@ return function(t)
     -- q=30: 'a' is 40 min (floors to 30). Without a nudge every section foots to 60.
     local base =
       summ({ "--- log q=30 ---", "08:00 a #X @office", "08:40 b #Y @office", "09:00 done" })
-    t.eq(base.tag_total, 60)
-    t.eq(base.location_total, 60)
+    t.eq(section_total(base.tag_totals), 60)
+    t.eq(section_total(base.location_totals), 60)
 
     -- round+1 lifts 'a' one bucket; its tag (#X) and location (@office) inherit the shift and stay
     -- footed with the balanced activity total.
     local nudged =
       summ({ "--- log q=30 ---", "08:00 a #X @office round+1", "08:40 b #Y @office", "09:00 done" })
     t.eq(nudged.activity_total, 90)
-    t.eq(nudged.tag_total, 90)
-    t.eq(nudged.location_total, 90)
+    t.eq(section_total(nudged.tag_totals), 90)
+    t.eq(section_total(nudged.location_totals), 90)
 
     -- The !T30 commitment splits the #X tag row for display (a logged 30 slice plus its unlogged
     -- remainder), but every section is a projection of the one shared quantization, so the tag total
@@ -246,7 +254,7 @@ return function(t)
       "08:40 b #Y @office",
       "09:00 done",
     })
-    t.eq(frozen.tag_total, 90)
-    t.eq(frozen.location_total, 90)
+    t.eq(section_total(frozen.tag_totals), 90)
+    t.eq(section_total(frozen.location_totals), 90)
   end)
 end
