@@ -3,11 +3,8 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Daylog body reconstruction helpers.
---
--- This module owns rewriting semantic log blocks back into editable block
--- bodies. It derives canonical body lines, sorted body lines, and insert points
--- directly from semantic block items instead of reparsing raw lines.
+-- Rewrites semantic log blocks back into editable bodies, deriving canonical/sorted
+-- lines and insert points from block items rather than reparsing raw lines.
 
 local function trim_trailing_empty_lines(lines)
   local end_index = #lines
@@ -35,10 +32,8 @@ local function lines_from_nodes(nodes)
   return lines
 end
 
--- Clone a block item through the canonical field set, re-attaching the structural
--- fields copy_fields deliberately drops: the source row, its order index, and its
--- lines. These three are explicit params because the call sites source them
--- differently (raw entry_items vs already-cloned, sorted items).
+-- Clone a block item, re-attaching the structural fields copy_fields drops (row, index,
+-- lines) as explicit params since call sites source them differently.
 local function clone_item(item, row, index, lines)
   local copy = analyze.copy_fields(item)
   copy.row = row
@@ -107,9 +102,8 @@ local function rebuild_lines(
   return trim_trailing_empty_lines(lines)
 end
 
--- Order by effective UTC time, then by original index to break ties stably. Both
--- :Daylog order's reorder and its change-warning sort through this one rule, so a
--- divergence can't make the warning describe a different order than the rewrite.
+-- Order by effective UTC time, index breaking ties stably; both :Daylog order's reorder
+-- and its change-warning use this one rule so they can't diverge.
 local function less_by_effective_time(a_eff, a_index, b_eff, b_index)
   if a_eff == b_eff then
     return a_index < b_index
@@ -131,8 +125,7 @@ local function sorted_items(items)
     table.insert(result, clone_item(item, item.row, item.index, lines))
   end
 
-  -- Sort by effective UTC time so :Daylog order agrees with the effective
-  -- unordered-timestamps check; without offsets this is the raw-minute order.
+  -- Sort by effective UTC time so :Daylog order agrees with the unordered-timestamps check.
   table.sort(result, function(a, b)
     return less_by_effective_time(
       analyze.effective_minutes(a),
@@ -145,10 +138,8 @@ local function sorted_items(items)
   return result
 end
 
--- The block's last non-blank body line. Appending here keeps trailing blank lines
--- (a visual gap before the summary) as separation instead of stepping past them;
--- notes stay with their entry, only blank lines are skipped. Returns the header row
--- for an entry-less block.
+-- The block's last non-blank body line; appending here keeps trailing blank lines as
+-- separation. Returns the header row for an entry-less block.
 function M.last_content_row(block)
   local row = block.start_row
 
@@ -168,8 +159,7 @@ function M.insert_index(block, minutes)
     end
   end
 
-  -- Append after the block's last non-blank body line, so trailing blank lines stay
-  -- as separation instead of pushing the new entry past them.
+  -- Append after the last non-blank line so trailing blanks stay as separation.
   return M.last_content_row(block)
 end
 
@@ -180,10 +170,8 @@ function M.state_before(block, minutes)
     offset = block.header_offset,
   }
 
-  -- Inserted entries are placed after existing equal timestamps, so the sticky
-  -- state before insertion includes every item at the same minute. Placement is by
-  -- the written local clock (raw minutes): an insertion is positioned by the time
-  -- the user typed, not by effective UTC.
+  -- Insertion is placed after existing equal timestamps by the written local clock (raw
+  -- minutes, not effective UTC), so the sticky state includes every item at the same minute.
   for _, item in ipairs(block.entry_items) do
     if item.minutes > minutes then
       break
@@ -197,11 +185,8 @@ function M.state_before(block, minutes)
   return state
 end
 
--- The entries whose effective tag or location would change when the block is
--- sorted by time. Each entry item carries its buffer-order effective metadata;
--- this re-resolves sticky state in time-sorted order and reports every entry
--- that differs (as { minutes, text }), so :Daylog order can warn that it set
--- those values from the original order. Empty when sorting is unambiguous.
+-- Entries whose effective tag/location would change when the block is sorted by time
+-- (as { minutes, text }), so :Daylog order can warn; empty when sorting is unambiguous.
 function M.sort_changes_metadata(block)
   local order = {}
   for index, item in ipairs(block.entry_items) do
@@ -240,8 +225,8 @@ function M.sort_changes_metadata(block)
   return changed
 end
 
--- Body rewrites are intentionally infallible now that explicit #- and @-
--- tokens make sticky-to-nil transitions representable in canonical output.
+-- Body rewrites are infallible: explicit #- and @- tokens make sticky-to-nil
+-- transitions representable in canonical output.
 function M.normalized_lines(block, format_entry)
   local body = rewrite_body(block)
   return rebuild_lines(

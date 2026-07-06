@@ -1,11 +1,8 @@
 local M = {}
 
--- Generic row grouping and projection.
---
--- No log domain knowledge: callers pass the key fields that define a
--- bucket's identity and the descriptive fields that survive into each projected
--- row. summary.lua and quantize.lua build all their reporting sections on top of
--- these helpers.
+-- Generic row grouping and projection (no log domain knowledge): callers pass the key fields
+-- defining bucket identity and the descriptive fields that survive; summary.lua and quantize.lua
+-- build on these.
 
 local NIL = {}
 
@@ -51,20 +48,12 @@ local function put_nested(root, item, key_fields, value)
   node[normalize_key_part(item[key_fields[#key_fields]])] = value
 end
 
--- Project rows into coarser reporting buckets.
--- `key_fields` decides which row fields define identity, while `fields` decides
--- which descriptive labels survive into the projected row.
--- Durations are always accumulated, and first-seen group order is preserved.
--- When `accumulate_source_entry_rows` is true, every row's `source_entry_rows`
--- (or single `source_entry_row`) is concatenated into the bucket in stable
--- source order so main summary items can carry provenance back to the
--- contributing entries.
--- `nudge_mode` controls how the manual rounding nudge aggregates into a bucket:
--- "sum" (the default) adds it up -- correct when projecting fine-grained rows into
--- sections, where a section's nudge is the cumulative shift of its rows. "max"
--- takes the signed value of largest magnitude -- correct when folding the intervals
--- of one fine-grained row, which all carry that row's single nudge (so marking some
--- or all of an activity's intervals yields the same row nudge, never a multiple).
+-- Project rows into coarser reporting buckets. `key_fields` defines bucket identity, `fields`
+-- the descriptive labels that survive; durations accumulate and first-seen order is preserved.
+-- `accumulate_source_entry_rows` concatenates each row's source_entry_row(s) in source order so
+-- main items carry provenance back to their entries. `nudge_mode` aggregates the rounding nudge:
+-- "sum" (default) for projecting rows into sections, "max" (signed largest magnitude) for folding
+-- one row's intervals, which all carry that row's single nudge (never a multiple).
 function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows, nudge_mode)
   local buckets = {}
   local order = {}
@@ -92,10 +81,8 @@ function M.project_rows(rows, key_fields, fields, accumulate_source_entry_rows, 
 
     bucket.duration = bucket.duration + row.duration
     bucket.unrounded_duration = bucket.unrounded_duration + (row.unrounded_duration or row.duration)
-    -- The manual rounding nudge stays sparse (absent unless a nonzero nudge
-    -- contributes), so a log with no manual balancing projects to byte-identical
-    -- rows. "max" folds an activity's intervals to its single row nudge; "sum"
-    -- accumulates rows into a section's cumulative nudge.
+    -- The nudge stays sparse (absent unless nonzero), so an unbalanced log projects to
+    -- byte-identical rows.
     if row.nudge and row.nudge ~= 0 then
       if nudge_mode == "max" then
         if not bucket.nudge or math.abs(row.nudge) > math.abs(bucket.nudge) then

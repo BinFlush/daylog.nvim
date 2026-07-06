@@ -2,20 +2,14 @@ local palette = require("daylog.palette")
 
 local M = {}
 
--- Per-activity highlight groups (shell).
---
--- The end of the colour pipeline: colors.lua decides which slot an activity gets, palette.lua gives
--- that slot a colour, and this module registers it as the live Neovim groups -- DaylogBar{n} (a
--- background, for the bar blocks and legend swatches) and DaylogSign{n} (a foreground, for the margin
--- indicator, carried by the DaylogActivitySign{n} sign). Groups are defined lazily on first use with
--- default = true (so a theme or the user's own :highlight wins), and forgotten on a colorscheme switch
--- so the next render re-creates them.
+-- Per-activity highlight groups (shell): registers DaylogBar{n} (background, bar/legend) and
+-- DaylogSign{n} (foreground, margin sign). Defined lazily with default = true (a theme or
+-- :highlight wins) and forgotten on a colorscheme switch.
 
 local bar_defined = {}
 local sign_defined = {}
 
--- The highlight group for an activity's bar block (a generated colour as a background), defined on
--- first use. Used by the time-bar blocks and the legend swatches.
+-- The highlight group for an activity's bar block, defined on first use; used by the bar blocks and legend swatches.
 function M.bar_group(index)
   if not bar_defined[index] then
     local c = palette.color(index)
@@ -25,8 +19,8 @@ function M.bar_group(index)
   return "DaylogBar" .. index
 end
 
--- The sign name for an activity's margin indicator (a generated colour as a foreground), defining the
--- DaylogSign{index} colour group and its DaylogActivitySign{index} sign on first use.
+-- The sign name for an activity's margin indicator, defining its DaylogSign{index} group and
+-- DaylogActivitySign{index} sign on first use.
 function M.activity_sign(index)
   if not sign_defined[index] then
     local c = palette.color(index)

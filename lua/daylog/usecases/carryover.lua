@@ -4,12 +4,8 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Past-midnight carryover helpers.
---
--- These pure helpers support rolling an activity that was running across
--- midnight from one day's log into the next. The shell layer captures the
--- activity, closes the source day at the 24:00 boundary, then seeds the target
--- day with the continuation at 00:00.
+-- Past-midnight carryover helpers (pure): roll an activity running across midnight into the
+-- next day. The shell captures it, closes the source day at 24:00, then seeds the target at 00:00.
 
 local function activity_from_item(item)
   return {
@@ -24,10 +20,8 @@ local function activity_from_item(item)
   }
 end
 
--- The activity in effect at the end of the active log, i.e. the final
--- entry when it still has activity text. Returns nil when nothing was running
--- (no entries, the day already closed with a bare timestamp, or the final entry
--- is the 24:00 end-of-day boundary).
+-- The activity in effect at the end of the active log (the final entry with text), or nil
+-- when nothing was running (no entries, day closed with a bare timestamp, or a 24:00 boundary).
 function M.last_running_entry(lines)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -43,8 +37,7 @@ function M.last_running_entry(lines)
   return activity_from_item(last)
 end
 
--- The activity item on the given row, or nil. Only looks at real timestamped
--- entries in the log block at `row`.
+-- The activity item on the given row, or nil; only real timestamped entries in the block at `row`.
 local function item_at_row(lines, row)
   local ctx = support.get_validated_at_row(lines, row)
   if not ctx then
@@ -54,10 +47,8 @@ local function item_at_row(lines, row)
   return support.entry_item_at_row(ctx.block, row)
 end
 
--- The activity of the entry on the given row, used to repeat it after the
--- buffer has switched to the new day. The cursor may instead be on a main summary
--- row, in which case it is mapped back to the source entry it summarizes, so
--- cross-day :Daylog repeat works from the summary too.
+-- The activity of the entry on the given row (for cross-day repeat); a cursor on a summary
+-- row is mapped back to the source entry it summarizes.
 function M.entry_at_row(lines, row)
   local item = item_at_row(lines, row)
   if item then
@@ -80,10 +71,8 @@ function M.entry_at_row(lines, row)
   return nil, err or "daylog: current line is not a valid entry"
 end
 
--- Insert one formatted entry for `activity` at `minutes` into the active
--- log, placed at the sorted position with sticky metadata resolved. `auto_offset`
--- (optional) is the live OS offset; a drift from the offset in effect records the new
--- zone on the seeded entry (used by the cross-day repeat into an existing today).
+-- Insert one formatted entry for `activity` at `minutes` into the active log at its sorted
+-- position; a drift in `auto_offset` (live OS offset) records the new zone on the seeded entry.
 function M.seed_edit(lines, activity, minutes, auto_offset)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -93,17 +82,16 @@ function M.seed_edit(lines, activity, minutes, auto_offset)
   return support.fresh_entry_edit(ctx.block, activity, minutes, auto_offset)
 end
 
--- Append a bare 24:00 entry that closes the active log's final task at the
--- day boundary. The sticky metadata is carried so the close stays bare.
+-- Append a bare 24:00 entry closing the active log's final task at the day boundary;
+-- sticky metadata is carried so it stays bare.
 function M.close_edit(lines)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
     return nil, err
   end
 
-  -- Already closed (a 24:00 or blank final entry): nothing runs, so appending a second
-  -- close would duplicate the boundary. The caller's running-entry gate normally prevents
-  -- this; the usecase must not depend on it.
+  -- Already closed (24:00 or blank final entry): appending a second close would duplicate the
+  -- boundary, so guard here rather than depend on the caller's gate.
   local entries = ctx.block.entries
   local last = entries[#entries]
   if last and (last.text == "" or last.minutes == syntax.END_OF_DAY_MINUTES) then

@@ -4,9 +4,8 @@ local M = {}
 
 -- Semantic analyzer for parsed log documents (PURE).
 --
--- This layer turns syntax nodes into log blocks, semantic entries, entry
--- items with attached note lines, and structured diagnostics. It is the main
--- source of truth for command-time behavior.
+-- Turns syntax nodes into log blocks, semantic entries, entry items with attached notes, and
+-- diagnostics; the source of truth for command-time behavior.
 
 local INVALID_FIRST_HEADER_MESSAGE =
   "daylog: first line must be a log header such as --- log --- or --- log #ClientA @office q=30 ---"
@@ -17,8 +16,8 @@ local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
 end
 
--- The per-entry logged table ({ level -> committed minutes | true }) is mutable, so hand out an
--- independent copy: copy_fields builds working entries that override-building then mutates.
+-- Copy the mutable per-entry logged table ({ level -> committed minutes | true }) so working
+-- entries never alias it.
 local function copy_logged(logged)
   if logged == nil then
     return nil
@@ -32,9 +31,8 @@ local function copy_logged(logged)
 end
 M.copy_logged = copy_logged
 
--- Copy the semantic-entry field set from any source carrying it (a semantic
--- entry, entry item, or block item). Structural fields such as row, index, and
--- attached lines are intentionally left out so callers add only what they need.
+-- Copy the semantic-entry field set from any source carrying it. Structural fields (row, index,
+-- attached lines) are intentionally left out so callers add only what they need.
 local function copy_fields(src)
   return {
     minutes = src.minutes,
@@ -55,11 +53,9 @@ end
 
 M.copy_fields = copy_fields
 
--- An entry's effective UTC time in minutes: the written local clock minus its
--- sticky UTC offset. With no offsets in play (`offset` nil everywhere) this is
--- identically the raw `minutes`, so duration and ordering are unchanged. Durations
--- and the unordered-timestamps check reconcile across a clock move via this; the
--- 24:00 boundary, display, and insertion placement stay raw-local.
+-- An entry's effective UTC time in minutes: the local clock minus its sticky UTC offset (identically
+-- raw `minutes` when no offsets are in play). Durations and the ordering check use this; the 24:00
+-- boundary, display, and insertion placement stay raw-local.
 local function effective_minutes(item)
   return item.minutes - (item.offset or 0)
 end
@@ -76,15 +72,9 @@ local function body_nodes(document, block)
   return nodes
 end
 
--- Resolve an item's effective sticky metadata from the previous sticky state: an
--- explicit clear token forces nil, an explicit value switches it, otherwise the
--- value is inherited. The offset is sticky like location but has no clear form (you
--- switch it, you never unset it). `prev` is a { tag, location, offset } state and
--- `item` is anything carrying the explicit_* fields (a syntax node, a semantic
--- entry, or an entry item), so this is the single definition of the
--- clear/explicit/inherit rule -- the analyzer, the body reorder, and rename all
--- resolve through it, keeping explicit-over-silent one rule rather than three
--- hand-rolls that can drift.
+-- Resolve an item's sticky metadata from the previous state: a clear token forces nil, an explicit
+-- value switches, otherwise inherit (the offset is sticky but has no clear form). The single
+-- definition of the clear/explicit/inherit rule, resolved through by analyzer, reorder, and rename.
 local function resolve_sticky(prev, item)
   local tag = prev.tag
   if item.explicit_tag_clear then
@@ -128,13 +118,10 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     tag = resolved.tag,
     location = resolved.location,
     offset = resolved.offset,
-    -- The rounding nudge is per-entry and non-sticky (like logged): it is not
-    -- inherited, so it is taken straight from the node with no current_* threading.
+    -- The rounding nudge is per-entry and non-sticky, taken straight from the node.
     nudge = node.nudge,
-    -- Per-entry, non-sticky logged state: a table keyed by level ("s"/"t"/"l"/"w"), each holding its
-    -- frozen committed minutes or `true` for a bare marker. `nil` when the entry logs no level. Only
-    -- the summary level (`s`) drives the summary today; the tag/location/workday levels are carried
-    -- for Phase 2. Copied so the semantic entry never aliases the parse node's table.
+    -- Per-entry, non-sticky logged state keyed by level, each holding committed minutes or `true`.
+    -- Only the summary level (`s`) drives the summary today. Copied so it never aliases the node's table.
     logged = copy_logged(node.logged),
     -- A mapping alias (` => label`): per-entry, non-sticky, taken straight from the node.
     alias = node.alias,
@@ -153,9 +140,7 @@ local function analyze_entry_items(block, diagnostics)
     if node.kind == syntax.NODE_KIND.ENTRY then
       local entry = semantic_entry_from_node(node, current_tag, current_location, current_offset)
 
-      -- A blank entry (a bare timestamp) is uncounted and may carry no reporting metadata; flag any that
-      -- slipped in. A utc offset is allowed -- it records a clock change during the gap, not a report
-      -- attribute.
+      -- A blank entry may carry no reporting metadata (a utc offset is allowed); flag any that slipped in.
       if
         node.text == ""
         and (
@@ -206,9 +191,8 @@ local function analyze_entry_items(block, diagnostics)
     end
   end
 
-  -- Ordering is checked in effective UTC time, so a westward clock move (whose
-  -- local times appear to go backwards) is not flagged while a genuine real-time
-  -- reversal still is. Without offsets this is exactly the raw-minute comparison.
+  -- Ordering is checked in effective UTC time, so a westward clock move is not flagged while a
+  -- genuine real-time reversal still is.
   for i = 2, #entry_items do
     if effective_minutes(entry_items[i]) < effective_minutes(entry_items[i - 1]) then
       push_diagnostic(diagnostics, {
@@ -222,8 +206,7 @@ local function analyze_entry_items(block, diagnostics)
     end
   end
 
-  -- 24:00 is only meaningful as the day's closing boundary, so it must be the
-  -- final timestamped entry; anything after it would start work past midnight.
+  -- 24:00 is only the day's closing boundary, so it must be the final entry.
   for i = 1, #entry_items - 1 do
     if entry_items[i].minutes == syntax.END_OF_DAY_MINUTES then
       push_diagnostic(diagnostics, {
@@ -236,12 +219,9 @@ local function analyze_entry_items(block, diagnostics)
     end
   end
 
-  -- A log is either timezone-naive (no offsets anywhere) or timezone-aware (a baseline
-  -- every entry inherits) -- never a mix. A naive prefix followed by a utc±N token silently
-  -- reinterprets the transition interval (its effective length jumps by the new offset), so
-  -- introducing an offset after offset-free entries is refused until the log is made
-  -- all-or-nothing: a header offset, or none. Offsets are sticky with no clear token, so the
-  -- first non-nil offset after a nil one is the only transition to catch.
+  -- A log is either timezone-naive or timezone-aware, never a mix: an offset after offset-free
+  -- entries silently reinterprets the transition interval, so it is refused until the log is
+  -- all-or-nothing. The first non-nil offset after a nil one is the only transition to catch.
   for i = 2, #entry_items do
     if entry_items[i].offset ~= nil and entry_items[i - 1].offset == nil then
       push_diagnostic(diagnostics, {
@@ -266,10 +246,8 @@ local function is_header(node)
   return node.kind == syntax.NODE_KIND.LOG_HEADER or node.kind == syntax.NODE_KIND.BLOCK_HEADER
 end
 
--- Mark a single-valued header option `flag` as declared. On a repeat it emits the
--- duplicate diagnostic and returns false; on the first declaration it sets the flag
--- and returns true so the caller can validate and store the value. Only the
--- can't-forget-it duplicate check is shared; each option keeps its own validator.
+-- Mark a single-valued header option `flag` as declared: on a repeat emit the duplicate diagnostic
+-- and return false, else set the flag and return true. Only the duplicate check is shared.
 local function declare_once(result, diagnostics, flag, label, row)
   if result[flag] then
     push_diagnostic(diagnostics, {
@@ -329,10 +307,8 @@ local function interpret_log_header(header, diagnostics)
       if declare_once(result, diagnostics, "declared_quantize", "q", header.row) then
         local quantize_minutes = tonumber(token.value)
 
-        -- tonumber alone accepts inf, hex (0x10), scientific (1e2), floats (5.0)
-        -- and signs (+5); require a plain run of digits so only true positive
-        -- integers are taken, capped at a day so an absurd run of digits cannot
-        -- overflow into a float bucket.
+        -- tonumber accepts inf, hex, scientific, floats, and signs; require a plain digit run and
+        -- cap at a day so only true positive integers are taken.
         if
           token.value:match("^%d+$") == nil
           or quantize_minutes <= 0

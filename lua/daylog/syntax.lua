@@ -1,8 +1,7 @@
 local M = {}
 
--- Logging is multi-level: an entry can be marked logged at the summary (`!S`), tag (`!T`), location
--- (`!L`), or workday (`!W`) level, each independently frozen. The letters are the first letter of each
--- summary section, in the canonical emission order.
+-- Logging levels S/T/L/W (summary/tag/location/workday), each independently frozen; the letters
+-- are the first letter of each summary section, in canonical emission order.
 M.LOGGED_LEVELS = { "s", "t", "l", "w" }
 local LOGGED_LETTER = { s = "S", t = "T", l = "L", w = "W" }
 local LOGGED_LEVEL_OF = { S = "s", T = "t", L = "l", W = "w" }
@@ -21,8 +20,7 @@ M.DURATION_FORMATS = { [M.DURATION_DECIMAL] = true, [M.DURATION_HM] = true }
 M.DEFAULT_QUANTIZE_MINUTES = 15
 M.END_OF_DAY_MINUTES = 24 * 60
 
--- Syntax node kinds produced by document.lua and consumed by analyze.lua and
--- entry.lua. Shared so producer and consumers cannot drift on a bare string.
+-- Syntax node kinds, shared so producer (document.lua) and consumers cannot drift on a bare string.
 M.NODE_KIND = {
   LOG_HEADER = "log_header",
   BLOCK_HEADER = "block_header",
@@ -35,17 +33,14 @@ M.NODE_KIND = {
   ANALYSIS = "analysis",
 }
 
--- Block kinds produced by analyze.lua. A log block carries timestamped entries; a
--- generic block is a generated summary/report section header -- the only non-log
--- headers there are, since an unrecognized `--- x ---` is demoted to a note line
--- (document.lua), never a block.
+-- Block kinds: a log block carries entries, a generic block is a generated summary/report header
+-- (an unrecognized `--- x ---` is demoted to a note line, never a block).
 M.BLOCK_KIND = {
   LOG = "log_block",
   GENERIC = "generic_block",
 }
 
--- Metadata token kinds produced by document.lua's token parsers and consumed
--- when interpreting entry and header metadata.
+-- Metadata token kinds from document.lua's token parsers.
 M.TOKEN_KIND = {
   TAG = "tag",
   LOCATION = "location",
@@ -54,8 +49,7 @@ M.TOKEN_KIND = {
   NUDGE = "nudge",
 }
 
--- Generated section-header words fed to section_header(). Shared so render.lua
--- (which produces the headers) and usecases that match them (log_current) agree.
+-- Section-header words fed to section_header(); shared so render.lua and the matching usecases agree.
 M.SECTION = {
   SUMMARY = "summary",
   TAGS = "tags",
@@ -64,8 +58,7 @@ M.SECTION = {
   TOTALS = "totals",
 }
 
--- Diagnostic codes shared by the analyzer (producer and classifier) and the
--- diagnostics module (message formatting), so the two never drift apart.
+-- Diagnostic codes shared by the analyzer and the diagnostics module, so the two never drift apart.
 M.DIAGNOSTIC = {
   INVALID_ENTRY = "invalid_entry",
   BLANK_ENTRY_METADATA = "blank_entry_metadata",
@@ -78,17 +71,15 @@ M.DIAGNOSTIC = {
   INVALID_LOG_HEADER_TOKEN = "invalid_log_header_token",
 }
 
--- Diagnostic categories. Structural diagnostics describe a malformed document
--- shape (bad first header, bad header options); block diagnostics describe a
--- problem within one log block's entries that stops it being acted on or summarized.
+-- Diagnostic categories: structural = a malformed document shape; block = a problem within one
+-- log's entries that stops it being acted on or summarized.
 M.DIAGNOSTIC_CATEGORY = {
   STRUCTURAL = "structural",
   BLOCK = "block",
 }
 
--- Single source of truth mapping each code to its category, colocated with the
--- code definitions so a new code's category cannot be forgotten. analyze.lua
--- stamps this onto every diagnostic at production time.
+-- Single source of truth mapping each code to its category, colocated so a new code's category
+-- cannot be forgotten; analyze.lua stamps it onto every diagnostic at production time.
 M.DIAGNOSTIC_CATEGORY_BY_CODE = {
   [M.DIAGNOSTIC.INVALID_ENTRY] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.BLANK_ENTRY_METADATA] = M.DIAGNOSTIC_CATEGORY.BLOCK,
@@ -105,8 +96,8 @@ function M.section_header(section)
   return "--- " .. section .. " ---"
 end
 
--- The summary banner echoes the parameters it was generated with (read-only
--- provenance; the log header stays the source of truth).
+-- The summary banner echoes the parameters it was generated with (read-only provenance; the log
+-- header stays the source of truth).
 function M.summary_header(quantize_minutes, duration_format)
   return string.format(
     "--- summary q=%d d=%s ---",
@@ -115,11 +106,9 @@ function M.summary_header(quantize_minutes, duration_format)
   )
 end
 
--- The section words that head a generated summary section. Shared so the
--- highlighter and the summary-region locator recognize the same headers.
--- `logged` is no longer generated (each section carries its own logged split), but it stays
--- recognized so refresh reclaims and removes a stale `--- logged ---` section left in a file written
--- before that change.
+-- The section words that head a generated summary section, shared so the highlighter and the
+-- summary-region locator agree. `logged` isn't emitted but stays recognized so refresh reclaims
+-- and removes a stale `--- logged ---` section.
 M.SUMMARY_SECTION_WORDS = {
   [M.SECTION.SUMMARY] = true,
   [M.SECTION.TAGS] = true,
@@ -128,14 +117,12 @@ M.SUMMARY_SECTION_WORDS = {
   [M.SECTION.TOTALS] = true,
 }
 
--- The scope prefixes render.lua puts before a section word in report headers
--- (`--- day summary <label> ---`, `--- range totals <label> ---`; `week` is legacy).
+-- The scope prefixes render.lua puts before a section word in report headers (`day`/`range`;
+-- `week` is legacy).
 local REPORT_PREFIXES = { day = true, week = true, range = true }
 
--- Whether a line is a generated summary-section header, in-file (`--- summary q=.. d=.. ---`,
--- `--- tags ---`) or in a report (`--- day summary <label> ---`). A section word in second
--- position counts only after a known report prefix, so prose like `--- meeting summary ---`
--- is not a structural boundary and can never fragment a log.
+-- Whether a line is a generated summary-section header; a section word in second position counts
+-- only after a known report prefix, so prose like `--- meeting summary ---` never fragments a log.
 function M.is_summary_section_header(raw)
   local content = raw:match("^%-%-%- (.+) %-%-%-$")
   if not content then
@@ -149,12 +136,9 @@ function M.is_summary_section_header(raw)
   return REPORT_PREFIXES[first] == true and M.SUMMARY_SECTION_WORDS[second] == true
 end
 
--- Whether a line is one of the bare *in-file* summary-section headers a log's
--- own summary is built from: the `--- summary q=N d=fmt ---` banner, or a bare
--- `--- tags ---` / `--- locations ---` / `--- logged ---` / `--- totals ---`.
--- Stricter than is_summary_section_header on purpose: a labeled report header
--- (`--- day summary <date> ---`, legacy `--- summary exact ---`) is NOT a log's
--- in-file summary, so the summary-region locator must not anchor on one.
+-- Whether a line is a bare *in-file* summary-section header (the `--- summary q=N d=fmt ---` banner
+-- or a bare `--- tags ---`/etc) -- stricter than is_summary_section_header on purpose, so the
+-- summary-region locator never anchors on a labeled report header.
 function M.is_infile_summary_header(raw)
   if raw:match("^%-%-%- summary q=%d+ d=%a+ %-%-%-$") then
     return true
@@ -166,31 +150,21 @@ function M.is_infile_summary_header(raw)
     and M.SUMMARY_SECTION_WORDS[content] == true
 end
 
--- Whether a line has the shape of a generated summary duration row -- a duration
--- token followed by a `(±Nm)` rounding-error marker (`3.00h (+0m) workday`,
--- `9:54 (-13m) design2 !S`). The shape backstop used when no banner survives at
--- all: the surviving generated rows are recognized by this so their span can be
--- located and blasted. The marker's sign is required -- render always emits one via
--- `%+d`, so an unsigned `(Nm)` in a hand-written note is never mistaken for a row.
+-- Whether a line has the shape of a generated summary duration row (a duration token then a
+-- `(±Nm)` marker) -- the shape backstop when no banner survives. The marker's sign is required
+-- (render emits `%+d`), so an unsigned `(Nm)` in a hand-written note is never mistaken for a row.
 function M.is_summary_row(raw)
   return raw:match("^%S+ %([%+%-]%d+m%)") ~= nil
 end
 
--- UTC-offset markers: a third sticky dimension alongside #tag / @location.
---
--- A keyword token `utc±H[:MM]` records the absolute UTC offset of a stretch of
--- entries -- `utc+2` (east of UTC), `utc-4` (west), `utc+5:30`, `utc+0` (UTC). The
--- sign is required, so the bare word "utc" in activity text is never captured and a
--- malformed `utc-x` harmlessly stays plain text (fail-safe). The value is signed
--- minutes; entries reconcile durations and ordering by effective UTC time
--- (`local_minutes - offset_minutes`) while display stays the written local clock.
+-- UTC-offset markers: a third sticky dimension alongside #tag/@location. The `utc±H[:MM]` token is
+-- signed minutes (sign required, so bare `utc` in activity text is never captured); entries
+-- reconcile durations and ordering by effective UTC (`local_minutes - offset_minutes`) while
+-- display stays the written local clock.
 
--- Parse the signed body of an offset ("+2", "-4", "+5:30", "+0") into signed
--- minutes, or nil when it is not a well-formed offset. Shared by parse_utc_offset
--- (which strips the `utc` keyword first) and config.lua (which validates a
--- `defaults.utc` string, which has no keyword). The leading sign is mandatory;
--- hours are capped at 14 and minutes at 59, so every real-world offset round-trips
--- and any other token fails to parse rather than being silently misread.
+-- Parse the signed body of an offset (`+2`, `-4`, `+5:30`, `+0`) into signed minutes, or nil.
+-- Shared by parse_utc_offset and config.lua; the leading sign is mandatory and hours are capped
+-- at 14 / minutes at 59, so any other token fails to parse rather than being silently misread.
 function M.parse_offset_value(value)
   if type(value) ~= "string" then
     return nil
@@ -245,12 +219,10 @@ function M.utc_offset_token(minutes)
   return string.format("utc%s%d:%02d", sign, hours, mins)
 end
 
--- Manual rounding-balance markers: a non-sticky, per-entry trailing token
--- `round±N` that forces this entry's quantization row to round N q-steps beyond
--- the largest-remainder baseline (`round+1` = one bucket up, `round-1` = one down).
--- The sign is required, so a bare `round` in activity text is never captured and a
--- malformed `round+x` harmlessly stays plain text. Used to balance residuals so an
--- aggregate (a day, hence a week) lands on a clean total; see usecases/balance_summary.
+-- Manual rounding-balance markers: a non-sticky, per-entry `round±N` forcing this entry's
+-- quantization row N q-steps beyond the largest-remainder baseline (sign required, so a bare
+-- `round` in activity text is never captured). Balances residuals so an aggregate lands on a clean
+-- total; see usecases/balance_summary.
 
 -- Parse a `round±N` token into a signed integer of q-steps, or nil when it is not one.
 function M.parse_round_nudge(token)
@@ -267,24 +239,20 @@ function M.parse_round_nudge(token)
   return n
 end
 
--- Render a signed q-step count back into the canonical token: 1 -> "round+1",
--- -2 -> "round-2". A negative number carries its own "-".
+-- Render a signed q-step count back into the canonical token: 1 -> "round+1", -2 -> "round-2".
 function M.round_nudge_token(n)
   return "round" .. (n < 0 and "" or "+") .. n
 end
 
--- A logged marker optionally carries a frozen committed value in minutes (`!S60`): the row is held at
--- that exact duration and excluded from the largest-remainder pool, so an external commitment never
--- moves when later entries are appended. A bare marker (`!S`) is "logged but unfrozen"; only :Daylog
--- log writes the number. The minutes ride on the marker itself rather than a separate token, so
--- `round±N` remains the only free-standing rounding knob.
+-- A logged marker optionally carries a frozen committed value in minutes (`!S60`): the row is held
+-- at that exact duration and excluded from the largest-remainder pool, so an external commitment
+-- never moves as later entries are appended. A bare marker (`!S`) is logged-but-unfrozen; only
+-- :Daylog log writes the number.
 
--- Parse a compact logged marker: `!` then one or more level+value pairs, each a level letter
--- (`S`/`T`/`L`/`W`) and an optional frozen minute count. So `!S225T525W525` and the separated
--- `!S225 !T525 !W525` (one pair per token) -- and any mix -- both parse. Returns an ORDERED list of
--- { level, minutes } (minutes nil for a bare marker), keeping repeats so the caller can reject a
--- duplicated level, or nil when the token is not a logged marker (a stray non-level letter, or a value
--- with no preceding level).
+-- Parse a compact logged marker (`!` then level+value pairs, e.g. `!S225T525W525`; the separated
+-- `!S225 !T525 !W525` also parses). Returns an ORDERED list of { level, minutes } (minutes nil for
+-- a bare marker), keeping repeats so the caller can reject a duplicated level, or nil when the token
+-- is not a logged marker.
 function M.parse_logged_token(token)
   local body = token:match("^!([A-Z%d]+)$")
   if not body then
@@ -300,8 +268,8 @@ function M.parse_logged_token(token)
     end
     pos = pos + 1
     local digits = body:match("^%d*", pos)
-    -- A pathological digit run would overflow to `inf` and poison quantization. A real committed value
-    -- is minutes-in-a-day; cap the length well above that and treat anything longer as not a marker.
+    -- A pathological digit run would overflow to `inf` and poison quantization; cap the length and
+    -- treat anything longer as not a marker.
     if #digits > 9 then
       return nil
     end
@@ -315,10 +283,8 @@ function M.parse_logged_token(token)
   return pairs_out
 end
 
--- Render an entry's `logged` table ({ level -> minutes | true }) as one compact token: `!` then each
--- present level's letter and frozen value in canonical S/T/L/W order (a bare marker contributes just its
--- letter). Returns nil when nothing is logged. Parsing accepts the separated form too, so hand-written
--- `!S60 !T120` round-trips to the compact `!S60T120`.
+-- Render an entry's `logged` table as one compact token (`!` + each present level's letter and
+-- frozen value in canonical S/T/L/W order), or nil when nothing is logged.
 function M.format_logged(logged)
   if not logged then
     return nil

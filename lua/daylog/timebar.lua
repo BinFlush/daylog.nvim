@@ -1,20 +1,15 @@
 -- Time bar layout (PURE).
---
--- Turns the active log's intervals into a horizontal, time-proportional bar: each interval is a
--- segment whose cell width is its share of the real recorded duration, and whose colour is its
--- activity (resolved label). Colours are assigned by order of first appearance (colors.lua, shared
--- with the margin indicator and summary), and each bar carries its own legend of those activities. The
--- shell (timebar_ui.lua) maps the colour index onto a palette highlight group, draws the segments, and
--- centres each bar's legend alongside it.
+-- Turns the active log's intervals into a time-proportional bar: each interval is a segment whose cell
+-- width is its share of the real recorded duration and whose colour is its resolved-label activity
+-- (assigned by first appearance, colors.lua). The shell (timebar_ui.lua) renders it.
 
 local colors = require("daylog.colors")
 local summary = require("daylog.summary")
 
 local M = {}
 
--- Distribute `width` cells across the intervals proportional to their real duration, with
--- largest-remainder rounding so the widths sum to exactly `width` (the leftover cells go to the
--- largest fractional remainders, earlier intervals first).
+-- Distribute `width` cells across intervals proportional to real duration, largest-remainder rounding
+-- so the widths sum to exactly `width` (leftovers to the largest remainders, earlier first).
 local function segment_widths(intervals, total, width)
   local floors = {}
   local remainder = {}
@@ -43,13 +38,12 @@ local function segment_widths(intervals, total, width)
   return floors
 end
 
--- A dead period -- the interval a blank entry starts -- is not time-proportional in the bar: it is a
--- single-cell marker that flags the gap without consuming it. GAP_WIDTH cells per contiguous run.
+-- A dead period (the interval a blank entry starts) is a single-cell marker, not time-proportional:
+-- GAP_WIDTH cells per contiguous run.
 local GAP_WIDTH = 1
 
--- The 1-based bar column the clock minute `minutes` falls in, walking the (time-contiguous) segments:
--- each segment owns a run of cells and is linear within its own [start, stop). The inverse of
--- time_at_column; used to place the "now" marker across a bar whose axis is piecewise (gaps are thin).
+-- The 1-based bar column clock minute `minutes` falls in; inverse of time_at_column over the piecewise
+-- axis (each segment linear within its own [start, stop)).
 local function column_at_time(segments, minutes)
   local left = 0
   for _, seg in ipairs(segments) do
@@ -63,13 +57,10 @@ local function column_at_time(segments, minutes)
   return math.max(1, left)
 end
 
--- Build the bar layout for `entries`' active intervals over `width` cells, or nil when there is
--- nothing to show (no intervals, a zero/negative span, or an invalid out-of-order log). Returns
--- { segments = { { width, color_index, label, start, stop } }, labels = <placements>,
--- raw_segments = <same shape, or nil>, raw_labels = <same shape, or nil> }. Each segment carries its
--- [start, stop) clock span; zero-width counted segments are dropped, but a blank entry's dead period is
--- kept as a thin `gap` segment. When the log is mapped (some entry's raw description differs from its
--- resolved label) `raw_segments`/`raw_labels` carry the "before mapping" bar coloured by raw description.
+-- Build the bar layout for `entries`' active intervals over `width` cells, or nil when nothing to show
+-- (no intervals, zero/negative span, out-of-order log). Returns { segments, labels, raw_segments,
+-- raw_labels }; each segment carries its [start, stop) span, zero-width counted segments dropped but a
+-- blank's dead period kept as a thin `gap`. When mapped, `raw_*` carry the "before mapping" bar.
 function M.layout(entries, width, now_minutes)
   if type(width) ~= "number" or width < 1 then
     return nil
@@ -93,9 +84,8 @@ function M.layout(entries, width, now_minutes)
 
   local index, order = colors.indices(intervals)
 
-  -- The raw description (the `=>` left-hand side) of the entry starting each interval. `iv.text` is
-  -- the resolved label (alias or text); when they differ for any interval the log carries a mapping,
-  -- so a "before mapping" bar is worth drawing alongside the resolved one.
+  -- The raw description of the entry starting each interval; when it differs from `iv.text` (the
+  -- resolved label) the log carries a mapping, so a "before mapping" bar is worth drawing.
   local by_row = {}
   for _, e in ipairs(entries) do
     by_row[e.row] = e
@@ -112,9 +102,8 @@ function M.layout(entries, width, now_minutes)
     end
   end
 
-  -- One shared colour map, so both bars and the single legend agree: resolved labels first (leaving the
-  -- resolved bar's colours exactly as before), then any raw sides that differ, appended in appearance
-  -- order. An unmapped interval keeps its one index in both bars.
+  -- One shared colour map so both bars and the legend agree: resolved labels first, then any differing
+  -- raw sides appended in appearance order.
   if mapped then
     for _, iv in ipairs(intervals) do
       local raw = raw_of(iv)
@@ -125,9 +114,8 @@ function M.layout(entries, width, now_minutes)
     end
   end
 
-  -- Walk the entries in time order into slots: each counted interval is one slot; a run of consecutive
-  -- blank entries collapses to one `gap` slot spanning to the next timestamp. Counted intervals are
-  -- taken from `intervals` in order (which skips blanks), so the counter tracks them one-for-one.
+  -- Walk entries in time order into slots: each counted interval one slot, a run of blanks one `gap`
+  -- slot to the next timestamp. `intervals` skips blanks, so `ci` tracks counted slots one-for-one.
   local slots = {}
   local ci, i = 1, 1
   while i <= #entries - 1 do
@@ -144,8 +132,7 @@ function M.layout(entries, width, now_minutes)
     end
   end
 
-  -- Reserve GAP_WIDTH cells per gap and spread the rest across the counted intervals proportionally.
-  -- A bar too narrow to hold the gaps plus one counted cell drops the markers (the counted bar wins).
+  -- Reserve GAP_WIDTH per gap, spread the rest across counted intervals; too narrow drops the markers.
   local gap_count = 0
   for _, slot in ipairs(slots) do
     if slot.gap then
@@ -156,9 +143,8 @@ function M.layout(entries, width, now_minutes)
   local widths =
     segment_widths(intervals, total, show_gaps and width - gap_count * GAP_WIDTH or width)
 
-  -- Emit segments in time order. A counted segment carries its colour/label and its [start, stop) so
-  -- the piecewise now-marker and hover can map columns to clock time; a gap segment is a thin marker
-  -- (no colour/label) over its own dead span. Zero-width counted segments are dropped; gaps are not.
+  -- Emit segments in time order: a counted segment carries colour/label and [start, stop); a gap is a
+  -- thin colourless marker over its dead span. Zero-width counted segments are dropped; gaps are not.
   local segments = {}
   local raw_segments = mapped and {} or nil
   local ii = 0
@@ -196,8 +182,7 @@ function M.layout(entries, width, now_minutes)
     end
   end
 
-  -- Each bar carries its own labels, placed over their widest segment (`labels`, and `raw_labels` for
-  -- the raw "before" bar when mapped).
+  -- Each bar's labels are placed over their widest segment.
   local result = {
     segments = segments,
     labels = M.label_placements(segments, width),
@@ -205,10 +190,8 @@ function M.layout(entries, width, now_minutes)
     raw_labels = raw_segments and M.label_placements(raw_segments, width) or nil,
   }
 
-  -- The "now" marker column: only when the current time falls inside a displayed segment's
-  -- [start, stop) -- a dropped gap or zero-width segment is a hole in the bar's piecewise axis,
-  -- where a marker would misleadingly sit on the next segment's first cell. Purely a position cue;
-  -- it changes no interval and never the summary.
+  -- The "now" marker column, only when now falls inside a displayed segment's [start, stop): a dropped
+  -- or zero-width segment is a hole in the piecewise axis where a marker would sit on the wrong cell.
   if now_minutes then
     for _, seg in ipairs(segments) do
       if now_minutes >= seg.start and now_minutes < seg.stop then
@@ -221,10 +204,8 @@ function M.layout(entries, width, now_minutes)
   return result
 end
 
--- The clock minutes at a 1-based bar column, the inverse of column_at_time: the bar's x-axis is
--- piecewise linear (a gap is a thin fixed cell, not time-proportional), so find the segment `col`
--- lands in and interpolate within its own [start, stop) run. Past the last segment clamps to its
--- stop. Pure; reads the layout's segments, which carry their time span.
+-- The clock minutes at a 1-based bar column, inverse of column_at_time: interpolate within the segment
+-- `col` lands in (piecewise axis); past the last segment clamps to its stop. PURE.
 function M.time_at_column(segments, col)
   local left = 0
   for _, seg in ipairs(segments) do
@@ -239,8 +220,7 @@ function M.time_at_column(segments, col)
   return last and last.stop or 0
 end
 
--- The activity label of the segment covering 1-based column `col` (segment widths sum to the bar
--- width), or nil when `col` falls past the last segment. Pure; reads `layout.segments`.
+-- The activity label of the segment covering 1-based column `col`, or nil past the last segment. PURE.
 function M.segment_label_at(segments, col)
   local edge = 0
   for _, seg in ipairs(segments) do
@@ -252,8 +232,8 @@ function M.segment_label_at(segments, col)
   return nil
 end
 
--- Split a string into its UTF-8 characters, so abbreviation never cuts a multibyte char. A byte below
--- 0x80 (ASCII) or at/above 0xC0 (a lead byte) starts a character; 0x80..0xBF continues the current one.
+-- Split a string into UTF-8 characters so abbreviation never cuts a multibyte char (a byte <0x80 or
+-- >=0xC0 starts a character; 0x80..0xBF continues it).
 local function utf8_chars(s)
   local chars = {}
   for i = 1, #s do
@@ -283,9 +263,8 @@ local WIDE_RANGES = {
   { 0x20000, 0x2FFFD },
 }
 
--- The display width in cells of one UTF-8 character (as split by utf8_chars): decode its codepoint
--- and range-check it. Mirrors the shell's strdisplaywidth so label budgets are cell-accurate; kept
--- pure (no vim API).
+-- The display width in cells of one UTF-8 character; mirrors strdisplaywidth so label budgets are
+-- cell-accurate, kept pure.
 local function char_cells(ch)
   local b1 = string.byte(ch, 1)
   local cp
@@ -334,18 +313,15 @@ local LEGEND_OVERHEAD = 5 -- per legend item besides the label: swatch (2) + a l
 local LEGEND_FLOOR = 3 -- never shave a label below this many characters (or its length, if shorter)
 local LEGEND_MARKER = "…" -- appended to a shortened label; one display cell
 
--- Fit the legend `items` ({ label, color_index } in appearance order) into `width` cells: abbreviate
--- the longest labels to a still-distinct prefix (marked with "…") before dropping any, and drop from
--- the tail only once even the floored minimums no longer fit. Returns { { text, color_index } } with
--- the text already abbreviated. Pure: the shell renders it and guards the true display width.
+-- Fit legend `items` (in appearance order) into `width` cells: abbreviate the longest labels to a
+-- still-distinct "…"-marked prefix before dropping any, then drop from the tail. PURE.
 function M.fit_legend(items, width)
   local n = #items
   if n == 0 then
     return {}
   end
 
-  -- Per label: its characters, their count, and prefix cell sums (cells[i][a] is the display width
-  -- of the first `a` characters), so every budget below is in cells, matching what the shell draws.
+  -- Per label: characters, count, and prefix cell sums (cells[i][a] = width of first `a` chars).
   local chars, len, cells = {}, {}, {}
   for i = 1, n do
     chars[i] = utf8_chars(items[i].label)
@@ -357,8 +333,7 @@ function M.fit_legend(items, width)
     cells[i] = sums
   end
 
-  -- 1) the shortest prefix that keeps each label distinct from every other, floored for readability
-  --    and capped at its own length (so a label that is a prefix of another simply stays full).
+  -- 1) shortest prefix keeping each label distinct, floored for readability, capped at its own length.
   local min_len = {}
   for i = 1, n do
     local distinct = 1
@@ -384,8 +359,7 @@ function M.fit_legend(items, width)
     keep = i
   end
 
-  -- A single leading label too wide even at its minimum: still show it, hard-truncated to the width
-  -- (the shell drops it if even that overflows).
+  -- A single leading label too wide even at its minimum: hard-truncate it to the width.
   if keep == 0 then
     local cap = width - LEGEND_OVERHEAD - 1
     local a = 1
@@ -444,16 +418,14 @@ function M.fit_legend(items, width)
   return out
 end
 
--- Place each distinct label once, centred over its widest segment, resolving overlaps optimally. Returns
--- { { text, color_index, col } } sorted by `col` (1-based left cell of the swatch). This is 1-D label
--- placement: sort by target centre (crossing never helps), then minimise total squared displacement
--- subject to non-overlap -- exactly isotonic regression, solved by Pool-Adjacent-Violators (PAVA). A
--- crowded cluster pools into one block centred on its targets' centroid, members abutting. `fit_legend`
--- first abbreviates and drops the least-present (smallest total footprint) so the survivors fit `width`,
--- guaranteeing feasibility. All arithmetic is integer half-cells (×2), so it is exact and deterministic.
+-- Place each distinct label once, centred over its widest segment, overlaps resolved optimally. This is
+-- 1-D placement: minimise total squared displacement from the target centres subject to non-overlap =
+-- isotonic regression, solved by Pool-Adjacent-Violators (PAVA); fit_legend first guarantees the
+-- survivors fit `width`. All arithmetic is integer half-cells (×2), exact and deterministic. See
+-- docs/architecture.md (Time bar). Returns { { text, color_index, col } } sorted by `col`.
 function M.label_placements(segments, width)
-  -- Distinct labels: the centre (half-cells) of the WIDEST occurrence, and the total footprint (for
-  -- eviction priority), keyed by colour index. `appear` is the first-appearance tiebreak.
+  -- Distinct labels keyed by colour index: the centre (half-cells) of the WIDEST occurrence, total
+  -- footprint (eviction priority), and `appear` first-appearance tiebreak.
   local info, order, left = {}, {}, 0
   for _, seg in ipairs(segments) do
     if seg.label then
@@ -475,8 +447,8 @@ function M.label_placements(segments, width)
     return {}
   end
 
-  -- Abbreviate + drop the least-present: feed fit_legend in total-footprint order (appearance tiebreak),
-  -- so it keeps the most-present prefix and evicts the tail.
+  -- Feed fit_legend in total-footprint order (appearance tiebreak) so it keeps the most-present, evicts
+  -- the tail.
   local by_presence = {}
   for _, ci in ipairs(order) do
     local rec = info[ci]
@@ -515,8 +487,7 @@ function M.label_placements(segments, width)
     sum_w = sum_w + it.w
   end
 
-  -- keep==0 corner: a single label wider than the whole bar (fit_legend guarantees the rest fit). Place
-  -- at col 1; the shell drops it if it still overflows.
+  -- keep==0 corner: a single label wider than the whole bar; place at col 1, shell drops if it overflows.
   if sum_w > width then
     local out = {}
     for i = 1, n do
@@ -533,8 +504,8 @@ function M.label_placements(segments, width)
     prefix2 = prefix2 + 2 * items[i].w
   end
 
-  -- PAVA: pooled blocks (sum, count) over the integer targets; merge while the previous block's mean
-  -- strictly exceeds the current one (integer cross-multiply, no floats).
+  -- PAVA: pooled blocks (sum, count) over the targets; merge while the previous block's mean strictly
+  -- exceeds the current (integer cross-multiply).
   local blocks = {}
   for i = 1, n do
     local cur = { sum = t[i], count = 1 }
@@ -545,8 +516,8 @@ function M.label_placements(segments, width)
     blocks[#blocks + 1] = cur
   end
 
-  -- Snap to integer cells with a forward de-overlap pass. Each block value x = clamp(sum/count, 0, xmax)
-  -- (uniform box ⇒ clamp the block mean, monotonicity preserved); L_i = x + Σ_{j<i} 2·w_j, rounded.
+  -- Snap to integer cells, forward de-overlap. Block value x = clamp(sum/count, 0, xmax); L_i = x +
+  -- Σ_{j<i} 2·w_j, rounded.
   local suffix_w, s = {}, 0
   for i = n, 1, -1 do
     s = s + items[i].w

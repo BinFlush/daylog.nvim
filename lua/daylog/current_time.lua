@@ -10,11 +10,9 @@ local M = {}
 
 -- Current-time stamping + cross-day carryover (shell).
 --
--- The guard that refuses to stamp the current time into a day that is not today,
--- and the two ways it can instead take over: rolling a task across midnight into a
--- fresh today (carryover), and bringing a browsed day's activity into today
--- (cross-day repeat). Also the apply_insert_* stampers the verbs share. This is the
--- subtlest temporal logic in the shell, kept in one place.
+-- The guard that refuses to stamp the current time into a non-today day, and the two ways it can
+-- take over instead: rolling a task across midnight into a fresh today (carryover), and bringing
+-- a browsed day's activity into today (cross-day repeat). Plus the apply_insert_* stampers.
 
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
@@ -34,19 +32,15 @@ local function apply_insert_time(time, auto_offset)
   return run_buffer_usecase(insert_now.run, cursor_row(), time, auto_offset)
 end
 
--- Insert a fully-resolved "HH:MM <text>" entry at the cursor's log and enter
--- insert mode. Mirrors apply_insert_time but carries an activity string (the text
--- is built and sanitized by the source layer before it gets here).
+-- Insert a fully-resolved "HH:MM <text>" entry at the cursor's log (text already sanitized by the
+-- source layer). Mirrors apply_insert_time but carries an activity string.
 local function apply_insert_entry(time, entry_text, auto_offset)
   return run_buffer_usecase(insert_entry.run, cursor_row(), time, entry_text, auto_offset)
 end
 
--- Roll a task that ran across midnight into today: close the previous day at
--- 24:00, open/create today, continue the activity from 00:00, then apply the
--- originating command at the current time. Returns true when it took over the
--- request (carried over, declined, or intentionally refused), false when this is
--- not a carryover situation -- leaving guard_current_time to fall back to the
--- cross-day repeat (:Daylog repeat) or to hard-block (:Daylog insert).
+-- Roll a task that ran across midnight into today: close the previous day at 24:00, open/create
+-- today, continue from 00:00, then apply the originating command. Returns true when it took over
+-- the request, false when this is not a carryover situation (guard_current_time falls back).
 local function run_carryover(settings, command, now)
   local lines = buffer_lines()
 
@@ -66,11 +60,9 @@ local function run_carryover(settings, command, now)
     end
   end
 
-  -- A today that already holds content has no room for a fresh 00:00 carry-over.
-  -- For :Daylog repeat, decline (return false) so guard_current_time falls through
-  -- to the normal cross-day repeat, inserting the cursor activity into the existing
-  -- today -- exactly as repeating from any other day does. There is nothing to
-  -- carry for :Daylog insert, so it still points the user at :Daylog today.
+  -- A today that already holds content has no room for a fresh 00:00 carry-over. :Daylog repeat
+  -- declines (return false) so guard falls through to the normal cross-day repeat; :Daylog insert
+  -- points the user at :Daylog today.
   local today_path = daybook.path_for_date(settings, now)
   if daybook_path_has_content(today_path) then
     if command == "repeat" then
@@ -93,8 +85,7 @@ local function run_carryover(settings, command, now)
   end
   apply_result(close)
 
-  -- Refresh the previous day's summary so the carried-over 24:00 close is
-  -- reflected on disk regardless of the auto_summary mode (apply_result only
+  -- Refresh the previous day's summary so the 24:00 close reaches disk (apply_result only
   -- republishes diagnostics; it does not recompute summaries).
   apply_refresh(false)
 
@@ -130,9 +121,8 @@ local function run_carryover(settings, command, now)
   return true
 end
 
--- Bring the activity under the cursor into today's log at the current time,
--- used when :Daylog repeat runs on another day's file. The browsed day is left
--- untouched; today is opened (created if needed) and the window switches to it.
+-- Bring the cursor activity into today's log at the current time (:Daylog repeat on another day's
+-- file). The browsed day is left untouched; today is opened and the window switches to it.
 local function run_cross_day_repeat(settings, now)
   -- Capture the activity before open_daybook_file switches the buffer away.
   local activity, err = carryover.entry_at_row(buffer_lines(), cursor_row())
@@ -141,10 +131,8 @@ local function run_cross_day_repeat(settings, now)
     return
   end
 
-  -- Opening today switches the window away from the browsed day; refuse cleanly when
-  -- that buffer cannot be abandoned (unsaved with 'hidden' off), the same way the day
-  -- navigation does, instead of surfacing a raw E37 from the :edit below. The browsed
-  -- day is left untouched, so -- unlike carryover -- it is not saved on the user's behalf.
+  -- Refuse cleanly when the browsed buffer can't be abandoned (unsaved with 'hidden' off) rather
+  -- than surfacing a raw E37. Unlike carryover, the browsed day is not saved on the user's behalf.
   if not can_abandon_current_buffer() then
     warn("daylog: current buffer has unsaved changes")
     return
@@ -153,10 +141,8 @@ local function run_cross_day_repeat(settings, now)
   local clock = os.date("*t", now)
   local minutes = clock.hour * 60 + clock.min
 
-  -- If today already holds a log, confirm the activity can be inserted there before
-  -- switching to it, so a broken today is reported while staying on the browsed day
-  -- rather than yanking the window across and only then failing. A missing/empty (or
-  -- whitespace-only) today is initialized fresh by open_daybook_file and always seeds.
+  -- If today already holds a log, validate the insert before switching, so a broken today is
+  -- reported while staying on the browsed day. A missing/empty today is initialized fresh.
   local today_lines = daybook_lines(daybook.path_for_date(settings, now))
   if today_lines and not text.is_empty(today_lines) then
     local ok, validate_err = carryover.seed_edit(today_lines, activity, minutes)
@@ -170,10 +156,8 @@ local function run_cross_day_repeat(settings, now)
     return
   end
 
-  -- Repeating into an existing today whose header may sit at an older offset is the
-  -- one carryover path where the live zone can genuinely have drifted since the day
-  -- was opened, so it tracks it. (The past-midnight carryover seeds into a today
-  -- created moments earlier at the live offset, so it never needs a token.)
+  -- Repeating into an existing today is the one path where the live zone may have drifted since
+  -- the day was opened, so it passes live_offset() to track it.
   local seed, seed_err = carryover.seed_edit(buffer_lines(), activity, minutes, live_offset())
   if not seed then
     warn(seed_err)
@@ -184,10 +168,9 @@ local function run_cross_day_repeat(settings, now)
   apply_refresh(false)
 end
 
--- Refuse to stamp the current time into a day that is not today. When the
--- buffer is not a canonical daybook file the guard stays silent so the plugin
--- keeps working on arbitrary files. Returns true when the request was handled
--- (blocked, carried over, or repeated into today) and the caller should stop.
+-- Refuse to stamp the current time into a non-today day; stays silent on non-daybook files so the
+-- plugin still works on arbitrary files. Returns true when the request was handled and the caller
+-- should stop.
 local function guard_current_time(command)
   local settings = expanded_daybook_settings()
   if settings == nil then
@@ -211,8 +194,7 @@ local function guard_current_time(command)
     return true
   end
 
-  -- :Daylog repeat on any other day brings the cursor activity into today instead
-  -- of refusing; :Daylog insert still refuses (there is no activity to carry).
+  -- :Daylog repeat on any other day brings the cursor activity into today; :Daylog insert refuses.
   if command == "repeat" then
     run_cross_day_repeat(settings, now)
     return true

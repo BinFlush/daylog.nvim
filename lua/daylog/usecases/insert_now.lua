@@ -3,9 +3,8 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Build the edit script for inserting a fresh timestamped line into the
--- log containing the cursor. `auto_offset` (optional) is the live OS offset; when it
--- has drifted from the offset in effect (DST/travel), the entry records the new zone.
+-- Build the edit script inserting a fresh timestamped line into the cursor's log; a drift in
+-- `auto_offset` (live OS offset) records the new zone on the entry.
 
 function M.run(lines, row, time, auto_offset)
   local ctx, err = support.get_validated_at_row(lines, row)
@@ -26,12 +25,10 @@ function M.run(lines, row, time, auto_offset)
 
   local result
   if stamp ~= nil then
-    -- The zone drifted: record it so this entry's interval stays correct. The token
-    -- must trail the activity, which the user has not typed yet, so place it after a
-    -- two-space gutter and land the cursor in the gap (#time + 1) -- typing then yields
-    -- the canonical "HH:MM <text> utc±N". insert_entry_edit also compensates a follower
-    -- that was silently inheriting the old offset. `startinsert = "cursor"` keeps insert
-    -- mode AT the gap; a plain append would land the typed text after the utc token.
+    -- The zone drifted: record it so the interval stays correct. The utc token must trail the
+    -- not-yet-typed activity, so place it after a two-space gutter and land the cursor in the gap
+    -- (startinsert = "cursor" keeps insert mode AT the gap); insert_entry_edit also compensates a
+    -- follower inheriting the old offset.
     local inserted_line = time .. "  " .. syntax.utc_offset_token(stamp)
     result =
       support.insert_entry_edit(ctx.block, minutes, inserted_line, state.tag, state.location, stamp)

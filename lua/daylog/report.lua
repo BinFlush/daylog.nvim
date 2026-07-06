@@ -10,9 +10,8 @@ local M = {}
 
 -- Multi-day report scratch buffers (shell).
 --
--- Builds a report object for a week/days spec, renders it, opens it as a read-only
--- scratch buffer tagged with its spec, and refreshes open reports in place when a
--- dependent daybook buffer changes.
+-- Builds a report for a spec, opens it as a read-only scratch buffer tagged with its spec, and
+-- refreshes open reports in place when a dependent daybook buffer changes.
 
 local warn = buffer.warn
 local with_preserved_cursor = buffer.with_preserved_cursor
@@ -55,16 +54,12 @@ end
 
 local function open_report_buffer(lines, name)
   fill_scratch(lines, name)
-  -- Reports are scratch buffers (no daylog filetype, so no ftplugin), so apply
-  -- the parser-driven highlighter directly. The same recognizer handles the
-  -- labeled multi-day section headers and their duration rows.
+  -- Scratch buffers get no ftplugin, so apply the parser-driven highlighter directly.
   highlight_buffer(0)
 end
 
--- Build the report object for a spec, reading each day through daybook_lines so
--- open buffers (saved or not) are reflected. Returns the report (its days each
--- carrying a path) or nil and an error message. Shared by the line renderer and the
--- report rename, so both see the same period and days.
+-- Build the report object for a spec, reading each day through daybook_lines so open buffers
+-- (saved or not) are reflected. Returns the report, or nil and an error message.
 local function build_report_for_spec(spec)
   local settings = expanded_daybook_settings()
   if settings == nil then
@@ -89,16 +84,13 @@ local function build_report_lines(spec)
 end
 
 local function report_buffer_name(spec)
-  -- Reports name the buffer by the requested range, not the resolved header label
-  -- (which carries the found span and a count, neither suited to a filename).
+  -- Name by the requested range, not the resolved header label (unsuited to a filename).
   local prefix = spec.aggregate_only and "daylog-days-summary-" or "daylog-days-"
   return prefix .. spec.request_label .. ".day"
 end
 
--- Open a fresh scratch report for a spec and tag the buffer with that spec, so
--- the auto-summary autocmds can rebuild it in place when a dependent daybook
--- buffer changes. The date list is pinned at open time, so the report keeps
--- covering the same span for as long as it stays open.
+-- Open a fresh scratch report and tag the buffer with its spec so autocmds can rebuild it in
+-- place. The date list is pinned at open time, so the report keeps its span while open.
 local function open_report(spec)
   local lines, label_or_err = build_report_lines(spec)
   if not lines then
@@ -110,9 +102,8 @@ local function open_report(spec)
   vim.api.nvim_buf_set_var(0, "log_report", spec)
 end
 
--- Build the CSV/JSON export for a spec and open it in a read-only scratch buffer named
--- `daylog-export-<range>.<fmt>` with the matching filetype (so a csv/json plugin can highlight it).
--- Returns the rendered string, or nil on error (already warned). Export is a snapshot -- unlike a
+-- Build the CSV/JSON export for a spec and open it in a read-only scratch buffer with the matching
+-- filetype. Returns the rendered string, or nil on error (already warned). A snapshot -- unlike a
 -- report it is not tagged for auto-refresh.
 local function open_export(spec, format)
   local report, err = build_report_for_spec(spec)
@@ -151,11 +142,8 @@ local function resolve_range_bound(token, now, fallback)
   return ts
 end
 
--- Resolve a `:Daylog report` range request into a concrete, pinned list of dates. Each bound is a
--- named token or a `YYYY-MM-DD` literal; an omitted start resolves to the earliest logged day on
--- file and an omitted end to the latest (so an open end reaches as far as the data goes,
--- future-dated files included). An explicit reversed range is rejected, and a span with no logs
--- falls through to the "no daybook logs found" warning when the report is built.
+-- Resolve a `:Daylog report` range request into a pinned date list. An omitted start resolves to
+-- the earliest logged day, an omitted end to the latest; a reversed range is rejected.
 local function resolve_range_dates(request)
   local now = os.time()
 
@@ -187,10 +175,8 @@ local function resolve_report_dates(request)
   return resolve_range_dates(request)
 end
 
--- Open a multi-day report over `range`: a count ("7"), a "FROM..TO" token range
--- ("monday..today", "..today"), or a pre-parsed request table (`{ count = N }` / `{ from, to }`).
--- `aggregate_only` shows only the period total. The resolved date list is pinned in the spec so
--- the report keeps its span.
+-- Open a multi-day report over `range`: a count ("7"), a "FROM..TO" token range, or a pre-parsed
+-- request table (`{ count = N }` / `{ from, to }`). `aggregate_only` shows only the period total.
 function M.report(range, aggregate_only)
   local request = type(range) == "table" and range or daybook.parse_report_range(range or "")
   if not request then
@@ -204,8 +190,7 @@ function M.report(range, aggregate_only)
     return
   end
 
-  -- The buffer name keeps the requested range (a stable identity), while the report's
-  -- header label resolves to the span of days actually found.
+  -- Buffer name keeps the requested range (stable); the header label resolves to days found.
   local request_label = #dates > 0 and daybook.date_range_label(dates[1], dates[#dates]) or nil
 
   open_report({
@@ -246,9 +231,8 @@ function M.export(format, range)
   return open_export({ dates = dates, request_label = request_label }, format)
 end
 
--- The report spec stored on `buf` (the current buffer when nil), or nil when that buffer is
--- not a daylog report. open_report owns writing the var, so this owns the read; the shells ask
--- here instead of repeating the pcall + type-check against the "log_report" key.
+-- The report spec stored on `buf` (current when nil), or nil when it is not a daylog report.
+-- Centralizes the pcall + type-check against the "log_report" var.
 function M.spec_for(buf)
   local ok, spec = pcall(vim.api.nvim_buf_get_var, buf or 0, "log_report")
   if ok and type(spec) == "table" then
@@ -257,10 +241,8 @@ function M.spec_for(buf)
   return nil
 end
 
--- Rebuild every open report buffer from its stored spec, mirroring how the
--- in-file summaries refresh. A build failure (e.g. a dependent day is mid-edit
--- and invalid) leaves the last good report untouched rather than flicker, and
--- an unchanged report is left alone so the cursor never jumps needlessly.
+-- Rebuild every open report buffer from its stored spec. A build failure leaves the last good
+-- report untouched, and an unchanged report is left alone so the cursor never jumps.
 local function refresh_report_windows()
   local refreshed = {}
 

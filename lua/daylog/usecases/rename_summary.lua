@@ -8,24 +8,21 @@ local M = {}
 
 -- Rename a single entry's text, or a #tag / @location, propagating into the log.
 --
--- Rename edits the journal at the source -- one entry's description, or a metadata
--- token everywhere it is effective. It deliberately does NOT act on an activity summary
--- row: that row groups entries that resolve to one string by different means (a bare
--- entry's description, or a mapped entry's `=> alias`), so a bulk rename through it is
--- ambiguous and would overwrite the distinct descriptions a mapping deliberately keeps.
--- Relabel an activity for the report with :Daylog map (non-destructive); fix journal text
--- by renaming the entries. So a cursor resolves to:
+-- Rename edits the journal at the source. It deliberately does NOT act on an activity
+-- summary row: that row groups entries resolving to one string by different means (a bare
+-- description or a mapped `=> alias`), so a bulk rename through it is ambiguous and would
+-- overwrite the distinct descriptions a mapping keeps -- relabel for the report with
+-- :Daylog map instead. A cursor resolves to:
 --
 --   * an entry line -> that one entry's activity text;
 --   * a tag-total row -> that #tag everywhere it is effective;
 --   * a location-total row -> that @location everywhere it is effective;
 --   * an activity summary row -> refused (M.REFUSE_ACTIVITY_ROW).
 --
--- Tag/location renames are value substitutions: only the header token and the
--- explicit tokens that named the old value are rewritten. Sticky inheritance is
--- preserved automatically -- an entry that inherited the old value now inherits
--- the new one from the same (rewritten) source -- so unrelated lines are left
--- untouched. Only lines whose canonical rendering actually changes are edited.
+-- Tag/location renames are value substitutions: only the header token and the explicit
+-- tokens naming the old value are rewritten, and sticky inheritance is preserved (an entry
+-- that inherited the old value inherits the new from the same rewritten source). Only lines
+-- whose canonical rendering changes are edited.
 
 M.NOT_A_ROW = "daylog: put the cursor on an entry, or a tag or location row, to rename it"
 M.REFUSE_ACTIVITY_ROW = "daylog: rename an entry to fix its text, or :Daylog map to relabel "
@@ -42,10 +39,9 @@ M.REFUSE_LOGGED = "daylog: refusing to rename a logged entry; unlog it first"
 M.REFUSE_BLANK = "daylog: a blank entry is uncounted and cannot be renamed"
 
 -- Classify a summary layout row into a rename target { kind, current } -- a #tag or
--- @location total. An activity summary row (SUMMARY_ITEM) is refused: rename does not act
--- on the ambiguous activity grouping (see the module header); :Daylog map relabels it. This
--- is the single chokepoint for both the cursor (resolve_context) and report (report_cursor)
--- paths; the entry-line branch builds its target without classify, so it is not refused. PURE.
+-- @location total; an activity row (SUMMARY_ITEM) is refused (ambiguous grouping, see
+-- header). Single chokepoint for the cursor and report paths; the entry-line branch
+-- builds its target without classify, so it is not refused. PURE.
 function M.classify(layout_row)
   local kind = layout_row.kind
   local item = layout_row.item
@@ -67,13 +63,10 @@ function M.classify(layout_row)
   return nil, M.CANNOT_TOTALS
 end
 
--- The other same-kind values in a summary (an in-file recompute, or a report aggregate), in
--- display order, as merge targets for the rename picker: renaming to one of them folds the two
--- together (rename and merge are the same value substitution). Tags and locations offer the
--- other tag/location totals; an activity offers the other activity texts under the same tag (so
--- picking one actually merges -- the rename keeps the tag). The current value and the placeholder
--- buckets (nil tag/location) are excluded. Exported so the report-rename shell shares this
--- candidate logic instead of keeping a second copy.
+-- The other same-kind values in a summary, in display order, as merge targets for the
+-- rename picker: renaming to one folds the two together (rename and merge are the same
+-- substitution). An activity offers the other texts under the same tag (so the rename keeps
+-- the tag and actually merges); the current value and nil buckets are excluded.
 function M.merge_candidates(summarized, kind, current, current_tag)
   local seen = {}
   local candidates = {}
@@ -104,10 +97,8 @@ function M.merge_candidates(summarized, kind, current, current_tag)
   return candidates
 end
 
--- The shared description behind a set of source entries, or nil when they disagree. An
--- aliased row is labeled by its alias (` => label`), but rename edits the description, so
--- the prompt should default to that description rather than the alias. For a single entry
--- this is just that entry's text.
+-- The shared description behind a set of source entries, or nil when they disagree; rename
+-- edits the description, so the prompt defaults to it rather than an aliased row's label.
 local function source_description(block, source_entry_rows)
   local rows = {}
   for _, row in ipairs(source_entry_rows or {}) do
@@ -133,9 +124,8 @@ end
 -- scoped to just it. Returns { ctx, region, recomputed, item, target } or nil, err. `item`
 -- carries `source_entry_rows`; `target` is { kind, current, tag? }.
 local function resolve_context(lines, cursor_row)
-  -- A stale/ambiguous row or an invalid log surfaces as `err` (resolve_or_entry does not
-  -- reinterpret an in-summary cursor as an entry); a valid log the cursor is not on a summary
-  -- row of yields the entry under it (or nil) to rename in place.
+  -- A stale/ambiguous row or invalid log surfaces as `err`; a valid log the cursor is not
+  -- on a summary row of yields the entry under it (or nil) to rename in place.
   local result, resolve_err = summary_cursor.resolve_or_entry(lines, cursor_row)
   if not result then
     return nil, resolve_err or M.NOT_A_ROW
@@ -174,9 +164,8 @@ local function resolve_context(lines, cursor_row)
   return nil, M.NOT_A_ROW
 end
 
--- Resolve the cursor to a rename target for the shell to prompt with: { kind,
--- current, candidates }. `candidates` are the other same-kind values to merge into.
--- Unlike the raw summary_cursor.resolve, every failure carries a user-facing message.
+-- Resolve the cursor to a rename target for the shell to prompt with: { kind, current,
+-- candidates } (the same-kind values to merge into). Every failure carries a user-facing message.
 function M.resolve(lines, cursor_row)
   local context, err = resolve_context(lines, cursor_row)
   if not context then
@@ -185,8 +174,8 @@ function M.resolve(lines, cursor_row)
 
   local target = context.target
 
-  -- Prompt with the entries' own description (rename edits `a`, the description), not the
-  -- alias the row is labeled by; fall back to the label when the descriptions disagree.
+  -- Prompt with the entries' own description, not the alias; fall back to the label when
+  -- the descriptions disagree.
   if target.kind == "item" then
     local description = source_description(context.ctx.block, context.item.source_entry_rows)
     if description ~= nil then
@@ -205,10 +194,9 @@ local function valid_name(name)
   return type(name) == "string" and name:match("^[%w_%-]+$") ~= nil and name ~= "-"
 end
 
--- Walk the block's entries with the renamed sticky state, re-rendering the
--- affected entry lines whose canonical form changes, and build the renamed
--- semantic entries the rebuilt summary is computed from. `ops` carries the
--- per-kind rename functions and the affected-entry predicate.
+-- Walk the block's entries with the renamed sticky state, re-rendering affected entry lines
+-- whose canonical form changes, and build the renamed semantic entries the summary is
+-- recomputed from. `ops` carries the per-kind rename functions and affected predicate.
 local function build_source_edits(block, ops)
   local renamed_entrys = support.modified_entries(block, function(copy)
     copy.tag = ops.rename_tag(copy.tag)
@@ -216,14 +204,10 @@ local function build_source_edits(block, ops)
     copy.text = ops.text_for(copy.row, copy.text)
   end)
 
-  -- Re-emit each affected entry from its canonical field set (preserving its own
-  -- nudge / !L) with only the rename's transforms applied. The walk threads raw
-  -- sticky state and the rename is applied to each resolved value at format time:
-  -- rename(nil) = nil and the resolver yields prev/explicit/nil per field, so
-  -- renaming the result equals inheriting an already-renamed current. A rename
-  -- never touches the UTC offset; it is threaded raw so the re-emitted lines carry
-  -- the same utc±H tokens (emit-on-change) the originals did. An entry that only
-  -- inherited the renamed value renders identically (skip_unchanged drops it).
+  -- Re-emit each affected entry from its canonical fields (preserving its nudge / !L) with
+  -- the rename applied to each resolved value at format time, so renaming the result equals
+  -- inheriting an already-renamed current. The UTC offset is threaded raw (untouched); an
+  -- entry that only inherited the renamed value renders identically and skip_unchanged drops it.
   local edits = support.rewrite_entry_lines(block, function(item, resolved)
     if not ops.affected(item) then
       return nil
@@ -253,11 +237,9 @@ local function identity(value)
   return value
 end
 
--- Build the rename edit script for one log block: rewrite the affected source
--- entries (and the header token when it declared the renamed value), then rebuild
--- the one summary in place. `item` is the recomputed summary item the rename acts
--- on and `region` is its summary's location; `target.kind` selects the rename mode.
--- Shared by the cursor-driven M.run and the value-driven M.run_by_value.
+-- Build the rename edit script for one log block: rewrite the affected source entries (and
+-- the header token when it declared the renamed value), then rebuild the one summary in
+-- place. `item` is the recomputed summary item; `target.kind` selects the rename mode.
 local function build_rename(analysis, block, item, target, new_value)
   local ops = {
     rename_tag = identity,
@@ -277,18 +259,16 @@ local function build_rename(analysis, block, item, target, new_value)
       return nil, M.SAME_NAME
     end
 
-    -- Rename exactly the entries in source_entry_rows -- for an entry-line cursor that is the
-    -- one entry; a same-named sibling or the closing entry is never swept in.
+    -- Rename exactly the entries in source_entry_rows; a same-named sibling or the closing
+    -- entry is never swept in.
     local rows = {}
     for _, row in ipairs(item.source_entry_rows or {}) do
       rows[row] = true
     end
 
-    -- A summary-logged (`!S`) entry's committed value is tied to its current activity identity; renaming
-    -- its text would carry the commitment onto a new/foreign identity (where same-name markers fold by
-    -- max, never summed -- silent under-reporting). :Daylog map refuses a remap for the same reason;
-    -- rename must too. Unlog, rename, relog. Tag/location renames keep `!T`/`!L` coherent, so only the
-    -- item path is guarded.
+    -- Renaming a summary-logged (`!S`) entry's text carries its committed value onto a new
+    -- identity where same-name markers fold by max, not sum -- silent under-reporting. Unlog,
+    -- rename, relog. Tag/location renames keep `!T`/`!L` coherent, so only the item path is guarded.
     for _, entry_item in ipairs(block.entry_items) do
       if rows[entry_item.start_row] then
         -- A blank entry is uncounted and has no report identity; it is not renamable.
@@ -374,17 +354,15 @@ local function build_rename(analysis, block, item, target, new_value)
     end
   end
 
-  -- Rebuild the one summary from the renamed entries (a nil region is a renamed single entry
-  -- in a log with no summary yet -- a later refresh creates it, and only the source edit
-  -- applies). `edits` here is the source + header edits this rename makes.
+  -- Rebuild the one summary from the renamed entries (a nil region is a single entry in a log
+  -- with no summary yet -- a later refresh creates it). `edits` is the source + header edits.
   local summary_edit = support.summary_zone_edit(analysis, block, renamed_entrys, false)
 
   return { edits = support.entry_change_edits(summary_edit, edits) }
 end
 
--- Find the recomputed summary item a value-keyed target names, or nil when the
--- log has no such item. For an activity the tag scopes the match (the same text
--- under a different tag is a different item), mirroring how the summary groups rows.
+-- Find the recomputed summary item a value-keyed target names, or nil when absent. For an
+-- activity the tag scopes the match (same text under a different tag is a different item).
 local function find_target_item(recomputed, target)
   if target.kind == "tag" then
     for _, item in ipairs(recomputed.tag_totals or {}) do
@@ -399,8 +377,8 @@ local function find_target_item(recomputed, target)
       end
     end
   else
-    -- An activity is matched by text + tag. The cursor and report UIs refuse activity rows
-    -- in classify, so this branch serves run_by_value as a complete value-keyed primitive.
+    -- An activity is matched by text + tag; this branch serves run_by_value (the cursor and
+    -- report UIs refuse activity rows in classify).
     for _, item in ipairs(recomputed.summary_items or {}) do
       if (item.text or "") == target.current and item.tag == target.tag then
         return item
@@ -426,11 +404,9 @@ function M.run(lines, cursor_row, new_value)
   )
 end
 
--- Rename by value rather than by cursor: act on the active log's summary item
--- identified by `target` ({ kind, current, tag? }). Returns the edit script; nil
--- with no error when the value is not present in this log (the day is simply
--- unaffected, so the multi-day rename skips it); or nil + err when the log is
--- invalid. This is what lets one rename fan out across every day of a report.
+-- Rename by value rather than by cursor: act on the active log's summary item named by
+-- `target` ({ kind, current, tag? }). Returns the edit script; nil, nil when the value is
+-- absent (so a multi-day rename skips the day); or nil + err when the log is invalid.
 function M.run_by_value(lines, target, new_value)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -450,10 +426,9 @@ function M.run_by_value(lines, target, new_value)
   return build_rename(ctx.analysis, ctx.block, item, target, new_value)
 end
 
--- M.resolve over a [r1, r2] line range: the prompt target for renaming every selected entry to one
--- description. `current` defaults the prompt to the entries' shared text (nil -> "" when they differ).
--- Entry lines only (support.entry_rows_in_range), so a ranged rename acts on the entries you
--- selected, never the ambiguous activity grouping a summary row stands for.
+-- M.resolve over a [r1, r2] line range: the prompt target for renaming every selected entry
+-- to one description (`current` defaults to their shared text, "" when they differ). Entry
+-- lines only, so a ranged rename never touches the ambiguous activity grouping.
 function M.resolve_range(lines, r1, r2)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -468,9 +443,8 @@ function M.resolve_range(lines, r1, r2)
   return { kind = "item", current = source_description(ctx.block, rows) or "", candidates = {} }
 end
 
--- M.run over a [r1, r2] line range: rename every selected entry to `new_value`, rebuilding the one
--- summary. Reuses build_rename's item path (it rewrites exactly source_entry_rows), so distinct
--- descriptions across the selection all collapse to the new text.
+-- M.run over a [r1, r2] line range: rename every selected entry to `new_value`, rebuilding
+-- the summary via build_rename's item path, so distinct descriptions collapse to the new text.
 function M.run_range(lines, r1, r2, new_value)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then

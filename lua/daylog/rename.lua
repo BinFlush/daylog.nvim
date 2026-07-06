@@ -14,11 +14,9 @@ local M = {}
 
 -- Rename operation (shell).
 --
--- Renames what a summary row stands for, in two forms that share the same prompt
--- vocabulary: in the active log (the cursor's row -> rewrite source + rebuild),
--- and from a multi-day report (fan the rename out across the period's day files).
--- The pure rename math lives in usecases/rename_summary; this is the picker /
--- confirmation / multi-file-write shell around it.
+-- Renames what a summary row stands for, in the active log (rewrite source + rebuild) or from a
+-- multi-day report (fan out across the period's day files). The pure rename math lives in
+-- usecases/rename_summary; this is the picker / confirmation / multi-file-write shell around it.
 
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
@@ -33,31 +31,20 @@ local refresh_report_windows = report_buffers.refresh_report_windows
 
 local RENAME_PROMPT_LABEL = { item = "activity", tag = "tag", location = "location" }
 
--- Renaming from a multi-day report is wired below, after the report infrastructure
--- it depends on (build_report_for_spec, refresh_report_windows). Forward-declared so
--- M.summary can dispatch to it.
+-- Forward-declared so M.summary can dispatch to it; defined below, after the report infrastructure.
 local rename_from_report
 
--- Rename what the summary row under the cursor stands for: an activity (main
--- row), a #tag (tag total), or an @location (location total). The rename
--- propagates into the attached log and rebuilds the summary. Renaming to a
--- value that already exists merges the two -- so the picker offers the other
--- same-kind values as merge targets while still letting you type a fresh name. An
--- empty or unchanged value is a no-op.
--- `source_name`, when given, replaces an activity with a work item from that
--- source: the picker also lists (and live-searches) the source's items, and a
--- chosen item renames the activity to its `to_entry_text` (sanitized), exactly like
--- :Daylog insert. A source only applies to an activity row, and with one source
--- configured it is offered automatically.
+-- Rename what the summary row under the cursor stands for (activity, #tag, or @location): propagate
+-- into the log and rebuild. Renaming to an existing value merges the two; an empty/unchanged value
+-- is a no-op. `source_name`, when given, replaces an activity with a work item from that source
+-- (like :Daylog insert) -- activity rows only.
 function M.summary(new_value, source_name, range)
   if range then
     M.summary_range(new_value, range)
     return
   end
 
-  -- On a multi-day report buffer the cursor selects an aggregate (whole-period) or
-  -- per-day row; the rename fans out across the relevant day files instead of the
-  -- current buffer.
+  -- On a report buffer the rename fans out across the relevant day files, not the current buffer.
   local report_spec = report_buffers.spec_for()
   if report_spec then
     rename_from_report(report_spec, new_value, source_name)
@@ -71,9 +58,8 @@ function M.summary(new_value, source_name, range)
     return
   end
 
-  -- The picker is async, so the buffer/cursor could move under it. Pin the buffer
-  -- and the resolved row, and apply against the pinned row, refusing if the buffer
-  -- changed -- exactly like the source picker.
+  -- The picker is async, so pin the buffer and resolved row and apply against them, refusing if the
+  -- buffer changed.
   local target_buf = vim.api.nvim_get_current_buf()
   local function apply_rename(value)
     if value == nil or value == "" or value == target.current then
@@ -96,9 +82,8 @@ function M.summary(new_value, source_name, range)
     }))
   end
 
-  -- A named source replaces an activity with one of its work items, scoped to that source and
-  -- live-searchable (`search = true`) -- exactly like :Daylog insert <source>. It only applies to
-  -- an activity row; on a tag/location it is reported, then the normal merge picker opens.
+  -- A named source replaces an activity with one of its work items (like :Daylog insert <source>);
+  -- on a tag/location it is reported, then the normal merge picker opens.
   if source_name then
     local source = sources_registry.get(source_name)
     if not source then
@@ -119,9 +104,8 @@ function M.summary(new_value, source_name, range)
     warn("daylog: a source can only replace an activity, not a " .. target.kind)
   end
 
-  -- Pick the new value, then rename into it (renaming to a value that already exists merges the
-  -- two). type-a-fresh-name and the empty-pool fallback both go through the plain input prompt;
-  -- the current value is excluded so "X -> X" is never offered.
+  -- Pick the new value, then rename into it (an existing value merges). The current value is
+  -- excluded so "X -> X" is never offered.
   local choose_opts = {
     on_choose = apply_rename,
     on_create = apply_rename,
@@ -133,9 +117,8 @@ function M.summary(new_value, source_name, range)
     type_new_label = "✎ Type a new name…",
   }
 
-  -- An activity renames into the same unified pool as :Daylog! insert -- recent logged activities
-  -- across days plus every source's items, ranked and deduped. A tag/location has no pool, so it
-  -- offers the other same-kind totals (the in-summary merge targets).
+  -- An activity renames into the same unified pool as :Daylog! insert (recent activities + every
+  -- source's items). A tag/location has no pool, so it offers the other same-kind totals.
   if target.kind == "item" then
     pick.unified(sources_sync.read_specs(), choose_opts)
     return
@@ -148,9 +131,8 @@ function M.summary(new_value, source_name, range)
   pick.choose(rows, choose_opts)
 end
 
--- Rename every entry line in a [r1, r2] visual selection to one new description -- the ranged
--- counterpart of the cursor rename, mirroring :Daylog map over a range. Always an active-log item
--- rename (no report / source path); an empty/cancelled prompt is a no-op.
+-- Rename every entry line in a [r1, r2] visual selection to one new description (the ranged cursor
+-- rename). Always an active-log item rename (no report/source path); an empty prompt is a no-op.
 function M.summary_range(new_value, range)
   if report_buffers.spec_for() then
     warn("daylog: rename a selection in the day file, not a report")
@@ -182,8 +164,8 @@ function M.summary_range(new_value, range)
     apply_rename(vim.fn.input({ prompt = "daylog: rename selection: ", default = target.current }))
   end
 
-  -- The same unified pool as a single activity rename (recent activities + every source's items),
-  -- so you can fold the selection into an existing label or type a fresh one.
+  -- The same unified pool as a single activity rename, so you can fold into an existing label or
+  -- type a fresh one.
   pick.unified(sources_sync.read_specs(), {
     on_choose = apply_rename,
     on_create = apply_rename,
@@ -210,9 +192,8 @@ local function report_target_paths(report, resolved)
   return paths
 end
 
--- Write a day file's new content: into its open buffer when one exists (so the user
--- saves it, and the report -- which reads buffers first -- reflects it at once),
--- otherwise straight to disk. The summary was already rebuilt into `new_lines`.
+-- Write a day file's new content into its open buffer when one exists (so the report reflects it at
+-- once), else straight to disk.
 local function write_daybook_change(path, new_lines)
   local buf = loaded_buffer_for_path(path)
   if buf then
@@ -288,10 +269,8 @@ local function prompt_report_rename(target, candidates, apply)
   end)
 end
 
--- Rename an item from a multi-day report, fanning the rename out (by value) across
--- the day files the resolved row covers, writing each affected file after a
--- confirmation, then rebuilding the open reports. A source rename is not offered
--- here -- a report acts on many days at once.
+-- Rename an item from a multi-day report, fanning out by value across the resolved row's day files,
+-- writing each after confirmation, then rebuilding the reports. No source rename here.
 rename_from_report = function(spec, new_value, source_name)
   if source_name then
     warn("daylog: a source rename is not available from a report")
@@ -326,8 +305,8 @@ rename_from_report = function(spec, new_value, source_name)
       return
     end
 
-    -- Compute every file's rewrite up front; a day that lacks the item is skipped,
-    -- and a (defensive) failure aborts before anything is written.
+    -- Compute every file's rewrite up front; a day lacking the item is skipped, a failure aborts
+    -- before anything is written.
     local changes = {}
     for _, path in ipairs(paths) do
       local lines = daybook_lines(path)

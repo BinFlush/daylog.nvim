@@ -8,8 +8,8 @@ local text = require("daylog.text")
 local M = {}
 
 local function strip_log_prefix(message)
-  -- gsub (not match) so the prefix is stripped even from a multi-line message, where
-  -- the `.` in a `(.*)$` capture would not span the newline.
+  -- gsub (not match) so the prefix strips even from a multi-line message, where `.` in a
+  -- `(.*)$` capture won't span the newline.
   return (message:gsub("^daylog:%s*", ""))
 end
 
@@ -28,8 +28,7 @@ local function analyze_day(day)
     return nil, prefixed_file_error(day.path, diagnostics.message(analysis.diagnostics[1]))
   end
 
-  -- A non-empty day with no log and no timestamped entries (e.g. a "day off"
-  -- note) is skipped like an empty day instead of aborting the whole report.
+  -- A non-empty day with no log and no entries (e.g. a "day off" note) is skipped like an empty day, not an abort.
   if #analysis.log_blocks == 0 and not diagnostics.has_entry_node(analysis.document) then
     return nil, nil
   end
@@ -98,18 +97,15 @@ function M.build_daybook_report(settings, dates, read_lines)
   return M.build_report(build_days(settings, dates, read_lines))
 end
 
--- Build a report over an explicit list of dates, labeled by its calendar bounds. The
--- date list carries the whole period intent (count, range, or open-ended), so this is
--- the single builder behind every `:Daylog report` form.
+-- Build a report over an explicit list of dates -- the single builder behind every `:Daylog report` form.
 function M.build_dates_report(settings, dates, read_lines)
   local report, err = M.build_daybook_report(settings, dates, read_lines)
   if not report then
     return nil, err
   end
 
-  -- Label the aggregate by the resolved span -- the first and last days that actually
-  -- held a log -- and how many were found, rather than the requested calendar bounds.
-  -- report.days is non-empty and chronological (build_report errors on zero).
+  -- Label by the resolved span (first/last days that held a log) and count, not the requested
+  -- bounds; report.days is non-empty and chronological (build_report errors on zero).
   report.period_label = string.format(
     "%s..%s (%d found)",
     report.days[1].date_label,

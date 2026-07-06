@@ -8,20 +8,17 @@ local M = {}
 
 -- The colour-coded time bar (shell).
 --
--- A label row above a bar row -- each label placed over its widest segment (and when the log is mapped,
--- a second bar with its own labels below, mirrored) -- shown in a fixed-height split reserved at the
--- bottom of the daylog window. Reserving real space means it is always visible (it does not scroll with
--- the log) and never overlays the summary/totals (the log window is shortened to make room). Its
--- segments are the active log's intervals -- width proportional to real duration, colour per activity. A global
--- on/off (the `time_bar` config is the initial state) carried across every daylog file; the buffer
--- shell redraws it on each highlight pass via M.render. This module owns the panel: its window/split
--- lifecycle, the scratch-buffer rendering, and the on/off state -- buffer.lua just calls in.
+-- A label row above a bar row (and, when the log is mapped, a second mirrored bar with its own labels
+-- below), shown in a fixed-height split reserved at the bottom of the daylog window so it is always
+-- visible and never overlays the summary. Segments are the active log's intervals, width proportional
+-- to duration, colour per activity. This module owns the panel -- window/split lifecycle,
+-- scratch-buffer rendering, and the global on/off -- and buffer.lua redraws via M.render.
 
 -- Highlights for the strip's own scratch buffer (not the daylog buffer's namespace).
 local strip_namespace = vim.api.nvim_create_namespace("daylog-timebar")
 
--- Global on/off, so a toggle carries across daylog files rather than being per-buffer (nil = follow
--- the `time_bar` config default until first toggled).
+-- Global on/off so a toggle carries across daylog files (nil = follow the `time_bar` config
+-- default until first toggled).
 local time_bar_on = nil
 
 -- Whether the bar is on, from the global toggle, falling back to the config default.
@@ -38,14 +35,14 @@ function M.toggle()
   return time_bar_on
 end
 
--- Owner window id -> { win, buf } for the bar's reserved bottom split (its window + scratch buffer).
--- Keying by the window the strip sits under (not the buffer) lets navigating between daylog files in
--- one window reuse the strip. `strip_autocmds_set` guards the one-time lifecycle autocmd setup.
+-- Owner window id -> { win, buf } for the bar's reserved bottom split. Keying by window (not buffer)
+-- lets navigating between daylog files in one window reuse the strip. `strip_autocmds_set` guards the
+-- one-time lifecycle autocmd setup.
 local bar_strips = {}
 local strip_autocmds_set = false
 
--- The hover tooltip: a single reusable, non-focusable float showing the time + activity under the
--- mouse (opt-in via `time_bar_hover`). Created lazily; hiding closes the window but reuses the buffer.
+-- The hover tooltip: a single reusable, non-focusable float showing time + activity under the mouse
+-- (opt-in via `time_bar_hover`), created lazily; hiding closes the window but reuses the buffer.
 local hover_win = nil
 local hover_buf = nil
 
@@ -56,17 +53,16 @@ local function hide_hover()
   hover_win = nil
 end
 
--- Hide the hover tooltip. The ftplugin calls this when focus leaves a daylog buffer: the
--- buffer-local MouseMove handler that would otherwise hide it stops firing there.
+-- Hide the hover tooltip; the ftplugin calls this when focus leaves a daylog buffer (the
+-- buffer-local MouseMove handler that would otherwise hide it stops firing there).
 M.hide_hover = hide_hover
 
--- A dead period (a blank entry's interval) renders as this glyph on the gap highlight, so it reads as
--- an explicit "nothing here" break rather than an activity's solid block or missing time.
+-- A dead period (a blank entry's interval) renders as this glyph on the gap highlight, an explicit
+-- "nothing here" break rather than an activity's solid block or missing time.
 local GAP_GLYPH = "┊"
 
--- One bar as a chunk list ({ {text, hl}, ... }): a coloured run of spaces per activity segment (or the
--- gap glyph on the gap highlight for a dead period), split around the "now" marker -- a thin line glyph
--- on the segment's own colour, so it reads as a subtle tick rather than a solid block.
+-- One bar as a chunk list ({ {text, hl}, ... }): a coloured run of spaces per activity segment (gap
+-- glyph for a dead period), split around the "now" marker (a thin line glyph on the segment's colour).
 local function build_bar_row(segments, now_col)
   local bar = {}
   local col = 0
@@ -91,10 +87,9 @@ local function build_bar_row(segments, now_col)
   return bar
 end
 
--- One label row as a chunk list ({ {text, hl}, ... }): each placement (swatch + name) drawn at its `col`
--- from timebar.label_placements, which centres each label over its widest segment. `col` is char-based,
--- so this guards the true display width -- a double-width (CJK/emoji) label that would collide with the
--- next one or overrun the bar is dropped rather than overlapping.
+-- One label row as a chunk list ({ {text, hl}, ... }): each placement (swatch + name) drawn at its
+-- `col` from timebar.label_placements. `col` is char-based, so this guards true display width -- a
+-- double-width (CJK/emoji) label that would collide or overrun the bar is dropped, not overlapped.
 local function label_row(placements, width)
   local chunks, cursor = {}, 0
   for _, p in ipairs(placements) do
@@ -113,11 +108,10 @@ local function label_row(placements, width)
   return chunks
 end
 
--- The bar(s) with their placed label rows, as virtual-line chunk lists ({ {text, hl}, ... } per line).
--- Unmapped: a label row above its bar. Mapped: the two bars sit adjacent with a label row on the outside
--- of each -- raw labels / raw bar / resolved bar / resolved labels -- a mirrored before/after view.
--- Returns the rows plus `bars`, a list of { row = <1-based row index>, segments } so the hover can map a
--- pointer line back to a BAR row's segments (label rows are not hover targets).
+-- The bar(s) with placed label rows, as virtual-line chunk lists ({ {text, hl}, ... } per line).
+-- Unmapped: label row above its bar. Mapped: raw labels / raw bar / resolved bar / resolved labels
+-- (mirrored). Returns the rows plus `bars` ({ row = <1-based>, segments }) so the hover maps a pointer
+-- line back to a BAR row's segments (label rows are not hover targets).
 local function bar_virt_lines(layout, width)
   local rows, bars = {}, {}
   local function add_bar(segments)
@@ -137,8 +131,8 @@ local function bar_virt_lines(layout, width)
   return rows, bars
 end
 
--- The current local time in minutes, but only when `buf` is today's dated daylog file -- so the
--- "now" marker appears only on the current day. nil for any other day, or a non-dated file.
+-- The current local time in minutes, only when `buf` is today's dated daylog file (so the "now"
+-- marker appears only on the current day); nil for any other day or a non-dated file.
 local function today_now_minutes(buf)
   local daybook = require("daylog.daybook")
   local basename = vim.api.nvim_buf_get_name(buf):match("[^/\\]+$") or ""
@@ -150,8 +144,8 @@ local function today_now_minutes(buf)
   return clock.hour * 60 + clock.min
 end
 
--- Flatten a virtual-line chunk list ({text, hl}) into a real line string plus its byte-range
--- highlights, for the strip's scratch buffer. `line` is the 0-based scratch row.
+-- Flatten a virtual-line chunk list into a real line string plus its byte-range highlights, for the
+-- strip's scratch buffer. `line` is the 0-based scratch row.
 local function flatten_chunks(chunks, line)
   local parts = {}
   local hls = {}
@@ -164,8 +158,8 @@ local function flatten_chunks(chunks, line)
   return table.concat(parts), hls
 end
 
--- Close and forget the strip belonging to window `owner`, if any (restoring its height). pcall'd
--- because teardown can run while Neovim is mid-close, where a stray failure must not propagate.
+-- Close and forget window `owner`'s strip, if any (restoring its height). pcall'd because teardown
+-- can run while Neovim is mid-close, where a stray failure must not propagate.
 local function close_strip(owner)
   local strip = bar_strips[owner]
   if not strip then
@@ -181,9 +175,9 @@ local function close_strip(owner)
   hide_hover()
 end
 
--- Lifecycle autocmds for the strips, set up once on first use. A strip is a real window, so it must
--- not outlive its log window or block :q -- and closing one inside BufWinLeave aborts the quit. So
--- teardown runs from QuitPre (before a quit) and WinClosed (after any close), never during it.
+-- Lifecycle autocmds for the strips, set up once. A strip is a real window, so it must not outlive
+-- its log window or block :q -- and closing one inside BufWinLeave aborts the quit; so teardown runs
+-- from QuitPre (before a quit) and WinClosed (after any close), never during it.
 local function ensure_strip_autocmds()
   if strip_autocmds_set then
     return
@@ -191,9 +185,8 @@ local function ensure_strip_autocmds()
   strip_autocmds_set = true
   local group = vim.api.nvim_create_augroup("DaylogTimeBarStrip", { clear = true })
 
-  -- A window closed: drop its strip (its log window went away), or tear down a strip whose own
-  -- window was closed directly (the scratch buffer and hover go with it). Deferred so the window
-  -- is closed cleanly first.
+  -- A window closed: drop its strip, or tear down a strip whose own window was closed directly.
+  -- Deferred so the window is closed cleanly first.
   vim.api.nvim_create_autocmd("WinClosed", {
     group = group,
     callback = function(args)
@@ -222,7 +215,7 @@ local function ensure_strip_autocmds()
   })
 
   -- A window that owned a strip now shows a non-daylog buffer: drop the strip (a daylog buffer
-  -- instead re-renders through the ftplugin).
+  -- re-renders through the ftplugin instead).
   vim.api.nvim_create_autocmd("BufWinEnter", {
     group = group,
     callback = function(args)
@@ -234,9 +227,9 @@ local function ensure_strip_autocmds()
   })
 end
 
--- The window/buffer transition events the split + focus restore fire; ignored while opening the
--- strip so it cannot recurse back into the highlighter (via the ftplugin's BufWinEnter) -- targeted
--- rather than "all" so a plugin's unrelated autocmds still run during that instant.
+-- The window/buffer transition events the split + focus restore fire, ignored while opening the strip
+-- so it cannot recurse into the highlighter (via the ftplugin's BufWinEnter) -- targeted rather than
+-- "all" so unrelated autocmds still run during that instant.
 local STRIP_OPEN_EVENTS = table.concat({
   "BufEnter",
   "BufLeave",
@@ -250,9 +243,9 @@ local STRIP_OPEN_EVENTS = table.concat({
   "WinResized",
 }, ",")
 
--- Open a fixed-height split below `dwin` showing `sbuf` (the bar), without leaving the user's focus
--- moved. Returns the new window or nil. eventignore guards against recursing into the highlighter;
--- the focus restore and eventignore reset run even if the split itself fails.
+-- Open a fixed-height split below `dwin` showing `sbuf`, without moving the user's focus. Returns the
+-- new window or nil. eventignore guards against recursing into the highlighter; the focus restore and
+-- eventignore reset run even if the split fails.
 local function open_bar_strip(dwin, sbuf, height)
   if not vim.api.nvim_win_is_valid(dwin) then
     return nil
@@ -286,10 +279,8 @@ local function open_bar_strip(dwin, sbuf, height)
 end
 
 -- Render the time bar for `buf` into a reserved split at the bottom of its window. The buffer shell
--- calls this every highlight pass (with the shared `analysis`): it refreshes the strip's content in
--- place, creating the split on first show (shortening the log window) and tearing it down whenever
--- the bar is off or the buffer has no window. The strip is keyed by the window, so navigating
--- between daylog files reuses it.
+-- calls this every highlight pass: it refreshes the strip in place, creating the split on first show
+-- (shortening the log window) and tearing it down whenever the bar is off or the buffer has no window.
 function M.render(buf, lines, analysis)
   local dwin = vim.fn.bufwinid(buf)
   if not M.enabled() or #lines == 0 then
@@ -360,8 +351,7 @@ function M.render(buf, lines, analysis)
       buf = sbuf,
       first_minutes = entries[1].minutes,
       last_minutes = entries[#entries].minutes,
-      -- Each bar's strip row + its segments; the hover maps the pointer line to the row it is on (the
-      -- raw bar reports the raw item, the resolved bar the mapped label). One entry unless mapped.
+      -- Each bar's strip row + segments; the hover maps the pointer line to its row. One entry unless mapped.
       bars = bars,
     }
   else
@@ -409,11 +399,10 @@ local function strip_by_win(win)
   return nil
 end
 
--- Mouse-move handler, installed buffer-locally in daylog files when `time_bar_hover` is on (and only
--- effective once the user has set `mousemoveevent`). Over a bar row (not the legend), it shows the
--- clock time + activity at the hovered column; anywhere else it hides the tooltip. With two bars the
--- raw (top) row reports the raw item and the resolved (bottom) row its mapped label -- same time,
--- different segment set.
+-- Mouse-move handler, installed buffer-locally when `time_bar_hover` is on (effective only once the
+-- user has set `mousemoveevent`). Over a bar row (not the legend) it shows clock time + activity at
+-- the hovered column, else hides the tooltip; with two bars the top row reports the raw item, the
+-- bottom its mapped label.
 function M.on_mouse_move()
   local pos = vim.fn.getmousepos()
   local strip = strip_by_win(pos.winid)

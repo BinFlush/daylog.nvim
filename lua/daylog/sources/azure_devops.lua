@@ -1,22 +1,17 @@
 local M = {}
 
--- Azure DevOps work-item source.
+-- Azure DevOps work-item source (PURE via dependency injection).
 --
--- Config-driven and free of any direct Neovim API call: networking goes through
--- an injected transport (deps.transport.request) and JSON through an injected
--- codec (deps.json), so it is exercised offline in tests with a fake transport.
--- The PAT is resolved lazily via deps.token_resolver and only ever placed in the
--- request credentials -- never in an item or the cache.
+-- Networking goes through an injected transport and JSON through an injected codec, so it runs
+-- offline in tests. The PAT is resolved lazily via deps.token_resolver and only ever placed in
+-- the request credentials -- never in an item or the cache.
 
--- Comma-separated field list and id list are passed literally (safe constants /
--- digits); only opaque path segments are percent-encoded.
+-- Field/id lists are literal (safe constants/digits); only opaque path segments are encoded.
 local WORKITEM_FIELDS =
   "System.Id,System.Title,System.WorkItemType,System.State,System.TeamProject,System.ChangedDate"
 local MAX_ITEMS = 200
 
--- The broadest "this item involves me" predicate WIQL can express cleanly (mentions and
--- watching are not queryable). Shared by the default fetch and the live search, so both
--- stay scoped to your work.
+-- Broadest "involves me" predicate WIQL expresses cleanly; shared by fetch and search.
 local INVOLVES_ME = "([System.AssignedTo] = @Me OR [System.CreatedBy] = @Me)"
 local STATE_OPEN = "[System.State] <> 'Closed' AND [System.State] <> 'Removed'"
 local ORDER_NEWEST = "ORDER BY [System.ChangedDate] DESC, [System.Id] DESC"
@@ -29,8 +24,8 @@ local function encode_segment(segment)
   )
 end
 
--- JSON codecs decode `null` to a truthy sentinel (vim.NIL) that `or` fallbacks do not catch and
--- comparisons crash on; admit only genuinely typed values at the decode boundary.
+-- JSON codecs decode `null` to a truthy sentinel (vim.NIL) that `or` fallbacks miss; admit only
+-- genuinely typed values at the decode boundary.
 local function str(v)
   if type(v) == "string" then
     return v
@@ -52,9 +47,8 @@ function M.new(_name, cfg, deps)
   local api_version = cfg.api_version or "7.0"
   local template = cfg.template or "{id} {title}"
 
-  -- Scope: a single `project` keeps requests project-scoped (URL segment). Otherwise the
-  -- request is organization-scoped -- a `projects` list narrows the WIQL to that subset with a
-  -- team-project filter, and neither (the default) spans the whole org.
+  -- A single `project` scopes requests via URL segment; otherwise org-scoped, with a `projects`
+  -- list narrowing the WIQL by team-project filter (neither spans the whole org).
   local base
   local project_filter = ""
   if cfg.project then
@@ -74,16 +68,14 @@ function M.new(_name, cfg, deps)
     end
   end
 
-  -- Default set: items that involve you (assigned or created), active, recently changed --
-  -- plus the team-project filter when organization-scoped. The filter sits in the WHERE
-  -- clause, before the trailing ORDER BY; it is "" for a single project or org-wide.
+  -- Default set: items involving you, active, recently changed, plus the team-project filter
+  -- (in the WHERE clause before ORDER BY; "" for a single project or org-wide).
   local default_wiql = table.concat({
     "SELECT [System.Id] FROM WorkItems",
     "WHERE " .. INVOLVES_ME,
     "AND " .. STATE_OPEN,
     "AND [System.ChangedDate] >= @Today - 30" .. project_filter,
-    -- Id is a tiebreaker so the 200-item cap is deterministic when several items
-    -- (possibly from different projects) share a ChangedDate.
+    -- Id tiebreaker so the 200-item cap is deterministic when items share a ChangedDate.
     ORDER_NEWEST,
   }, " ")
 
@@ -97,9 +89,8 @@ function M.new(_name, cfg, deps)
         return cb(nil, "daylog: ADO sync failed: " .. err)
       end
 
-      -- Azure DevOps answers an invalid/expired PAT with HTTP 203 + an HTML sign-in
-      -- page, which would otherwise pass the 2xx check and fail opaquely in the JSON
-      -- decode below -- name the real problem instead.
+      -- ADO answers an invalid/expired PAT with HTTP 203 + an HTML sign-in page; name the real
+      -- problem instead of failing opaquely in the JSON decode below.
       if response.status == 203 then
         return cb(nil, "daylog: ADO sync failed: authentication failed (check your PAT)")
       end
@@ -202,9 +193,8 @@ function M.new(_name, cfg, deps)
         end
       end
 
-      -- A flat WIQL query returns `workItems`; a tree or one-hop saved query returns
-      -- `workItemRelations` and no `workItems`, which would otherwise hydrate to an empty
-      -- picker indistinguishable from "no items". Surface the misconfiguration instead.
+      -- A tree/one-hop saved query returns `workItemRelations`, not `workItems`, hydrating to an
+      -- empty picker indistinguishable from "no items"; surface the misconfiguration instead.
       if #ids == 0 and tbl(decoded).workItemRelations ~= nil then
         return cb(
           nil,
@@ -212,8 +202,7 @@ function M.new(_name, cfg, deps)
         )
       end
 
-      -- Report the full match count so the picker can flag when hydrate's 200-item
-      -- cap truncated the results; fetch's callers simply ignore the extra arg.
+      -- Report the full match count so the picker can flag hydrate's 200-item cap truncation.
       local total = #ids
       hydrate(auth, ids, function(items, hydrate_err)
         cb(items, hydrate_err, total)
@@ -241,9 +230,8 @@ function M.new(_name, cfg, deps)
     end)
   end
 
-  -- Optional live text search over work-item titles (the Telescope live picker),
-  -- scoped like fetch by the URL and/or the team-project filter. Off by default --
-  -- the offline cache is the picker -- and enabled per source with `search = true`.
+  -- Optional live title search (Telescope), scoped like fetch. Off by default (the offline cache
+  -- is the picker); enabled per source with `search = true`.
   local function run_search(query, cb)
     local escaped = (query or ""):gsub("'", "''")
     local wiql = string.format(
@@ -269,13 +257,9 @@ function M.new(_name, cfg, deps)
     source.search = run_search
   end
 
-  -- One item's picker line: the rendered name (`to_entry_text` -- exactly what gets inserted)
-  -- leads, so it shows on the far left lined up with the plain activity rows; [type/state], then
-  -- the project when several are configured, trail as metadata right after it. The id already
-  -- lives inside the rendered name, so it is not repeated. The metadata is not column-aligned
-  -- across items on purpose: padding the variable-width name to the widest one would shove the
-  -- metadata off the right of the picker when titles vary, so it trails each name directly and
-  -- always stays visible. (No format_items, so the display contract falls back to this per item.)
+  -- One item's picker line: the rendered name (to_entry_text) leads, then [type/state] and the
+  -- project trail as metadata. Not column-aligned on purpose -- padding to the widest name would
+  -- shove metadata off the right when titles vary, so it trails each name directly.
   function source.format_item(item)
     if cfg.format_item then
       return cfg.format_item(item)
@@ -300,8 +284,7 @@ function M.new(_name, cfg, deps)
       project = item.project or "",
     }
 
-    -- Plain template expansion; insert_entry sanitizes the result so the title
-    -- cannot inject trailing metadata.
+    -- insert_entry sanitizes the result so the title cannot inject trailing metadata.
     return (
       template:gsub("{(%w+)}", function(key)
         return map[key] ~= nil and map[key] or ("{" .. key .. "}")

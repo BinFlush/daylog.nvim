@@ -3,17 +3,15 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
--- Build the edit script for repeating the current activity at a new time. The
--- cursor may sit on a timestamped entry or on a main summary row; the latter is
--- mapped back to the source entry it summarizes (see summary_cursor).
+-- Build the edit script repeating the current activity at a new time; a cursor on a summary
+-- row is mapped back to the source entry it summarizes (see summary_cursor).
 
 function M.run(lines, row, time, auto_offset)
   local ctx, err = support.get_validated_at_row(lines, row)
 
   if not ctx then
-    -- The cursor may be on a main summary row; map it back to the source entry
-    -- and repeat that, into the log the summary belongs to. A nil summary
-    -- error means the cursor is not on the summary at all, so keep `err`.
+    -- A cursor on a summary row maps back to its source entry; a nil summary error means the
+    -- cursor isn't on the summary, so keep `err`.
     local entry_row, summary_err = summary_cursor.repeat_entry_row(lines, row)
     if not entry_row then
       return nil, summary_err or err

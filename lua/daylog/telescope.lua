@@ -2,32 +2,22 @@ local picker_helpers = require("daylog.sources.picker")
 
 local M = {}
 
--- Optional Telescope live-search picker for daylog sources.
+-- Optional Telescope live-search picker for daylog sources (shell + Telescope only).
 --
--- Shell + Telescope only; this module is never required by the core at load.
--- init.lua requires it lazily, and only when Telescope is installed (and, for
--- live_pick, the source implements `search`). The chosen item is handed to the
--- caller's callbacks; the actual buffer edit still happens in init.lua through the
--- pure insert_entry / rename usecases.
---
--- Typing fuzzy-filters the current pool client-side (generic_sorter). When the
--- source supports `search`, a debounced server query augments the pool with
--- project-wide matches so you can reach items beyond the cached set -- driven by the
--- shared live_search controller below, used by both pickers.
+-- Required lazily by init.lua, only when Telescope is installed. Typing fuzzy-filters the current
+-- pool client-side; when the source supports `search`, a debounced server query augments the pool
+-- with project-wide matches, via the shared live_search controller below.
 
 local DEBOUNCE_MS = 250
 
--- The picker dims the trailing item metadata (everything after the rendered name) so the name pops
--- and items read distinctly from the plain activity rows. The group links to Comment by default;
--- override it with `:hi DaylogPickerMeta ...`. Re-set on each open so it survives a colourscheme
--- change without clobbering a user override (default = true).
+-- The picker dims trailing item metadata (after the rendered name) so the name pops. Links to
+-- Comment by default; re-set on each open (default = true) so it survives a colourscheme change.
 local function ensure_meta_hl()
   vim.api.nvim_set_hl(0, "DaylogPickerMeta", { link = "Comment", default = true })
 end
 
--- A Telescope entry display for one picker line: a plain string, or -- when the line leads with the
--- rendered `text` and carries trailing metadata -- a function that dims that metadata range. The
--- ordinal stays the full line, so fuzzy match still searches the metadata.
+-- A Telescope entry display: a plain string, or a function dimming the trailing metadata range when
+-- present. The ordinal stays the full line so fuzzy match still searches the metadata.
 local function display_fn(display, text)
   local s, e = picker_helpers.meta_range(display, text)
   if not s then
@@ -40,17 +30,11 @@ end
 
 -- Shared debounced live-search controller for the source-backed pickers.
 --
--- Telescope's input hook fires on every prompt change; this drives a debounced
--- server search off it (client-side filtering stays the sorter's job). It owns the
--- two guards that keep that safe -- `last_query` (a refresh re-fires the hook with
--- the same prompt, so skip it; no loop) and `seq` (drop stale responses) -- plus a
--- `closed` flag so a late response stops refreshing once the prompt is wiped.
---
--- The caller supplies `finder_for` (build a finder from an item pool) and `initial`
--- (the cached/default pool merged with each server result), sets `controller.picker`
--- once the picker is built, wires `on_input_filter_cb`, and calls `mark_closed` from
--- the prompt's BufWipeout. `on_refresh(items, total)` is an optional post-refresh
--- hook (live_pick's truncation notice).
+-- Drives a debounced server search off Telescope's per-change input hook. Owns two guards:
+-- `last_query` (a refresh re-fires the hook with the same prompt -- skip it, no loop) and `seq`
+-- (drop stale responses), plus a `closed` flag so a late response stops refreshing after wipe.
+-- The caller supplies `finder_for` and `initial`, sets `controller.picker`, wires
+-- `on_input_filter_cb`, and calls `mark_closed` from BufWipeout.
 local function live_search(source, opts)
   local controller = { picker = nil }
   local seq = 0
@@ -116,18 +100,12 @@ function M.live_pick(source, opts)
 
   local initial = opts.initial_items or {}
 
-  -- Build a finder over `items`, aligning the whole pool into columns when the
-  -- source supports it (so the type/state and other trailing columns line up
-  -- despite differing title lengths). The alignment is recomputed per finder, so a
-  -- live-search refresh that grows the pool re-aligns to the new widths. The
-  -- ordinal stays the full display so fuzzy matching still sees every column.
+  -- Build a finder over `items`, aligning the pool into columns when the source supports it.
   local function finder_for(items)
     items = items or {}
 
-    -- Resolve each item's display through the shared source display contract
-    -- (aligned columns when the source supports it). Recomputed per finder so a
-    -- live-search refresh that grows the pool re-aligns to the new widths; the
-    -- ordinal stays the full display so fuzzy matching still sees every column.
+    -- Resolve each display through the shared source contract, recomputed per finder so a growing
+    -- pool re-aligns; the ordinal stays the full display so fuzzy matching sees every column.
     local display = picker_helpers.display_for(source, items)
 
     return finders.new_table({
@@ -148,8 +126,7 @@ function M.live_pick(source, opts)
     initial = initial,
     finder_for = finder_for,
     on_refresh = function(items, total)
-      -- The source hydrates a bounded slice; if more matched, say so rather than
-      -- silently showing a truncated set.
+      -- The source hydrates a bounded slice; if more matched, say so rather than silently truncating.
       if total and total > #items then
         vim.notify(
           string.format("daylog: showing first %d of %d matches; refine your search", #items, total),
@@ -168,9 +145,8 @@ function M.live_pick(source, opts)
     attach_mappings = function(prompt_bufnr, _)
       local picked = false
 
-      -- Closing the prompt (pick or cancel) marks the picker done so a late search
-      -- response stops refreshing/notifying. Cancelling also leaves a bare timestamp,
-      -- matching :Daylog insert.
+      -- Closing the prompt marks the picker done so a late search response stops refreshing;
+      -- cancelling leaves a bare timestamp, matching :Daylog insert.
       vim.api.nvim_create_autocmd("BufWipeout", {
         buffer = prompt_bufnr,
         once = true,
@@ -198,10 +174,9 @@ function M.live_pick(source, opts)
   controller.picker:find()
 end
 
--- The general mixed-row picker (shared by :Daylog! insert, :Daylog rename, :Daylog map): pre-ranked,
--- display-ready rows each carrying a `.text` (what gets chosen). Offline -- no live search. <CR>
--- chooses the highlighted row's text; <C-e> (or <CR> with nothing selected) yields what you typed;
--- closing without a pick calls on_cancel.
+-- The general mixed-row picker (shared by :Daylog! insert, :Daylog rename, :Daylog map): pre-ranked
+-- rows each carrying a `.text`. Offline. <CR> chooses the row's text, <C-e> (or <CR> with nothing
+-- selected) yields the typed text, closing without a pick calls on_cancel.
 --
 -- opts: { on_choose = fn(text), on_create = fn(typed), on_cancel = fn()|nil, prompt = string|nil,
 --         theme = table|nil }

@@ -8,14 +8,10 @@ local M = {}
 
 -- Split the activity under the cursor into N weighted sub-activities (PURE).
 --
--- Each of the activity's time intervals is cut into consecutive sub-intervals named
--- `foo (1)`, `foo (2)`, ... by whole minutes, distributed by the (unnormalized) weight
--- vector. The original total time is preserved exactly -- the interval endpoints never
--- move -- so the day still foots; only the breakdown changes. The 2-D apportionment
--- (each interval sums to its own length while each sub-activity's total tracks its
--- weighted share) lives in split.lua; this use case turns that into entry edits and a
--- rebuilt summary, sharing the cursor-resolution and summary-rebuild patterns with
--- :Daylog log. A logged activity is frozen against an external system and cannot be split.
+-- Each interval is cut into consecutive sub-intervals `foo (1)`, `foo (2)`, ... by whole minutes,
+-- distributed by the weight vector. Total time is preserved exactly (endpoints never move), so the
+-- day still foots. The 2-D apportionment lives in split.lua; this turns it into entry edits and a
+-- rebuilt summary. A logged activity is frozen and cannot be split.
 
 M.REFUSE_LOGGED = "daylog: refusing to split a logged activity"
 M.REFUSE_OFFSET =
@@ -25,9 +21,8 @@ M.BAD_WEIGHT = "daylog: split weights must be positive numbers"
 M.NOTHING = "daylog: nothing to split on this row"
 M.NOT_A_ROW = "daylog: put the cursor on an activity summary row to split it"
 
--- The sub-activity name for part `index` of an activity. A blank activity (a bare
--- `#tag` entry) becomes just the `(index)` suffix. `(index)` is plain text -- never a
--- control token -- so it round-trips without sanitizing.
+-- The sub-activity name for part `index`. A blank activity becomes just the `(index)` suffix,
+-- which is plain text (never a control token), so it round-trips without sanitizing.
 local function part_name(text, index)
   local suffix = "(" .. index .. ")"
   if text == "" then
@@ -64,13 +59,10 @@ local function validate_weights(weights)
   return weights
 end
 
--- The activity's intervals in chronological order. Each record carries the source
--- entry row, its local start minute, and the effective duration -- the real elapsed
--- time, which differs from the local span across a UTC offset change (and is what the
--- summary shows). The split apportions the effective duration; sub-entries are placed at
--- `start + cumulative effective` and carry the interval's own offset (no new utc token),
--- so the log stays real-time-ordered even when a later entry, written in a new time
--- zone, reads earlier on the wall clock.
+-- The activity's intervals in chronological order. Each record carries the source row, local start
+-- minute, and effective duration -- the real elapsed time, which differs from the local span
+-- across a UTC offset change. The split apportions effective duration and places sub-entries at
+-- `start + cumulative effective` on the interval's own offset, so the log stays real-time-ordered.
 local function target_intervals(block, source_set)
   local records = {}
   local index_by_row = {}
@@ -133,11 +125,9 @@ function M.run(lines, cursor_row, weights)
 
   local matrix = split.allocate(effective, weights)
 
-  -- The present sub-activity parts for each split entry, keyed by its row. A part begins
-  -- at the interval start plus its cumulative EFFECTIVE offset, on the interval's own
-  -- local clock. Effective ordering always holds, so the only thing that can't be written
-  -- without a new offset token is a cut that a westward jump pushes to or past 24:00 --
-  -- refuse those. Without an offset change the cuts stay inside the day, so this is inert.
+  -- Sub-activity parts per split entry, keyed by row. A part starts at the interval start plus its
+  -- cumulative effective offset. The only cut that can't be written without a new offset token is
+  -- one a westward jump pushes to or past 24:00 -- refuse those.
   local parts_by_row = {}
   for _, record in ipairs(records) do
     local parts = split.parts(matrix[index_by_row[record.row]])
@@ -147,11 +137,9 @@ function M.run(lines, cursor_row, weights)
     parts_by_row[record.row] = parts
   end
 
-  -- Source edits: rewrite each split entry line into its present parts, threading the
-  -- sticky tag/location/offset through support.rewrite_entry_lines so the first part --
-  -- the renamed original -- reproduces the original's tokens, and the inserted parts
-  -- inherit them (bare). Every part carries the original's resolved metadata, so the
-  -- entry after the activity needs no compensating token.
+  -- Rewrite each split entry into its parts, threading sticky tag/location/offset so the first
+  -- part reproduces the original's tokens and inserted parts inherit them. Every part carries the
+  -- resolved metadata, so the entry after the activity needs no compensating token.
   local source_edits = support.rewrite_entry_lines(block, function(entry_item)
     local parts = parts_by_row[entry_item.start_row]
     if not parts then
@@ -174,9 +162,8 @@ function M.run(lines, cursor_row, weights)
     return field_sets
   end)
 
-  -- Rebuild the summary from the post-split entries (the split entries replaced by
-  -- their present sub-entries). The original interval's offset rides on each sub-entry,
-  -- so durations and footing are preserved.
+  -- Rebuild the summary from the post-split entries. The original interval's offset rides on each
+  -- sub-entry, so durations and footing are preserved.
   local modified = {}
   for _, semantic_entry in ipairs(block.entries) do
     local parts = parts_by_row[semantic_entry.row]

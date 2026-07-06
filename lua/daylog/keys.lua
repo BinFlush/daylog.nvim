@@ -1,16 +1,12 @@
--- Keymap cheatsheet popup (shell).
---
--- :Daylog keys (and g? in the default set) opens a small float listing the daylog keymaps active
--- in daylog files, plus how to open today and reach the full command set. The line building is
--- pure (M.format) so it is unit-tested without a window; M.show owns the float.
+-- Keymap cheatsheet popup (shell): :Daylog keys / g? opens a float listing the active daylog
+-- keymaps. The line building is pure (M.format); M.show owns the float.
 
 local M = {}
 
 local TITLE = "daylog keys (.day files)"
 local FOOTER = "Open today: :Daylog    all commands: :Daylog <Tab>"
 
--- Pure: the cheatsheet lines for entries { { lhs, desc }, ... } (lhs already display-ready). An
--- empty list yields the "no keymaps" guidance instead of a key table.
+-- Pure: the cheatsheet lines for entries { { lhs, desc }, ... }; an empty list yields the "no keymaps" guidance.
 function M.format(entries)
   local lines = { " " .. TITLE, "" }
 

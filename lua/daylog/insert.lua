@@ -10,11 +10,8 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
--- Bring a work item from a configured source into the current log at the
--- current time. Offline-first: reads the source's local cache and opens
--- vim.ui.select (Telescope/fzf/snacks take over if installed). On pick the
--- configured "{id} {title}" template is inserted; cancelling falls back to a bare
--- timestamp, exactly like :Daylog insert with no argument.
+-- Bring a source work item into the current log at the current time; offline-first
+-- (reads the cache, opens the picker), cancelling leaves a bare timestamp.
 function M.insert_from_source(name)
   if current_time.guard_current_time("insert") then
     return
@@ -26,10 +23,8 @@ function M.insert_from_source(name)
     return
   end
 
-  -- Refuse a cursor outside a log now, before opening the async picker
-  -- (cache read, optional network, a UI round trip), exactly as :Daylog insert
-  -- with no argument refuses up front. insert_entry re-validates at apply time
-  -- too, since the buffer can change under the picker -- this is the fail-fast.
+  -- Fail fast: refuse a cursor outside a log before opening the async picker
+  -- (insert_entry re-validates at apply time since the buffer can change under it).
   local cursor_ctx, cursor_err =
     support.get_validated_at_row(buffer.buffer_lines(), buffer.cursor_row())
   if not cursor_ctx then
@@ -37,15 +32,13 @@ function M.insert_from_source(name)
     return
   end
 
-  -- The picker is async, so capture the moment and the target buffer up front: a
-  -- late selection then stamps the time the command was issued and never edits a
-  -- buffer we have since moved away from.
+  -- Capture the moment and target buffer up front: the async picker's late selection
+  -- stamps the issue time and never edits a buffer we moved away from.
   local time = os.date("%H:%M")
   local auto_offset = daybook_io.live_offset()
   local target_buf = vim.api.nvim_get_current_buf()
 
-  -- Apply a chosen item into the originating buffer, guarding against the buffer
-  -- changing under the async picker.
+  -- Apply a chosen item into the originating buffer, guarding against a buffer change under the picker.
   local function insert_choice(item)
     if buffer.buffer_changed(target_buf, "insert") then
       return
@@ -54,9 +47,8 @@ function M.insert_from_source(name)
     current_time.apply_insert_entry(time, source.to_entry_text(item), auto_offset)
   end
 
-  -- The scoped source picker: type-as-you-search across the whole tracker when the source
-  -- supports it (cached items show at an empty prompt), else the offline cache. Cancelling
-  -- leaves a bare timestamp, like a plain :Daylog insert.
+  -- The scoped source picker: live search across the tracker when supported, else the
+  -- offline cache; cancelling leaves a bare timestamp.
   pick.source(source, name, {
     prompt = "Daylog: " .. name,
     prompt_fallback = "Daylog: pick " .. name .. " item",
@@ -67,16 +59,14 @@ function M.insert_from_source(name)
   })
 end
 
--- The unified "what to log" picker (`:Daylog! insert`): pool every configured source's cached
--- items plus your recent logged activities into one ranked, deduped, offline fuzzy list. Picking
--- a row inserts it at the current time; cancelling leaves a bare timestamp, like :Daylog insert.
+-- The unified "what to log" picker (`:Daylog! insert`): pool every source's cached items plus
+-- recent activities into one ranked, deduped, offline list; cancelling leaves a bare timestamp.
 function M.insert_unified()
   if current_time.guard_current_time("insert") then
     return
   end
 
-  -- Refuse a cursor outside a log up front, before the async picker, exactly like the other
-  -- insert paths. insert_entry re-validates at apply time too.
+  -- Fail fast: refuse a cursor outside a log before the async picker (insert_entry re-validates at apply time).
   local cursor_ctx, cursor_err =
     support.get_validated_at_row(buffer.buffer_lines(), buffer.cursor_row())
   if not cursor_ctx then
@@ -88,8 +78,7 @@ function M.insert_unified()
   local auto_offset = daybook_io.live_offset()
   local target_buf = vim.api.nvim_get_current_buf()
 
-  -- Insert the chosen/typed activity, or a bare timestamp for an empty value -- guarded against
-  -- the buffer moving under the async picker.
+  -- Insert the chosen/typed activity, or a bare timestamp when empty, guarded against a buffer change under the picker.
   local function insert(text)
     if buffer.buffer_changed(target_buf, "insert") then
       return
@@ -101,8 +90,8 @@ function M.insert_unified()
     end
   end
 
-  -- read_specs reads each source's cache synchronously (offline, instant) and refreshes stale
-  -- ones in the background; an empty pool (no sources, empty daybook) leaves a bare timestamp.
+  -- read_specs reads each source's cache synchronously and refreshes stale ones in the
+  -- background; an empty pool leaves a bare timestamp.
   pick.unified(sources_sync.read_specs(), {
     prompt = "Daylog: insert",
     prompt_fallback = "Daylog: insert",

@@ -4,9 +4,7 @@ local registry = require("daylog.sources.registry")
 
 local M = {}
 
--- Source cache IO and the lazy-TTL / manual-sync policy. This is shell code: it
--- reads and writes the on-disk cache and drives the (only) networked path via the
--- source's fetch. Pick-time stays offline by reading the cache here.
+-- Source cache IO and the lazy-TTL / manual-sync policy (shell); pick-time reads the cache here to stay offline.
 
 local in_flight = {}
 
@@ -22,9 +20,8 @@ function M.cache_path(name)
   return vim.fn.stdpath("cache") .. "/daylog/sources/" .. name .. ".json"
 end
 
--- Read and validate the on-disk cache for a source, or nil when it is missing or
--- corrupt (a corrupt cache is reported and treated as absent so it self-heals on
--- the next sync).
+-- Read and validate the on-disk cache, or nil when missing or corrupt (a corrupt
+-- cache is treated as absent so it self-heals on the next sync).
 function M.read_cache(name)
   local path = M.cache_path(name)
   if vim.fn.filereadable(path) == 0 then
@@ -50,11 +47,9 @@ function M.write_cache(name, items, now)
   local path = M.cache_path(name)
   local ok = pcall(function()
     vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
-    -- Write to a temp file then rename, so a reader in another Neovim never sees a
-    -- half-written cache. vim.loop.fs_rename (libuv) replaces an existing destination on
-    -- every platform -- MoveFileEx on Windows, rename(2) on POSIX -- whereas os.rename
-    -- cannot overwrite on native Windows, where the cache would then never refresh. The
-    -- assert turns a rename failure into the pcall's warn instead of a silent no-op.
+    -- Write to a temp file then atomically rename, so a concurrent reader never sees a
+    -- half-written cache; vim.loop.fs_rename overwrites cross-platform (os.rename cannot on
+    -- native Windows). The assert turns a rename failure into the pcall's warn.
     local tmp = path .. ".tmp"
     vim.fn.writefile({ vim.json.encode(cache.encode(items, now)) }, tmp)
     assert(vim.loop.fs_rename(tmp, path))
@@ -71,9 +66,8 @@ function M.is_in_flight(name)
   return in_flight[name] == true
 end
 
--- Fetch fresh items for a source and write them to the cache. opts.silent
--- suppresses the success message (used by background refreshes). A per-source
--- guard keeps a manual sync and a background refresh from overlapping.
+-- Fetch fresh items into the cache; opts.silent suppresses the success message. A
+-- per-source guard stops a manual sync and a background refresh overlapping.
 function M.sync(name, opts, cb)
   opts = opts or {}
   cb = cb or function() end
@@ -91,10 +85,8 @@ function M.sync(name, opts, cb)
 
   in_flight[name] = true
 
-  -- The pcall below also catches an error raised *inside* the fetch callback when the
-  -- source calls back synchronously (the throw propagates out of source.fetch). In that
-  -- case the callback has already run, so the error branch must not call cb again --
-  -- `finished` records that the callback was reached.
+  -- The pcall also catches a synchronous throw from inside the fetch callback; `finished`
+  -- records the callback ran so the error branch never calls cb twice.
   local finished = false
 
   local ok, err = pcall(function()
@@ -107,8 +99,7 @@ function M.sync(name, opts, cb)
         return cb(false, fetch_err)
       end
 
-      -- write_cache already warns on failure; don't also report success when the
-      -- items never reached disk.
+      -- write_cache already warns on failure; don't report success when items never reached disk.
       if not M.write_cache(name, items, os.time()) then
         return cb(false)
       end
@@ -129,11 +120,9 @@ function M.sync(name, opts, cb)
   end
 end
 
--- The picker data path: hand the current cached items to on_ready immediately
--- (offline, instant), then refresh in the background when stale. The first-ever
--- use with no cache fetches once before opening. `on_unavailable` (optional) is called
--- when there is no cache and that initial fetch fails -- callers that have a local
--- fallback (e.g. :Daylog rename's merge candidates) use it to open anyway.
+-- Hand cached items to on_ready immediately (offline), refreshing in the background when
+-- stale; the first-ever use with no cache fetches once. `on_unavailable` (optional) fires
+-- when there is no cache and the initial fetch fails, so a caller with a local fallback opens anyway.
 function M.ensure_fresh(name, ttl, on_ready, on_unavailable)
   local decoded = M.read_cache(name)
 
@@ -147,9 +136,8 @@ function M.ensure_fresh(name, ttl, on_ready, on_unavailable)
 
   notify("daylog: syncing " .. name .. "…")
   M.sync(name, { silent = true }, function(ok)
-    -- Hand over the items when the initial fetch succeeded (a successful empty result
-    -- still opens). On failure sync has already warned, so the source items are simply
-    -- absent; let a caller with a local fallback open without them.
+    -- Hand over items on a successful fetch (empty still opens); on failure sync already
+    -- warned, so let a caller with a local fallback open without them.
     if ok then
       on_ready(M.read_items(name))
     elseif on_unavailable then
@@ -158,18 +146,16 @@ function M.ensure_fresh(name, ttl, on_ready, on_unavailable)
   end)
 end
 
--- Kick a silent background refresh when a source's cache is stale or absent (and no sync is
--- already running). The unified insert picker reads caches synchronously and refreshes out of
--- band, rather than blocking on a fetch, so it stays instant across many sources.
+-- Kick a silent background refresh when the cache is stale or absent and no sync is running,
+-- so the unified picker reads caches synchronously and stays instant.
 function M.refresh_if_stale(name, ttl)
   if cache.is_stale(M.read_cache(name), os.time(), ttl) and not in_flight[name] then
     M.sync(name, { silent = true })
   end
 end
 
--- Read every configured source's cached items (offline, instant), each refreshed in the
--- background when stale -- the spec list the unified picker pools across :Daylog! insert /
--- :Daylog rename / :Daylog map. Returns { { name, source, items }, ... }; empty with no sources.
+-- Read every configured source's cached items (offline), each refreshed in the background
+-- when stale; returns { { name, source, items }, ... } for the unified picker.
 function M.read_specs()
   local sources_cfg = config.get().sources or {}
   local specs = {}

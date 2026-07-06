@@ -2,23 +2,15 @@ local M = {}
 
 -- Split apportionment math. PURE.
 --
--- :Daylog split cuts each of an activity's time intervals into N weighted
--- sub-activities by whole minutes. The interval endpoints are fixed, so each
--- interval's parts must sum exactly to its length (a row sum), while each
--- sub-activity's total across all the activity's intervals should track its weighted
--- share p_i * T as closely as possible (a soft column target). This module owns that
--- 2-D rounding; the usecase owns turning it into entries.
---
--- The method is an error-carrying largest remainder, processing intervals in
--- chronological order. A short interval that cannot afford every part yields zeros for
--- the ones it skips; the unmet fractional share rolls into `carry` and is repaid by a
--- later, longer interval -- so the column totals stay near target even when individual
--- rows are too small to split evenly.
+-- :Daylog split cuts each of an activity's intervals into N weighted sub-activities by whole
+-- minutes. Each interval's parts must sum exactly to its length (row sum); each sub-activity's
+-- total should track its weighted share p_i * T (soft column target). The method is an
+-- error-carrying largest remainder over intervals in order: a share a short interval can't afford
+-- rolls into `carry` and is repaid by a later one, keeping columns near target.
 
--- Distribute a list of interval `durations` (whole minutes) across #`weights`
--- sub-activities. Returns an integer matrix `m[j][i] >= 0` whose row j sums exactly to
--- `durations[j]`; column i sums track `p_i * sum(durations)`. Precondition: weights are
--- positive and sum to a positive number (the usecase validates this).
+-- Distribute interval `durations` (whole minutes) across #`weights` sub-activities: returns an
+-- integer matrix `m[j][i] >= 0`, row j summing exactly to `durations[j]`, column i tracking
+-- `p_i * sum(durations)`. Precondition: weights positive (the usecase validates this).
 function M.allocate(durations, weights)
   local n = #weights
 
@@ -32,9 +24,8 @@ function M.allocate(durations, weights)
     p[i] = weights[i] / total_weight
   end
 
-  -- carry[i] is the as-yet-unpaid share for sub-activity i (its fractional debt). It
-  -- stays within (-1, 1) and sums to zero across i, so the columns track p_i*T exactly
-  -- up to the final rounding.
+  -- carry[i] is sub-activity i's unpaid fractional share; it stays in (-1, 1) and sums to
+  -- zero across i, so the columns track p_i*T up to the final rounding.
   local carry = {}
   for i = 1, n do
     carry[i] = 0
@@ -57,9 +48,8 @@ function M.allocate(durations, weights)
       assigned = assigned + floored
     end
 
-    -- Reconcile the row to its exact total. |diff| < n, so these loops are cheap.
-    -- Hand a leftover minute to the part that wants it most (largest want-a); take a
-    -- surplus minute from the part that wants it least, never below zero.
+    -- Reconcile the row to its exact total (|diff| < n): give a leftover minute to the part
+    -- wanting it most, take a surplus from the part wanting it least, never below zero.
     local diff = duration - assigned
     if diff > 0 then
       for _ = 1, diff do
@@ -97,10 +87,8 @@ function M.allocate(durations, weights)
   return matrix
 end
 
--- Turn one allocation row into its present sub-activities in index order, each with
--- the minute offset from the interval start where its sub-entry begins. Zero-minute
--- parts are dropped (no sub-entry is created for them in this interval), so the offsets
--- of the present parts are strictly increasing and each part is at least one minute.
+-- Turn one allocation row into its present sub-activities in index order, each with its
+-- minute offset from the interval start; zero-minute parts are dropped.
 function M.parts(allocation_row)
   local parts = {}
   local offset = 0

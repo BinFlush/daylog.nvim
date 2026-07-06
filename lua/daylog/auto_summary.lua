@@ -5,9 +5,8 @@ local report_buffers = require("daylog.report")
 
 local M = {}
 
--- Wire the autocmds that drive automatic summary refresh for the configured
--- mode. `off` installs nothing (manual :Daylog refresh still works) but still
--- clears any autocmds a previous setup() left behind.
+-- Wire the autocmds driving automatic summary refresh for the mode; `off` installs nothing
+-- but still clears a previous setup()'s autocmds.
 function M.setup(mode)
   local group = vim.api.nvim_create_augroup("DaylogAutoSummary", { clear = true })
   if mode == "off" then
@@ -35,11 +34,10 @@ function M.setup(mode)
       { group = group, callback = refresh }
     )
   elseif mode == "change" then
-    -- Debounce per buffer so the last change in a burst refreshes, and a burst in one daylog
-    -- never cancels another daylog's pending refresh. The deferred refresh re-checks at fire
-    -- time (not just at schedule) that this is still the buffer's last change and that the
-    -- buffer is still current -- apply_refresh acts on the current buffer -- so switching away
-    -- within the 200ms window never refreshes the wrong buffer.
+    -- Debounce per buffer (last change in a burst wins, and one daylog's burst never cancels
+    -- another's pending refresh); the deferred refresh re-checks at fire time that this is still
+    -- the buffer's last change and still current, so switching away within the 200ms window never
+    -- refreshes the wrong buffer.
     local generations = {}
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
       group = group,

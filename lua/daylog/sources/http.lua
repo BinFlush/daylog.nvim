@@ -1,8 +1,7 @@
 local M = {}
 
--- Curl-based async HTTP transport. This is the only file in the source layer that
--- performs network IO (via vim.fn.jobstart). It knows nothing about log or
--- Azure DevOps -- it runs a request and hands back { status, body }.
+-- Curl-based async HTTP transport (shell): the only source-layer file doing network IO
+-- (vim.fn.jobstart); runs a request and returns { status, body }.
 
 local DEFAULT_TIMEOUT_MS = 30000
 
@@ -14,10 +13,9 @@ local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- Turn curl's exit code and buffered stdout/stderr line lists into
--- { status = integer, body = string } or nil, err. Pure (no Neovim API), so the
--- exit handling stays unit-testable. The status code rides on its own trailing
--- line, appended via curl's --write-out, so it splits off cleanly from the body.
+-- Turn curl's exit code and buffered stdout/stderr into { status, body } or nil, err (pure,
+-- so exit handling is testable); the status rides on its own trailing --write-out line so it
+-- splits off cleanly from the body.
 function M.parse_response(code, stdout, stderr)
   if code ~= 0 then
     local message = trim(table.concat(stderr or {}, "\n"))
@@ -33,8 +31,8 @@ function M.parse_response(code, stdout, stderr)
     body, status_text = "", output
   end
 
-  -- curl always appends %{http_code}; a non-numeric tail means no usable response,
-  -- so report that rather than fabricating a status 0.
+  -- curl always appends %{http_code}; a non-numeric tail means no usable response, so report
+  -- that rather than fabricate a status 0.
   local status = tonumber(status_text)
   if not status then
     return nil, "curl returned no HTTP status"
@@ -59,16 +57,13 @@ function M.request(opts, cb)
     tostring((opts.timeout_ms or DEFAULT_TIMEOUT_MS) / 1000),
     "-X",
     opts.method or "GET",
-    -- Append the status code on its own trailing line so it splits off cleanly
-    -- regardless of the body's contents.
+    -- Status code on its own trailing line so it splits cleanly from any body.
     "--write-out",
     "\n%{http_code}",
   }
 
-  -- Pass credentials through a private curl config file rather than --user, which
-  -- would expose the token in the process argv (ps / /proc/<pid>/cmdline). The
-  -- file lives in Neovim's 0700 temp dir, is locked to the owner, and is removed
-  -- once curl exits. Escape backslashes and quotes so the quoted value is intact.
+  -- Pass credentials via a private 0700 curl config file, not --user, which would expose the
+  -- token in argv (ps / /proc/<pid>/cmdline); removed once curl exits. Escape backslashes and quotes.
   local config_file
   if opts.auth then
     config_file = vim.fn.tempname()

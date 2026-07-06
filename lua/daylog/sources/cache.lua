@@ -1,8 +1,7 @@
 local M = {}
 
--- Pure cache codec and policy for source items. No IO and no Neovim API: the
--- shell (log.sources.sync) reads/writes files and injects a JSON decoder, so
--- the envelope validation, TTL math, and local filtering stay unit-testable.
+-- Pure cache codec and policy for source items (no IO/Neovim API); the shell injects a JSON
+-- decoder, so envelope validation and TTL math stay unit-testable.
 
 local VERSION = 1
 M.VERSION = VERSION
@@ -16,9 +15,8 @@ function M.encode(items, fetched_at)
   }
 end
 
--- Decode a JSON cache string with the injected decode_fn (e.g. vim.json.decode)
--- and validate the envelope. A corrupt or wrong-version cache returns nil plus an
--- error message so callers treat it as absent and re-sync rather than crash.
+-- Decode and validate a JSON cache string via the injected decode_fn; a corrupt or
+-- wrong-version cache returns nil plus an error so callers re-sync rather than crash.
 function M.decode(json, decode_fn)
   local ok, decoded = pcall(decode_fn, json)
   if not ok or type(decoded) ~= "table" then

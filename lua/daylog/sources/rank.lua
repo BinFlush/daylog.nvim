@@ -6,16 +6,11 @@ local M = {}
 
 -- Daylog-frecency ranking of source items (PURE).
 --
--- Reorders a source's cached items so the ones you actually work on lead, by a standard
--- Mozilla-style "frecency" over your recent daylogs. Each logged entry of an activity is a
--- "visit"; an activity scores its total visit count times the average recency weight of its
--- most recent visits, so recent *and* frequent activities rank highest (duration is not a
--- factor). The signal is your daybook (no hidden state) keyed on each entry's resolved label,
--- so one ranker serves every source. The daybook scan that feeds build_usage is the only impure part and
--- lives in the picker shell (pick.lua); everything here is pure over plain tables.
+-- Mozilla-style frecency over recent daylogs, keyed on each entry's resolved label so one ranker
+-- serves every source; the impure daybook scan lives in the picker shell (pick.lua).
 
--- Open before unknown before done, so a normalized `active` flag breaks ties sensibly without
--- forcing every source to set it.
+-- Open before unknown before done, so a normalized `active` flag breaks ties without forcing
+-- every source to set it.
 local function active_rank(active)
   if active == true then
     return 2
@@ -25,9 +20,8 @@ local function active_rank(active)
   return 1
 end
 
--- How many of the most recent visits to sample, and the recency buckets that weight them --
--- the Firefox frecency defaults: a visit in the last 4 days is worth 100, then 70 / 50 / 30 by
--- 14 / 31 / 90 days, and 10 beyond that.
+-- Firefox frecency defaults: sample the 10 most recent visits; a visit scores 100 within 4 days,
+-- then 70 / 50 / 30 by 14 / 31 / 90 days, 10 beyond.
 local SAMPLE_SIZE = 10
 
 local function recency_weight(age_days)
@@ -43,10 +37,8 @@ local function recency_weight(age_days)
   return 10
 end
 
--- Standard Mozilla frecency for a list of visit timestamps: sample the most recent SAMPLE_SIZE,
--- weight each by its recency bucket, and scale the average by the full visit count. (Firefox's
--- per-visit-type bonus collapses to 1 here -- every logged entry is the same kind of visit.)
--- Returns a non-negative integer; 0 for no visits. Sorts `dates` in place (caller owns it).
+-- Mozilla frecency for visit timestamps: average the recency weight of the most recent
+-- SAMPLE_SIZE, scaled by the full count. Sorts `dates` in place (caller owns it).
 local function frecency(dates, now)
   local count = #dates
   if count == 0 then
@@ -69,22 +61,16 @@ local function score_for(used)
   return used and used.score or 0
 end
 
--- Build a usage map from recent daylogs for the Mozilla frecency score. `day_line_lists` is
--- { { date = <timestamp>, lines = <string[]> }, ... }. Every logged entry is a "visit" keyed on
--- its resolved label -- the mapping alias when set, else the description -- matching how it is
--- reported and how key_of keys a source item, so a bare and a mapped entry count as one.
--- Each map value carries the visit `count`, the `latest` visit timestamp, and the computed
--- `score`; `count` and `latest` are kept for reference and a custom picker.rank. Pure: `now` is
--- passed in.
+-- Build a frecency usage map from recent daylogs. Every logged entry is a "visit" keyed on its
+-- resolved label (alias else description) -- matching key_of -- so bare and mapped count as one.
+-- Each value carries `count`, `latest`, and `score`. Pure: `now` is passed in.
 function M.build_usage(day_line_lists, now)
   local visits = {}
   for _, day in ipairs(day_line_lists) do
     local analysis = analyze.analyze(document.parse(day.lines))
     for _, block in ipairs(analysis.log_blocks) do
       for _, entry in ipairs(block.entries) do
-        -- Key on the resolved label (the mapping alias when set, else the description),
-        -- matching how the entry is reported and how key_of(item) keys a source item, so a
-        -- mapped entry credits the item it maps to instead of spawning a duplicate activity.
+        -- Key on the resolved label so a mapped entry credits its target, not a duplicate.
         local text = summary.entry_summary_text(entry)
         if text and text ~= "" then
           local seen = visits[text]
@@ -112,11 +98,9 @@ function M.build_usage(day_line_lists, now)
   return usage
 end
 
--- Order items by relevance (descending) on the precomputed daylog frecency -- positive for
--- anything you have logged, 0 otherwise. ctx = { usage, key_of }; `key_of(item)` returns the
--- entry text the item would be logged as, matching build_usage's keys. Never-logged items (and
--- exact ties) fall back to the normalized `active` flag, then the tracker `updated` timestamp,
--- then the original index (stable -- items that tie on everything keep their input order).
+-- Order items by daylog frecency (desc); ties fall back to the `active` flag, then the tracker
+-- `updated` timestamp, then input index (stable). ctx = { usage, key_of }; key_of matches
+-- build_usage's keys.
 function M.order(items, ctx)
   local usage = ctx.usage or {}
   local key_of = ctx.key_of
@@ -128,14 +112,12 @@ function M.order(items, ctx)
       item = item,
       index = index,
       score = score_for(used),
-      -- Sources are arbitrary tables; admit only a string here so the comparator never
-      -- compares a foreign type (a JSON-null sentinel, a number) against a string.
+      -- Admit only a string so the comparator never compares a foreign type against a string.
       updated = type(item.updated) == "string" and item.updated or nil,
     }
   end
 
   table.sort(decorated, function(a, b)
-    -- daylog frecency
     if a.score ~= b.score then
       return a.score > b.score
     end
@@ -158,7 +140,6 @@ function M.order(items, ctx)
       return au > bu
     end
 
-    -- full tie: preserve input order
     return a.index < b.index
   end)
 
@@ -169,15 +150,10 @@ function M.order(items, ctx)
   return ordered
 end
 
--- Build one ranked, deduped pool of insertable rows from several sources' items plus the
--- leftover recent activities (the daylog texts that are not a source item). PURE.
---
--- `sources` is a list of { name, items, key_of, display_for, text_of } (each fn(item)->string);
--- `ctx = { usage }`. Each item becomes a row keyed on its entry text; a usage key that no item
--- claims becomes an `activity` row -- so an activity that matches a tracker item appears once
--- (as the item). Every row carries `.text` -- what gets inserted/renamed-to when chosen (an
--- item's entry text, an activity's logged text). Rows sort by the daylog frecency (desc), then
--- item-before-activity, then their build order (stable). Returns rows:
+-- Build one ranked, deduped pool of insertable rows from several sources' items plus leftover
+-- recent activities (daylog texts no item claims). PURE. Each item is a row keyed on its entry
+-- text; an unclaimed usage key becomes an `activity` row, so a matching activity appears once.
+-- Rows sort by frecency (desc), then item-before-activity, then build order (stable). Returns:
 --   { kind = "item", source = name, item, key, display, text, score }
 --   { kind = "activity", key, display, text, score }
 function M.build_insert_pool(sources, ctx)
@@ -205,9 +181,8 @@ function M.build_insert_pool(sources, ctx)
     end
   end
 
-  -- pairs() walks usage in hash order, which would make the `order` tie-break (and so the
-  -- final row order on a score tie) nondeterministic -- collect the leftover keys and sort
-  -- them so tied activities always come out alphabetically.
+  -- pairs() walks in hash order, so sort the leftover keys -- otherwise tied activities' final
+  -- order is nondeterministic.
   local activity_keys = {}
   for key in pairs(usage) do
     if not seen[key] then

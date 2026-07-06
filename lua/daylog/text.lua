@@ -2,10 +2,8 @@ local M = {}
 
 -- Small text predicates with no dependencies and no Neovim API (PURE).
 
--- Whether `lines` holds no log content: nil, empty, or only blank/whitespace
--- lines. Every layer agrees on what "empty" means through this one predicate -- the
--- shell's buffer check, new_log's create-in-place guard, and the daybook
--- report's empty-day skip -- so a nil line list counts as empty rather than erroring.
+-- Whether `lines` holds no log content (nil, empty, or only whitespace); the one predicate
+-- every layer shares, so a nil line list counts as empty rather than erroring.
 function M.is_empty(lines)
   if lines == nil then
     return true

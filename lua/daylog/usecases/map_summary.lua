@@ -8,25 +8,19 @@ local M = {}
 
 -- Set or clear an entry's mapping alias (PURE).
 --
--- An alias (` => label`) makes an entry resolve to `label` in the summary -- it counts
--- toward, and is shown as, that target, while the entry keeps its descriptive text. This
--- works at three granularities: with the cursor on a main summary row it maps every
--- contributing entry (bulk), with the cursor on an entry it maps just that one, and over a
--- line range (a visual selection) it maps every entry line in the range and expands every
--- summary row in the range to the entries feeding it -- so selecting a span of summary rows
--- collapses those activities under one label. The mapping rides on the entry, so the summary
--- stays a pure projection. An empty value clears the alias. A logged (`!S`) entry is refused
--- -- its committed value is tied to its current identity; unlog, map, relog.
+-- An alias (` => label`) makes an entry resolve to `label` in the summary while keeping its text.
+-- Three granularities: a main summary row maps every contributing entry, an entry maps just
+-- itself, a line range maps each entry line and expands each summary row to its entries. The
+-- mapping rides on the entry, so the summary stays a pure projection. Empty clears; a logged
+-- (`!S`) entry is refused (its committed value is tied to its identity).
 
 M.REFUSE_LOGGED = "daylog: refusing to map a logged entry; unlog it first"
 M.REFUSE_BLANK = "daylog: a blank entry is uncounted and cannot be mapped"
 M.NOT_MAPPABLE = "daylog: put the cursor on a summary row or an entry to map it"
 M.NO_RANGE_ENTRIES = "daylog: nothing in the selection to map"
 
--- The source entry rows feeding a main summary row: its interval contributors plus a
--- same-activity closing entry. The closing entry starts no interval, so it is absent from
--- source_entry_rows; include it when its activity matches the row, so a same-activity closer
--- is mapped too.
+-- The source entry rows feeding a main summary row: interval contributors plus a same-activity
+-- closing entry (which starts no interval, so it is absent from source_entry_rows).
 local function item_source_rows(block, item)
   local rows = {}
   for _, row in ipairs(item.source_entry_rows or {}) do
@@ -62,11 +56,9 @@ local function resolve_targets(lines, cursor_row)
   return nil, nil, M.NOT_MAPPABLE
 end
 
--- The active log's target entry rows for a [r1, r2] line range -- a visual selection. Each
--- entry line maps itself; each main summary row in the range expands to the entries feeding
--- it, so a span of summary rows collapses those activities together. Structural lines
--- (headers, blanks, total rows) and any other log's lines contribute nothing, and a selection
--- with no mappable target is refused. Returns ctx, rows, err.
+-- The active log's target entry rows for a [r1, r2] range. Each entry line maps itself; each
+-- summary row expands to its feeding entries. Structural lines and other logs contribute nothing;
+-- an empty selection is refused. Returns ctx, rows, err.
 local function resolve_range_targets(lines, r1, r2)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
@@ -82,18 +74,16 @@ local function resolve_range_targets(lines, r1, r2)
     end
   end
 
-  -- The selected entry lines map themselves (support.entry_rows_in_range skips blank
-  -- entries like structural lines). Entries always precede the summary in a block, so
-  -- taking them first keeps the rows in selection order.
+  -- Entry lines map themselves (entry_rows_in_range skips blanks). Entries precede the summary,
+  -- so taking them first keeps rows in selection order.
   for _, row in ipairs(support.entry_rows_in_range(ctx.block, r1, r2)) do
     add(row)
   end
 
   for row = lo, hi do
     if not support.entry_item_at_row(ctx.block, row) then
-      -- A summary item row expands to every entry feeding it. A resolve error (STALE for the
-      -- header / blanks inside the region, AMBIGUOUS) means "not a mappable row here", so it
-      -- is skipped exactly like a non-entry body line rather than refusing the whole range.
+      -- A summary item row expands to its feeding entries. A resolve error (STALE/AMBIGUOUS)
+      -- means "not a mappable row here", so it is skipped rather than refusing the whole range.
       local result = summary_cursor.resolve(lines, row)
       if result and result.layout_row.kind == render.LAYOUT_KIND.SUMMARY_ITEM then
         for _, source_row in ipairs(item_source_rows(ctx.block, result.layout_row.item)) do
@@ -120,13 +110,10 @@ local function first_alias(ctx, rows)
   return nil
 end
 
--- Set `alias` (empty clears) on every entry in `rows`, refusing the whole edit if any entry that
--- would actually change is logged. Mapping an entry onto its own description is a no-op -- a bare row
--- and `text => text` resolve identically -- so the target's bare form is the desired state: a ranged
--- map of several items onto one of them (a,b,c,d,e => c) leaves c untouched rather than writing a
--- redundant `c => c`, and a row already at the requested state contributes no edit. The override map
--- then drives both the source-line rewrite and the rebuilt projection through
--- support.apply_entry_overrides, so they agree by construction.
+-- Set `alias` (empty clears) on every entry in `rows`, refusing the edit if any changing entry is
+-- logged. Mapping an entry onto its own description is a no-op (a bare row and `text => text`
+-- resolve identically), so `a,b,c => c` leaves c untouched. The override map drives both the
+-- source rewrite and the rebuilt projection, so they agree by construction.
 local function apply_alias(ctx, rows, alias)
   local value = entry.sanitize_alias(alias)
 
@@ -156,9 +143,8 @@ local function apply_alias(ctx, rows, alias)
   return result
 end
 
--- Validate the cursor is on a mappable target and report the current alias of its first
--- entry (for a prompt default), without editing. Lets the shell fail before any async
--- picker. Returns { alias = <current or nil> }, or nil, err.
+-- Validate the cursor is on a mappable target and report its first entry's alias (prompt default)
+-- without editing, so the shell fails before any async picker. Returns { alias }, or nil, err.
 function M.peek(lines, cursor_row)
   local ctx, rows, err = resolve_targets(lines, cursor_row)
   if not ctx then

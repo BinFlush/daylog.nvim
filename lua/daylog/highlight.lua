@@ -9,32 +9,19 @@ local M = {}
 
 -- Parser-driven highlight spans (PURE).
 --
--- This module owns no grammar of its own: it maps the parse into highlight spans
--- and nothing more. Every recognition decision comes from the parser layer --
--- node kinds and token spans from document.lua (document.tokens,
--- document.classify_control_token, document.quant_error_spans,
--- document.summary_duration_length, document.is_option_token), header validity and
--- summary-section context from analyze.lua, and the section-header predicate from
--- syntax.lua. There are no patterns here, so there is a single source of truth for
--- what a token is; this file only decides which highlight group each token gets.
+-- This module owns no grammar: every recognition decision comes from the parser layer (document.lua
+-- node kinds/token spans, analyze.lua header validity/section context, syntax.lua predicates), so
+-- there is a single source of truth for what a token is; this file only picks each token's group.
 --
--- A span is { line, col_start, col_end, group, priority }: 0-based byte columns,
--- end exclusive, matching the extmark API. Whole-line "base" spans (a log
--- header, a block header, a note) use a lower priority than the narrower token
+-- A span is { line, col_start, col_end, group, priority }: 0-based byte columns, end exclusive,
+-- matching the extmark API. Whole-line "base" spans use a lower priority than the narrower token
 -- spans layered over them, so e.g. a #tag inside a header wins at its own cells.
 
--- Highlight groups and the default highlight they link to. Exposed as data so the
--- shell registers them once; the names match the previous syntax file, so any
--- user `highlight` overrides keep working unchanged.
--- Inline metadata tokens link to bright, mutually distinct standard groups (not
--- Comment): a #tag is cyan-ish (Identifier), an @location blue-ish (Function), a
--- utc±H offset green-ish (Type), a round±N nudge red/orange-ish (Constant), and a logged
--- marker (`!S`/`!T`/`!L`/`!W`) orange-ish (Special). Headers (the log header and the summary/report section dividers)
--- are bold, so they read as structure and separate cleanly from a note in ANY theme -- a
--- linked color was too theme-dependent (some themes render it identically to Comment).
--- Only the (+Nm) rounding residual and free notes stay muted (Comment). A value is either a
--- link string or an attribute table; both are registered with default = true, so a theme or
--- a user's own `:highlight` still wins.
+-- Highlight groups and the default highlight they link to, exposed as data so the shell registers
+-- them once. Inline metadata tokens link to bright, mutually distinct standard groups (not Comment);
+-- headers are bold so they read as structure in ANY theme; only the (+Nm) residual and free notes
+-- stay muted (Comment). A value is a link string or an attribute table, both registered with
+-- default = true, so a theme or a user's own `:highlight` still wins.
 M.GROUPS = {
   DaylogHeader = { bold = true },
   DaylogBlockHeader = { bold = true },
@@ -50,24 +37,20 @@ M.GROUPS = {
   -- A mapping alias (` => label`) -- the target an entry resolves to in the summary.
   DaylogAlias = "String",
   DaylogNote = "Comment",
-  -- The stray-cursor bar is a fixed soft red (a deliberate accent, not a syntax-role link);
-  -- default = true still lets a theme/user override win.
+  -- The stray-cursor bar is a fixed soft red; default = true still lets a theme/user override win.
   DaylogStraySign = { fg = "#d28a8a", ctermfg = 167 },
   DaylogBarLabel = "Comment",
-  -- A dead period (a blank entry's uncounted interval) in the time bar: a dim marker glyph, so it
-  -- reads as a deliberate "nothing here" break rather than an activity block.
+  -- A dead period (a blank entry's uncounted interval) in the time bar: a dim marker glyph.
   DaylogBarGap = "NonText",
-  -- A hard red for a broken block: the offending source line AND the whole (now-untrustworthy)
-  -- summary it feeds. Overrides the normal token colours so it reads as an error at a glance; a
-  -- theme/user can still restyle it (e.g. to a background) via `:highlight DaylogError`.
+  -- A hard red for a broken block: the offending source line and the whole untrustworthy summary
+  -- it feeds; a theme/user can still restyle it via `:highlight DaylogError`.
   DaylogError = { fg = "#ff5f5f", ctermfg = 203, bold = true },
 }
 
--- The per-activity colour groups DaylogBar{n} (time-bar block / legend-swatch background) and
--- DaylogSign{n} (margin-indicator foreground) are generated on demand from `daylog.palette` -- an
--- OkLCH colour wheel giving one distinct colour per activity index -- and defined lazily by their
--- shell consumers (timebar_ui / buffer), so there is no fixed palette size to cycle through. Each is
--- registered default = true, so a theme or a user's own :highlight still wins.
+-- The per-activity colour groups DaylogBar{n} (time-bar / legend-swatch background) and DaylogSign{n}
+-- (margin-indicator foreground) are generated on demand from `daylog.palette` and defined lazily by
+-- their shell consumers (timebar_ui / buffer), so there is no fixed palette size. Each is registered
+-- default = true, so a theme or a user's own :highlight still wins.
 
 local BASE_PRIORITY = 100
 local TOKEN_PRIORITY = 110
@@ -77,17 +60,15 @@ local ERROR_PRIORITY = 200
 -- The timestamp is always a zero-padded HH:MM (5 bytes); 24:00 included.
 local TIMESTAMP_WIDTH = 5
 
--- Header-token diagnostics that make a log header invalid (so it renders as a
--- plain block header with no token highlighting), as opposed to INVALID_FIRST_HEADER,
--- which is about document position, not the header line's own validity.
+-- Header-token diagnostics that make a log header invalid (so it renders as a plain block header),
+-- as opposed to INVALID_FIRST_HEADER, which is about document position, not the line's own validity.
 local HEADER_TOKEN_DIAGNOSTICS = {
   [syntax.DIAGNOSTIC.INVALID_LOG_HEADER_OPTION] = true,
   [syntax.DIAGNOSTIC.INVALID_LOG_HEADER_METADATA] = true,
   [syntax.DIAGNOSTIC.INVALID_LOG_HEADER_TOKEN] = true,
 }
 
--- The log header rows the analyzer flagged for bad tokens (so the highlighter
--- demotes them to a block header).
+-- The log header rows the analyzer flagged for bad tokens (so the highlighter demotes them).
 local function invalid_header_rows(analysis)
   local rows = {}
   for _, diagnostic in ipairs(analysis.diagnostics) do
@@ -98,9 +79,8 @@ local function invalid_header_rows(analysis)
   return rows
 end
 
--- The rows that sit inside a generated summary section. A section runs from its
--- header to the blank line that ends it (or the next header / EOF), mirroring the
--- rendered layout, so free notes written after a summary are not swept in.
+-- The rows inside a generated summary section: from its header to the blank line that ends it (or
+-- the next header / EOF), so free notes written after a summary are not swept in.
 local function summary_section_rows(analysis)
   local nodes = analysis.document.nodes
   local in_summary = {}
@@ -122,12 +102,10 @@ local function summary_section_rows(analysis)
   return in_summary
 end
 
--- Rows to flag red because a block is broken: the offending source line(s) -- an out-of-order or
--- invalid entry, or a logging error (a conflicting or off-grid `!S`) -- AND the whole
--- summary region of any block carrying such an error, so a stale/suspect summary reads as
--- untrustworthy at a glance and clears the instant the error is fixed. Reuses the analyzer's own
--- diagnostics plus the one shared `summary.logging_diagnostics`, so the red never disagrees with the
--- refresh warning.
+-- Rows to flag red because a block is broken: the offending source line(s) and the whole summary
+-- region of any block carrying such an error, so a suspect summary reads as untrustworthy and clears
+-- when the error is fixed. Reuses the analyzer's diagnostics plus the shared
+-- `summary.logging_diagnostics`, so the red never disagrees with the refresh warning.
 local function error_rows(analysis)
   local red = {}
   local nodes = analysis.document.nodes
@@ -138,9 +116,8 @@ local function error_rows(analysis)
       red[diagnostic.row] = true
     end
 
-    -- A block-level structural error (out-of-order / invalid entry) points at its offending
-    -- line(s); red them, but only when they are entries -- a header problem falls back on its own
-    -- header highlighting and must not be painted red.
+    -- A block-level structural error points at its offending line(s); red them only when they are
+    -- entries -- a header problem falls back on its own highlighting and must not be painted red.
     local structural = analyze.find_block_diagnostic(analysis, block)
     if structural then
       for _, at in ipairs({ structural.row, structural.row2 }) do
@@ -167,8 +144,8 @@ local function error_rows(analysis)
   return red
 end
 
--- The highlight group for a trailing-metadata / header token (a #tag, @location,
--- clear, or !L), or nil when the token is not metadata.
+-- The highlight group for a trailing-metadata / header token (a #tag, @location, clear, or !L), or
+-- nil when the token is not metadata.
 local function control_group(token)
   local kind = document.classify_control_token(token)
   if kind == syntax.TOKEN_KIND.TAG then
@@ -195,10 +172,9 @@ local function push(spans, line, col_start, col_end, group, priority)
   }
 end
 
--- Highlight the trailing run of metadata tokens (#tag / @location / !L, any order,
--- each kind at most once) that the parser peels off the end of a line. Shared by
--- entries and summary rows. The caller only invokes it for valid entries and for
--- summary rows, so a run the parser rejects is never reached.
+-- Highlight the trailing run of metadata tokens the parser peels off a line, shared by entries and
+-- summary rows. The caller only invokes it for valid entries and summary rows, so a run the parser
+-- rejects is never reached.
 local function push_trailing_metadata(spans, row, line)
   local tokens = document.tokens(line)
   local first = document.trailing_metadata_start(tokens)
@@ -222,9 +198,8 @@ local function push_quant_errors(spans, row, line)
   end
 end
 
--- A row inside a summary section: its leading duration, rounding marker(s), and any
--- trailing #tag / @location the row still carries. The leading field is an entry's
--- timestamp (a `16:00 ...` row that carried no marker) or a rendered duration token.
+-- A row inside a summary section: its leading duration, rounding marker(s), and any trailing
+-- #tag / @location. The leading field is an entry's timestamp or a rendered duration token.
 local function push_summary_row(spans, row, line, kind)
   local duration = kind == syntax.NODE_KIND.ENTRY and TIMESTAMP_WIDTH
     or document.summary_duration_length(line)
@@ -235,11 +210,9 @@ local function push_summary_row(spans, row, line, kind)
   push_trailing_metadata(spans, row, line)
 end
 
--- A free note. A line that merely looks like a summary row (a leading duration and
--- a (+Nm) marker) but is not inside a generated summary section is ambiguous with a
--- note -- and the parser already classifies it as one -- so it is highlighted as a
--- note, never as a summary item, and a comment can't masquerade as one. Summary
--- rows are highlighted only inside a section (see push_summary_row).
+-- A free note. A summary-shaped line outside a generated summary section is highlighted as a note,
+-- not a summary item, so a comment can't masquerade as one (summary rows are highlighted only inside
+-- a section; see push_summary_row).
 local function push_note(spans, row, line)
   push(spans, row, 0, #line, "DaylogNote", BASE_PRIORITY)
 end
@@ -258,8 +231,8 @@ local function push_log_header(spans, row, line)
   end
 end
 
--- Compute the highlight spans for a daylog buffer's lines. `parsed`/`analysis` (one parse + analyze)
--- may be passed so a render pass shares a single analysis; they are computed when omitted.
+-- Compute the highlight spans for a daylog buffer's lines. `parsed`/`analysis` may be passed so a
+-- render pass shares a single analysis; they are computed when omitted.
 function M.spans(lines, parsed, analysis)
   parsed = parsed or document.parse(lines)
   analysis = analysis or analyze.analyze(parsed)
@@ -281,17 +254,14 @@ function M.spans(lines, parsed, analysis)
         push_summary_row(spans, index, line, kind)
       elseif kind == syntax.NODE_KIND.ENTRY then
         push(spans, index, 0, TIMESTAMP_WIDTH, "DaylogTimestamp", TOKEN_PRIORITY)
-        -- Metadata trails the line as usual; the ` => label` alias sits before it (between
-        -- the description and the metadata) and is colored on its own.
+        -- The ` => label` alias sits before the trailing metadata (between description and metadata).
         push_trailing_metadata(spans, index, line)
         local alias = document.alias_span(line)
         if alias then
           push(spans, index, alias.col_start, alias.col_end, "DaylogAlias", TOKEN_PRIORITY)
         end
       else
-        -- A NOTE_LINE, or an INVALID_ENTRY whose time the parser rejected (so it is
-        -- not a timestamp): a free note. A summary-shaped line outside a summary
-        -- section is a note, not a summary row.
+        -- A NOTE_LINE, or an INVALID_ENTRY whose time the parser rejected: a free note.
         push_note(spans, index, line)
       end
 
@@ -306,8 +276,8 @@ function M.spans(lines, parsed, analysis)
   return spans
 end
 
--- The active log's semantic entries (alias / tag / offset resolved), or nil when there's no log.
--- The time bar lays the day's intervals out from these. `analysis` may be passed to share one parse.
+-- The active log's semantic entries (alias / tag / offset resolved), or nil when there's no log;
+-- the time bar lays the day's intervals out from these. `analysis` may be passed to share one parse.
 function M.active_entries(lines, analysis)
   analysis = analysis or analyze.analyze(document.parse(lines))
   local active = analyze.get_active_log(analysis)
@@ -321,12 +291,10 @@ function M.parse_and_analyze(lines)
   return parsed, analyze.analyze(parsed)
 end
 
--- Pure: the left-margin colour indicator for the active log -- a map { buffer_row(1-based) ->
--- colour_index } colouring each entry (and the notes beneath it, so an activity reads as one
--- connected run) and each main summary row by its activity (the resolved label), with colours by
--- order of appearance. Also returns the active log's start row, for the stray-cursor mark. `analysis`
--- (one parse + analyze) may be passed so a render pass shares a single analysis; it is computed when
--- omitted. The map is empty when there is no log.
+-- The left-margin colour indicator for the active log: a map { buffer_row(1-based) -> colour_index }
+-- colouring each entry (and the notes beneath it) and each main summary row by its activity (the
+-- resolved label), colours by order of appearance. Also returns the active log's start row, for the
+-- stray-cursor mark. `analysis` may be passed to share one parse; the map is empty when there is no log.
 function M.indicator_rows(lines, analysis)
   analysis = analysis or analyze.analyze(document.parse(lines))
   local active = analyze.get_active_log(analysis)
@@ -337,8 +305,8 @@ function M.indicator_rows(lines, analysis)
   local index = colors.indices(summary.build_intervals(active.entries))
   local rows = {}
 
-  -- Each entry item spans the entry and the notes/blanks beneath it (up to the next entry), so one
-  -- colour runs down the whole activity.
+  -- Each entry item spans the entry and the notes/blanks beneath it, so one colour runs down the
+  -- whole activity.
   for _, item in ipairs(active.entry_items) do
     local label = (item.alias ~= nil and item.alias ~= "") and item.alias or item.text
     local color_index = index[label]
@@ -349,10 +317,10 @@ function M.indicator_rows(lines, analysis)
     end
   end
 
-  -- The main summary rows render consecutively right below the summary banner, in item order, so
-  -- summary_items[j] sits at start_row + j. Colour only when the located zone really begins at this
-  -- block's rendered banner -- a zone found by shape (a deleted/mangled banner) is no reliable anchor,
-  -- so it is skipped rather than risk colouring the wrong rows -- and bound each write to the zone.
+  -- The main summary rows render consecutively below the banner in item order, so summary_items[j]
+  -- sits at start_row + j. Colour only when the located zone really begins at this block's rendered
+  -- banner -- a zone found by shape is no reliable anchor, so it is skipped -- and bound each write
+  -- to the zone.
   local zone = summary_block.find(analysis, active)
   local banner = syntax.summary_header(active.quantize_minutes, active.duration_format)
   if zone and lines[zone.start_row] == banner then

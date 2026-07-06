@@ -1,23 +1,15 @@
 local M = {}
 
--- Quantization math.
---
--- Rounds fine-grained reporting rows to a bucket using the largest-remainder
--- method, then projects the rounded durations back onto the unrounded reporting
--- sections. summary.lua owns which row sets are quantized; this module owns the
--- arithmetic.
+-- Quantization math (PURE): largest-remainder rounding of reporting rows to a bucket.
+-- summary.lua owns which row sets are quantized; this module owns the arithmetic.
 
 function M.round_to_nearest_bucket(minutes, bucket_minutes)
   return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
 end
 
--- The quantization target for a set of fine-grained rows. Frozen (`logged_minutes`)
--- rows are external commitments held at exactly their committed value, so they are not
--- rounded: the un-frozen rows round to their OWN nearest-bucket total and the frozen
--- commitments are added on top. The day total is thus the honest sum of the displayed
--- parts -- a frozen row's manual `round±N` (which lowers only its own value) can no
--- longer push an un-frozen row around to keep some abstract whole-day total. With no
--- frozen rows this is just `round_to_nearest_bucket` of the whole, as before.
+-- The quantization target: frozen (`logged_minutes`) rows are held at their committed value, the
+-- un-frozen rows round to their OWN nearest-bucket total, and the two are summed. So the day total is
+-- the honest sum of the displayed parts, never a frozen row nudging an un-frozen one.
 function M.frozen_aware_target(rows, bucket_minutes)
   local frozen_total = 0
   local unfrozen_unrounded = 0
@@ -58,17 +50,9 @@ function M.apply_error_minutes(items)
   return items
 end
 
--- Round each row down to the bucket, then distribute the remaining
--- bucket-sized blocks (to reach `target_total`) to the largest remainders,
--- breaking ties by first-seen row order.
---
--- A row carrying `logged_minutes` is a frozen external commitment: it is held at
--- exactly that value and pulled OUT of the largest-remainder pool, so the leftover
--- buckets distribute only over the un-frozen rows against the reduced budget
--- `target_total - frozen_total`. With `target_total` from `frozen_aware_target` that
--- budget is exactly the un-frozen rows' own nearest-bucket total, so a committed row
--- never moves when later entries are appended, and its manual `round±N` can never push
--- an un-frozen row around to prop up some abstract whole-day total.
+-- Round each row down to the bucket, then distribute the leftover buckets (to reach `target_total`) to
+-- the largest remainders, ties by first-seen order. A `logged_minutes` row is a frozen commitment held
+-- at its value and pulled OUT of the pool, so leftovers distribute only over un-frozen rows.
 function M.quantize_rows(rows, bucket_minutes, target_total)
   local result = copy_rows(rows)
   local quantized_total = 0
@@ -117,13 +101,9 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
     end
   end
 
-  -- Second pass: apply per-row manual rounding nudges on top of the largest-remainder
-  -- baseline. A nudge of +k rounds the row up k more buckets (-k down); because every
-  -- displayed section is a sum of these same rows, the shift flows consistently into
-  -- the section totals and each section stays a partition. The displayed duration is
-  -- clamped at zero (a row can never show negative time); when a nudge would carry the
-  -- row below zero the clamp is recorded in `nudge_below_zero` so the refresh pass can
-  -- warn that the (hand-written or drifted) marker no longer reconciles.
+  -- Second pass: apply per-row manual nudges (+k rounds up k more buckets) on the baseline. The duration
+  -- clamps at zero; a nudge carrying it below zero sets `nudge_below_zero` so refresh can warn the marker
+  -- no longer reconciles.
   for _, row in ipairs(result) do
     if row.nudge and row.nudge ~= 0 and row.logged_minutes == nil then
       local base = math.floor(row.unrounded_duration / bucket_minutes) * bucket_minutes
@@ -140,23 +120,16 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   return result
 end
 
--- Quantize fine-grained rows the way daylog reports them: hold frozen (!S) rows at their
--- commitment and round the un-frozen rows to their own bucket total (frozen_aware_target).
--- The single entry point the display and the committed-value readers share, so they cannot
--- drift apart (a past bug: the two computed the target separately and one lagged).
+-- Quantize fine-grained rows as daylog reports them (frozen_aware_target). The single entry point the
+-- display and committed-value readers share, so they cannot drift apart.
 function M.quantize_fine_grained(rows, bucket_minutes)
   return M.quantize_rows(rows, bucket_minutes, M.frozen_aware_target(rows, bucket_minutes))
 end
 
--- Quantize granule rows to buckets under cell-level commitments, treating each commitment as a
--- rounding of its cell to a committed value. Two passes: (1) honest largest-remainder over all
--- granules (respecting each granule's manual `nudge`); (2) shift each committed cell's granules so the
--- cell sums to its `target` (a bucket multiple), moving buckets to the largest remainders (or off the
--- smallest, for a round-down). Because every report partition is a re-sum of these same granules, all
--- partitions then foot to the same total -- a commitment propagates everywhere the time appears, exactly
--- like a nudge. `commitments` is a list of `{ members = {granule indices}, target = minutes }`; disjoint
--- (single-level) and nested (laminar) commitments always succeed. Returns a fresh row list with
--- `duration` + `error_minutes`.
+-- Quantize granules under cell-level commitments. Two passes: (1) honest largest-remainder over all
+-- granules; (2) shift each committed cell's granules so the cell sums to its `target`, moving buckets to
+-- the largest remainders (or off the smallest, round-down). `commitments` is a list of
+-- `{ members = {granule indices}, target = minutes }`; disjoint and laminar commitments always succeed.
 function M.constrained_quantize(granules, bucket_minutes, commitments)
   local unrounded_total = 0
   for _, row in ipairs(granules) do
@@ -186,10 +159,9 @@ function M.constrained_quantize(granules, bucket_minutes, commitments)
       for _, index in ipairs(commitment.members) do
         ordered[#ordered + 1] = index
       end
-      -- Give buckets to the rows that most want to round up (largest remainder), or take them off the
-      -- rows that most want to round down (smallest remainder), so the shift adds the least error. Two
-      -- explicit branches, not the `cond and X or Y` idiom -- X (`ra > rb`) can be false, which would
-      -- collapse the idiom to `ra < rb` and yield a non-antisymmetric comparator (Lua rejects it).
+      -- Buckets go to the rows that most want to round up (or off those that most want down), least
+      -- error. Two explicit branches, not `cond and X or Y`: a false X would give a non-antisymmetric
+      -- comparator Lua rejects.
       table.sort(ordered, function(a, b)
         local ra, rb = remainder(result[a]), remainder(result[b])
         if ra == rb then
@@ -213,9 +185,8 @@ function M.constrained_quantize(granules, bucket_minutes, commitments)
           moved_this_cycle = true
         end
         cursor = cursor + 1
-        -- Round-down can run out of room (every member already at zero). Stop only after a FULL cycle
-        -- moved nothing -- not after a raw iteration count, which would abandon a still-feasible
-        -- reduction partway (`{90,30}` -> 0 must reach 0, not stop at 30). Up never gets stuck.
+        -- Round-down can run out of room; stop only after a FULL cycle moved nothing, not a raw
+        -- iteration count (which would abandon a still-feasible reduction, e.g. `{90,30}` -> 0).
         if not up and cursor % #ordered == 0 then
           if not moved_this_cycle then
             break

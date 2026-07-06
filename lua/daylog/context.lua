@@ -4,11 +4,8 @@ local document = require("daylog.document")
 
 local M = {}
 
--- Daylog context selection.
---
--- Commands ask this module for the active log or the log under the
--- cursor. The returned context keeps the semantic analysis and the selected
--- block (whose header carries the sticky tag/location metadata).
+-- Daylog context selection: the active log or the log under the cursor, returned with its
+-- semantic analysis and selected block (whose header carries the sticky metadata).
 
 local function build_context(analysis, block)
   if not block then

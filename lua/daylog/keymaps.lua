@@ -4,12 +4,9 @@ local config = require("daylog.config")
 
 local M = {}
 
--- The opt-in default key set (setup({ keymaps = true })): buffer-local in daylog files. ]d / [d
--- navigate days (deliberately overriding the diagnostic jumps inside daylog buffers, and
--- count-aware -- 3]d steps three logged days on); the editing verbs sit under the <leader>d
--- namespace (gitsigns-style: rides whatever <leader> you set, and only shadows a global
--- <leader>d* inside daylog buffers); g? shows the cheatsheet. Each entry carries a description so
--- which-key (and :Daylog keys) can label it.
+-- The opt-in default key set (setup({ keymaps = true })), buffer-local in daylog files: ]d/[d
+-- navigate days (count-aware, overriding diagnostic jumps), editing verbs under <leader>d, g?
+-- the cheatsheet. Each entry carries a description for which-key.
 local DEFAULT_KEYMAPS = {
   {
     lhs = "]d",
@@ -158,10 +155,9 @@ local function clear_applied_keymaps(buf)
   vim.b[buf].daylog_applied_maps = nil
 end
 
--- Apply the configured keymaps buffer-locally to a daylog buffer (true -> the default set, a
--- table -> the user's own lhs -> rhs), first clearing any previously applied set. Each map
--- carries a description so which-key can label it; the applied { mode, lhs } pairs are recorded
--- in b:daylog_applied_maps so a later setup() can remove them.
+-- Apply the configured keymaps buffer-locally (true -> defaults, table -> user's lhs->rhs),
+-- clearing any previous set; records applied { mode, lhs } in b:daylog_applied_maps for a
+-- later setup() to remove.
 local function apply_keymaps(buf)
   clear_applied_keymaps(buf)
 
@@ -197,9 +193,8 @@ local function each_loaded_daylog_buffer(fn)
   end
 end
 
--- (Re)install the FileType hook applying the opt-in keymaps to each daylog buffer. The augroup
--- clears on re-setup so a config change never stacks hooks; already-open daylog buffers get the
--- new maps immediately (their previous set cleared), and turning keymaps off removes it.
+-- (Re)install the FileType hook applying keymaps to each daylog buffer; the augroup clears on
+-- re-setup so hooks never stack, and already-open buffers get the new set immediately.
 function M.setup()
   local group = vim.api.nvim_create_augroup("DaylogKeymaps", { clear = true })
   if not config.get().keymaps then

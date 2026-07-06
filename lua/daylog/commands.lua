@@ -4,13 +4,11 @@ local M = {}
 
 -- Command surface (shell).
 --
--- Gathers everything about the :Daylog command -- argument parsing, source-name completion,
--- the verb dispatch, and registration -- in one place. register() defines the command; its
--- dispatch lazy-requires the init module (the public verbs) on first use, so this module stays
--- cheap to require at plugin load (to register :Daylog) and never forms a require cycle.
+-- Everything about the :Daylog command -- argument parsing, completion, verb dispatch,
+-- registration. Dispatch lazy-requires the init module on first use, so this stays cheap to
+-- require at plugin load and never forms a require cycle.
 
--- Lazy so requiring this module to register :Daylog does not pull buffer (and the core through
--- it) until the command is actually used.
+-- Lazy so registering :Daylog does not pull buffer (and the core) until the command is used.
 local function warn(message)
   require("daylog.buffer").warn(message)
 end
@@ -311,9 +309,7 @@ function M.verb_names()
 end
 
 -- Register the single :Daylog command. nvim_create_user_command replaces an existing definition,
--- so both plugin load and setup() can call it and a reload never leaves a stale closure behind.
--- The dispatch lazy-requires the init module on first invocation, so the
--- command is available the moment the plugin loads without pulling the implementation at startup.
+-- so plugin load and setup() can both call it and a reload leaves no stale closure behind.
 function M.register()
   -- Bare :Daylog opens today; :Daylog <verb> dispatches through VERBS; :Daylog! <verb> selects
   -- the verb's variant; a range applies to map.

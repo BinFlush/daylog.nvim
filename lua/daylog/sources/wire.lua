@@ -7,9 +7,8 @@ local sources_registry = require("daylog.sources.registry")
 
 local M = {}
 
--- Build and register the source objects declared in config, injecting the shell
--- transport, JSON codec, and a lazy token resolver. Clears first so repeated
--- setup() calls (and tests) start from a clean registry.
+-- Build and register the sources declared in config, injecting the shell transport, JSON
+-- codec, and a lazy token resolver; clears first so repeated setup() starts from a clean registry.
 function M.instantiate()
   sources_registry.clear()
 

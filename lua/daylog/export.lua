@@ -1,16 +1,12 @@
--- Machine-readable export of a report's summary (PURE).
---
--- Renders the same per-day summary the report shows into CSV or JSON, so logged time can be fed into a
--- timesheet / invoicing tool / script. One row per (day, activity, tag): the quantized minutes (what
--- you bill, per each log's q=), convenience decimal hours, and the logged flag. Takes
--- a report object (from week.build_dates_report); no Neovim API.
+-- Machine-readable export of a report's summary into CSV or JSON (PURE). One row per
+-- (day, activity, tag): quantized minutes, decimal hours, and the logged flag; takes a report
+-- from week.build_dates_report.
 
 local M = {}
 
 local FIELDS = { "date", "activity", "tag", "minutes", "hours", "logged" }
 
--- Decimal hours from whole minutes, locale-independently (avoid `%f`, whose decimal point follows the
--- C locale and could be a comma -- which would corrupt CSV columns and JSON numbers).
+-- Decimal hours from whole minutes, locale-independently (`%f`'s decimal point could be a comma and corrupt CSV/JSON).
 local function decimal_hours(minutes)
   return string.format(
     "%d.%02d",

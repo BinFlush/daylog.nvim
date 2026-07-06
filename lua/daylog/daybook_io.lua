@@ -8,18 +8,15 @@ local M = {}
 
 -- Day-file / buffer IO (shell).
 --
--- Reads, opens, scans, and seeds the dated daybook files on disk (and their loaded
--- buffers). Distinct from the pure daybook.lua, which is only path/date math.
+-- Reads, opens, scans, and seeds the dated daybook files on disk and their loaded buffers;
+-- distinct from the pure daybook.lua (path/date math only).
 
 local warn = buffer.warn
 local buffer_is_empty = buffer.buffer_is_empty
 local run_buffer_usecase = buffer.run_buffer_usecase
 
--- The system's current UTC offset in signed minutes, parsed from os.date("%z")
--- ("+0200", "-0400", "+0530"). Returns nil when the platform does not report a
--- numeric offset, so an unresolvable offset stamps no zone rather than a wrong one.
--- Polled both when a day's header is created and (via live_offset) on every
--- current-time insert, so auto_timezone can catch a mid-day DST/travel change.
+-- The system's current UTC offset in signed minutes from os.date("%z"), or nil when the platform
+-- reports no numeric offset (so an unresolvable offset stamps no zone rather than a wrong one).
 local function system_utc_offset_minutes()
   local sign, hours, minutes = tostring(os.date("%z")):match("^([%+%-])(%d%d)(%d%d)$")
   if not sign then
@@ -34,9 +31,8 @@ local function system_utc_offset_minutes()
   return total
 end
 
--- The live system offset to stamp on a current-time insert, or nil when the feature
--- is off or the platform reports no numeric offset (a graceful no-op either way). The
--- per-insert tracking compares this against the offset already in effect.
+-- The live system offset to stamp on a current-time insert, or nil when auto_timezone is off or the
+-- platform reports no numeric offset.
 local function live_offset()
   if not config.get().auto_timezone then
     return nil
@@ -44,12 +40,9 @@ local function live_offset()
   return system_utc_offset_minutes()
 end
 
--- Resolve a defaults table's `utc` for a fresh log header: the system's current offset
--- fills in for the "auto" sentinel, and also for an unset offset when `auto_timezone`
--- is on (the default) -- so a new day carries a zone baseline. A numeric offset passes
--- through unchanged (an explicit defaults.utc still wins), and absent + auto_timezone
--- off stays absent. The shared config table is never mutated; a copy is returned only
--- when the offset must be resolved.
+-- Resolve a defaults table's `utc` for a fresh log header: the system offset fills in for the
+-- "auto" sentinel and for an unset offset when `auto_timezone` is on. The shared config table is
+-- never mutated; a copy is returned only when the offset must be resolved.
 local function resolve_log_defaults(defaults)
   local utc = defaults and defaults.utc
   local resolve = utc == "auto" or (utc == nil and config.get().auto_timezone)
@@ -71,17 +64,15 @@ local function apply_new_log(defaults)
   return run_buffer_usecase(new_log.run, resolve_log_defaults(defaults))
 end
 
--- Scaffold a fresh log into the current buffer on demand, using the configured header defaults:
--- an empty/whitespace buffer is initialized in place, otherwise a new log block is appended as
--- the active log (see new_log.run), the cursor landing on the new header. The on-demand twin of
--- the empty-day auto-init below; reached through :Daylog new.
+-- Scaffold a fresh log into the current buffer using the configured header defaults: an empty
+-- buffer is initialized in place, otherwise a new log block is appended as the active log. Reached
+-- through :Daylog new.
 function M.insert_new_log()
   return apply_new_log(config.get().defaults)
 end
 
--- A loaded, file-backed buffer whose name resolves to `path`, or nil. Report
--- buffers (buftype "nofile", e.g. "daylog-week-2026-W21.day") are skipped so
--- they can never shadow a real daybook file.
+-- A loaded, file-backed buffer whose name resolves to `path`, or nil. Report buffers (nofile) are
+-- skipped so they can never shadow a real daybook file.
 local function loaded_buffer_for_path(path)
   local target = vim.fn.fnamemodify(path, ":p")
 
@@ -97,10 +88,8 @@ local function loaded_buffer_for_path(path)
   return nil
 end
 
--- Read a daybook day's lines for reporting. Prefer a loaded buffer for the path
--- so reports reflect unsaved edits; otherwise fall back to the file on disk.
--- Returns nil when neither is available, which the report pipeline treats as an
--- empty day.
+-- Read a daybook day's lines for reporting, preferring a loaded buffer (so reports reflect unsaved
+-- edits) then the file on disk. Returns nil when neither exists (treated as an empty day).
 local function daybook_lines(path)
   local buf = loaded_buffer_for_path(path)
   if buf then
@@ -108,9 +97,8 @@ local function daybook_lines(path)
   end
 
   if vim.fn.filereadable(path) == 1 then
-    -- vim.fn.readfile keeps the trailing \r on dos-format (CRLF) files, whereas a
-    -- loaded buffer strips it -- strip it here too so disk-read labels group with
-    -- buffer-read ones instead of splitting into separate report rows.
+    -- readfile keeps the trailing \r on CRLF files where a loaded buffer strips it; strip it here
+    -- too so disk-read and buffer-read labels group instead of splitting into separate rows.
     local lines = vim.fn.readfile(path)
     for i, line in ipairs(lines) do
       lines[i] = (line:gsub("\r$", ""))
@@ -128,17 +116,14 @@ local function daybook_path_has_content(path)
   return lines ~= nil and not text.is_empty(lines)
 end
 
--- Every daybook day that actually holds a daylog: dated `.day` files under the
--- daybook tree (each validated against the configured directory template, so only
--- canonical files count) plus any loaded buffer for a daybook day that currently
--- has content but is not yet written to disk. Returns a list of midday timestamps;
--- nearest_date de-duplicates by date. This file-IO scan is the shell's job.
+-- Every daybook day that holds a daylog: canonical dated `.day` files under the tree plus any
+-- loaded buffer with content not yet on disk. Returns a list of midday timestamps (de-duplicated by
+-- nearest_date).
 local function existing_daybook_dates(settings)
   local dates = {}
 
-  -- Trim any trailing slash (an expanded directory root carries one) so the glob
-  -- yields single-slash paths that string-match daybook.date_from_path's canonical
-  -- form -- a `root//2026/...` would otherwise be rejected as non-canonical.
+  -- Trim any trailing slash so the glob yields single-slash paths that match date_from_path's
+  -- canonical form (a `root//2026/...` would be rejected as non-canonical).
   local root = (settings.root:gsub("/+$", ""))
   for _, path in ipairs(vim.fn.glob(root .. "/**/*.day", true, true)) do
     local date = daybook.date_from_path(settings, path)
@@ -147,9 +132,8 @@ local function existing_daybook_dates(settings)
     end
   end
 
-  -- An unsaved new day (seeded today, or a freshly created day) has no file on
-  -- disk yet, so pick it up from the buffer list. Report scratch buffers (nofile)
-  -- are skipped by the buftype guard.
+  -- An unsaved new day has no file yet, so pick it up from the buffer list; report scratch buffers
+  -- (nofile) are skipped by the buftype guard.
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buftype == "" then
       local name = vim.api.nvim_buf_get_name(buf)
@@ -179,9 +163,8 @@ local function earliest_daybook_date(settings)
   return earliest
 end
 
--- The latest daybook date that holds a daylog, or nil when none exist. Resolves an
--- open-ended range end (`FROM..` / `..`); future-dated files count, so an open right end
--- reaches genuinely into the future.
+-- The latest daybook date that holds a daylog, or nil. Resolves an open-ended range end (`FROM..`);
+-- future-dated files count, so an open right end reaches into the future.
 local function latest_daybook_date(settings)
   local latest
 
@@ -229,10 +212,8 @@ local function open_daybook_file(settings, date)
     return false
   end
 
-  -- Decide from the live buffer, not disk: :edit reuses an existing unsaved
-  -- buffer (today seeded but never written, then navigated away and back),
-  -- whose content must not be re-seeded. A freshly opened missing/empty file is
-  -- an empty buffer and gets the initial header.
+  -- Decide from the live buffer, not disk: :edit reuses an existing unsaved buffer whose content
+  -- must not be re-seeded, while a freshly opened missing/empty file gets the initial header.
   local should_initialize = buffer_is_empty()
 
   if should_initialize and not apply_new_log(config.get().defaults) then
@@ -242,10 +223,8 @@ local function open_daybook_file(settings, date)
   return true, should_initialize
 end
 
--- Open the daybook file for a date for navigation only: never create the
--- directory or file and never write a header. A missing day opens as an empty,
--- unmodified buffer named for that date, so nothing is written to disk and the
--- buffer can be abandoned cleanly.
+-- Open the daybook file for navigation only: never create the directory/file or write a header, so
+-- a missing day opens as an empty, unmodified, cleanly-abandonable buffer.
 local function edit_daybook_file(settings, date)
   local path = daybook.path_for_date(settings, date)
 

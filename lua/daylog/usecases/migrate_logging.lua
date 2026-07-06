@@ -4,15 +4,11 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
--- One-time migration for the v0.1.x single-level `!L` (summary-logged), which is now the LOCATION
--- marker. Under the current grammar an old `!L` parses as a location-level logged marker (`logged.l`);
--- this rewrites every such entry to the summary marker `!S` -- the meaning it had in v0.1.x. Parse-based
--- (never a raw find/replace), so only genuine trailing markers move and activity text like
--- "look at !Slamas" is untouched. Run ONCE right after upgrading, before typing any new location `!L`;
--- the shell follows it with a summary refresh.
---
--- Each edit rewrites one entry line in place (no line-count change), so edits across blocks are
--- independent and need no ordering.
+-- One-time migration for the v0.1.x `!L` (summary-logged), which the current grammar parses as the
+-- location marker (`logged.l`); rewrites every such entry to `!S`, its v0.1.x meaning. Parse-based,
+-- so only genuine trailing markers move (text like "look at !Slamas" is untouched). Run ONCE after
+-- upgrading, before typing any new location `!L`. Each edit rewrites one line in place, so edits
+-- across blocks are independent and need no ordering.
 
 local function migrate_override(item)
   local logged = item.logged
@@ -20,8 +16,7 @@ local function migrate_override(item)
     return nil
   end
 
-  -- Guard: never overwrite a genuine summary value. It cannot occur in a clean v0.1.x file (no `!S`
-  -- existed), but this keeps a re-run or a hand-mixed `!S`+`!L` file from silently losing the `!S`.
+  -- Guard: never overwrite a genuine `!S`; keeps a re-run or hand-mixed `!S`+`!L` file from silently losing it.
   if logged.s ~= nil then
     return nil
   end

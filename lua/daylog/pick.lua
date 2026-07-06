@@ -10,17 +10,12 @@ local M = {}
 
 -- Picker frontend (shell).
 --
--- Chooses between the optional Telescope backend (daylog.telescope, required lazily
--- only when Telescope is installed) and the always-available vim.ui.select fallback,
--- so fzf-lua / snacks / mini.pick work too. The fallback renders its rows through the
--- PURE daylog.sources.picker display contract, so the columns line up in both modes.
--- Owns no buffer edits -- the caller's callbacks do the work; this only decides which
--- backend opens and routes the chosen value. Distinct from the PURE
--- daylog.sources.picker (align / merge / display_for / should_query) it consumes.
+-- Chooses between the optional Telescope backend (lazy-required when installed) and the
+-- vim.ui.select fallback. Owns no buffer edits -- the caller's callbacks do the work. Distinct
+-- from the PURE daylog.sources.picker (align / merge / display_for / should_query) it consumes.
 
--- Resolve a per-source config option (min_query, ttl) in one place. Returns nil for an
--- unconfigured / custom source -- the caller then applies its own default
--- (should_query clamps a nil min_query to 1; M.source falls back to a default ttl).
+-- Resolve a per-source config option (min_query, ttl). Returns nil for an unconfigured/custom
+-- source, so the caller applies its own default.
 local function source_opt(name, key)
   if not name then
     return nil
@@ -31,9 +26,8 @@ end
 
 local DEFAULT_FRECENCY_DAYS = 30
 
--- Scan the last `days` daylogs for what you have logged (buffer-aware, so today's unsaved
--- entries count too) and build the daylog-usage map the frecency ranker keys on. Empty when no
--- daybook is configured.
+-- Scan the last `days` daylogs (buffer-aware, so today's unsaved entries count) into the
+-- daylog-usage map the frecency ranker keys on. Empty when no daybook is configured.
 local function daylog_usage(days)
   local settings = daybook_io.expanded_daybook_settings()
   if not settings then
@@ -50,9 +44,8 @@ local function daylog_usage(days)
   return rank.build_usage(lists, os.time())
 end
 
--- Reorder a source's items so the ones you have recently logged lead -- the built-in
--- daylog-frecency ranker, or a user-supplied picker.rank. Source items only; with no
--- source (a candidate-only rename) or an empty list it is a no-op.
+-- Reorder a source's items by the built-in daylog-frecency ranker, or a user-supplied
+-- picker.rank. No source (candidate-only rename) or an empty list is a no-op.
 local function ranked(source, items)
   if not source or #items == 0 then
     return items
@@ -69,18 +62,16 @@ local function ranked(source, items)
   })
 end
 
--- Pick a source work-item to act on (insert). Telescope live-search when the source
--- supports it; otherwise the offline cache via vim.ui.select. Cancelling (a nil
--- choice / a wiped prompt) calls on_cancel.
+-- Pick a source work-item (insert). Telescope live-search when supported, else the offline cache
+-- via vim.ui.select. Cancelling calls on_cancel.
 --
 -- opts: { source_name, initial_items, prompt, prompt_fallback,
 --         on_pick = fn(item), on_cancel = fn()|nil }
 function M.item(source, opts)
   local items = ranked(source, opts.initial_items or {})
 
-  -- Telescope gives a nicer picker even cache-only, so prefer it whenever installed;
-  -- live_pick wires the as-you-type server search only when the source provides one
-  -- (it's off by default), so an offline source still gets the Telescope picker.
+  -- Prefer Telescope whenever installed (nicer even cache-only); live_pick wires server search
+  -- only when the source provides one, so an offline source still gets the Telescope picker.
   if pcall(require, "telescope") then
     require("daylog.telescope").live_pick(source, {
       initial_items = items,
@@ -106,11 +97,8 @@ function M.item(source, opts)
   end)
 end
 
--- Open the scoped picker for one named source (`:Daylog insert/:Daylog rename/:Daylog map <source>`):
--- load/refresh its cache, then hand its items to M.item -- which live-searches the tracker as you
--- type when the source supports it, else filters the offline cache. The chosen item goes to
--- opts.on_pick(item); cancelling calls opts.on_cancel. Items only; the unified pool (M.unified) is
--- where recent activities and type-a-name live.
+-- Open the scoped picker for one named source: load/refresh its cache, then hand items to M.item.
+-- Items only; the unified pool (M.unified) holds recent activities and type-a-name.
 --
 -- opts: { prompt, prompt_fallback, on_pick = fn(item), on_cancel = fn()|nil }
 function M.source(source, name, opts)
@@ -127,11 +115,10 @@ function M.source(source, name, opts)
   end)
 end
 
--- The general mixed-row picker (shared by :Daylog! insert, :Daylog rename, :Daylog map). Each row
--- carries `.display` and `.text` (what gets chosen). Telescope when installed, else vim.ui.select
--- with a type-new sentinel. Choosing a row yields its `.text`; <C-e> (Telescope) yields the typed
--- value via on_create; the type-new row (fallback) calls on_type_new. An empty row set calls
--- on_empty (the caller's prompt), else on_cancel; cancelling (nil / wiped prompt) calls on_cancel.
+-- The general mixed-row picker (:Daylog! insert, :Daylog rename, :Daylog map). Each row carries
+-- `.display` and `.text`. Choosing a row yields its `.text`; <C-e> (Telescope) yields the typed
+-- value via on_create; the type-new row (fallback) calls on_type_new. An empty set calls on_empty
+-- else on_cancel; cancelling calls on_cancel.
 --
 -- opts: { on_choose = fn(text), on_create = fn(typed), on_type_new = fn(), on_empty = fn()|nil,
 --         on_cancel = fn()|nil, exclude = string|nil, prompt, prompt_fallback, type_new_label }
@@ -196,10 +183,9 @@ function M.choose(rows, opts)
   end)
 end
 
--- Build the unified pool from already-read source caches plus the recent daylog activities, rank
--- it (the same daylog frecency), and open the picker over it. `specs` = { { name, source,
--- items }, ... }. Every row carries the text it would be logged as (an item's to_entry_text, an
--- activity's text), so on_choose receives that directly. `opts` is passed through to M.choose.
+-- Build the unified pool from source caches plus recent daylog activities, rank it (daylog
+-- frecency), and open the picker. `specs` = { { name, source, items }, ... }; every row carries
+-- the text it would be logged as, so on_choose receives that directly. `opts` passes to M.choose.
 function M.unified(specs, opts)
   local picker = config.get().picker or {}
   local usage = daylog_usage(picker.frecency_days or DEFAULT_FRECENCY_DAYS)

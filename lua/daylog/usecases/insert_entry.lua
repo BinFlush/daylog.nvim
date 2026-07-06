@@ -3,12 +3,9 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
--- Insert a fully-formed "HH:MM <text>" entry into the log containing the
--- cursor. `text` is the resolved activity string (no leading timestamp); it is
--- sanitized here (entry.sanitize_text) so a value built from external data -- e.g.
--- a work-item title ending in #x / @x / !L -- can never form trailing metadata,
--- regardless of the source. A sibling of insert_now: that one stamps a bare
--- timestamp, this one stamps a timestamp plus an activity.
+-- Insert a fully-formed "HH:MM <text>" entry into the cursor's log; `text` is sanitized
+-- (entry.sanitize_text) so external data (a work-item title ending in #x/@x/!L) can't form
+-- trailing metadata.
 
 function M.run(lines, row, time, text, auto_offset)
   local ctx, err = support.get_validated_at_row(lines, row)
@@ -22,13 +19,10 @@ function M.run(lines, row, time, text, auto_offset)
     return nil, err
   end
 
-  -- Inherit the sticky tag/location/offset at the insertion point. Passing that
-  -- same state as the entry's effective metadata makes entry.format emit no tokens,
-  -- and passing it to insert_entry_edit makes the follower rewrite a guaranteed
-  -- no-op -- so the result is byte-identical to a hand-typed "HH:MM <text>" and no
-  -- following entry silently changes tag, location, or offset. The exception is a
-  -- drifted live offset (auto_timezone): the entry then takes the new offset, so
-  -- entry.format emits a utc±N token and the follower is compensated.
+  -- Inherit the sticky tag/location/offset at the insertion point: passing it as the entry's
+  -- effective metadata makes entry.format emit no tokens and the follower rewrite a no-op, so the
+  -- result is byte-identical to a hand-typed line and no following entry silently changes metadata.
+  -- A drifted live offset is the exception: the entry takes the new offset and the follower is compensated.
   local state = support.get_insert_state(ctx.block, minutes)
   local stamp = support.offset_stamp(state.offset, auto_offset)
   local ins_offset = stamp or state.offset
@@ -55,8 +49,7 @@ function M.run(lines, row, time, text, auto_offset)
     result.offset_change = { from = state.offset, to = stamp }
   end
 
-  -- Land the cursor at end of the inserted line and enter insert mode, matching
-  -- insert_now's affordance so the user can keep typing notes.
+  -- Land the cursor at end of the inserted line and enter insert mode so the user can keep typing.
   local insert_index = support.get_insert_index(ctx.block, minutes)
   result.cursor = { insert_index + 1, #inserted_line }
   result.startinsert = true

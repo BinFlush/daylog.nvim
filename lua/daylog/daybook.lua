@@ -8,10 +8,8 @@ local function midday_date(timestamp)
   return date
 end
 
--- A timestamp at midday on the given calendar date. Anchoring at 12:00 keeps day
--- arithmetic clear of DST edges (a day never lands on a skipped/!repeated midnight),
--- and os.time normalizes out-of-range days (e.g. day 32 -> the next month). Named
--- once so every date helper builds its timestamps the same way.
+-- A timestamp at midday on the given calendar date. Anchoring at 12:00 keeps day arithmetic clear
+-- of DST edges, and os.time normalizes out-of-range days (day 32 -> next month).
 local function midday_time(year, month, day)
   return os.time({ year = year, month = month, day = day, hour = 12, min = 0, sec = 0 })
 end
@@ -97,11 +95,9 @@ local function forward_slashes(value)
   return (value:gsub("\\", "/"))
 end
 
--- Resolve the daybook date a path represents, or nil when the path is not a
--- canonical daybook file. The path is canonical only when it equals the path
--- the configuration would generate for the date in its filename, so the
--- `directory` template is honored and dated files outside the tree are ignored.
--- Both `/` and `\` separators are accepted so Windows buffer paths resolve too.
+-- Resolve the daybook date a path represents, or nil when it is not a canonical daybook file
+-- (equal to the path the config would generate, so the `directory` template is honored). Both `/`
+-- and `\` separators are accepted so Windows buffer paths resolve.
 function M.date_from_path(daybook, path)
   local basename = path:match("[^/\\]+$") or path
   local timestamp = M.parse_date_label(basename)
@@ -123,10 +119,8 @@ function M.offset_date(now, offset_days)
   return midday_time(anchor.year, anchor.month, anchor.day + offset)
 end
 
--- Named-date tokens usable wherever a range bound goes (:Daylog report). A weekday resolves
--- to its most recent occurrence on or before today (latest match): `friday` on a Friday is
--- today, and a weekday later in the week than today is last week's. Case-insensitive, full
--- names and 3-letter abbreviations.
+-- Named-date tokens for range bounds. A weekday resolves to its most recent occurrence on or
+-- before today (`friday` on a Friday is today). Case-insensitive, full names and 3-letter abbrevs.
 local WEEKDAYS = {
   monday = 1,
   mon = 1,
@@ -144,11 +138,9 @@ local WEEKDAYS = {
   sun = 7,
 }
 
--- Resolve a date token to a midday timestamp, or nil when it is none of: a known name
--- (`today` / `yesterday` / `tomorrow` / a weekday), a SIGNED relative day offset (`+N` / `-N`),
--- or a `YYYY-MM-DD` literal. A bare (unsigned) number is deliberately NOT an offset -- it is a
--- day count in the report grammar -- so the one vocabulary stays unambiguous across navigation
--- and reports.
+-- Resolve a date token to a midday timestamp, or nil unless it is a known name, a SIGNED offset
+-- (`+N`/`-N`), or a `YYYY-MM-DD` literal. A bare number is deliberately NOT an offset -- it is a
+-- day count in the report grammar -- so the vocabulary stays unambiguous.
 function M.resolve_date(token, now)
   if type(token) ~= "string" then
     return nil
@@ -186,10 +178,9 @@ function M.trailing_dates(now, count)
   return dates
 end
 
--- Parse a report range string: a bare count ("7") -> { count = N }, or a "FROM..TO" token
--- range -> { from, to } (either side may be empty for an open end). Returns nil otherwise. A
--- bare number reads as a count here, never a day offset -- resolve_date owns the signed-offset
--- day tokens, so the two readings never overlap.
+-- Parse a report range: a bare count ("7") -> { count = N }, or "FROM..TO" -> { from, to } (either
+-- side may be empty). A bare number is a count here, never an offset (resolve_date owns signed
+-- offsets), so the two never overlap.
 function M.parse_report_range(value)
   if type(value) ~= "string" then
     return nil
@@ -230,12 +221,9 @@ function M.range_dates(from_ts, to_ts)
   return dates
 end
 
--- The timestamp of the `count`-th existing daybook date strictly past `anchor` in
--- `direction` (+1 later, -1 earlier), or nil when fewer than `count` exist that
--- way. `dates` is any list of day timestamps; they are compared and de-duplicated
--- by their canonical `date_label`, so a day present twice (e.g. an unsaved buffer
--- and the file on disk) counts once, and the strict comparison excludes the anchor
--- day itself. The labels sort lexically, which for `YYYY-MM-DD` is chronological.
+-- The `count`-th existing daybook date strictly past `anchor` in `direction` (+1 later, -1
+-- earlier), or nil when fewer exist. Dates are de-duplicated by `date_label` (so a day present
+-- twice counts once) and sort lexically, which for `YYYY-MM-DD` is chronological.
 function M.nearest_date(dates, anchor, direction, count)
   count = count or 1
   local anchor_label = M.date_label(anchor)

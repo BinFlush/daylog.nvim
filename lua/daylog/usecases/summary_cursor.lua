@@ -5,23 +5,15 @@ local M = {}
 
 -- Locate the summary row under the cursor (PURE).
 --
--- Several commands act on a rendered summary row as a selector: the active
--- log is analyzed from source, its summary is recomputed, and the cursor line
--- is matched against the layout the plugin would currently produce. This module
--- centralizes that "which summary row is the cursor on" question so :Daylog log,
--- :Daylog repeat (on a summary row), and :Daylog rename share one staleness check.
---
--- The summary is a pure projection, so the rendered row carries no authority: it
--- only points back at recomputed `summary_items` / `tag_totals` / `location_totals`
--- (each of which knows its contributing source entries). Matching by exact line
--- text -- against the freshly recomputed layout -- is the staleness guard: a row
+-- Centralizes the "which summary row is the cursor on" question so :Daylog log/repeat/
+-- rename share one staleness check: the active log is recomputed and the cursor line
+-- matched by exact text against the layout the plugin would currently produce -- a row
 -- that no longer matches is refused rather than acted on stale.
 
 M.STALE = "daylog: summary row does not match the active log; regenerate the summary"
 M.AMBIGUOUS = "daylog: summary row matches multiple rows; regenerate the summary"
 
--- Layout kinds a cursor can meaningfully select (everything but blanks and the
--- section headers).
+-- Layout kinds a cursor can meaningfully select (not blanks or section headers).
 local SELECTABLE = {
   [render.LAYOUT_KIND.SUMMARY_ITEM] = true,
   [render.LAYOUT_KIND.TAG_TOTAL] = true,
@@ -29,20 +21,11 @@ local SELECTABLE = {
   [render.LAYOUT_KIND.TOTAL] = true,
 }
 
--- Resolve the cursor to a layout row of the active log's regenerated summary.
---
--- Returns, in order of specificity:
---   * result table when the cursor sits on exactly one selectable summary row;
---   * nil, nil when the cursor is not on the active log's summary at all
---     (the caller should fall back to its own handling, e.g. an entry);
---   * nil, message when the cursor is inside the summary region but the row is
---     stale (matches nothing) or ambiguous (matches several rows).
---
--- The result carries the active-log context, the located region, the
--- recomputed summary, the full layout, and the single matched layout row so
--- callers can read its `kind`/`item` and rebuild the summary in place. On the
--- fall-through (nil, nil) a third value carries the validated active-log context
--- when one was found, so resolve_or_entry reaches an entry without re-analyzing.
+-- Resolve the cursor to a layout row of the active log's regenerated summary. Returns:
+-- a result table on exactly one selectable row; nil, nil when not on the summary at all
+-- (caller falls back, e.g. to an entry) -- with a third value carrying the validated
+-- active-log context when found, so resolve_or_entry avoids re-analyzing; nil, message
+-- when inside the summary but the row is stale (matches nothing) or ambiguous (several).
 function M.resolve(lines, cursor_row)
   if type(cursor_row) ~= "number" or cursor_row < 1 or cursor_row > #lines then
     return nil, nil
@@ -58,9 +41,8 @@ function M.resolve(lines, cursor_row)
     return nil, nil, ctx
   end
 
-  -- The region spans the whole rendered summary (every section) within the active
-  -- log's tail, so a summary owned by an earlier log falls outside it and
-  -- is correctly not selectable here.
+  -- The region spans the active log's whole summary, so an earlier log's summary falls
+  -- outside it and is correctly not selectable here.
   if cursor_row < region.start_row or cursor_row >= region.end_row then
     return nil, nil, ctx
   end
@@ -94,14 +76,11 @@ function M.resolve(lines, cursor_row)
   }
 end
 
--- The shared prologue of the entry-changing summary commands: resolve the cursor to a
--- summary row OR an entry of the active log, parsing the log once. Returns
---   * the full resolve result (carrying `layout_row`) -- cursor on a selectable summary row;
---   * { ctx, entry_item = <item or nil> } -- a valid active log whose summary row the cursor
---     is not on (entry_item is the entry under the cursor, or nil when on neither);
---   * nil, err -- a stale/ambiguous row, or no valid active log (the precise validation error).
--- Callers branch on `layout_row` vs `entry_item` and supply their own "cursor on neither"
--- message, so the resolve / validate / fall-back skeleton lives here once.
+-- Shared prologue of the entry-changing summary commands: resolve the cursor to a summary
+-- row OR an entry of the active log, parsing once. Returns the resolve result (carrying
+-- `layout_row`) on a summary row; { ctx, entry_item = <item or nil> } on a valid log the
+-- cursor is not on a row of; or nil, err for a stale/ambiguous row or no valid active log.
+-- Callers branch on `layout_row` vs `entry_item` and supply their own "cursor on neither".
 function M.resolve_or_entry(lines, cursor_row)
   local result, err, ctx = M.resolve(lines, cursor_row)
   if result then
@@ -111,8 +90,8 @@ function M.resolve_or_entry(lines, cursor_row)
     return nil, err
   end
 
-  -- resolve declined without an error: the cursor is not on a summary row. It threaded the
-  -- validated active log when it had one; otherwise re-validate to surface the precise reason.
+  -- resolve declined without error: not on a summary row. It threaded the validated log
+  -- when it had one; otherwise re-validate to surface the precise reason.
   if not ctx then
     local ctx_err
     ctx, ctx_err = support.get_validated_active(lines)
@@ -126,11 +105,10 @@ end
 
 M.ONLY_MAIN_ROW = "daylog: only a main summary row can be repeated"
 
--- Map a cursor on a main summary row to the latest source entry row that fed it,
--- so "repeat this activity" works from the summary. The latest contributing entry
--- carries the most recent tag/location for the activity. Returns the entry row, or
--- nil + an error -- a nil error means the cursor is not on the active log's
--- summary at all, so the caller keeps its own (entry-lookup) error.
+-- Map a cursor on a main summary row to the latest source entry row that fed it (it
+-- carries the activity's most recent tag/location), so "repeat" works from the summary.
+-- Returns the entry row, or nil + err -- a nil err means the cursor is not on the summary,
+-- so the caller keeps its own entry-lookup error.
 function M.repeat_entry_row(lines, cursor_row)
   local result, err = M.resolve(lines, cursor_row)
   if not result then

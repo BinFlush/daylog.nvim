@@ -5,9 +5,8 @@ local sources_registry = require("daylog.sources.registry")
 
 local M = {}
 
--- The :checkhealth daylog probe (shell). Verifies the plugin loaded, setup ran, the user
--- commands are registered, the filetype maps, and configured sources have a cache. Read-only:
--- it never calls setup() or touches buffers, so it cannot disturb the user's live state.
+-- The :checkhealth daylog probe (shell): verifies load, setup, commands, filetype, and source
+-- caches. Read-only -- never calls setup() or touches buffers, so it can't disturb live state.
 
 local function start(name)
   if vim.health and vim.health.start then
@@ -85,12 +84,10 @@ function M.check()
     return
   end
 
-  -- Intentionally do not call daylog.setup() here: it would reset the user's
-  -- live configuration and refresh autocmds. The command checks below verify
-  -- that setup has already been run.
+  -- Never call daylog.setup() here: it would reset the user's live config and autocmds; the
+  -- command checks below verify setup already ran.
   start("Commands")
-  -- One :Daylog command dispatches every verb; confirm it exists and report the verb list
-  -- straight from the dispatch table, so this line can never drift from what actually runs.
+  -- Report the verb list straight from the dispatch table so it can't drift from what runs.
   if has_command("Daylog") then
     local verbs = commands.verb_names()
     ok(string.format(":Daylog is available (%d verbs: %s)", #verbs, table.concat(verbs, ", ")))
@@ -118,9 +115,8 @@ function M.check()
     })
   end
 
-  -- Telescope is optional: it enables live whole-tracker search in the source,
-  -- rename, and map pickers. Without it the pickers fall back to vim.ui.select
-  -- (fzf-lua / snacks / mini.pick included) -- fully functional, just no live search.
+  -- Telescope is optional: it enables live whole-tracker search; without it the pickers fall
+  -- back to vim.ui.select, fully functional but no live search.
   start("Pickers")
   if pcall(require, "telescope") then
     ok("Telescope is installed (live whole-tracker search for sources, rename, and map)")
@@ -128,9 +124,8 @@ function M.check()
     info("Telescope is not installed (using the vim.ui.select fallback -- fully functional)")
   end
 
-  -- Report every registered source -- built-in (declared in config) and custom
-  -- (registered directly) -- so the section reflects what actually works. Reads
-  -- config.get() only to label the declared type; never calls setup.
+  -- Report every registered source (built-in and custom) so the section reflects what works;
+  -- reads config.get() only to label the declared type.
   local config_sources = config.get().sources or {}
   local names = sources_registry.names()
   if #names > 0 then

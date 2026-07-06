@@ -1,35 +1,20 @@
 local M = {}
 
--- Source registry and the source contract.
---
--- A source is a plain table { fetch, format_item, format_items?, to_entry_text,
--- search? } that never touches the Neovim API or the buffer. Built-in source types are
--- instantiated from declarative config (see log.config) by the shell, which
--- injects an async transport, a JSON codec, and a token resolver; the resulting
--- source objects (which hold functions) are registered here for lookup by name.
--- Custom (third-party) sources are registered directly via M.register.
---
--- Conventions (documented, not enforced -- see docs/integrations.md for the why):
---   * fetch returns YOUR RELEVANT WORK -- the broadest reasonable "involves me"
---     (assigned/created/mentioned/watching, as the API allows) that is active and
---     recently updated, container-optional (org-wide where the API supports it), ordered
---     newest-first and capped.
---   * Scope overrides are the source's OWN config (a WIQL/JQL string, a saved-query id,
---     a search string, a GraphQL filter) -- there is intentionally no generic cross-source
---     "query" or "saved_query" knob, because query languages and saved queries are not
---     universal (Linear/GraphQL has no string DSL; GitHub/Linear expose no saved-query id).
---   * search is optional: the offline cache + client-side fuzzy is the primary picker.
+-- Source registry and the source contract (PURE).
+-- A source is a plain table { fetch, format_item, format_items?, to_entry_text, search? } that never
+-- touches the Neovim API. The shell instantiates built-ins from config (injecting transport, json,
+-- token_resolver) and registers them; custom sources register directly via M.register. Source
+-- conventions (fetch semantics, per-source scope overrides) are documented in docs/integrations.md.
 
--- The core only consumes id (cache/rank), active, and updated (rank); type/state/url are
--- for display, and a source may carry its own extra domain fields (e.g. azure_devops adds
--- `project`) for its format_item/template.
+-- The core consumes only id (cache/rank), active, and updated (rank); type/state/url are display, and a
+-- source may carry extra domain fields (e.g. azure_devops adds `project`).
 ---@class DaylogItem
 ---@field id string|number Stable work-item id (required). Cache-dedup key and daylog-ranking key.
 ---@field title string Work-item title (required).
 ---@field type? string e.g. "Bug"/"Task" (optional; shown in the picker).
 ---@field state? string Raw status name (optional; shown in the picker).
----@field active? boolean Normalized "open/working" -- NOT done/closed/cancelled (optional). Derive
----  it from the tracker's status *category* so ranking/filtering ignores custom workflow names.
+---@field active? boolean Normalized "open/working", from the tracker's status *category* so ranking
+---  ignores custom workflow names (optional).
 ---@field updated? string ISO-8601 last-updated timestamp (optional). Generic recency signal; lexically orderable.
 ---@field url? string Link to the item in the tracker (optional).
 
@@ -42,8 +27,7 @@ local M = {}
 
 local registered = {}
 
--- Built-in source types: declarative `type` -> the module exposing `new`.
--- Required lazily in instantiate to avoid a load-time cycle.
+-- Built-in source types: `type` -> module exposing `new`; required lazily to avoid a load-time cycle.
 local BUILTIN_TYPES = {
   azure_devops = "daylog.sources.azure_devops",
 }
@@ -73,9 +57,8 @@ local function validate(name, source)
   return nil
 end
 
--- Instantiate a built-in source from a normalized config entry, injecting deps
--- (transport, json, token_resolver) and validating the contract. Returns the
--- source object or nil plus an error message.
+-- Instantiate a built-in source from config, injecting deps and validating the contract; returns the
+-- source or nil plus an error message.
 function M.instantiate(name, source_config, deps)
   local module_name = BUILTIN_TYPES[source_config.type]
   if not module_name then
@@ -98,16 +81,13 @@ function M.instantiate(name, source_config, deps)
   return source
 end
 
--- Register a ready source object under a name. Used by the shell for built-ins and
--- by users registering a custom source directly. Validates the contract so a
--- malformed source fails loudly here rather than at use time.
+-- Register a ready source under a name, validating the contract so a malformed source fails loudly here.
 ---@param name string
 ---@param source DaylogSource
 function M.register(name, source)
   local err = validate(name, source)
   if err then
-    -- Level 0: the message is already user-facing ("daylog: ..."); a position prefix
-    -- ("registry.lua:109:") would only obscure it.
+    -- Level 0: the message is already user-facing; a position prefix would only obscure it.
     error(err, 0)
   end
 

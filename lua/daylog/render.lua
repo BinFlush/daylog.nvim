@@ -2,8 +2,7 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Layout row kinds for the structured summary layout. `summary_item` is read by
--- usecases (e.g. log_current) to recover the underlying item, so it is exported.
+-- Layout row kinds. `summary_item` is read by usecases to recover the underlying item, so exported.
 local LAYOUT_KIND = {
   BLANK = "blank",
   HEADER = "header",
@@ -18,14 +17,9 @@ local function hhmm_string(minutes)
   return string.format("%d:%02d", math.floor(minutes / 60), minutes % 60)
 end
 
--- Distribute the 2-decimal-hour (centihour) display of a section's durations with
--- the largest-remainder method -- the same approach quantize.lua uses for minutes
--- -- so the rendered rows sum exactly to the section's displayed total
--- `round(total_minutes / 60, 2)`. Every duration is a whole minute, so each row's
--- centihour value `m*100/60` has remainder 0, 1/3, or 2/3 (ranked by `(m*5) mod 3`,
--- integer and tie-broken by first-seen order). When the naive per-row rounding
--- already foots, this returns the identical centihours -- so it is a no-op for any
--- already-footing summary and only corrects the broken ones.
+-- Distribute the centihour (2-decimal-hour) display of a section's durations by largest-remainder,
+-- so the rows sum exactly to the displayed total. Each row's `m*100/60` has remainder 0, 1/3, or
+-- 2/3, ranked by `(m*5) mod 3` and tie-broken by first-seen order.
 local function foot_decimal_centihours(durations, total_minutes)
   local target = math.floor(total_minutes * 100 / 60 + 0.5)
   local centi = {}
@@ -56,10 +50,8 @@ local function foot_decimal_centihours(durations, total_minutes)
   return centi
 end
 
--- The displayed duration string for each item in one section. `hm` minutes are
--- exact and already foot; `dec` rows are footed (above) so they sum to the
--- displayed section total. The items' minute durations sum to `total_minutes` by
--- construction (the quantization invariant).
+-- The displayed duration string per item. `hm` minutes are exact; `dec` rows are footed to sum to
+-- the displayed section total. Item minutes sum to `total_minutes` by the quantization invariant.
 local function section_duration_strings(items, total_minutes, format)
   local strings = {}
 
@@ -127,8 +119,7 @@ local function location_text(item)
   return "@" .. item.location
 end
 
--- The totals section is a single `workday` row -- the whole counted day (uncounted time is a blank
--- entry, which reaches no report).
+-- The totals section is a single `workday` row -- the whole counted day (blank-entry time is uncounted).
 local function total_label()
   return "workday"
 end
@@ -182,8 +173,7 @@ local function section_headers(format, options)
   }
 end
 
--- A duration string with its quantization rounding marker appended ("1.00h (+5m)"): every
--- summary row shows the minutes it gained or lost to bucket rounding.
+-- A duration string with its rounding marker appended ("1.00h (+5m)").
 local function duration_with_error(duration_str, error_minutes)
   return string.format("%s (%+dm)", duration_str, error_minutes or 0)
 end
@@ -192,9 +182,8 @@ local function summary_item_line(item, duration_str, show_tag)
   return summary_line(duration_with_error(duration_str, item.error_minutes), item, show_tag)
 end
 
--- A metadata row (#tag / @location): the duration + rounding marker, then the row's label
--- (`label_fn(item)`, never empty for these). A row in the section's logged slice carries its level's
--- marker (a logged `#ClientA` tag row renders `... #ClientA !T`).
+-- A metadata row (#tag / @location): duration + marker, then `label_fn(item)`, plus the row's
+-- `level` logged marker when it is in the logged slice.
 local function metadata_line(item, duration_str, label_fn, level)
   local prefix = duration_with_error(duration_str, item.error_minutes)
   local label = label_fn(item)
@@ -204,10 +193,7 @@ local function metadata_line(item, duration_str, label_fn, level)
   return string.format("%s %s", prefix, label)
 end
 
--- Append the manual rounding-balance marker (round±N) when a row or total carries a
--- nonzero cumulative nudge, so a manual adjustment is visible on every affected
--- summary line (and can be re-adjusted from there). A zero nudge adds nothing, so a
--- summary with no manual balancing renders exactly as before.
+-- Append the round±N marker when a row carries a nonzero nudge, so a manual adjustment stays visible.
 local function with_nudge(line, nudge)
   if nudge and nudge ~= 0 then
     return line .. " " .. syntax.round_nudge_token(nudge)
@@ -216,11 +202,9 @@ local function with_nudge(line, nudge)
   return line
 end
 
--- Append one flat metadata section -- tag or location -- to the layout when `opts.present`: its
--- header, a duration-footed row per item (carrying any nudge marker and, for a logged-slice row, its
--- `opts.level` marker), and a trailing blank. The sections differ only in kind / header / label builder
--- (`label_fn`) / level marker / footing base (`opts.total` is the section's own total), so they share
--- this one shape.
+-- Append one flat metadata section (tag or location) when `opts.present`: header, a duration-footed
+-- row per item, and a trailing blank. The two sections differ only in the `opts` fields, so they
+-- share this shape.
 local function append_metadata_section(layout, items, opts)
   if not opts.present then
     return
@@ -241,11 +225,8 @@ local function append_metadata_section(layout, items, opts)
   table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
 end
 
--- Build a structured summary layout that records both rendered text and the
--- role each row plays.  Future commands can take a rendered summary row,
--- recompute the same layout, and recover the underlying summary item via the
--- `item` field.  `summary_lines` projects this layout to lines so user-facing
--- output stays in lockstep with the layout.
+-- Build a structured summary layout recording both rendered text and each row's role, so a command
+-- can recompute it and recover the underlying item via the `item` field.
 local function build_summary_layout(summary, duration_format, options)
   local layout = {}
   local format = duration_format or syntax.DURATION_DECIMAL
@@ -298,9 +279,8 @@ local function build_summary_layout(summary, duration_format, options)
 
   table.insert(layout, { kind = LAYOUT_KIND.HEADER, section = "total", line = headers.total })
 
-  -- The totals are a single `workday` cell = the whole counted day, loggable via !W (so it can split
-  -- into a reported and a remaining row). It foots to the activity total, so section_duration_strings
-  -- distributes the display rounding across its row(s).
+  -- The totals are a single `workday` cell = the whole counted day, loggable via !W, footing to
+  -- the activity total.
   local total_durations =
     section_duration_strings(summary.total_rows or {}, summary.activity_total, format)
   for i, item in ipairs(summary.total_rows or {}) do
@@ -391,9 +371,8 @@ function M.summary_layout(summary, duration_format, options)
   return build_summary_layout(summary, duration_format, options)
 end
 
--- The trailing ` q=N` token on a per-day report summary header, so a multi-day
--- report shows each day's own quantization bucket. Nothing is added when
--- `quantize_minutes` is nil (e.g. the aggregate section).
+-- The trailing ` q=N` token on a per-day report summary header, so each day shows its own bucket;
+-- empty when `quantize_minutes` is nil.
 local function quantize_suffix(quantize_minutes)
   if not quantize_minutes then
     return ""
@@ -402,9 +381,8 @@ local function quantize_suffix(quantize_minutes)
   return string.format(" q=%d", quantize_minutes)
 end
 
--- Build the labeled section headers for one report section. `prefix` selects the
--- scope (day, week, range) and `label` is the date or period appended to each.
--- `quantize_minutes` annotates the summary header with that section's bucket.
+-- Build the labeled section headers for one report section: `prefix` is the scope and `label` the
+-- date/period appended to each; `quantize_minutes` annotates the summary header.
 local function report_headers(prefix, label, leading_blank, quantize_minutes)
   return {
     leading_blank = leading_blank,
@@ -420,12 +398,8 @@ local function report_headers(prefix, label, leading_blank, quantize_minutes)
   }
 end
 
--- The ordered sections of a period report: each per-day section (unless
--- aggregate-only) followed by the aggregate section. Each carries the summary and
--- the labeled headers to render it with; the per-day sections also carry the date
--- label and source path so the layout can trace a row back to one file.
--- The aggregate section's headers use the `range` prefix, distinct from the per-day
--- sections' `day`.
+-- The ordered sections of a period report: each per-day section (unless aggregate-only) then the
+-- aggregate. Per-day sections carry a date label and source path so a row traces back to one file.
 local function report_sections(report, options)
   options = options or {}
   local sections = {}
@@ -442,8 +416,7 @@ local function report_sections(report, options)
     end
   end
 
-  -- The aggregate gets a leading blank only when day sections precede it, matching
-  -- the original `#lines > 0` test.
+  -- The aggregate gets a leading blank only when day sections precede it.
   sections[#sections + 1] = {
     scope = "aggregate",
     summary = report.summary,
@@ -463,12 +436,9 @@ local function period_report_lines(report, duration_format, options)
   return lines
 end
 
--- The flat layout of a period report: one entry per rendered line (so a 1-based
--- line number indexes straight into it), each tagged with the section it belongs
--- to -- a per-day section (scope "day", with its date_label/path) or the aggregate
--- (scope "aggregate"). Built from the same sections as period_report_lines, so the
--- rows stay in lockstep with what the buffer shows; cursor resolution reads `kind`,
--- `item`, and `scope` off a row.
+-- The flat layout of a period report: one entry per rendered line (so a 1-based line number indexes
+-- into it), each tagged with its section's scope. Built from the same sections as
+-- period_report_lines, so cursor resolution can read `kind`, `item`, and `scope` off a row.
 local function period_report_layout(report, duration_format, options)
   local rows = {}
 

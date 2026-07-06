@@ -4,24 +4,16 @@ local M = {}
 
 -- Resolve a cursor on a multi-day report to a rename target (PURE).
 --
--- The :Daylog report report is a read-only projection of several days'
--- summaries. Like the in-file summary, each rendered row is only a selector: it
--- points back at a recomputed summary item. This module maps a 1-based cursor row of
--- the flat report layout (render.days_report_layout) to which
--- logs to rewrite and what item to rename:
---
---   * an aggregate row renames the item across every day of the period (the shell
---     fans the rename out, by value, over all the day files);
---   * a per-day row renames it in that one day's file.
---
--- The actual rewrite is done per file by rename_summary.run_by_value, so the report
--- stays a pure projection -- this only decides the target and the file scope.
+-- Each report row is only a selector back to a recomputed summary item; this maps a 1-based
+-- cursor row of the report layout to a rename target: an aggregate row renames across every day
+-- of the period (the shell fans it out by value over all files), a per-day row in that one file.
+-- The rewrite itself is per-file in rename_summary, so the report stays a pure projection.
 
 M.NOT_A_ROW = "daylog: put the cursor on a summary item, tag, or location row of the report"
 
--- Map `cursor_row` (1-based) within `layout` to { scope, path?, date_label?, target }
--- where `target` is the { kind, current, tag? } rename_summary acts on. Returns nil
--- plus a message for a blank, header, or totals row (nothing renamable there).
+-- Map `cursor_row` (1-based) in `layout` to { scope, path?, date_label?, target } (target is
+-- the { kind, current, tag? } rename_summary acts on); nil plus a message for a blank, header,
+-- or totals row.
 function M.resolve(layout, cursor_row)
   if type(cursor_row) ~= "number" then
     return nil, M.NOT_A_ROW

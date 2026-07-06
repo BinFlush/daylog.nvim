@@ -8,11 +8,9 @@ local refresh_summaries = require("daylog.usecases.refresh_summaries")
 
 local M = {}
 
--- Today's log must be left in a valid state: leaving a broken today (out-of-order
--- entries, an invalid entry, ...) would silently stop tracking the active day, so the
--- day-navigation commands refuse until it is fixed. Only today is guarded -- browsing a
--- past day's old problems is fine -- and only the plugin's own navigation (a raw :edit
--- cannot be vetoed). The problems are published as buffer diagnostics so they show up.
+-- A broken today (out-of-order/invalid entries) would silently stop tracking the active day,
+-- so navigation refuses until fixed; only today is guarded, and only the plugin's own
+-- navigation (a raw :edit can't be vetoed). Problems publish as buffer diagnostics.
 local function refuse_when_today_has_errors(settings)
   local file_date = daybook_io.current_buffer_daybook_date(settings)
   if not file_date or not daybook.same_date(file_date, os.time()) then
@@ -29,9 +27,8 @@ local function refuse_when_today_has_errors(settings)
   return true
 end
 
--- The shared navigation guard: every day verb needs the daybook configured and the current
--- buffer abandonable; `guard_today` additionally refuses to leave a broken today (today()
--- skips it, since it navigates to today). Runs `fn(settings)` once the guards pass.
+-- Shared navigation guard: needs the daybook configured and the buffer abandonable;
+-- guard_today additionally refuses to leave a broken today. Runs fn(settings) once guards pass.
 local function navigate(guard_today, fn)
   local settings = daybook_io.expanded_daybook_settings()
   if settings == nil then
@@ -51,12 +48,10 @@ local function navigate(guard_today, fn)
   fn(settings)
 end
 
--- The day verbs build on the shared daybook_io shell helpers (open_daybook_file to create/open,
--- edit_daybook_file to navigate) plus the unified date grammar, which lets day() both backfill
--- a past day and pre-create a future one.
+-- The day verbs build on the daybook_io shell helpers plus the unified date grammar.
 
--- Open today's daybook file -- creating it scaffolded when new -- and stamp the current time
--- on a fresh day. The daily "start logging" ritual; bare :Daylog targets this.
+-- Open today's daybook file (scaffolding a new one) and stamp the current time on a fresh
+-- day; bare :Daylog targets this.
 function M.today()
   navigate(false, function(settings)
     local now = os.time()
@@ -70,10 +65,8 @@ function M.today()
   end)
 end
 
--- Open the daybook day named by `when` -- a resolve_date token (today / yesterday / tomorrow /
--- a weekday / +N / -N / YYYY-MM-DD; default today) -- creating it scaffolded when new. Unlike
--- today() it never stamps the time, so it is how to backfill a past day or pre-create a future
--- one.
+-- Open the daybook day named by `when` (a resolve_date token; default today), scaffolding a
+-- new one; unlike today() it never stamps the time, so it backfills a past or pre-creates a future day.
 function M.day(when)
   navigate(true, function(settings)
     local date = daybook.resolve_date((when == nil or when == "") and "today" or when, os.time())
@@ -93,12 +86,9 @@ function M.day(when)
   end)
 end
 
--- Jump to the `|step|`-th existing log before (step < 0) or after (step > 0)
--- the current buffer's day, skipping days that have no log. The anchor falls
--- back to today when the buffer is not a canonical daybook file. Pure navigation:
--- it never inserts the current time, even when it lands on today, and it never
--- creates a file (use :Daylog day to start an arbitrary day). When no log
--- exists in that direction it warns and stays put.
+-- Jump to the |step|-th existing log before (step<0) or after (step>0) the current day,
+-- skipping logless days; the anchor falls back to today off a non-daybook buffer. Never
+-- stamps or creates a file; warns and stays put when none exists in that direction.
 function M.open_relative_day(step)
   navigate(true, function(settings)
     local anchor = daybook_io.current_buffer_daybook_date(settings) or os.time()
@@ -118,8 +108,8 @@ function M.open_relative_day(step)
   end)
 end
 
--- Browse to the n-th existing log after (next_day) / before (prev_day) the current day,
--- skipping days with no log; never creates or stamps. n defaults to 1.
+-- Browse to the n-th existing log after/before the current day, skipping logless days;
+-- never creates or stamps (n defaults to 1).
 function M.next_day(count)
   M.open_relative_day(count or 1)
 end

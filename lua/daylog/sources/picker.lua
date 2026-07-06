@@ -1,12 +1,10 @@
 local M = {}
 
--- Pure helpers for the live-search picker. No Telescope and no Neovim API, so the
--- pooling/loop-guard logic stays unit-testable; log.telescope wires these into
--- the actual finder/refresh glue.
+-- Pure helpers for the live-search picker (no Telescope/Neovim API); telescope.lua
+-- wires them into the actual finder/refresh glue.
 
--- Union of the cached/default items and freshly fetched server results, deduped by
--- id with the cached items first. Live search grows the pool without ever dropping
--- cached items or emptying it.
+-- Union of cached items and freshly fetched results, deduped by id with cached first;
+-- live search grows the pool without dropping cached items or emptying it.
 function M.merge(initial, extra)
   local seen, out = {}, {}
   for _, list in ipairs({ initial or {}, extra or {} }) do
@@ -21,12 +19,9 @@ function M.merge(initial, extra)
   return out
 end
 
--- Render rows of cells as aligned columns. Each column but the last is padded with
--- spaces to its widest cell and joined by two spaces, so the trailing columns line
--- up regardless of the variable-width content before them (a work-item title, say).
--- The last column is left unpadded -- put the widest, free-flowing field there.
--- Byte width is used, which is exact for the ASCII id/type/state columns sources
--- align on. Trailing whitespace is trimmed (e.g. an empty final cell).
+-- Render rows of cells as columns: every column but the last is padded to its widest cell and
+-- joined by two spaces (put the widest free-flowing field last). Byte width, exact for the ASCII
+-- id/type/state columns sources align on; trailing whitespace is trimmed.
 function M.align(rows)
   local widths = {}
   for _, cells in ipairs(rows) do
@@ -51,11 +46,9 @@ function M.align(rows)
   return lines
 end
 
--- A resolver from a work item to its picker display line: pre-aligned through the
--- source's optional format_items (so columns line up across the whole pool `items`),
--- else the per-item format_item fallback. Both the Telescope finder and the
--- vim.ui.select fallback resolve display lines through this, so the source display
--- contract lives in one place.
+-- Resolve a work item to its picker display line via the source's optional format_items
+-- (aligned across the pool), else per-item format_item; both finders resolve through this
+-- so the source display contract lives in one place.
 function M.display_for(source, items)
   local lines = source.format_items and source.format_items(items)
   local by_item = {}
@@ -70,11 +63,9 @@ function M.display_for(source, items)
   end
 end
 
--- The byte range of the trailing metadata in a picker display line -- everything after the leading
--- rendered name (`text`, what gets inserted) -- as `start, finish` (0-based, end-exclusive, ready
--- for a Telescope highlight / nvim_buf_add_highlight). Returns nil when there is nothing to dim: an
--- activity row (display == text) or a source whose display does not lead with the rendered name.
--- PURE.
+-- Byte range of the trailing metadata in a display line (after the rendered `text`) as
+-- `start, finish` (0-based, end-exclusive, for nvim_buf_add_highlight); nil when there is
+-- nothing to dim. PURE.
 function M.meta_range(display, text)
   if not text or text == "" then
     return nil
@@ -85,12 +76,9 @@ function M.meta_range(display, text)
   return #text, #display
 end
 
--- Whether a prompt change should trigger a fresh server search: at least min_len
--- characters and different from the last query we issued. min_len gates the
--- network so short, broad prompts only filter the cached pool client-side; it
--- defaults to 1 and is clamped to >= 1 so an empty prompt never searches. A picker
--- refresh re-fires the input hook with the same prompt, so the last_query check
--- breaks that loop.
+-- Whether a prompt change should trigger a server search: at least min_len chars (clamped
+-- >= 1, so an empty prompt never searches) and different from last_query, which breaks the
+-- refresh re-fire loop.
 function M.should_query(prompt, last_query, min_len)
   min_len = min_len or 1
   if min_len < 1 then

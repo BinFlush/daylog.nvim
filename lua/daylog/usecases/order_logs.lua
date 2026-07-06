@@ -8,11 +8,9 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Rewrite every log body in sorted order, then -- because reordering changes the intervals and
--- so every duration -- rebuild each log's existing summary from the sorted bodies (the rule: a
--- command that changes a log's entries rebuilds that log's summary; see docs/architecture.md).
--- A log with no summary is left alone (creation stays refresh's job). The summary zone writer
--- owns the body/summary separator, so the body rewrite need not preserve it.
+-- Rewrite every log body in sorted order, then rebuild each log's existing summary from the
+-- sorted bodies (the rule: a command that changes a log's entries rebuilds its summary; see
+-- docs/architecture.md). A log with no summary is left alone (creation stays refresh's job).
 
 function M.run(lines)
   local analysis = analyze.analyze(document.parse(lines))
@@ -52,10 +50,9 @@ function M.run(lines)
     end
   end
 
-  -- The body edits change line counts, so rebuild the summaries in the post-reorder
-  -- coordinates: apply the body edits to an in-memory copy, re-analyze, then blast each
-  -- existing summary zone. The shell applies the list in order, so every body edit lands
-  -- before any summary edit, keeping both coordinate systems valid.
+  -- Body edits change line counts, so rebuild summaries in post-reorder coordinates: apply body
+  -- edits to a copy, re-analyze, blast each summary zone. The shell applies body edits before
+  -- summary edits, keeping both coordinate systems valid.
   local work = support.apply_edits(lines, body_edits)
   local work_analysis = analyze.analyze(document.parse(work))
 

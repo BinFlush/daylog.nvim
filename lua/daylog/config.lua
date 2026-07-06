@@ -42,8 +42,7 @@ local function is_boolean(value)
 end
 
 -- Set result[field] from an optional entry[field]: when present it must satisfy `valid` (else the
--- verbatim "daylog: source '<name>'.<field> <must>" error); when absent, result[field] is left
--- nil so the caller can apply a default with `or`. The one optional-field shape, named once.
+-- "daylog: source '<name>'.<field> <must>" error), else left nil for the caller's `or` default.
 local function set_optional(entry, result, name, field, valid, must)
   local value = entry[field]
   if value ~= nil then
@@ -97,11 +96,8 @@ local function normalize_defaults(defaults)
     result.duration_format = defaults.duration_format
   end
 
-  -- The base UTC offset auto-filled into a new log header (for travellers who
-  -- always want a zone stamped). Either a signed offset string ("+2", "-4",
-  -- "+5:30"), stored as signed minutes, or the literal "auto" -- a sentinel the
-  -- shell resolves to the system offset at file-creation time. Absent -> no header
-  -- offset, so non-travellers are unaffected.
+  -- The base UTC offset auto-filled into a new log header: a signed offset string stored as signed
+  -- minutes, or the literal "auto" -- a sentinel the shell resolves at file-creation time.
   if defaults.utc ~= nil then
     if defaults.utc == "auto" then
       result.utc = "auto"
@@ -142,10 +138,8 @@ local function normalize_daybook(daybook)
   }
 end
 
--- Automatic summary refresh trigger: `change` (debounced as you type, the
--- default), `idle` (on pause / leaving insert), `save`, or `off` (manual only).
--- `false` aliases `off`; an unset value defaults to `change` so every log's
--- summary stays live.
+-- Automatic summary refresh trigger: `change` (default), `idle`, `save`, or `off`. `false` aliases
+-- `off`; an unset value defaults to `change`.
 local function normalize_auto_summary(value)
   if value == nil then
     return "change"
@@ -162,8 +156,7 @@ local function normalize_auto_summary(value)
   return value
 end
 
--- The soft-green sign-column bar marking the active log + summary. On by default;
--- an unset value stays on, so the marker appears whenever a file has 2+ logs.
+-- The soft-green sign-column bar marking the active log + summary. On by default.
 local function normalize_active_indicator(value)
   if value == nil then
     return true
@@ -176,12 +169,9 @@ local function normalize_active_indicator(value)
   return value
 end
 
--- Live timezone tracking: stamp the system UTC offset into a new day's header (an
--- offset baseline) and append a utc±N token whenever the OS offset drifts -- DST or
--- travel -- from the offset in effect at a current-time insert, so an interval that
--- spans the change keeps its true length. On by default; an unset value stays on.
--- See daylog-auto-timezone; it interacts with defaults.utc (an explicit offset still
--- wins for the header).
+-- Live timezone tracking: stamp the system UTC offset into a new day's header and append a utc±N
+-- token whenever the OS offset drifts, so an interval spanning the change keeps its true length. On
+-- by default. See daylog-auto-timezone; an explicit defaults.utc still wins for the header.
 local function normalize_auto_timezone(value)
   if value == nil then
     return true
@@ -194,8 +184,8 @@ local function normalize_auto_timezone(value)
   return value
 end
 
--- The colour-coded time bar pinned at the daylog window's bottom (:Daylog bar / <leader>db toggle it
--- globally). Off by default; this is the initial state until the global toggle is first used.
+-- The colour-coded time bar pinned at the daylog window's bottom (:Daylog bar toggles it globally).
+-- Off by default.
 local function normalize_time_bar(value)
   if value == nil then
     return false
@@ -208,9 +198,8 @@ local function normalize_time_bar(value)
   return value
 end
 
--- The mouse-hover popup over the time bar (the clock time + activity under the pointer). Off by
--- default. It also needs `:set mousemoveevent` -- daylog never sets that global on your behalf -- and
--- a terminal that reports mouse motion.
+-- The mouse-hover popup over the time bar. Off by default; also needs `:set mousemoveevent` (daylog
+-- never sets it) and a terminal that reports mouse motion.
 local function normalize_time_bar_hover(value)
   if value == nil then
     return false
@@ -223,10 +212,8 @@ local function normalize_time_bar_hover(value)
   return value
 end
 
--- `keymaps` is off (false) by default, `true` to apply the documented default set, or a
--- { lhs = rhs } table to map your own keys (replacing the default set). The maps are applied
--- buffer-locally in daylog files; rhs is a mapping string (e.g. "<Cmd>Daylog today<CR>") or a
--- Lua function.
+-- `keymaps` is off (false) by default, `true` for the documented default set, or a { lhs = rhs }
+-- table replacing it. Applied buffer-locally; rhs is a mapping string or a Lua function.
 local function normalize_keymaps(value)
   if value == nil then
     return false
@@ -240,8 +227,7 @@ local function normalize_keymaps(value)
     error("daylog: keymaps must be a boolean or a table of { lhs = rhs }")
   end
 
-  -- Copy the entries (like every other normalizer), so mutating the user's table after setup
-  -- cannot bypass validation.
+  -- Copy the entries so mutating the user's table after setup cannot bypass validation.
   local result = {}
   for lhs, rhs in pairs(value) do
     if type(lhs) ~= "string" or (type(rhs) ~= "string" and type(rhs) ~= "function") then
@@ -256,9 +242,8 @@ end
 local SOURCE_DEFAULT_TTL = 1800
 local SOURCE_DEFAULT_TEMPLATE = "{id} {title}"
 local SOURCE_DEFAULT_MIN_QUERY = 3
--- A generous sanity cap: a single WIQL filters all listed projects, so an
--- unreasonably long list risks Azure DevOps' query-size limit. Use a saved
--- query/query_id for larger sets.
+-- A sanity cap: a single WIQL filters all listed projects, so a long list risks ADO's query-size
+-- limit; use a saved query/query_id for larger sets.
 local SOURCE_MAX_PROJECTS = 100
 
 local function normalize_azure_devops(name, entry)
@@ -274,9 +259,8 @@ local function normalize_azure_devops(name, entry)
     organization = required_string("organization"),
   }
 
-  -- Scope is optional: a single `project` (project-scoped requests), a `projects` list
-  -- (organization-scoped, filtered to those team projects), or neither -- the default,
-  -- organization-wide. `project` and `projects` are mutually exclusive.
+  -- Scope is optional: a single `project`, a `projects` list (org-scoped, filtered), or neither
+  -- (org-wide). `project` and `projects` are mutually exclusive.
   if entry.project ~= nil and entry.projects ~= nil then
     error("daylog: source '" .. name .. "' must not set both project and projects")
   elseif entry.projects ~= nil then
@@ -304,8 +288,8 @@ local function normalize_azure_devops(name, entry)
     result.project = required_string("project")
   end
 
-  -- The PAT is a function so it is resolved lazily at fetch time and never stored
-  -- as plaintext in setup{} or a config dump. It is never called during setup.
+  -- The PAT is a function so it resolves lazily at fetch time, never stored as plaintext; never
+  -- called during setup.
   if type(entry.token) ~= "function" then
     error("daylog: source '" .. name .. "'.token must be a function")
   end
@@ -318,14 +302,12 @@ local function normalize_azure_devops(name, entry)
   set_optional(entry, result, name, "query", nonempty_string, "must be a non-empty string")
   set_optional(entry, result, name, "query_id", nonempty_string, "must be a non-empty string")
 
-  -- A custom query/query_id carries its own scope (and a saved query is itself
-  -- project-scoped), so it can't be combined with a cross-project `projects` list.
+  -- A custom query/query_id carries its own scope, so it can't combine with a `projects` list.
   if result.projects ~= nil and (result.query ~= nil or result.query_id ~= nil) then
     error("daylog: source '" .. name .. "' cannot combine projects with query or query_id")
   end
 
-  -- A saved ADO query lives in a project, so query_id needs one (raw `query` may run
-  -- organization-wide, so it does not).
+  -- A saved ADO query lives in a project, so query_id needs one (raw `query` does not).
   if result.query_id ~= nil and result.project == nil then
     error("daylog: source '" .. name .. "'.query_id needs a project")
   end
@@ -335,9 +317,8 @@ local function normalize_azure_devops(name, entry)
 
   set_optional(entry, result, name, "format_item", is_function, "must be a function")
 
-  -- Live as-you-type tracker search (`search`) is off by default (the offline cache is the
-  -- picker); opt in per source. Picking stays offline either way -- only an enabled search
-  -- reaches the network on each keystroke.
+  -- Live as-you-type search (`search`) is off by default; picking stays offline either way, only an
+  -- enabled search reaches the network.
   set_optional(entry, result, name, "search", is_boolean, "must be a boolean")
 
   return result
@@ -374,9 +355,8 @@ local function normalize_source(name, entry)
   return result
 end
 
--- Optional external work-item sources, keyed by a name used as a command
--- argument and cache filename. Each entry declares a built-in `type` plus its
--- per-type fields; omitted entirely when no sources are configured.
+-- Optional external work-item sources, keyed by a name used as command argument and cache filename.
+-- Each entry declares a built-in `type` plus its per-type fields.
 local function normalize_sources(sources)
   if sources == nil then
     return nil
@@ -399,10 +379,9 @@ local function normalize_sources(sources)
   return result
 end
 
--- Cross-source picker behavior (not per-source): how a source's cached items are ranked in
--- the picker. The built-in ranker scores each item by a standard Mozilla-style daylog frecency.
--- `rank` overrides it wholesale (same signature, fn(items, ctx) -> items); `frecency_days` is
--- the daybook look-back window scanned. Defaults are applied at use time (pick.lua).
+-- Cross-source picker behavior: how cached items are ranked. `rank` overrides the built-in frecency
+-- ranker wholesale (fn(items, ctx) -> items); `frecency_days` is the look-back window. Defaults
+-- applied at use time (pick.lua).
 local function normalize_picker(picker)
   if picker == nil then
     return nil

@@ -7,13 +7,9 @@ local sources_sync = require("daylog.sources.sync")
 
 local M = {}
 
--- Map operation (shell).
---
--- Sets or clears an entry's mapping alias -- the label it resolves to in the summary --
--- with the cursor on a main summary row (every contributing entry), on a single entry, or
--- over a visual range (every selected entry line, and every selected summary row's entries).
--- The pure math is in usecases/map_summary; this is the prompt / source-picker / apply shell
--- around it, mirroring the rename shell.
+-- Map operation (shell): sets or clears an entry's mapping alias from the cursor entry, a
+-- summary row, or a visual range. The pure math is in usecases/map_summary; this is the
+-- prompt/picker/apply shell.
 
 local warn = buffer.warn
 local buffer_lines = buffer.buffer_lines
@@ -24,9 +20,7 @@ local function in_report()
   return report.spec_for() ~= nil
 end
 
--- A usecase call bound to the cursor entry/row, or to a `{ r1, r2 }` line range -- the
--- difference between a plain :Daylog map and a ranged (visual) one. do_run(lines, label)
--- returns the usecase result.
+-- A usecase call bound to the cursor row, or to a { r1, r2 } line range (a visual :Daylog map).
 local function runner(range, row)
   if range then
     return function(lines, label)
@@ -50,8 +44,7 @@ local function apply(target_buf, label, do_run)
   run_pinned_usecase(target_buf, "map", do_run, label)
 end
 
--- Clear the alias on the cursor's target, or across a visual range -- entries and the entries
--- behind selected summary rows alike (`:Daylog! map`).
+-- Clear the alias on the cursor's target or across a visual range (`:Daylog! map`).
 function M.clear(range)
   if in_report() then
     warn("daylog: :Daylog map is not available in a report; map in the day file")
@@ -61,10 +54,8 @@ function M.clear(range)
   apply(vim.api.nvim_get_current_buf(), "", runner(range, cursor_row()))
 end
 
--- Set the alias: a direct `value`, a named source's scoped picker (live-searchable, mapping onto
--- a work item -- like :Daylog insert <source>), or the unified pool (recent activities + every
--- source's items) with no argument; a plain prompt when there is nothing to pick. An
--- empty/cancelled prompt is a no-op -- clearing is the explicit `:Daylog! map`.
+-- Set the alias: a direct `value`, a named source's scoped picker, or the unified pool with no
+-- argument; an empty/cancelled prompt is a no-op (clearing is the explicit `:Daylog! map`).
 function M.summary(value, source_name, range)
   if in_report() then
     warn("daylog: :Daylog map is not available in a report; map in the day file")
@@ -81,10 +72,8 @@ function M.summary(value, source_name, range)
   local target_buf = vim.api.nvim_get_current_buf()
   local do_run = runner(range, row)
   local function apply_map(label)
-    -- nil/cancelled and empty are no-ops (clearing is the explicit `:Daylog! map`). Mapping onto the
-    -- current alias is a no-op only for a SINGLE target: over a range `current.alias` is just the FIRST
-    -- selected entry's, and the others may still change, so let the usecase decide there (it emits no
-    -- edit for an entry already at the label).
+    -- nil/empty are no-ops. Mapping onto the current alias is a no-op only for a SINGLE target:
+    -- over a range `current.alias` is just the FIRST entry's, so let the usecase decide there.
     if label == nil or label == "" then
       return
     end
@@ -106,8 +95,7 @@ function M.summary(value, source_name, range)
     }))
   end
 
-  -- A named source scopes to that one tracker (live-searchable when `search = true`), mapping
-  -- onto the chosen work item's entry text -- exactly like :Daylog insert <source>.
+  -- A named source scopes to that one tracker, mapping onto the chosen work item's entry text.
   if source_name then
     local source = sources_registry.get(source_name)
     if not source then
@@ -125,9 +113,8 @@ function M.summary(value, source_name, range)
     return
   end
 
-  -- Map onto the same unified pool as :Daylog! insert -- recent activities across days plus every
-  -- source's items, ranked and deduped. type-a-label and the empty-pool fallback go through the
-  -- plain input prompt.
+  -- Map onto the same unified pool as :Daylog! insert; type-a-label and the empty-pool fallback
+  -- go through the plain input prompt.
   pick.unified(sources_sync.read_specs(), {
     on_choose = apply_map,
     on_create = apply_map,

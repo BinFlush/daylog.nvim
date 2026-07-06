@@ -6,18 +6,14 @@ local M = {}
 
 -- Log-header recovery (PURE).
 --
--- A log header damaged so it no longer parses -- a mistyped keyword, a dropped dash, an
--- obliterated or deleted line -- leaves its entries "orphaned": part of no recognized log, and
--- so never summarized. This use case reconstructs the missing/corrupted header for each orphan
--- run, reading back whatever parameters survive on a damaged line, or synthesizing one from the
--- previous log's metadata. It returns 0-based edits (replaces and inserts) and never touches the
--- entries; refresh_summaries applies them on a working copy, re-analyzes, then summarizes the
--- now-recognized logs in the same idempotent pass.
+-- A header damaged so it no longer parses leaves its entries "orphaned" -- part of no recognized
+-- log, never summarized. Reconstruct the missing/corrupted header per orphan run, reading back
+-- surviving parameters or synthesizing from the previous log. Returns 0-based edits; never touches
+-- the entries.
 
--- Read log-header parameters from a (possibly corrupted) header line: q=, d=,
--- #tag, @location, utc±H -- in any order, ignoring damaged dashes/keyword and junk
--- tokens. Returns the parsed fields and whether the line looked like a header at all
--- (it carried at least one real parameter, or the "entries" keyword fuzzily).
+-- Read header parameters (q=, d=, #tag, @location, utc±H) from a possibly-corrupted line, in any
+-- order. Returns the fields and whether the line looked like a header (a real parameter or a fuzzy
+-- "entries" keyword).
 local function read_header_params(raw)
   local fields = {}
   local header_ish = false
@@ -76,14 +72,9 @@ local function rebuilt_header(raw, prev)
   return "--- log ---"
 end
 
--- Recover a corrupted or missing log header. A log header damaged so it no
--- longer parses (a mistyped keyword, a dropped dash, an obliterated line) leaves its
--- entries "orphaned" -- not part of any recognized log. For each orphan entry run
--- (always below some summary, in the edit-free zone), reconstruct the next log's
--- header: replace a damaged header line just above the entries (reading back its
--- parameters), or -- when no header line remains -- synthesize one from the previous
--- log's metadata, inserted directly above the entries. Returns 0-based edits (replaces
--- and inserts); the entries themselves are never touched.
+-- Recover a corrupted or missing log header. For each orphan entry run, either replace a damaged
+-- header line above the entries (reading back its parameters) or synthesize one from the previous
+-- log, inserted above the entries. Returns 0-based edits; the entries are never touched.
 function M.edits(analysis)
   local nodes = analysis.document.nodes
   local total = analysis.document.row_count
@@ -122,12 +113,9 @@ function M.edits(analysis)
       local hdr_is_summary = hdr_raw ~= nil
         and (syntax.is_infile_summary_header(hdr_raw) or syntax.is_summary_row(hdr_raw))
       local hdr_is_entry = hdr >= 1 and nodes[hdr] and nodes[hdr].kind == syntax.NODE_KIND.ENTRY
-      -- Only recover when there is a preceding valid log to anchor on (and to supply
-      -- metadata). A document that is all orphan entries -- no log at all -- is a "no
-      -- log found" problem the user must fix, not something to fabricate a header for.
-      -- A corrupted FIRST header is a structural error and never reaches here. Any line
-      -- above an orphan entry run otherwise IS that log's header -- damaged, obliterated,
-      -- or an unrelated `--- foo ---` (which carries no semantics) -- so reconstruct it.
+      -- Only recover when a preceding valid log exists to anchor on (and supply metadata); an
+      -- all-orphan document is a "no log found" problem, and a corrupted FIRST header never
+      -- reaches here. Any other line above an orphan run IS that log's header, so reconstruct it.
       local prev = previous_log(row)
       if prev then
         if hdr_raw == nil or hdr_is_summary or hdr_is_entry then

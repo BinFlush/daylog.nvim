@@ -1,19 +1,11 @@
 -- Activity colour generation (PURE).
 --
--- Builds a maximally-distinct activity palette by FARTHEST-POINT sampling in OkLCH. We lay a grid of
--- candidate colours over hue x lightness x chroma (all three perceptual dimensions), then greedily
--- pick, one at a time, the candidate whose nearest already-chosen colour is as far away as possible
--- (distance measured in OkLab, which is perceptually uniform). Seeded from a blue anchor.
---
--- This beat every closed-form scheme we measured (golden-angle, van der Corput / Halton, Roberts R2):
--- across n = 2..20 it roughly doubles the minimum pairwise distance and -- crucially -- never lets two
--- activities collapse onto the same xterm-256 code (which hue-only schemes did, rendering identically
--- without `termguicolors`). Using all three dimensions beats hue+lightness alone, because the search
--- spends chroma only where it actually buys separation.
---
--- OkLCH -> OkLab -> linear sRGB (Ottosson's matrices) -> gamma -> hex; chroma is trimmed per colour to
--- stay in the sRGB gamut, and a nearest xterm-256 code accompanies the hex. The palette is computed
--- once on first use and cached. No Neovim API.
+-- Builds a maximally-distinct activity palette by farthest-point sampling in OkLCH: lay a grid of
+-- candidates over hue x lightness x chroma, then greedily pick the candidate whose nearest
+-- already-chosen colour is farthest (distance in perceptually-uniform OkLab), seeded from a blue
+-- anchor. Using all three dimensions avoids two activities collapsing onto the same xterm-256 code
+-- (which hue-only schemes did, rendering identically without `termguicolors`). Chroma is trimmed per
+-- colour to stay in the sRGB gamut. Computed once on first use and cached. No Neovim API.
 
 local M = {}
 
@@ -173,8 +165,7 @@ end
 
 local cache
 
--- The colour for a 1-based activity index: { gui = "#rrggbb", cterm = N }. The palette is built once
--- and cached; indices beyond it cycle (well past the count of distinguishable colours).
+-- The colour for a 1-based activity index; the palette is built once, cached, and cycles beyond its length.
 function M.color(index)
   cache = cache or build()
   return cache[(index - 1) % #cache + 1]

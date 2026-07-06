@@ -1,9 +1,6 @@
--- Activity colour assignment (PURE).
---
--- The single source of truth for which colour an activity gets, shared by the time bar's blocks, the
--- left-margin indicator, and the summary rows -- so an activity is the same colour everywhere. The
--- index is assigned by order of first appearance (not by duration), so a colour stays put as the day
--- grows: adding time to an activity never reshuffles the palette.
+-- Activity colour assignment (PURE): the single source of truth for an activity's colour,
+-- shared by the bar, margin, and summary. The index is by order of first appearance (not
+-- duration), so a colour stays put as the day grows.
 
 local M = {}
 

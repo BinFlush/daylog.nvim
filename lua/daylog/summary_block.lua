@@ -2,37 +2,19 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Locator for a log's generated summary region -- the banner-delimited blast.
+-- Locator for a log's generated summary region -- the banner-delimited blast (PURE).
 --
--- A log is a body (the `--- log ... ---` header, its timestamped entries and
--- their notes) followed by a summary that is ENTIRELY generated and edit-free. The
--- summary owns everything from its banner `--- summary q=N d=fmt ---` down to the
--- next log / EOF: nothing inside it is authored, so a refresh regenerates the
--- whole zone and discards anything found there (mid-summary prose, duplicate or
--- stale sections, orphan rows, trailing junk). The only things ever protected are
--- the body above the boundary and, absolutely, the entries.
---
--- So the locator's whole job is to find the TOP BOUNDARY -- where the body ends and
--- the summary begins -- and return [boundary .. next-log/EOF). The boundary is
--- the summary banner:
---   * exact: a surviving `--- summary q=N d=fmt ---` line in the tail;
---   * mangled: the nearest tail line to the banner by character-level
---     Needleman-Wunsch (edit distance), reclaiming `--- sumary q=15 d=dec ---` or
---     `--- summary q=15 d=dec EDITED ---`, guarded to stay below the last entry and
---     to require real similarity so a body note is never mistaken for the banner;
---   * none: a border edit deleted the banner outright -- fall back to the shape,
---     the first surviving generated summary-row / section header in the tail.
--- When nothing recognizable remains, returns nil and the caller creates a fresh
--- summary after the body. The window is anchored past the last entry, a hard
--- guarantee that an entry can never be drawn into the zone and rewritten away.
+-- The summary is ENTIRELY generated and owns everything from its banner down to the next log / EOF;
+-- the locator's whole job is to find the TOP BOUNDARY (the banner) and return [boundary .. next-
+-- log/EOF), tried exact, then mangled (nearest tail line by edit distance, guarded), then by shape
+-- (first surviving summary row/section header), else nil. The window is anchored past the last
+-- entry, a hard guarantee that an entry can never be drawn into the zone and rewritten away.
 
--- Cap on the alignment DP (rows*cols). The banner is one short line and the tail a
--- handful of lines, so this is never hit in practice; it bounds the worst case.
+-- Cap on the alignment DP (rows*cols); bounds the worst case, never hit in practice.
 local MAX_ALIGN_CELLS = 1e6
 
--- Character-level edit distance (Levenshtein / Needleman-Wunsch with unit costs)
--- between two strings, rolling two rows so the space is O(min length). Returns the
--- distance, or nil when the DP would exceed MAX_ALIGN_CELLS (caller falls back).
+-- Character-level edit distance (unit costs), rolling two rows so the space is O(min length).
+-- Returns the distance, or nil when the DP would exceed MAX_ALIGN_CELLS (caller falls back).
 local function edit_distance(a, b)
   local la, lb = #a, #b
   if (la + 1) * (lb + 1) > MAX_ALIGN_CELLS then
@@ -73,10 +55,9 @@ local function edit_distance(a, b)
   return prev[lb]
 end
 
--- The tail window: from just after the log's last timestamped entry to the next
--- log header / EOF. Returns tail_start, stop_row (1-based; stop_row exclusive,
--- = first row past the tail). Anchoring past the entries guarantees they stay out of
--- the located zone.
+-- The tail window: from just after the log's last timestamped entry to the next log header / EOF.
+-- Returns tail_start, stop_row (1-based; stop_row exclusive). Anchoring past the entries guarantees
+-- they stay out of the located zone.
 local function tail_bounds(analysis, log_block)
   local blocks = analysis.blocks
   local start_index
@@ -106,13 +87,10 @@ local function tail_bounds(analysis, log_block)
     end
   end
 
-  -- The summary zone ends where the NEXT log begins within [tail_start, limit). A
-  -- one-character-corrupted `--- log ---` no longer parses as a log, so scanning
-  -- only for the next LOG would let the blast run to EOF and WIPE that log's
-  -- entries. Instead stop at the first entry line below the summary -- the next log's
-  -- entries; the summary itself has none -- backed up over a directly-preceding
-  -- `--- ... ---` header line (a corrupted entries header) so it is preserved with its
-  -- entries, never swept. So a blast can never cross into another log's content.
+  -- Stop the zone at the first entry line below the summary (the next log's entries; the summary
+  -- has none), backed up over a directly-preceding `--- ... ---` header so it is preserved with its
+  -- entries. Scanning only for the next LOG would let a corrupted `--- log ---` (which no longer
+  -- parses as a log) run the blast to EOF and wipe that log's entries.
   local nodes = analysis.document.nodes
   local stop_row = limit
   for row = tail_start, limit - 1 do
@@ -137,32 +115,29 @@ local function tail_bounds(analysis, log_block)
   return tail_start, stop_row
 end
 
--- The canonical banner string this log would render, the target the
--- mangled-banner search aligns against.
+-- The canonical banner this log would render, the target the mangled-banner search aligns against.
 local function canonical_banner(log_block)
   return syntax.summary_header(log_block.quantize_minutes, log_block.duration_format)
 end
 
--- Find the banner row in the tail. Exact `--- summary q=N d=fmt ---` first; then the
--- closest tail line by character edit distance, accepted only when it is within
--- ~40% of the banner length (real similarity, so a body note never matches). Returns
--- the row, or nil.
+-- Find the banner row in the tail: exact `--- summary q=N d=fmt ---` first, then the closest tail
+-- line by edit distance accepted only within ~40% of the banner length (real similarity, so a body
+-- note never matches). Returns the row, or nil.
 local function find_banner(analysis, tail_start, stop_row, banner)
   local nodes = analysis.document.nodes
 
   for row = tail_start, stop_row - 1 do
     local raw = (nodes[row] and nodes[row].raw) or ""
-    -- The exact pass matches only the summary banner itself (any q=/d=, so a banner
-    -- whose parameters drifted from the header still anchors), never a bare section
-    -- header like `--- tags ---` -- those start mid-zone and would leave the rows
-    -- above them orphaned; the shape fallback recovers a banner-less summary.
+    -- The exact pass matches only the banner (any q=/d=, so drifted parameters still anchor), never
+    -- a bare section header like `--- tags ---`, which starts mid-zone and would orphan the rows
+    -- above it; the shape fallback recovers a banner-less summary.
     if raw == banner or raw:match("^%-%-%- summary q=%d+ d=%a+ %-%-%-$") then
       return row
     end
   end
 
-  -- Mangled banner: nearest line by edit distance, guarded by a similarity
-  -- threshold so only a genuinely-corrupted banner (not a body note) qualifies.
+  -- Mangled banner: nearest line by edit distance, guarded by a similarity threshold so only a
+  -- genuinely-corrupted banner (not a body note) qualifies.
   local threshold = math.floor(#banner * 0.4)
   local best_row, best_dist
   for row = tail_start, stop_row - 1 do
@@ -177,20 +152,16 @@ local function find_banner(analysis, tail_start, stop_row, banner)
   return best_row
 end
 
--- Whether a line is a `--- ... ---` block header (any words). Used to tell a foreign
--- block apart from summary content in the shape fallback.
+-- Whether a line is a `--- ... ---` block header, to tell a foreign block from summary content in
+-- the shape fallback.
 local function is_block_header(raw)
   return raw:match("^%-%-%- .* %-%-%-$") ~= nil
 end
 
--- No banner survives (a border edit deleted it): locate the surviving summary
--- content by shape. Scan the tail from just past the last entry; the zone starts at
--- the first summary section header (a bare `--- tags ---` / `--- totals ---` / ...)
--- or `<dur> (+Nm)` summary row. But a `--- ... ---` block header that is NOT a
--- summary header (e.g. a foreign `--- notes ---` block) ends the search with no
--- summary -- the log's summary is contiguous from its body, so a stray
--- summary-shaped line inside an unrelated block is never mistaken for it. Returns the
--- zone start row, or nil.
+-- No banner survives: locate surviving summary content by shape -- the zone starts at the first
+-- summary section header or `<dur> (+Nm)` row. A non-summary `--- ... ---` block header ends the
+-- search with no summary, since the log's summary is contiguous from its body, so a summary-shaped
+-- line inside an unrelated block is never mistaken for it. Returns the zone start row, or nil.
 local function find_shape_start(analysis, tail_start, stop_row)
   local nodes = analysis.document.nodes
   for row = tail_start, stop_row - 1 do
@@ -205,11 +176,9 @@ local function find_shape_start(analysis, tail_start, stop_row)
   return nil
 end
 
--- Locate `log_block`'s generated summary region, returning { start_row, end_row }
--- (1-based, end_row exclusive) covering the whole summary zone -- from the banner
--- (the body/summary boundary) to the next log / EOF -- or nil when no summary is
--- recognizable and one must be created fresh. The zone is found from the banner, not by
--- aligning a rendered summary.
+-- Locate `log_block`'s generated summary region, returning { start_row, end_row } (1-based, end_row
+-- exclusive) covering the zone from the banner to the next log / EOF, or nil when no summary is
+-- recognizable and one must be created fresh.
 function M.find(analysis, log_block)
   local tail_start, stop_row = tail_bounds(analysis, log_block)
   if not tail_start then
@@ -226,8 +195,8 @@ function M.find(analysis, log_block)
   return { start_row = start, end_row = stop_row }
 end
 
--- The log's tail bounds (tail_start, stop_row): just past the last entry, to the
--- next log / EOF. Exposed so the create path can blast to the same zone end.
+-- The log's tail bounds (tail_start, stop_row): just past the last entry, to the next log / EOF.
+-- Exposed so the create path can blast to the same zone end.
 function M.tail_bounds(analysis, log_block)
   return tail_bounds(analysis, log_block)
 end

@@ -30,8 +30,7 @@ function M.message(diagnostic)
     return M.unordered_error(diagnostic)
   end
 
-  -- Some diagnostic messages already carry the "daylog:" prefix; do not add a
-  -- second one.
+  -- Some messages already carry the "daylog:" prefix; don't add a second.
   if diagnostic.message:match("^daylog:") then
     return diagnostic.message
   end
@@ -39,9 +38,8 @@ function M.message(diagnostic)
   return "daylog: " .. diagnostic.message
 end
 
--- True when the parsed document has any timestamped entry (valid or not). Lets us
--- flag a missing log header only when there is clearly log content, not
--- in an empty or prose-only buffer.
+-- True when the document has any timestamped entry (valid or not), so a missing log header
+-- is flagged only when there's clearly log content.
 local function has_entry_node(parsed)
   for _, node in ipairs(parsed.nodes) do
     if node.kind == syntax.NODE_KIND.ENTRY or node.kind == syntax.NODE_KIND.INVALID_ENTRY then
@@ -54,11 +52,9 @@ end
 
 M.has_entry_node = has_entry_node
 
--- Every problem that prevents a clean summary, as { row, message } entries:
--- whole-document structure (a bad first header, bad header options), one problem
--- per log block (out-of-order timestamps, an invalid entry, 24:00 not final),
--- and timestamped lines with no log header at all. Used by the live summary
--- refresh, which publishes them as buffer diagnostics.
+-- Every problem preventing a clean summary as { row, message }: document structure, one per
+-- block (unordered, invalid entry, 24:00 not final), and entries with no log header. Published
+-- as buffer diagnostics.
 function M.collect(analysis)
   local warnings = {}
 

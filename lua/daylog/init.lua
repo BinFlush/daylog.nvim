@@ -33,8 +33,7 @@ M.rename_summary = rename.summary
 M.map_summary = map.summary
 M.map_clear = map.clear
 
--- Public verb API (require("daylog").<verb>) -- the canonical interface the :Daylog command
--- and any user keymaps dispatch to.
+-- Public verb API (require("daylog").<verb>): the interface :Daylog and user keymaps dispatch to.
 
 M.today = days.today
 M.day = days.day
@@ -77,8 +76,7 @@ function M.copy()
   buffer.run_buffer_usecase(append_copy.run)
 end
 
--- Scaffold a fresh, empty log into the current buffer (the active log when appended). The
--- scaffold and its config defaults live in daybook_io, shared with the empty-day auto-init.
+-- Scaffold a fresh, empty log into the current buffer; the scaffold and defaults live in daybook_io.
 function M.new_log()
   daybook_io.insert_new_log()
 end
@@ -117,9 +115,8 @@ function M.log()
   buffer.run_buffer_usecase(log_current.run, buffer.cursor_row())
 end
 
--- Manually balance summary rounding by `delta` q-steps (a signed integer; 0 clears
--- the cursor target's nudge). The cursor may sit on a summary row -- whose best
--- contributing entry is nudged for it -- or directly on an entry.
+-- Manually balance summary rounding by `delta` q-steps (signed; 0 clears the nudge); the
+-- cursor may sit on a summary row or an entry.
 function M.balance(arg)
   local delta = 1
 
@@ -134,9 +131,8 @@ function M.balance(arg)
   buffer.run_buffer_usecase(balance_summary.run, buffer.cursor_row(), delta)
 end
 
--- Split the activity under the cursor into weighted sub-activities. `fargs` is the
--- raw command argument list: each is a positive weight, and their count is the number
--- of parts (none means an even two-way split). The total time is preserved.
+-- Split the cursor activity into weighted sub-activities; `fargs` are positive weights (none
+-- means an even two-way split). Total time is preserved.
 function M.split(fargs)
   local weights = {}
 
@@ -162,17 +158,16 @@ function M.refresh()
   buffer.apply_refresh(false)
 end
 
--- One-time migration from the v0.1.x single summary-logged `!L` to `!S` (the letter is now location).
--- Rewrites the entry markers, then refreshes so the summaries reflect the recovered summary logging.
+-- One-time migration from the v0.1.x summary-logged `!L` to `!S` (`!L` is the location marker);
+-- rewrites the entry markers, then refreshes.
 function M.migrate_logging()
   if buffer.run_buffer_usecase(migrate_logging.run) then
     buffer.apply_refresh(false)
   end
 end
 
--- Map the cursor entry / summary row to a label. opts.clear removes the mapping; otherwise
--- opts.value sets the label directly and opts.source opens that tracker's picker. opts.range
--- ({ line1, line2 }) maps a visual range of entries.
+-- Map the cursor entry/summary row to a label. opts.clear removes it; opts.value sets it
+-- directly; opts.source opens that tracker's picker; opts.range maps a visual range.
 function M.map(opts)
   opts = opts or {}
   if opts.clear then
@@ -193,8 +188,8 @@ function M.keys()
   require("daylog.keys").show()
 end
 
--- Toggle the colour-coded time bar; the `time_bar` config sets the initial state. The toggle is
--- global -- it stays on (or off) as you navigate between daylog files -- not per buffer.
+-- Toggle the colour-coded time bar (initial state from the `time_bar` config); the toggle is
+-- global, not per buffer.
 function M.bar()
   if vim.bo.filetype ~= "daylog" then
     buffer.warn("daylog: the time bar is shown in daylog files")

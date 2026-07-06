@@ -7,34 +7,17 @@ local M = {}
 
 -- Manually balance summary rounding by marking entries with round±N nudges.
 --
--- Quantization rounds durations to the block's q= bucket by largest remainder, so
--- residuals can leave an aggregate (a day, hence a week) one or more q-steps off a
--- clean total. This use case lets the cursor on a summary row -- or directly on a
--- entry -- shift the rounding by N q-steps. With the cursor on a summary
--- row the optimality calculator finds the best contributing fine-grained row(s) to
--- nudge (least added error); on an entry it nudges that entry's row. A fine-grained
--- row is summed from its intervals before quantizing, so its nudge is one value the
--- whole stretch shares: ALL of the row's contributing entries get the marker (it is
--- not a per-interval amount that would multiply). The marker lives on entries (the
--- summary is a pure projection), the one summary is rebuilt in place, and -- because
--- every section is a sum of the same nudged fine-grained rows -- each section stays
--- a partition that foots to its (shifted) total.
+-- A cursor on a summary row nudges the best contributing fine-grained row(s) (least
+-- added error); on an entry it nudges that entry's row. A fine-grained row's nudge is
+-- one value its whole stretch shares, so ALL its contributing entries get the marker
+-- (never a per-interval amount that would multiply). Markers live on entries; the one
+-- summary is rebuilt in place and every section stays a partition footing to its total.
+-- A delta of 0 clears the cursor target's nudge.
 --
--- A delta of 0 clears the cursor target's nudge: on a summary row it removes every
--- marker contributing to that row's scope; on an entry it removes that entry's marker.
---
--- Balancing acts on the main (summary-level) axis -- main rows, the activity total, and the workday
--- total. Every section is a re-sum of the one shared granule quantization, so a nudge planned here
--- flows into the tag and location totals too (they stay footed with the balanced activity total).
--- Choosing a tag or location row as the balance TARGET is refused for now -- balance an activity or
--- the workday total (or an entry) instead.
---
--- Frozen logged rows (`!S<minutes>`) are held at their committed value and the
--- quantizer ignores any nudge on them, so they are never selectable: a balance step
--- only ever lands on an un-frozen row. When the only candidates left in scope are
--- logged -- because every other row has been driven to zero by a round-down, or
--- because the scope is all logged -- balancing errors rather than no-op, mirroring the
--- round-down-past-empty refusal.
+-- Only the main axis is a valid target (main rows, activity total, workday total); a tag
+-- or location row is refused. Frozen logged rows (`!S`) are held at their committed value
+-- and never selectable; when only logged candidates remain, balancing errors
+-- (ONLY_LOGGED) rather than no-op, mirroring the round-down-past-empty refusal.
 
 M.NOT_BALANCEABLE = "daylog: put the cursor on a summary row or an entry to balance its rounding"
 M.CANNOT_DOWN = "daylog: cannot round down further here; the contributing items are already empty"
@@ -43,9 +26,8 @@ M.NOTHING = "daylog: nothing to balance on this line"
 M.SECTION_NOT_BALANCEABLE =
   "daylog: balance an activity or the workday total; a tag or location row can't be the balance target"
 
--- The set of fine-grained rows a cursor line governs. A main row scopes its own
--- (text, tag) across locations; the workday total scopes workday-eligible rows and the activity total
--- scopes all. (Tag and location totals are refused earlier -- not a valid balance target.)
+-- The set of fine-grained rows a cursor line governs: a main row scopes its own
+-- (text, tag) across locations; the workday total scopes every counted row.
 local function scope_for(layout_row)
   local kind = layout_row.kind
   local item = layout_row.item
@@ -58,9 +40,8 @@ local function scope_for(layout_row)
         and (row.logged == true) == (item.logged == true)
     end
   elseif kind == K.TOTAL then
-    -- The frozen (!W) totals slice is pinned at its committed value, exactly like a logged
-    -- main row -- refuse it rather than silently nudging the other slice. The unlogged
-    -- workday row is the balance target and scopes every counted row.
+    -- The frozen (!W) totals slice is pinned; refuse it rather than silently nudge the
+    -- unlogged slice, which is the real target and scopes every counted row.
     if item and item.logged then
       return nil, M.ONLY_LOGGED
     end
@@ -72,23 +53,18 @@ local function scope_for(layout_row)
   return nil
 end
 
--- Greedily move `delta` q-steps across the scoped rows, one bucket per step, to the
--- row that minimizes the added rounding error. Rounding up gives the bucket to the
--- most under-displayed row (max error `e = remainder - blocks*q`); rounding down
--- takes it from the most over-displayed (min e). This single rule is the
--- largest-remainder method generalized: it cancels an opposing nudge first (a
--- below-floor row has the largest e), then rounds the next-best natural candidate.
--- Returns a per-row map index -> net block change, or nil + error when a round-down
--- has nowhere left to go (every scoped row is already empty).
+-- Greedily move `delta` q-steps across the scoped rows, one bucket per step, to the row
+-- that minimizes added rounding error (largest-remainder generalized: up -> max error
+-- `e = remainder - blocks*q`, down -> min e). Returns a per-row map index -> net block
+-- change, or nil + error when a round-down has nowhere left to go.
 local function plan_steps(rows, scope, bucket_minutes, delta)
   local work = {}
   local has_frozen_in_scope = false
   for i, row in ipairs(rows) do
     local base = math.floor(row.unrounded_duration / bucket_minutes) * bucket_minutes
     local in_scope = scope(row) and row.source_entry_rows ~= nil and #row.source_entry_rows > 0
-    -- A frozen logged row is held at its committed value and the quantizer ignores a
-    -- nudge on it, so it can never absorb a step; drop it from the candidates but
-    -- remember it was here, so an exhausted balance can report *why* (logged, not empty).
+    -- A frozen logged row can never absorb a step; drop it but remember it was here, so
+    -- an exhausted balance can report *why* (logged, not empty).
     if in_scope and row.logged_minutes ~= nil then
       has_frozen_in_scope = true
       in_scope = false
@@ -127,8 +103,7 @@ local function plan_steps(rows, scope, bucket_minutes, delta)
     end
 
     if not best then
-      -- Nothing left to move. If logged rows are the reason (they were in scope but
-      -- excluded), say so; otherwise the un-frozen candidates are simply at zero.
+      -- Nothing left: logged rows excluded from scope, else the candidates are at zero.
       if has_frozen_in_scope then
         return nil, M.ONLY_LOGGED
       end
@@ -149,12 +124,9 @@ local function plan_steps(rows, scope, bucket_minutes, delta)
   return changes
 end
 
--- Map the per-row block changes onto per-entry marker changes. A fine-grained row's
--- nudge is a single value its whole activity-stretch shares, so ALL of the row's
--- contributing entries are set to the new value (current row nudge + the change).
--- Setting every interval -- rather than one arbitrary one -- is why the marker can
--- be read off any of them and survives editing another, and why marking an
--- activity's intervals never multiplies the shift.
+-- Map per-row block changes onto per-entry marker changes: ALL of a row's contributing
+-- entries are set to the new value (current row nudge + change), so the marker reads off
+-- any interval and never multiplies the shift.
 local function entry_changes_for_rows(rows, row_changes, current_entry_nudge)
   local changes = {}
 
@@ -181,9 +153,8 @@ local function current_nudges(block)
   return nudges
 end
 
--- The net per-entry nudge changes for a cursor on a summary row: the calculator
--- picks the rows to nudge and the source entries to mark. A delta of 0 clears every
--- nudge contributing to the scope.
+-- The net per-entry nudge changes for a cursor on a summary row; a delta of 0 clears
+-- every nudge contributing to the scope.
 local function summary_entry_changes(block, layout_row, delta)
   local scope, scope_err = scope_for(layout_row)
   if not scope then
@@ -216,10 +187,9 @@ local function summary_entry_changes(block, layout_row, delta)
   return entry_changes_for_rows(rows, row_changes, current_entry_nudge)
 end
 
--- The per-entry nudge changes for a cursor directly on an entry: nudge the
--- fine-grained row that entry belongs to, setting every interval of that row to the
--- new value. Returns nil when the cursor entry starts no interval (e.g. the closing
--- entry of the day), which therefore contributes to no row and cannot be rounded.
+-- The per-entry nudge changes for a cursor directly on an entry: nudge the fine-grained
+-- row it belongs to, setting every interval. Returns nil when the cursor entry starts no
+-- interval (e.g. the day's closing entry) and so contributes to no row.
 local function entry_direct_changes(block, cursor_row, delta)
   local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
 
@@ -228,13 +198,13 @@ local function entry_direct_changes(block, cursor_row, delta)
   for _, row in ipairs(rows) do
     for _, source_row in ipairs(row.source_entry_rows or {}) do
       if source_row == cursor_row then
-        -- A frozen logged row is fixed; a nudge on it would be ignored by the
-        -- quantizer, so refuse rather than write a marker that does nothing.
+        -- A frozen logged row's nudge is ignored by the quantizer; refuse rather than
+        -- write a marker that does nothing.
         if delta ~= 0 and row.logged_minutes ~= nil then
           return nil, M.ONLY_LOGGED
         end
-        -- Refuse a round-down that would drive the displayed duration below 0, exactly as the
-        -- summary-row path (plan_steps) does, instead of writing an out-of-range round-N marker.
+        -- Refuse a round-down that would drive the displayed duration below 0 (as
+        -- plan_steps does), not an out-of-range round-N marker.
         if delta < 0 and (row.duration + delta * bucket_minutes) < 0 then
           return nil, M.CANNOT_DOWN
         end
@@ -253,9 +223,8 @@ local function entry_direct_changes(block, cursor_row, delta)
   return nil
 end
 
--- Whether two summary layout rows denote the same target, by kind + identity (mirrors
--- `scope_for`). Balance only changes a row's duration/nudge, so these fields are stable,
--- which lets the balanced row be re-found after the rebuild to follow it with the cursor.
+-- Whether two summary layout rows denote the same target, by kind + identity; balance
+-- leaves these fields stable, so the balanced row is re-findable after the rebuild.
 local function same_target(a, b)
   if a.kind ~= b.kind then
     return false
@@ -267,8 +236,8 @@ local function same_target(a, b)
       and a.item.tag == b.item.tag
       and (a.item.logged == true) == (b.item.logged == true)
   elseif a.kind == K.TOTAL then
-    -- A split workday renders a logged and an unlogged row, both `total == "workday"`; include the
-    -- logged state so the cursor follows the row it balanced instead of snapping to the first one.
+    -- A split workday renders logged + unlogged rows both `total == "workday"`; include
+    -- logged state so the cursor follows the balanced row, not the first.
     return a.total == b.total
       and (a.item and a.item.logged == true) == (b.item and b.item.logged == true)
   end
@@ -276,9 +245,8 @@ local function same_target(a, b)
   return false
 end
 
--- The buffer line `target_row` renders at in the rebuilt summary, so the cursor can
--- follow a row that reordered. The layout is 1:1 with the rebuilt lines, so its index
--- maps straight onto the region.
+-- The buffer line `target_row` renders at in the rebuilt summary, so the cursor follows a
+-- reordered row; the layout is 1:1 with the rebuilt lines, so its index maps onto the region.
 local function cursor_for_target(rebuilt, block, region, target_row)
   local layout =
     render.summary_layout(rebuilt, block.duration_format, support.summary_render_options(block))
@@ -290,11 +258,9 @@ local function cursor_for_target(rebuilt, block, region, target_row)
   return nil
 end
 
--- Build the edit script that rewrites the changed entry lines and, when the block
--- already carries a summary, rebuilds it in place from the nudged entries. Modeled
--- on log_current: the source entries gain/lose their round±N marker and the one
--- summary is regenerated, so it stays a pure projection. `target_row` (the resolved
--- summary layout row, when balancing one) makes the cursor follow it to its new line.
+-- Build the edit script rewriting the changed entry lines and rebuilding the summary in
+-- place from the nudged entries (it stays a pure projection). `target_row`, when
+-- balancing one, makes the cursor follow it to its new line.
 local function build_edits(analysis, block, entry_changes, target_row)
   if next(entry_changes) == nil then
     return nil, M.NOTHING

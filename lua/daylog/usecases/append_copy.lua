@@ -6,9 +6,8 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
--- Build the edit script for appending a normalized copy of the active log,
--- followed by its summary, so the copy is self-describing from the moment it is
--- created (matching how a freshly opened today file already carries a summary).
+-- Build the edit script appending a normalized copy of the active log plus its summary, so
+-- the copy is self-describing from creation.
 
 function M.run(lines)
   local ctx, err = support.get_validated_active(lines)
@@ -27,9 +26,8 @@ function M.run(lines)
   )
 
   local computed = summary.summarize_block(ctx.block)
-  -- Two blank lines separate the body from its generated summary (the canonical
-  -- layout the refresh blast emits), so render the summary content-only and prepend
-  -- the pair rather than relying on the render's single leading blank.
+  -- Two blank lines separate body from summary (the canonical refresh layout), so render the
+  -- summary content-only and prepend the pair.
   local summary_lines = render.summary_lines(
     computed,
     ctx.block.duration_format,
@@ -41,16 +39,14 @@ function M.run(lines)
     table.insert(rendered, line)
   end
 
-  -- The canonical inter-log separator is two blanks; render.log_lines provides one, so top
-  -- up from whatever the buffer's tail already holds (never remove) -- otherwise the very
-  -- next refresh rewrites the seam.
+  -- The canonical inter-log separator is two blanks; top up from the buffer's tail (never
+  -- remove) or the next refresh rewrites the seam.
   local extra = math.max(0, 1 - support.trailing_blank_count(lines))
   for _ = 1, extra do
     table.insert(rendered, 1, "")
   end
 
-  -- Move the cursor onto the new copy so the window scrolls to it and it is visibly
-  -- clear something happened: the header follows the separator blanks.
+  -- Move the cursor onto the new copy (header after the separator blanks) so the window scrolls to it.
   local result = support.append_edit(lines, rendered)
   result.cursor = { #lines + extra + 2, 0 }
   return result

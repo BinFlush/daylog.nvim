@@ -4,11 +4,8 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Semantic entry codec.
---
--- This module is responsible for the smallest meaningful log unit: a single
--- timestamped entry line. It parses one source line into semantic entry data
--- and formats semantic entries back into canonical source lines.
+-- Semantic entry codec: parses one timestamped entry line into semantic data and
+-- formats it back into a canonical source line.
 
 function M.minutes_string(minutes)
   return string.format("%02d:%02d", math.floor(minutes / 60), minutes % 60)
@@ -21,9 +18,8 @@ function M.format(entry, current_tag, current_location, current_offset)
     table.insert(parts, entry.text)
   end
 
-  -- A mapping alias (` => label`) replaces the description with its target in the summary.
-  -- It sits right after the description so the metadata below trails the line as usual and
-  -- attaches to the entry/its target. May be multi-word, so it goes in as `=>` then label.
+  -- A mapping alias (` => label`) reports under its target; it sits right after the description
+  -- so trailing metadata still attaches, and may be multi-word (`=>` then label).
   if entry.alias and entry.alias ~= "" then
     table.insert(parts, "=>")
     table.insert(parts, entry.alias)
@@ -45,21 +41,19 @@ function M.format(entry, current_tag, current_location, current_offset)
     end
   end
 
-  -- The offset is emitted on change like #tag/@location, but has no clear token:
-  -- once set it is always a concrete value, so a nil offset (no offsets in play)
-  -- emits nothing. The order is `#tag @location utc±H round±N !S !T !L !W`.
+  -- The offset emits on change like #tag/@location but has no clear token, so a nil offset
+  -- emits nothing. Token order: `#tag @location utc±H round±N !S !T !L !W`.
   if entry.offset ~= nil and entry.offset ~= current_offset then
     table.insert(parts, syntax.utc_offset_token(entry.offset))
   end
 
-  -- The rounding nudge is per-entry and non-sticky (like a logged marker): always emitted when
-  -- nonzero, never inherited, no current_* comparison.
+  -- The rounding nudge is per-entry and non-sticky: emitted when nonzero, never inherited.
   if entry.nudge and entry.nudge ~= 0 then
     table.insert(parts, syntax.round_nudge_token(entry.nudge))
   end
 
-  -- Logged markers ride in one compact token in canonical `S T L W` order (`!S60T120L90W480`); a bare
-  -- marker contributes just its letter (`!S`). Parsing still accepts the separated `!S60 !T120` form.
+  -- Logged markers ride in one compact token in `S T L W` order (`!S60T120L90W480`; bare `!S`);
+  -- parsing still accepts the separated `!S60 !T120` form.
   local logged = syntax.format_logged(entry.logged)
   if logged then
     table.insert(parts, logged)
@@ -83,18 +77,15 @@ function M.parse(line, current_tag, current_location, current_offset)
   return analyze.copy_fields(entry)
 end
 
--- A control token is exactly what the parser peels from an entry's trailing run, so
--- defer to the one grammar document exports rather than forking the patterns here --
--- a future control token then stays parenthesized automatically.
+-- Defer to document's exported control-token grammar rather than forking the patterns,
+-- so a future control token stays parenthesized automatically.
 local function is_dangerous_token(token)
   return document.classify_control_token(token) ~= nil
 end
 
--- Make `text` safe to use as an entry's activity text so it can never grow
--- trailing metadata. The parser peels metadata by scanning whitespace tokens from
--- the end while they are control tokens (#tag, @loc, #-, @-, !L); wrap each token
--- in the trailing run of such tokens in parentheses so the scan stops at a plain
--- word. Mid-text tokens (e.g. "fix #flaky tests") are left untouched.
+-- Make `text` safe as activity text so it can't grow trailing metadata: parenthesize each
+-- control token in the trailing run (the parser peels metadata from the end) so the scan
+-- stops at a plain word; mid-text tokens (e.g. "fix #flaky tests") are left untouched.
 function M.sanitize_text(text)
   text = text:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
   if text == "" then
@@ -121,10 +112,8 @@ function M.sanitize_text(text)
   return table.concat(tokens, " ")
 end
 
--- Make `value` safe to use as an entry's alias label. The alias is followed by the entry's
--- trailing metadata run, so -- exactly like activity text -- it must not end in a token that
--- would be peeled as metadata, and it cannot contain the ` => ` separator. Both are
--- precisely sanitize_text's job. Returns "" for an empty value (a cleared mapping).
+-- Make `value` safe as an alias label: same trailing-metadata and `=>` hazards as activity
+-- text, so defer to sanitize_text; "" for an empty value (a cleared mapping).
 function M.sanitize_alias(value)
   return M.sanitize_text(value or "")
 end

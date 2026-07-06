@@ -11,17 +11,14 @@ local M = {}
 -- Buffer-orchestration substrate (shell).
 --
 -- The single choke point through which every command's edit script reaches the
--- buffer, keeping diagnostics and highlights in sync and guarding the auto-refresh
--- loop. Owns the refresh-guard flag and the diagnostic / highlight namespaces;
--- nothing outside this module touches them.
+-- buffer, owning the refresh-guard flag and the diagnostic / highlight namespaces.
 
 local function warn(message)
   vim.notify(message, vim.log.levels.WARN)
 end
 
--- Tell the user, on the rare current-time insert that recorded a UTC offset change
--- (DST/travel via auto_timezone), what was stamped -- so a silently shifted clock
--- does not go unnoticed. `from` is always a real offset (the in-effect baseline).
+-- Tell the user what UTC offset change a current-time insert stamped, so a silently
+-- shifted clock (DST/travel via auto_timezone) does not go unnoticed.
 local function notify_offset_change(change)
   vim.notify(
     string.format(
@@ -47,8 +44,8 @@ local function cursor_row()
   return vim.api.nvim_win_get_cursor(0)[1]
 end
 
--- Guards the refresh edits from re-triggering the auto-refresh autocmds, and
--- signals apply_result that apply_refresh will publish diagnostics itself.
+-- Guards refresh edits from re-triggering the auto-refresh autocmds; also signals
+-- apply_result that apply_refresh publishes diagnostics itself.
 local refreshing = false
 
 local diagnostic_namespace = vim.api.nvim_create_namespace("daylog")
@@ -66,8 +63,7 @@ local function resolve_buf(buf)
   return buf
 end
 
--- The stray-cursor sign def is registered lazily on first use (like the highlight groups), so it
--- works whether or not setup() ran. (The per-activity colours and signs live in daylog.activity_hl.)
+-- Register the stray-cursor sign lazily on first use, so it works whether or not setup() ran.
 local stray_sign_defined = false
 local function ensure_stray_sign()
   if stray_sign_defined then
@@ -77,18 +73,15 @@ local function ensure_stray_sign()
   stray_sign_defined = true
 end
 
--- Register the daylog highlight groups as default links (so a user's own
--- highlight overrides win). Done lazily on first highlight so it works whether or
--- not setup() ran.
+-- Register the daylog highlight groups lazily, as default links so a user's own overrides win.
 local function ensure_highlight_groups()
   if highlight_groups_defined then
     return
   end
 
   for group, spec in pairs(highlight.GROUPS) do
-    -- A string spec is a link target; a table is an explicit attribute set (the headers
-    -- use { bold = true } so they read as structure in any theme, not only where a linked
-    -- group happens to differ from Comment). default = true keeps theme/user overrides winning.
+    -- A string spec is a link target, a table an explicit attribute set; default = true keeps
+    -- theme/user overrides winning.
     if type(spec) == "string" then
       vim.api.nvim_set_hl(0, group, { link = spec, default = true })
     else
@@ -99,9 +92,8 @@ local function ensure_highlight_groups()
   highlight_groups_defined = true
 end
 
--- A colorscheme switch clears our default highlight groups; forget the cached definitions so the
--- next render re-creates the static groups. (The per-activity colour groups reset themselves in
--- daylog.activity_hl.)
+-- A colorscheme switch clears our default highlight groups; forget the cache so the next render
+-- re-creates them.
 vim.api.nvim_create_autocmd("ColorScheme", {
   group = vim.api.nvim_create_augroup("DaylogColorScheme", { clear = true }),
   callback = function()
@@ -109,12 +101,9 @@ vim.api.nvim_create_autocmd("ColorScheme", {
   end,
 })
 
--- The red "you've strayed off the active log" mark: a soft-red bar on the cursor's line whenever
--- it sits above the active region (`vim.b.daylog_active_start`, cached by render_active_bar; nil
--- when there is nothing to mark -- disabled, fewer than two logs, or the file is not clean).
--- Always clears the group and re-places, so an edit that shifts the sign (an `O` above) or drops
--- it (a summary regen replacing the line) can never leave it stale -- one sign op per cursor move,
--- synchronous, so no flicker.
+-- Mark the cursor's line when it sits above the active region (`daylog_active_start`; nil when
+-- there is nothing to mark). Always unplaces then re-places, so a shifted or dropped sign can
+-- never go stale.
 local function render_stray(buf)
   buf = resolve_buf(buf)
   if not vim.api.nvim_buf_is_valid(buf) then
@@ -128,9 +117,8 @@ local function render_stray(buf)
     return
   end
 
-  -- Read the cursor from a window actually showing `buf`: the current window when it does, else
-  -- the first that does (highlight passes also run over non-current buffers -- toggle_time_bar --
-  -- whose rows the current window's cursor says nothing about). No window showing it, no mark.
+  -- Read the cursor from a window actually showing `buf` (highlight passes also run over
+  -- non-current buffers); no window showing it, no mark.
   local win = vim.api.nvim_get_current_win()
   if vim.api.nvim_win_get_buf(win) ~= buf then
     win = vim.fn.win_findbuf(buf)[1]
@@ -146,12 +134,8 @@ local function render_stray(buf)
   end
 end
 
--- Place the per-activity colour bar in the left margin: a `▎` coloured by each row's activity (the
--- entries, the notes beneath them, and the main summary rows), so an activity reads as one connected
--- colour everywhere. Gated on the cached `daylog_clean` flag so a diagnostic hides it without
--- re-checking warnings here. Runs on the LIVE highlight pass (every keystroke), so it tracks edits
--- and is restored whenever an edit drops the signs; `daylog_active_start` (the stray mark's boundary)
--- is cached alongside.
+-- Place the per-activity colour bar in the left margin, gated on the cached `daylog_clean` flag so
+-- a diagnostic hides it. Runs on the live highlight pass; caches `daylog_active_start` alongside.
 local function render_indicator(buf, lines, analysis)
   vim.fn.sign_unplace("daylog_active", { buffer = buf })
 
@@ -175,14 +159,10 @@ local function render_indicator(buf, lines, analysis)
   vim.b[buf].daylog_active_start = active_start
 end
 
--- Apply the parser-driven highlight spans to a buffer as extmarks (replacing the previous set)
--- and re-place the active-log bar + stray mark from the current text/cursor. The single LIVE
--- path: daylog files attach it via the ftplugin (every keystroke, including insert), report
--- buffers call it directly, and the edit-applying shell refreshes it after programmatic edits
--- (which fire no change autocmds). Narrower token spans carry a higher priority than the
--- whole-line base ones, so a tag inside a header wins at its cells. The bars track live, but
--- their clean/dirty gate is frozen here (cached `daylog_clean`); refresh_indicators updates the
--- gate on settle, so the bars never flicker through a half-typed warning.
+-- Apply the parser-driven highlight spans as extmarks and re-place the bars from the current
+-- text/cursor. The single live path; the edit-applying shell must call it after programmatic
+-- edits, which fire no change autocmds. The clean/dirty gate is frozen here (cached
+-- `daylog_clean`); refresh_indicators updates it on settle so the bars never flicker.
 local function highlight_buffer(buf)
   buf = resolve_buf(buf)
   if not vim.api.nvim_buf_is_valid(buf) then
@@ -208,12 +188,11 @@ local function highlight_buffer(buf)
   timebar_ui.render(buf, lines, analysis)
 end
 
--- Flip the global time bar on/off (timebar_ui owns the state) and redraw every visible daylog buffer
--- so the change shows at once across splits (others pick it up via the ftplugin when navigated to).
+-- Flip the global time bar on/off and redraw every visible daylog buffer so it shows across splits.
 local function toggle_time_bar()
   timebar_ui.toggle()
-  -- Collect the on-screen daylog buffers before redrawing any: a redraw can open or close a strip
-  -- window, which would invalidate a window id still pending in a single combined loop.
+  -- Collect the buffers before redrawing any: a redraw can open/close a strip window and
+  -- invalidate a pending window id.
   local daylog_bufs = {}
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local win_buf = vim.api.nvim_win_get_buf(win)
@@ -226,10 +205,8 @@ local function toggle_time_bar()
   end
 end
 
--- Publish the log's problems (e.g. out-of-order timestamps) as diagnostics on `buf` (default the
--- current buffer). They are recomputed and replace the previous set on every refresh,
--- so they clear themselves as soon as the log is valid again -- however it
--- was fixed -- and render inline in any mode.
+-- Publish the log's problems as diagnostics on `buf`, replacing the previous set so they clear
+-- themselves once the log is valid again.
 local function publish_diagnostics(warnings, buf)
   local items = {}
 
@@ -246,11 +223,9 @@ local function publish_diagnostics(warnings, buf)
   vim.diagnostic.set(diagnostic_namespace, resolve_buf(buf), items)
 end
 
--- Refresh the clean/dirty gate (any diagnostic in any log hides the bars), publish the warnings
--- it computed as buffer diagnostics, and re-render. The SETTLE path -- normal-mode edits, leaving
--- insert, command edits, load -- so the gate (and the heavier refresh_summaries it needs) holds
--- steady through an insert session; publishing here means a broken file shows its diagnostics on
--- open, before any edit.
+-- Refresh the clean/dirty gate, publish its warnings as diagnostics, and re-render. The settle
+-- path (normal-mode edits, leaving insert, command edits, load), so the gate holds steady through
+-- an insert session.
 local function refresh_indicators(buf)
   buf = resolve_buf(buf)
   if not vim.api.nvim_buf_is_valid(buf) then
@@ -264,25 +239,19 @@ local function refresh_indicators(buf)
   highlight_buffer(buf)
 end
 
--- Recompute and publish the buffer's log diagnostics from its current text.
 local function refresh_diagnostics()
   publish_diagnostics(refresh_summaries.run(buffer_lines()).warnings)
 end
 
 local function apply_result(result)
-  -- A row-only cursor follow (e.g. a balanced summary row that reordered) keeps the
-  -- user's column: capture it before the edits move things, then clamp it to the
-  -- destination line below.
+  -- A row-only cursor follow keeps the user's column: capture it before the edits move things.
   local preserved_col
   if result.cursor_row then
     preserved_col = vim.api.nvim_win_get_cursor(0)[2]
   end
 
-  -- Apply edits in the order given -- never reorder or sort them. refresh_summaries.run
-  -- composes header-recovery edits (in the original coordinates) ahead of summary edits
-  -- (in the post-recovery coordinates) as two ordered phases; a recovery that inserts a
-  -- synthesized log header shifts rows, so reordering these together would corrupt the
-  -- result. (Guarded by a core_commands test that drives an insert-based recovery here.)
+  -- Apply edits in the order given -- never reorder: recovery edits (original coordinates) precede
+  -- summary edits (post-recovery coordinates), so reordering would corrupt the result.
   for _, edit in ipairs(result.edits or {}) do
     vim.api.nvim_buf_set_lines(0, edit.start_index, edit.end_index, false, edit.lines)
   end
@@ -296,8 +265,7 @@ local function apply_result(result)
   end
 
   if result.startinsert then
-    -- `startinsert!` appends at end-of-line, discarding a mid-line cursor; "cursor" keeps
-    -- insert mode at the column the usecase placed (a gap before trailing metadata).
+    -- `startinsert!` appends at end-of-line; "cursor" keeps insert at the column the usecase placed.
     vim.cmd(result.startinsert == "cursor" and "startinsert" or "startinsert!")
   end
 
@@ -305,18 +273,15 @@ local function apply_result(result)
     notify_offset_change(result.offset_change)
   end
 
-  -- Keep buffer diagnostics current after any edit. This is the single choke
-  -- point every edit path flows through. apply_refresh already publishes from its
-  -- own analysis (and sets `refreshing` around its edit), so skip while it runs.
+  -- Keep diagnostics current after any edit; apply_refresh already publishes from its own
+  -- analysis (guarded by `refreshing`), so skip while it runs.
   if not refreshing then
     refresh_diagnostics()
   end
 
-  -- Programmatic edits do not fire the change autocmds the ftplugin highlighter
-  -- listens on, so refresh highlights from this single edit choke point too.
+  -- Programmatic edits fire no change autocmds, so refresh highlights from this choke point too.
   if vim.bo.filetype == "daylog" then
-    -- A command edit re-evaluates the gate; the auto-refresh path only re-renders (cached gate),
-    -- restoring any bar signs its summary edits dropped without a mid-insert gate change.
+    -- A command edit re-evaluates the gate; the auto-refresh path only re-renders (cached gate).
     if not refreshing then
       refresh_indicators(0)
     else
@@ -325,8 +290,7 @@ local function apply_result(result)
   end
 end
 
--- Run a use case over the current buffer and apply its edit script, warning on
--- failure. Extra arguments are forwarded to the use case after the buffer lines.
+-- Run a use case over the current buffer and apply its edit script, warning on failure.
 local function run_buffer_usecase(run, ...)
   local result, err = run(buffer_lines(), ...)
   if not result then
@@ -338,9 +302,8 @@ local function run_buffer_usecase(run, ...)
   return true
 end
 
--- Run `fn` (which may resize or replace the buffer's lines) while preserving the
--- cursor in `win`, restoring it afterwards clamped to the buffer's new line count and
--- the landing line's length, so a shrunk buffer or a shorter line never throws.
+-- Run `fn` while preserving the cursor in `win`, restoring it clamped to the new line count and
+-- landing line's length so a shrunk buffer never throws.
 local function with_preserved_cursor(win, buf, fn)
   local cursor = vim.api.nvim_win_get_cursor(win)
   fn()
@@ -350,9 +313,8 @@ local function with_preserved_cursor(win, buf, fn)
   vim.api.nvim_win_set_cursor(win, { row, math.min(cursor[2], #line) })
 end
 
--- True (after warning) when the current buffer is no longer `target_buf`: an async
--- picker's selection arrived after the user moved away, so the edit must abort rather
--- than touch the wrong buffer. `op` names the aborted operation in the warning.
+-- True (after warning) when the current buffer is no longer `target_buf`: an async selection
+-- arrived after the user moved away, so the edit must abort. `op` names it in the warning.
 local function buffer_changed(target_buf, op)
   if vim.api.nvim_get_current_buf() == target_buf then
     return false
@@ -362,9 +324,8 @@ local function buffer_changed(target_buf, op)
   return true
 end
 
--- run_buffer_usecase for an async callback (a picker selection that may arrive after the user
--- moved away): abort with a warning when the current buffer is no longer `target_buf` (`op`
--- names it), otherwise run-and-apply. The synchronous twin of run_buffer_usecase.
+-- run_buffer_usecase for an async callback: abort when the current buffer is no longer
+-- `target_buf` (`op` names it), otherwise run-and-apply.
 local function run_pinned_usecase(target_buf, op, run, ...)
   if buffer_changed(target_buf, op) then
     return false
@@ -372,10 +333,8 @@ local function run_pinned_usecase(target_buf, op, run, ...)
   return run_buffer_usecase(run, ...)
 end
 
--- Rebuild every log's existing summary to match its entries, and publish the
--- buffer diagnostics for any problems found. A no-op edit-wise when all summaries
--- are already current. `join` merges the edit into the previous undo block, used
--- by the autocmd-driven refreshes so one keystroke stays one undo step.
+-- Rebuild every log's summary to match its entries and publish diagnostics; a no-op edit-wise when
+-- current. `join` merges the edit into the previous undo block so one keystroke stays one undo step.
 local function apply_refresh(join)
   if refreshing then
     return
