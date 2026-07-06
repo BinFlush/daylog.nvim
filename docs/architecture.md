@@ -418,6 +418,36 @@ themselves on build/refresh, and the edit-applying path re-highlights after the
 programmatic edits that do not fire change autocmds. `init.lua` registers the
 highlight groups as default links, so a user's own `highlight` overrides win.
 
+## Time bar
+
+`:Daylog bar` turns the active log's intervals into a horizontal, time-proportional
+strip: each interval is a coloured segment whose cell width is its share of the real
+recorded duration (largest-remainder rounding so the widths sum to exactly the bar
+width), coloured by resolved-label activity in first-appearance order — the same colour
+map as the margin indicator and the summary. `timebar.lua` is pure; `timebar_ui.lua` is
+the shell.
+
+A blank entry's dead period is a single-cell `gap` marker, *not* time-proportional, so the
+bar's x-axis is **piecewise linear**: each segment carries its own `[start, stop)` clock
+span, and the now-marker and the hover clock only resolve a column when it lands inside a
+displayed segment (a dropped gap or zero-width segment is a hole where no marker is drawn).
+
+Labels are placed once per distinct activity, over that activity's widest segment. This is
+**1-D isotonic regression**: minimise the total squared displacement of each label from its
+target centre subject to non-overlap, solved by Pool-Adjacent-Violators (PAVA) over integer
+half-cells (exact and deterministic) — a crowded cluster pools into one block centred on its
+centroid. Widths are counted in display cells (a pure codepoint-width table mirrors the
+shell's `strdisplaywidth`, so a double-width CJK/emoji label is budgeted correctly). When
+labels cannot all fit, `fit_legend` abbreviates the longest to a still-distinct `…`-marked
+prefix and drops the least-present from the tail, guaranteeing the survivors fit the width.
+
+The strip is a real reserved-height window, not virtual lines, so it must not outlive its
+log window or block `:q`. Closing a strip inside `BufWinLeave` would abort the quit, so
+teardown runs from `QuitPre` and (deferred) `WinClosed`, never during the close. Strips are
+keyed by their owner (log) *window*, so navigating between daylog files in one window reuses
+the strip; opening the split sets a targeted `eventignore` so it cannot recurse back into the
+highlighter via the ftplugin's `BufWinEnter`.
+
 ## Usecases, edit scripts, and the shell
 
 A usecase is a pure command operation: it accepts plain Lua input, calls
