@@ -192,38 +192,121 @@ end
 
 -- Re-emit selected entry lines of a block, threading the raw sticky state so each
 -- re-emitted line carries the right compensating #-/@-/utc token for its new
--- predecessor. For each entry item, `fn(item)` returns a table of field overrides to
--- apply over the entry's canonical fields (e.g. a flipped logged, a new nudge), or
--- nil to leave that entry untouched. Returns one single-line edit per re-emitted
+-- predecessor. For each entry item, `fn(item, resolved, prev)` -- `resolved` the item's
+-- effective sticky values, `prev` the raw sticky state before it -- returns either
+--
+--   * a non-empty table of field overrides to apply over the entry's canonical fields
+--     (e.g. a flipped logged, a new nudge), re-emitting the entry as one line;
+--   * a LIST of complete field-sets replacing the entry line with one line per set
+--     (split): the first set is formatted against the previous sticky state, later
+--     sets against the entry's own resolved values so they inherit bare, and the sets
+--     must leave the entry's resolved state in effect so the following entry needs no
+--     compensating token (an empty list deletes the line -- a zero-length interval
+--     splits into nothing);
+--   * nil to leave that entry untouched.
+--
+-- `opts.transform(state)` maps the threaded values at format time only (rename
+-- substitutes values without disturbing the raw thread); `opts.skip_unchanged` drops
+-- a single-line edit whose re-rendered line equals the source line (an entry that only
+-- inherited a renamed value renders identically). Returns one edit per re-emitted
 -- entry, in ascending row order. The summary-writing usecases share this so the
 -- sticky-advance bookkeeping lives in one place (mirrors insert_entry_edit's follower).
-function M.rewrite_entry_lines(block, fn)
+function M.rewrite_entry_lines(block, fn, opts)
+  opts = opts or {}
+  local transform = opts.transform or function(state)
+    return state
+  end
+
   local edits = {}
-  local current_tag = block.header_tag
-  local current_location = block.header_location
-  local current_offset = block.header_offset
+  local prev = {
+    tag = block.header_tag,
+    location = block.header_location,
+    offset = block.header_offset,
+  }
 
   for _, item in ipairs(block.entry_items) do
-    local overrides = fn(item)
-    if overrides then
-      local fields = analyze.copy_fields(item)
-      for key, value in pairs(overrides) do
-        fields[key] = value
+    local resolved = analyze.resolve_sticky(prev, item)
+    local result = fn(item, resolved, prev)
+
+    if result then
+      local base = transform(prev)
+      local lines
+
+      if result[1] ~= nil or next(result) == nil then
+        local inherit = transform(resolved)
+        lines = {}
+        for i, fields in ipairs(result) do
+          if i == 1 then
+            lines[i] = entry.format(fields, base.tag, base.location, base.offset)
+          else
+            lines[i] = entry.format(fields, inherit.tag, inherit.location, inherit.offset)
+          end
+        end
+      else
+        local fields = analyze.copy_fields(item)
+        for key, value in pairs(result) do
+          fields[key] = value
+        end
+        local line = entry.format(fields, base.tag, base.location, base.offset)
+        if not (opts.skip_unchanged and line == item.entry.raw) then
+          lines = { line }
+        end
       end
 
-      edits[#edits + 1] = {
-        start_index = item.start_row - 1,
-        end_index = item.start_row,
-        lines = { entry.format(fields, current_tag, current_location, current_offset) },
-      }
+      if lines then
+        edits[#edits + 1] = {
+          start_index = item.start_row - 1,
+          end_index = item.start_row,
+          lines = lines,
+        }
+      end
     end
 
-    current_tag = item.tag
-    current_location = item.location
-    current_offset = item.offset
+    prev = resolved
   end
 
   return edits
+end
+
+-- The block's entry rows within a [r1, r2] line range (a visual selection), in source
+-- order. Entry lines only -- summary and structural rows contribute nothing, and a blank
+-- entry is uncounted (no report identity), so it is skipped like a structural line and a
+-- selection spanning a lunch break still acts on its entries.
+function M.entry_rows_in_range(block, r1, r2)
+  local lo, hi = math.min(r1, r2), math.max(r1, r2)
+  local rows = {}
+  for _, item in ipairs(block.entry_items) do
+    if item.start_row >= lo and item.start_row <= hi and not summary.is_blank_entry(item) then
+      rows[#rows + 1] = item.start_row
+    end
+  end
+  return rows
+end
+
+-- The shared blank/logged guard of the identity-editing commands (map, rename): scan the
+-- target `rows` in entry order and return "blank" for a blank entry (uncounted, no report
+-- identity -- never a target), "logged" for a summary-logged (!S) entry that `changes(item)`
+-- says the command would actually change (its committed value is tied to its current
+-- identity; an already-matching entry is a no-op, not a refusal), or nil when nothing
+-- refuses. Each command maps the verdict to its own message constant.
+function M.refusal_for(block, rows, changes)
+  local target = {}
+  for _, row in ipairs(rows) do
+    target[row] = true
+  end
+
+  for _, item in ipairs(block.entry_items) do
+    if target[item.start_row] then
+      if summary.is_blank_entry(item) then
+        return "blank"
+      end
+      if item.logged and item.logged.s and changes(item) then
+        return "logged"
+      end
+    end
+  end
+
+  return nil
 end
 
 -- The render options for a log's in-file summary: no leading blank (the region

@@ -1,4 +1,3 @@
-local entry = require("daylog.entry")
 local render = require("daylog.render")
 local split = require("daylog.split")
 local summary_cursor = require("daylog.usecases.summary_cursor")
@@ -148,50 +147,32 @@ function M.run(lines, cursor_row, weights)
     parts_by_row[record.row] = parts
   end
 
-  -- Source edits: rewrite each split entry line into its present parts. Walk the
-  -- entries tracking the sticky tag/location/offset (as support.rewrite_entry_lines
-  -- does) so the first part -- the renamed original -- reproduces the original's tokens,
-  -- and the inserted parts inherit them (bare). The last part keeps the original's
-  -- sticky, so the entry after the activity needs no compensating token.
-  local source_edits = {}
-  local current_tag = block.header_tag
-  local current_location = block.header_location
-  local current_offset = block.header_offset
-
-  for _, entry_item in ipairs(block.entry_items) do
+  -- Source edits: rewrite each split entry line into its present parts, threading the
+  -- sticky tag/location/offset through support.rewrite_entry_lines so the first part --
+  -- the renamed original -- reproduces the original's tokens, and the inserted parts
+  -- inherit them (bare). Every part carries the original's resolved metadata, so the
+  -- entry after the activity needs no compensating token.
+  local source_edits = support.rewrite_entry_lines(block, function(entry_item)
     local parts = parts_by_row[entry_item.start_row]
-    if parts then
-      local out_lines = {}
-      for i, part in ipairs(parts) do
-        local text, alias = part_identity(entry_item, part.index)
-        local fields = {
-          minutes = entry_item.minutes + part.offset,
-          text = text,
-          alias = alias,
-          tag = entry_item.tag,
-          location = entry_item.location,
-          offset = entry_item.offset,
-          logged = nil,
-        }
-        if i == 1 then
-          out_lines[i] = entry.format(fields, current_tag, current_location, current_offset)
-        else
-          out_lines[i] =
-            entry.format(fields, entry_item.tag, entry_item.location, entry_item.offset)
-        end
-      end
-
-      source_edits[#source_edits + 1] = {
-        start_index = entry_item.start_row - 1,
-        end_index = entry_item.start_row,
-        lines = out_lines,
-      }
+    if not parts then
+      return nil
     end
 
-    current_tag = entry_item.tag
-    current_location = entry_item.location
-    current_offset = entry_item.offset
-  end
+    local field_sets = {}
+    for i, part in ipairs(parts) do
+      local text, alias = part_identity(entry_item, part.index)
+      field_sets[i] = {
+        minutes = entry_item.minutes + part.offset,
+        text = text,
+        alias = alias,
+        tag = entry_item.tag,
+        location = entry_item.location,
+        offset = entry_item.offset,
+        logged = nil,
+      }
+    end
+    return field_sets
+  end)
 
   -- Rebuild the summary from the post-split entries (the split entries replaced by
   -- their present sub-entries). The original interval's offset rides on each sub-entry,

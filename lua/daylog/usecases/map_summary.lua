@@ -82,15 +82,15 @@ local function resolve_range_targets(lines, r1, r2)
     end
   end
 
+  -- The selected entry lines map themselves (support.entry_rows_in_range skips blank
+  -- entries like structural lines). Entries always precede the summary in a block, so
+  -- taking them first keeps the rows in selection order.
+  for _, row in ipairs(support.entry_rows_in_range(ctx.block, r1, r2)) do
+    add(row)
+  end
+
   for row = lo, hi do
-    local item = support.entry_item_at_row(ctx.block, row)
-    if item then
-      -- A blank entry is uncounted and has no report identity; skip it like any other
-      -- structural line so a selection spanning a lunch break still maps its entries.
-      if not summary.is_blank_entry(item) then
-        add(item.start_row)
-      end
-    else
+    if not support.entry_item_at_row(ctx.block, row) then
       -- A summary item row expands to every entry feeding it. A resolve error (STALE for the
       -- header / blanks inside the region, AMBIGUOUS) means "not a mappable row here", so it
       -- is skipped exactly like a non-entry body line rather than refusing the whole range.

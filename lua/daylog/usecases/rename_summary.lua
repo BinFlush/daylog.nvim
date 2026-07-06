@@ -1,4 +1,3 @@
-local analyze = require("daylog.analyze")
 local entry = require("daylog.entry")
 local render = require("daylog.render")
 local summary = require("daylog.summary")
@@ -211,55 +210,40 @@ end
 -- semantic entries the rebuilt summary is computed from. `ops` carries the
 -- per-kind rename functions and the affected-entry predicate.
 local function build_source_edits(block, ops)
-  local edits = {}
   local renamed_entrys = support.modified_entries(block, function(copy)
     copy.tag = ops.rename_tag(copy.tag)
     copy.location = ops.rename_loc(copy.location)
     copy.text = ops.text_for(copy.row, copy.text)
   end)
 
-  -- Walk the entries in source order resolving raw sticky state through the one
-  -- analyzer rule, then apply the rename to each resolved value. This matches
-  -- renaming as we walk: rename(nil) = nil and the resolver yields prev/explicit/nil
-  -- per field, so renaming the result equals inheriting an already-renamed current.
-  -- A rename never touches the UTC offset; it is threaded raw so the re-emitted lines
-  -- carry the same utc±H tokens (emit-on-change) the originals did. `prev` is the raw
-  -- sticky state before the entry, so the emit-on-change baseline is its renamed form.
-  local prev = {
-    tag = block.header_tag,
-    location = block.header_location,
-    offset = block.header_offset,
-  }
-
-  for _, item in ipairs(block.entry_items) do
-    local resolved = analyze.resolve_sticky(prev, item)
-    local eff_tag = ops.rename_tag(resolved.tag)
-    local eff_location = ops.rename_loc(resolved.location)
-
-    if ops.affected(item) then
-      -- Re-emit from the canonical field set (preserving the entry's own nudge / !L)
-      -- with only the rename's transforms applied.
-      local fields = analyze.copy_fields(item)
-      fields.text = ops.text_for(item.start_row, item.text)
-      fields.tag = eff_tag
-      fields.location = eff_location
-      fields.offset = resolved.offset
-      local line =
-        entry.format(fields, ops.rename_tag(prev.tag), ops.rename_loc(prev.location), prev.offset)
-
-      -- An entry that only inherited the renamed value renders identically (it
-      -- still has no token), so only emit an edit when the line truly changes.
-      if line ~= item.entry.raw then
-        table.insert(edits, {
-          start_index = item.start_row - 1,
-          end_index = item.start_row,
-          lines = { line },
-        })
-      end
+  -- Re-emit each affected entry from its canonical field set (preserving its own
+  -- nudge / !L) with only the rename's transforms applied. The walk threads raw
+  -- sticky state and the rename is applied to each resolved value at format time:
+  -- rename(nil) = nil and the resolver yields prev/explicit/nil per field, so
+  -- renaming the result equals inheriting an already-renamed current. A rename
+  -- never touches the UTC offset; it is threaded raw so the re-emitted lines carry
+  -- the same utc±H tokens (emit-on-change) the originals did. An entry that only
+  -- inherited the renamed value renders identically (skip_unchanged drops it).
+  local edits = support.rewrite_entry_lines(block, function(item, resolved)
+    if not ops.affected(item) then
+      return nil
     end
-
-    prev = resolved
-  end
+    return {
+      text = ops.text_for(item.start_row, item.text),
+      tag = ops.rename_tag(resolved.tag),
+      location = ops.rename_loc(resolved.location),
+      offset = resolved.offset,
+    }
+  end, {
+    skip_unchanged = true,
+    transform = function(state)
+      return {
+        tag = ops.rename_tag(state.tag),
+        location = ops.rename_loc(state.location),
+        offset = state.offset,
+      }
+    end,
+  })
 
   return edits, renamed_entrys
 end
@@ -466,31 +450,17 @@ function M.run_by_value(lines, target, new_value)
   return build_rename(ctx.analysis, ctx.block, item, target, new_value)
 end
 
--- The active log's entry rows within a [r1, r2] line range (a visual selection), in source order.
--- Entry lines only -- summary and structural rows are skipped, so a ranged rename acts on the
--- entries you selected, never the ambiguous activity grouping a summary row stands for.
-local function range_entry_rows(block, r1, r2)
-  local lo, hi = math.min(r1, r2), math.max(r1, r2)
-  local rows = {}
-  for _, item in ipairs(block.entry_items) do
-    -- A blank entry is uncounted and unrenamable; skip it like a structural line so a
-    -- selection spanning a lunch break still renames its entries.
-    if item.start_row >= lo and item.start_row <= hi and not summary.is_blank_entry(item) then
-      rows[#rows + 1] = item.start_row
-    end
-  end
-  return rows
-end
-
 -- M.resolve over a [r1, r2] line range: the prompt target for renaming every selected entry to one
 -- description. `current` defaults the prompt to the entries' shared text (nil -> "" when they differ).
+-- Entry lines only (support.entry_rows_in_range), so a ranged rename acts on the entries you
+-- selected, never the ambiguous activity grouping a summary row stands for.
 function M.resolve_range(lines, r1, r2)
   local ctx, err = support.get_validated_active(lines)
   if not ctx then
     return nil, err
   end
 
-  local rows = range_entry_rows(ctx.block, r1, r2)
+  local rows = support.entry_rows_in_range(ctx.block, r1, r2)
   if #rows == 0 then
     return nil, M.NO_ENTRIES_IN_RANGE
   end
@@ -507,7 +477,7 @@ function M.run_range(lines, r1, r2, new_value)
     return nil, err
   end
 
-  local rows = range_entry_rows(ctx.block, r1, r2)
+  local rows = support.entry_rows_in_range(ctx.block, r1, r2)
   if #rows == 0 then
     return nil, M.NO_ENTRIES_IN_RANGE
   end
