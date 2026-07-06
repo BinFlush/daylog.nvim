@@ -7,6 +7,14 @@ return function(t)
 
   helpers.setup_daylog()
 
+  -- Marking opens the names picker; headless has no Telescope, so drive its input fallback with the
+  -- empty (unnamed) selection -- reproducing the pre-picker mark. Unmarking never opens it.
+  local function log_cmd()
+    with_mocked_input("", function()
+      vim.cmd("Daylog log")
+    end)
+  end
+
   t.test("bare :Daylog routes to today", function()
     with_daylog_setup({}, function()
       with_captured_notify(function(messages)
@@ -1059,7 +1067,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("Daylog log")
+    log_cmd()
 
     t.eq(t.get_lines(), {
       "--- log ---",
@@ -1086,7 +1094,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("Daylog log")
+    log_cmd()
 
     t.eq(t.get_lines(), {
       "--- log q=30 ---",
@@ -1113,7 +1121,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("Daylog log")
+    log_cmd()
 
     t.eq(t.get_lines(), {
       "--- log ---",
@@ -1159,7 +1167,7 @@ return function(t)
     t.ok(unlogged_row ~= nil, "expected a separate unlogged build summary row")
 
     t.set_cursor(unlogged_row, 0)
-    vim.cmd("Daylog log")
+    log_cmd()
 
     local out = t.get_lines()
     t.eq(out[2], "08:00 build !S120")
@@ -1196,7 +1204,7 @@ return function(t)
     })
     t.set_cursor(7, 0)
 
-    vim.cmd("Daylog log")
+    log_cmd()
 
     local out = t.get_lines()
     t.eq(out[2], "08:00 build")
@@ -1223,7 +1231,7 @@ return function(t)
     })
     t.set_cursor(6, 0)
 
-    vim.cmd("Daylog log")
+    log_cmd()
     -- The source entry is frozen at its committed 60 minutes (1.00h).
     t.eq(t.get_lines()[2], "00:00 logged item !S60")
 
@@ -1271,7 +1279,7 @@ return function(t)
       vim.cmd("Daylog refresh")
       for _, text in ipairs({ first, second }) do
         t.set_cursor(summary_item_row(text), 0)
-        vim.cmd("Daylog log")
+        log_cmd()
         vim.cmd("Daylog refresh")
       end
       return t.get_lines()
@@ -1354,7 +1362,7 @@ return function(t)
       })
       t.set_cursor(12, 0)
 
-      vim.cmd("Daylog log")
+      log_cmd()
 
       t.eq(t.get_lines(), {
         "--- log #someproject @office ---",

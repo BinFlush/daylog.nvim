@@ -61,6 +61,32 @@ local function score_for(used)
   return used and used.score or 0
 end
 
+-- Accumulate one visit for `key` dated `date` into a visits map (init or extend).
+local function add_visit(visits, key, date)
+  local seen = visits[key]
+  if not seen then
+    visits[key] = { dates = { date }, latest = date }
+  else
+    seen.dates[#seen.dates + 1] = date
+    if date > seen.latest then
+      seen.latest = date
+    end
+  end
+end
+
+-- Score an accumulated visits map into `{ key -> { count, latest, score } }`.
+local function score_visits(visits, now)
+  local usage = {}
+  for key, seen in pairs(visits) do
+    usage[key] = {
+      count = #seen.dates,
+      latest = seen.latest,
+      score = frecency(seen.dates, now),
+    }
+  end
+  return usage
+end
+
 -- Build a frecency usage map from recent daylogs. Every logged entry is a "visit" keyed on its
 -- resolved label (alias else description) -- matching key_of -- so bare and mapped count as one.
 -- Each value carries `count`, `latest`, and `score`. Pure: `now` is passed in.
@@ -73,13 +99,30 @@ function M.build_usage(day_line_lists, now)
         -- Key on the resolved label so a mapped entry credits its target, not a duplicate.
         local text = summary.entry_summary_text(entry)
         if text and text ~= "" then
-          local seen = visits[text]
-          if not seen then
-            visits[text] = { dates = { day.date }, latest = day.date }
-          else
-            seen.dates[#seen.dates + 1] = day.date
-            if day.date > seen.latest then
-              seen.latest = day.date
+          add_visit(visits, text, day.date)
+        end
+      end
+    end
+  end
+
+  return score_visits(visits, now)
+end
+
+-- Build per-level frecency usage maps of the logging names across recent daylogs. For each logged
+-- entry, EACH name at each level scores one visit dated that day -- so a name used once a day for N
+-- days scores exactly as an activity would. Returns `{ s = <name->usage>, t, l, w }` (empty maps
+-- when unused). Pure: `now` is passed in.
+function M.build_name_usage(day_line_lists, now)
+  local visits = { s = {}, t = {}, l = {}, w = {} }
+  for _, day in ipairs(day_line_lists) do
+    local analysis = analyze.analyze(document.parse(day.lines))
+    for _, block in ipairs(analysis.log_blocks) do
+      for _, entry in ipairs(block.entries) do
+        for level, bucket in pairs(visits) do
+          local marker = entry.logged and entry.logged[level]
+          if marker and marker.names then
+            for _, name in ipairs(marker.names) do
+              add_visit(bucket, name, day.date)
             end
           end
         end
@@ -87,15 +130,11 @@ function M.build_usage(day_line_lists, now)
     end
   end
 
-  local usage = {}
-  for text, seen in pairs(visits) do
-    usage[text] = {
-      count = #seen.dates,
-      latest = seen.latest,
-      score = frecency(seen.dates, now),
-    }
+  local out = {}
+  for level, bucket in pairs(visits) do
+    out[level] = score_visits(bucket, now)
   end
-  return usage
+  return out
 end
 
 -- Order items by daylog frecency (desc); ties fall back to the `active` flag, then the tracker

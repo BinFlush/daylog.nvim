@@ -76,6 +76,44 @@ function M.meta_range(display, text)
   return #text, #display
 end
 
+-- Order a level's name-usage map (`name -> { score }`) into picker rows: a list of
+-- `{ name, score }` sorted by score desc then name asc (stable despite pairs()' hash order).
+-- Excludes the synthetic "(unnamed)" -- that is added by the picker layer. PURE.
+function M.name_corpus_rows(usage)
+  local rows = {}
+  for name, used in pairs(usage or {}) do
+    rows[#rows + 1] = { name = name, score = used.score or 0 }
+  end
+  table.sort(rows, function(a, b)
+    if a.score ~= b.score then
+      return a.score > b.score
+    end
+    return a.name < b.name
+  end)
+  return rows
+end
+
+-- Parse a comma-separated log-names string into a deduped, sorted name list, each matching
+-- `^[%w_%-]+$` (the on-disk `[a,b]` grammar). Whitespace is trimmed and empty chunks (trailing
+-- commas) are skipped; an invalid element returns nil + a `daylog:`-prefixed error. PURE.
+function M.parse_names_input(input)
+  local names, seen = {}, {}
+  for chunk in (input or ""):gmatch("[^,]+") do
+    local name = chunk:gsub("^%s+", ""):gsub("%s+$", "")
+    if name ~= "" then
+      if name:match("^[%w_%-]+$") == nil then
+        return nil, "daylog: invalid log name '" .. name .. "' (letters, digits, _ and - only)"
+      end
+      if not seen[name] then
+        seen[name] = true
+        names[#names + 1] = name
+      end
+    end
+  end
+  table.sort(names)
+  return names
+end
+
 -- Whether a prompt change should trigger a server search: at least min_len chars (clamped
 -- >= 1, so an empty prompt never searches) and different from last_query, which breaks the
 -- refresh re-fire loop.

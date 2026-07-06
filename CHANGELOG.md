@@ -76,6 +76,16 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **Named logging: mark a row for a specific report.** A logging marker can carry a bracketed
+  name-set — `!T[jira,boss]` — naming who or what the slice was reported to, at any level (`!S[a]`,
+  `!T[a,b]`, `!L[a]`, `!W[a]`). Names are a canonical sorted set (letters, digits, `_`, `-`), and the
+  name-set is part of the row's identity: two differently-named slices of one cell report as separate
+  rows and never merge, while a same-named slice merges and recommits at the combined total. When
+  `:Daylog log` marks a row it opens a picker of the names you have used before at that level, ranked
+  by the same daylog frecency as the insert picker, with a synthetic `(unnamed)` entry first (plain
+  Enter marks with no name). With Telescope, typing filters, `<Tab>` multi-selects, and `<C-e>` (or
+  `<CR>` when the filter matches nothing) creates the typed name — or a comma-separated list; without
+  Telescope, a prompt takes a comma-separated list (empty for none). Unmarking never opens the picker.
 - **The time bar shows a before/after view of mappings.** When the active log has mapped entries
   (`=> alias`), `:Daylog bar` stacks two column-aligned rows — the raw descriptions on top, the mapped
   report labels below — so you can see at a glance what a mapping consolidates. With no mappings the two

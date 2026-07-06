@@ -121,6 +121,68 @@ return function(t)
     t.eq(next(usage), nil)
   end)
 
+  t.test("build_name_usage buckets each marker's names by its level, independently", function()
+    local usage = rank.build_name_usage({
+      { date = NOW, lines = { "--- log ---", "08:00 hi !T[boss]L[home]", "09:00 done" } },
+    }, NOW)
+
+    t.ok(usage.t["boss"] ~= nil)
+    t.ok(usage.l["home"] ~= nil)
+    -- The levels never leak into each other, and the unused levels stay empty.
+    t.eq(usage.t["home"], nil)
+    t.eq(usage.l["boss"], nil)
+    t.eq(next(usage.s), nil)
+    t.eq(next(usage.w), nil)
+  end)
+
+  t.test("build_name_usage scores a name like an activity would across the same days", function()
+    local name_days, act_days = {}, {}
+    for i = 1, 3 do
+      name_days[i] =
+        { date = NOW - i * DAY, lines = { "--- log ---", "08:00 hi !T[boss]", "09:00 done" } }
+      act_days[i] = { date = NOW - i * DAY, lines = { "--- log ---", "08:00 boss", "09:00 done" } }
+    end
+
+    local nu = rank.build_name_usage(name_days, NOW)
+    local au = rank.build_usage(act_days, NOW)
+
+    -- 3 visits, ages 1/2/3 all in the first bucket: count 3, ceil(3 * 300 / 3) = 300 -- exactly the
+    -- frecency the same-cadence activity earns.
+    t.eq(nu.t["boss"].count, 3)
+    t.eq(nu.t["boss"].latest, NOW - DAY)
+    t.eq(nu.t["boss"].score, au["boss"].score)
+    t.eq(nu.t["boss"].score, 300)
+  end)
+
+  t.test("build_name_usage dates each visit by its day, bucketed per level", function()
+    local usage = rank.build_name_usage({
+      { date = NOW - 20 * DAY, lines = { "--- log ---", "08:00 hi !S[proj]", "09:00 done" } },
+      {
+        date = NOW,
+        lines = { "--- log ---", "08:00 hi !S[proj]", "09:00 hey !W[proj]", "10:00 done" },
+      },
+    }, NOW)
+
+    -- proj at the summary level: two visits (ages 20 -> 50 and 0 -> 100): ceil(2 * 150 / 2) = 150.
+    t.eq(usage.s["proj"].count, 2)
+    t.eq(usage.s["proj"].latest, NOW)
+    t.eq(usage.s["proj"].score, 150)
+    -- proj at the workday level is one visit today, tracked in its own bucket.
+    t.eq(usage.w["proj"].count, 1)
+    t.eq(usage.w["proj"].score, 100)
+  end)
+
+  t.test("build_name_usage ignores entries whose markers carry no names", function()
+    local usage = rank.build_name_usage({
+      { date = NOW, lines = { "--- log ---", "08:00 hi !T60", "09:00 plain", "10:00 done" } },
+    }, NOW)
+
+    t.eq(next(usage.s), nil)
+    t.eq(next(usage.t), nil)
+    t.eq(next(usage.l), nil)
+    t.eq(next(usage.w), nil)
+  end)
+
   t.test("order leads with the higher frecency score", function()
     local items = { { id = "a", title = "A" }, { id = "b", title = "B" } }
 

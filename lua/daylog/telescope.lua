@@ -237,4 +237,128 @@ function M.choose(rows, opts)
   picker:find()
 end
 
+-- Multi-select names picker (shared by `:Daylog log`'s mark). `rows` = { { display, name } }; a nil
+-- `name` is the synthetic "(unnamed)". <Tab> toggles a row and advances; <CR> confirms the toggled
+-- set, else the highlighted row, else -- when the filter matched no row -- the typed prompt as new,
+-- comma-separated name(s); <C-e> creates from the typed prompt, unioned with the toggled set.
+-- Typing only filters -- it never creates implicitly while a row is available. "(unnamed)"
+-- contributes no name, so it alone yields the empty set. An invalid typed name warns and keeps the
+-- picker open. Names arrive at on_select deduped+sorted; closing calls on_cancel.
+--
+-- opts: { on_select = fn(names), on_cancel = fn()|nil, prompt = string|nil, theme = table|nil }
+function M.multi_select(rows, opts)
+  ensure_meta_hl()
+
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local conf = require("telescope.config").values
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+
+  local picker = pickers.new(opts.theme or {}, {
+    prompt_title = opts.prompt or "Daylog names  (<CR> pick, <Tab> mark, <C-e> new)",
+    finder = finders.new_table({
+      results = rows,
+      entry_maker = function(row)
+        return { value = row, display = row.display, ordinal = row.display }
+      end,
+    }),
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr, map)
+      local picked = false
+
+      vim.api.nvim_create_autocmd("BufWipeout", {
+        buffer = prompt_bufnr,
+        once = true,
+        callback = function()
+          if opts.on_cancel and not picked then
+            vim.schedule(opts.on_cancel)
+          end
+        end,
+      })
+
+      map({ "i", "n" }, "<Tab>", function()
+        actions.toggle_selection(prompt_bufnr)
+        actions.move_selection_next(prompt_bufnr)
+      end)
+
+      -- The current toggled rows' names, deduped ("(unnamed)"'s nil contributes none), plus whether
+      -- anything is toggled at all -- toggling only "(unnamed)" is a deliberate empty set, not
+      -- "nothing toggled".
+      local function toggled_names()
+        local names, seen = {}, {}
+        local multi = action_state.get_current_picker(prompt_bufnr):get_multi_selection()
+        for _, entry in ipairs(multi) do
+          local name = entry.value.name
+          if name ~= nil and not seen[name] then
+            seen[name] = true
+            names[#names + 1] = name
+          end
+        end
+        return names, #multi > 0
+      end
+
+      local function confirm(names)
+        picked = true
+        actions.close(prompt_bufnr)
+        table.sort(names)
+        opts.on_select(names)
+      end
+
+      -- Parse the typed prompt as new name(s); invalid input warns and keeps the picker open.
+      local function typed_names()
+        local names, err = picker_helpers.parse_names_input(action_state.get_current_line())
+        if not names then
+          vim.notify(err, vim.log.levels.WARN)
+        end
+        return names
+      end
+
+      actions.select_default:replace(function()
+        local names, any_toggled = toggled_names()
+
+        if not any_toggled then
+          local highlighted = action_state.get_selected_entry()
+          if highlighted and highlighted.value then
+            if highlighted.value.name ~= nil then
+              names = { highlighted.value.name }
+            end
+          else
+            -- The filter matched no row: the typed prompt is a request to create.
+            local created = typed_names()
+            if not created then
+              return
+            end
+            names = created
+          end
+        end
+
+        confirm(names)
+      end)
+
+      map({ "i", "n" }, "<C-e>", function()
+        local created = typed_names()
+        if not created then
+          return
+        end
+
+        local names, seen = {}, {}
+        for _, list in ipairs({ toggled_names(), created }) do
+          for _, name in ipairs(list) do
+            if not seen[name] then
+              seen[name] = true
+              names[#names + 1] = name
+            end
+          end
+        end
+        confirm(names)
+      end)
+
+      return true
+    end,
+  })
+
+  picker:find()
+end
+
 return M
