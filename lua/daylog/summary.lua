@@ -54,6 +54,16 @@ local function build_intervals(entries)
         -- Whole per-level logged table, so tag/location sections split by their own level; `logged` /
         -- `logged_minutes` above are the summary (`s`) slice.
         logged_by_level = current.logged,
+        -- Name-set keys (flat strings, "" when unnamed) split each level's cell at its own level; the
+        -- parallel display lists (nil when unnamed) ride along for rendering the marker.
+        s_names_key = syntax.names_key(current.logged and current.logged.s),
+        t_names_key = syntax.names_key(current.logged and current.logged.t),
+        l_names_key = syntax.names_key(current.logged and current.logged.l),
+        w_names_key = syntax.names_key(current.logged and current.logged.w),
+        s_names = current.logged and current.logged.s and current.logged.s.names or nil,
+        t_names = current.logged and current.logged.t and current.logged.t.names or nil,
+        l_names = current.logged and current.logged.l and current.logged.l.names or nil,
+        w_names = current.logged and current.logged.w and current.logged.w.names or nil,
         source_entry_row = current.row,
       })
     end
@@ -90,8 +100,8 @@ end
 local function build_fine_grained_rows(intervals)
   return projection.project_rows(
     intervals,
-    { "text", "tag", "location", "logged" },
-    { "text", "tag", "location", "logged", "logged_minutes" },
+    { "text", "tag", "location", "logged", "s_names_key" },
+    { "text", "tag", "location", "logged", "logged_minutes", "s_names_key", "s_names" },
     true,
     -- All intervals of one row share its single nudge, so fold by value (max magnitude), never sum.
     "max"
@@ -102,13 +112,13 @@ end
 -- whole day (`workday`, w).
 local function cell_key(row, level)
   if level == "t" then
-    return row.tag or "\0notag"
+    return (row.tag or "\0notag") .. "\0" .. (row.t_names_key or "")
   elseif level == "l" then
-    return row.location or "\0noloc"
+    return (row.location or "\0noloc") .. "\0" .. (row.l_names_key or "")
   elseif level == "w" then
-    return "workday"
+    return "workday" .. "\0" .. (row.w_names_key or "")
   end
-  return table.concat({ row.text or "", row.tag or "" }, "\0")
+  return table.concat({ row.text or "", row.tag or "", row.s_names_key or "" }, "\0")
 end
 
 -- Group intervals into granules, the finest cell every partition coarsens: (text, tag, location).
@@ -117,8 +127,21 @@ end
 local function build_granules(intervals)
   return projection.project_rows(
     intervals,
-    { "text", "tag", "location" },
-    { "text", "tag", "location", "logged_by_level" },
+    { "text", "tag", "location", "s_names_key", "t_names_key", "l_names_key", "w_names_key" },
+    {
+      "text",
+      "tag",
+      "location",
+      "logged_by_level",
+      "s_names_key",
+      "t_names_key",
+      "l_names_key",
+      "w_names_key",
+      "s_names",
+      "t_names",
+      "l_names",
+      "w_names",
+    },
     true,
     "max"
   )
@@ -134,7 +157,9 @@ local function committed_by_cell(intervals, level, cell_key_fn)
     local value = syntax.committed_minutes(marker)
     if value ~= nil then
       local cell = cell_key_fn(interval)
-      local scope = level == "s" and M.activity_identity_key(interval) or cell
+      local scope = level == "s"
+          and (M.activity_identity_key(interval) .. "\0" .. (interval.s_names_key or ""))
+        or cell
       scopes[cell] = scopes[cell] or {}
       scopes[cell][scope] = value
     end
@@ -170,11 +195,13 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- preserved from `granules`, so member lists index straight into constrained_quantize's copy.
   local commitments = {}
   for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local key_fn = level == "s" and function(row)
-      return M.activity_identity_key(row)
-    end or function(row)
-      return cell_key(row, level)
-    end
+    local key_fn = level == "s"
+        and function(row)
+          return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
+        end
+      or function(row)
+        return cell_key(row, level)
+      end
     local committed = committed_by_cell(intervals, level, key_fn)
 
     local members = {}
@@ -264,6 +291,11 @@ local function build_section_rows(quantized, intervals, key_fields, level, feasi
       for _, field in ipairs(key_fields) do
         cell.fields[field] = interval[field]
       end
+      -- The level's display name list (nil when unnamed) rides on every emitted row; the flat combine
+      -- key is carried only for a named cell, so an unnamed row stays byte-identical to today.
+      local names = interval[level .. "_names"]
+      cell.fields.names = names
+      cell.fields[level .. "_names_key"] = names and interval[level .. "_names_key"] or nil
       cells[key] = cell
       order[#order + 1] = cell
     end
@@ -433,11 +465,23 @@ function M.summarize_entries(entries, quantize_minutes)
   end
 
   return finalize_summary_order({
-    summary_items = build_section_rows(quantized, intervals, { "text", "tag" }, "s", feasible),
-    tag_totals = build_section_rows(quantized, intervals, { "tag" }, "t", feasible),
-    location_totals = build_section_rows(quantized, intervals, { "location" }, "l", feasible),
-    -- Blank entries never reach a granule, so the totals are one `workday` cell (loggable via !W).
-    total_rows = build_section_rows(quantized, intervals, {}, "w", feasible),
+    summary_items = build_section_rows(
+      quantized,
+      intervals,
+      { "text", "tag", "s_names_key" },
+      "s",
+      feasible
+    ),
+    tag_totals = build_section_rows(quantized, intervals, { "tag", "t_names_key" }, "t", feasible),
+    location_totals = build_section_rows(
+      quantized,
+      intervals,
+      { "location", "l_names_key" },
+      "l",
+      feasible
+    ),
+    -- Blank entries never reach a granule, so the totals are one `workday` cell per name-set (!W).
+    total_rows = build_section_rows(quantized, intervals, { "w_names_key" }, "w", feasible),
     activity_total = activity_total,
     activity_error_minutes = activity_real - activity_total,
   })
@@ -478,13 +522,13 @@ end
 -- or the whole workday (w).
 local function level_group_key(row, level)
   if level == "t" then
-    return row.tag or ""
+    return (row.tag or "") .. "\0" .. (row.t_names_key or "")
   elseif level == "l" then
-    return row.location or ""
+    return (row.location or "") .. "\0" .. (row.l_names_key or "")
   elseif level == "w" then
-    return ""
+    return "\0" .. (row.w_names_key or "")
   end
-  return M.activity_identity_key(row)
+  return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
 end
 
 -- Same-level intervals whose committed values disagree, each { row } at the earliest entry: the fold
@@ -632,19 +676,32 @@ function M.combine_summaries(summaries)
     summary_items = quantize.apply_error_minutes(
       projection.project_rows(
         summary_items,
-        { "text", "tag", "logged" },
-        { "text", "tag", "logged" }
+        { "text", "tag", "logged", "s_names_key" },
+        { "text", "tag", "logged", "s_names_key", "names" }
       )
     ),
-    -- `logged` is in the key so a section's logged and unlogged rows stay separate across days.
+    -- `logged` and the level's name-set key are in the key so a section's logged/unlogged and
+    -- differently-named rows stay separate across days (same-name rows merge).
     tag_totals = quantize.apply_error_minutes(
-      projection.project_rows(tag_totals, { "tag", "logged" }, { "tag", "logged" })
+      projection.project_rows(
+        tag_totals,
+        { "tag", "logged", "t_names_key" },
+        { "tag", "logged", "t_names_key", "names" }
+      )
     ),
     location_totals = quantize.apply_error_minutes(
-      projection.project_rows(location_totals, { "location", "logged" }, { "location", "logged" })
+      projection.project_rows(
+        location_totals,
+        { "location", "logged", "l_names_key" },
+        { "location", "logged", "l_names_key", "names" }
+      )
     ),
     total_rows = quantize.apply_error_minutes(
-      projection.project_rows(total_rows, { "logged" }, { "logged" })
+      projection.project_rows(
+        total_rows,
+        { "logged", "w_names_key" },
+        { "logged", "w_names_key", "names" }
+      )
     ),
     activity_total = activity_total,
     activity_error_minutes = activity_error_minutes,

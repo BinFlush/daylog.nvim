@@ -239,6 +239,20 @@ return function(t)
     )
   end)
 
+  t.test("named !T markers split the tags section, each rendering its own name list", function()
+    -- The canonical example: two entries under the sticky #obs tag with different !T name-sets. Each
+    -- name-set is its own tag row, rendering the marker with its names; the sections still foot.
+    local src = {
+      "--- log q=15 d=dec ---",
+      "08:00 hello #obs !T[name1,name2]60",
+      "09:00 hello2 !T[name2]90",
+      "10:30",
+    }
+    local out = support.apply_edits(src, refresh_summaries.run(src).edits)
+    t.ok(has(out, "1.00h (+0m) #obs !T[name1,name2]"), "the [name1,name2] slice renders under #obs")
+    t.ok(has(out, "1.50h (+0m) #obs !T[name2]"), "the [name2] slice renders under #obs")
+  end)
+
   t.test("refresh reclaims a stale --- logged --- section left by an older version", function()
     local old = {
       "--- log @office ---",

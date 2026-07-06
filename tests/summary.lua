@@ -741,6 +741,110 @@ return function(t)
     end
   )
 
+  t.test("two entries under one tag with different !T name-sets make two tag rows", function()
+    -- Same #obs tag, two distinct !T name-sets: each splits into its own tag row, and the sections
+    -- still foot to the shared activity total.
+    local result = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 first #obs !T[name1,name2]60",
+      "09:00 second #obs !T[name2]90",
+      "10:30",
+    }))
+    t.eq(#result.tag_totals, 2)
+    local by_names = {}
+    for _, row in ipairs(result.tag_totals) do
+      t.eq(row.tag, "obs")
+      by_names[table.concat(row.names or {}, ",")] = row
+    end
+    t.eq(by_names["name1,name2"].duration, 60)
+    t.eq(by_names["name1,name2"].logged, true)
+    t.eq(by_names["name1,name2"].names, { "name1", "name2" })
+    t.eq(by_names["name2"].duration, 90)
+    t.eq(by_names["name2"].logged, true)
+    t.eq(result.activity_total, 150)
+    assert_activity_totals_match(t, result)
+  end)
+
+  t.test("a named and an unnamed !T slice coexist under one tag without conflict", function()
+    local block = block_from_lines({
+      "--- log q=15 ---",
+      "08:00 a #obs !T[name1]60",
+      "09:00 b #obs",
+      "10:00",
+    })
+    local result = summary.summarize_block(block)
+    t.eq(#result.tag_totals, 2)
+    t.eq(result.activity_total, 120)
+    assert_activity_totals_match(t, result)
+
+    local named, plain
+    for _, row in ipairs(result.tag_totals) do
+      if row.names then
+        named = row
+      else
+        plain = row
+      end
+    end
+    t.eq(named.duration, 60)
+    t.eq(named.logged, true)
+    t.eq(named.names, { "name1" })
+    t.eq(plain.duration, 60)
+    t.eq(plain.logged, nil)
+    -- Different name-sets are independent groups, so the two !T slices never conflict.
+    t.eq(#summary.logging_diagnostics(block), 0)
+  end)
+
+  t.test("a named !S slice and its bare same-activity sibling sum to the activity total", function()
+    local result = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 build !S[a]30",
+      "08:30 build",
+      "09:30 done",
+    }))
+    local total, named, bare = 0, nil, nil
+    for _, row in ipairs(result.summary_items) do
+      total = total + row.duration
+      if row.names then
+        named = row
+      else
+        bare = row
+      end
+    end
+    t.eq(named.duration, 30)
+    t.eq(named.logged, true)
+    t.eq(named.names, { "a" })
+    t.eq(bare.duration, 60)
+    t.eq(bare.logged, nil)
+    t.eq(total, result.activity_total)
+    t.eq(result.activity_total, 90)
+    assert_activity_totals_match(t, result)
+  end)
+
+  t.test("combine_summaries keeps name-split rows separate and merges same-name rows", function()
+    local day1 = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 x #obs !T[a]60",
+      "09:00 y #obs !T[b]30",
+      "09:30 done",
+    }))
+    local day2 = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 z #obs !T[a]45",
+      "08:45 done",
+    }))
+    local combined = summary.combine_summaries({ day1, day2 })
+    t.eq(combined.activity_total, 135)
+
+    local by_names = {}
+    for _, row in ipairs(combined.tag_totals) do
+      t.eq(row.tag, "obs")
+      by_names[table.concat(row.names or {}, ",")] = row.duration
+    end
+    t.eq(by_names["a"], 105) -- merged across both days
+    t.eq(by_names["b"], 30) -- kept separate from the [a] slice
+    t.eq(total_duration(combined.tag_totals), combined.activity_total)
+  end)
+
   t.test("a cross-cutting infeasible commitment renders honestly and foots", function()
     -- !T120 and !L90 commit the same 60m granule to contradictory over-values (non-laminar); the
     -- quantizer can't satisfy both, so it falls back to the honest quantization -- every section foots
