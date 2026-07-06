@@ -118,6 +118,22 @@ return function(t)
     )
   end)
 
+  t.test("fit_legend budgets double-width (CJK) labels in cells, not characters", function()
+    -- Two 6-char fullwidth labels render 17 cells each (5 overhead + 12); counted in characters
+    -- they'd cost 11 each and both "fit" 24 untouched, only to overflow at render time. Cell
+    -- budgeting shaves each to 3 chars + "…" (12 cells), exactly filling the width.
+    t.eq(
+      timebar.fit_legend({
+        { label = "あいうえおか", color_index = 1 },
+        { label = "かきくけこさ", color_index = 2 },
+      }, 24),
+      {
+        { text = "あいう…", color_index = 1 },
+        { text = "かきく…", color_index = 2 },
+      }
+    )
+  end)
+
   -- label_placements: place each distinct label once, centred over its widest segment, resolving
   -- overlaps optimally (isotonic regression / PAVA). Segments are hand-built; `col` is 1-based.
   local function mkseg(width, color_index, label)
@@ -181,6 +197,23 @@ return function(t)
 
   t.test("label_placements shows a single over-long label truncated at col 1", function()
     t.eq(cols(timebar.label_placements({ mkseg(3, 1, "verylonglabel") }, 6)), { { "v…", 1, 1 } })
+  end)
+
+  t.test("label_placements keeps double-width labels within their cell budget", function()
+    -- Each abbreviated CJK label renders 12 cells; the two must tile the 24-cell bar without
+    -- overlapping in cells and without spilling past its end (else the shell drops them).
+    local placements = timebar.label_placements(
+      { mkseg(12, 1, "あいうえおか"), mkseg(12, 2, "かきくけこさ") },
+      24
+    )
+    t.eq(cols(placements), { { "あいう…", 1, 1 }, { "かきく…", 2, 13 } })
+    local prev_end = 0
+    for _, p in ipairs(placements) do
+      local cell_width = 5 + vim.fn.strdisplaywidth(p.text)
+      t.ok(p.col > prev_end, "labels do not overlap in cells")
+      prev_end = p.col - 1 + cell_width
+    end
+    t.ok(prev_end <= 24, "the last label fits the bar")
   end)
 
   t.test("label_placements ignores gap segments (no label for a dead period)", function()
@@ -395,6 +428,21 @@ return function(t)
     t.eq(timebar.layout(entries({ "--- log ---", "08:00 a", "12:00 done" }), 40).now_col, nil)
   end)
 
+  t.test("no now-marker when now falls in a dropped gap (a hole in the axis)", function()
+    -- width 1 drops the gap marker (and the zero-width b segment): 10:30 sits in undisplayed time,
+    -- where a marker would misleadingly point at a neighbouring segment's cell, so none is drawn.
+    local log = { "--- log ---", "08:00 a", "10:00", "11:00 b", "12:00 done" }
+    t.eq(timebar.layout(entries(log), 1, 630).now_col, nil)
+    -- inside a displayed segment the marker is unchanged: 09:00 is in a's [08:00, 10:00) cell.
+    t.eq(timebar.layout(entries(log), 1, 540).now_col, 1)
+  end)
+
+  t.test("a now-marker inside a shown gap sits on the gap's own cell", function()
+    -- width 41 keeps the gap marker: segments a (27), gap (1), b (13); 10:30 maps to the gap cell.
+    local log = { "--- log ---", "08:00 a", "10:00", "11:00 b", "12:00 done" }
+    t.eq(timebar.layout(entries(log), 41, 630).now_col, 28)
+  end)
+
   t.test(":Daylog bar opens and closes a reserved bottom strip", function()
     local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
     helpers.with_daylog_setup({}, function()
@@ -469,6 +517,119 @@ return function(t)
 
       vim.cmd("enew") -- the window now shows a non-daylog buffer -> BufWinEnter drops the strip
       t.ok(strip() == nil, "the strip closed when the window left the daylog buffer")
+
+      if turned_on then
+        timebar_ui.toggle()
+      end
+    end)
+  end)
+
+  -- The hover float is the only editor-relative floating window the suite opens; find it (or nil).
+  local function hover_float()
+    for _, w in ipairs(vim.api.nvim_list_wins()) do
+      if vim.api.nvim_win_get_config(w).relative ~= "" then
+        return w
+      end
+    end
+    return nil
+  end
+
+  -- Show the hover over the strip window `sw` by driving on_mouse_move with a mocked mouse
+  -- position on the bar row (row 2 of an unmapped strip: labels above, bar below).
+  local function show_hover_over(sw)
+    local timebar_ui = require("daylog.timebar_ui")
+    local old_getmousepos = vim.fn.getmousepos
+    vim.fn.getmousepos = function()
+      return {
+        winid = sw,
+        wincol = 2,
+        winrow = 2,
+        line = 2,
+        column = 2,
+        screenrow = 4,
+        screencol = 4,
+      }
+    end
+    local ok, err = pcall(timebar_ui.on_mouse_move)
+    vim.fn.getmousepos = old_getmousepos
+    if not ok then
+      error(err, 0)
+    end
+  end
+
+  t.test("the hover tooltip hides when focus leaves the daylog buffer", function()
+    local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
+    local timebar_ui = require("daylog.timebar_ui")
+    helpers.with_daylog_setup({ time_bar_hover = true }, function()
+      -- a second window to move focus into, so leaving the daylog buffer is observable
+      vim.cmd("enew")
+      local other = vim.api.nvim_get_current_win()
+      vim.cmd("split")
+      t.reset({ "--- log ---", "08:00 a", "10:00 b", "12:00 done" })
+      vim.bo.filetype = "daylog" -- sources the ftplugin: hover mapping + leave autocmds
+      local dwin = vim.api.nvim_get_current_win()
+
+      local turned_on = not timebar_ui.enabled()
+      if turned_on then
+        require("daylog").bar()
+      end
+      require("daylog").refresh_indicators(0)
+
+      local sw
+      for _, w in ipairs(vim.api.nvim_list_wins()) do
+        if w ~= dwin and w ~= other and vim.api.nvim_win_get_config(w).relative == "" then
+          sw = w
+        end
+      end
+      t.ok(sw ~= nil, "the strip is open")
+
+      show_hover_over(sw)
+      t.ok(hover_float() ~= nil, "the hover float is shown")
+
+      vim.api.nvim_set_current_win(other) -- WinLeave fires on the daylog buffer
+      t.ok(hover_float() == nil, "the hover hid when focus left the daylog buffer")
+
+      if turned_on then
+        require("daylog").bar() -- toggle back off (closes the strip)
+      end
+      vim.cmd("only")
+    end)
+  end)
+
+  t.test("closing the strip window directly deletes its scratch buffer", function()
+    local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
+    local timebar_ui = require("daylog.timebar_ui")
+    helpers.with_daylog_setup({}, function()
+      t.reset({ "--- log ---", "08:00 a", "10:00 b", "12:00 done" })
+      vim.bo.filetype = "daylog"
+      local dwin = vim.api.nvim_get_current_win()
+
+      local turned_on = not timebar_ui.enabled()
+      if turned_on then
+        require("daylog").bar()
+      end
+      require("daylog").refresh_indicators(0)
+
+      local sw
+      for _, w in ipairs(vim.api.nvim_list_wins()) do
+        if w ~= dwin then
+          sw = w
+        end
+      end
+      t.ok(sw ~= nil, "the strip is open")
+      local sbuf = vim.api.nvim_win_get_buf(sw)
+
+      -- a visible hover makes the cleanup's hide observable too
+      show_hover_over(sw)
+      t.ok(hover_float() ~= nil, "the hover float is shown")
+
+      vim.api.nvim_win_close(sw, true) -- close the strip window itself, not the log window
+      vim.wait(200, function()
+        return not vim.api.nvim_buf_is_valid(sbuf)
+      end)
+
+      t.ok(not vim.api.nvim_buf_is_valid(sbuf), "the scratch buffer is deleted with its window")
+      t.ok(hover_float() == nil, "the hover hid with the strip")
 
       if turned_on then
         timebar_ui.toggle()

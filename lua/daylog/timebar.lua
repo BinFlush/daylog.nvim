@@ -222,14 +222,16 @@ function M.layout(entries, width, now_minutes)
     raw_labels = raw_segments and M.label_placements(raw_segments, width) or nil,
   }
 
-  -- The "now" marker column: when the current time falls inside the bar's span -- i.e. the final
-  -- entry is in the future relative to now -- mark where now sits so the shell can draw a line on the
-  -- bar at the current time. Purely a position cue; it changes no interval and never the summary.
+  -- The "now" marker column: only when the current time falls inside a displayed segment's
+  -- [start, stop) -- a dropped gap or zero-width segment is a hole in the bar's piecewise axis,
+  -- where a marker would misleadingly sit on the next segment's first cell. Purely a position cue;
+  -- it changes no interval and never the summary.
   if now_minutes then
-    local first = entries[1].minutes
-    local last = entries[#entries].minutes
-    if last > first and now_minutes >= first and now_minutes < last then
-      result.now_col = column_at_time(segments, now_minutes)
+    for _, seg in ipairs(segments) do
+      if now_minutes >= seg.start and now_minutes < seg.stop then
+        result.now_col = column_at_time(segments, now_minutes)
+        break
+      end
     end
   end
 
@@ -282,6 +284,59 @@ local function utf8_chars(s)
   return chars
 end
 
+-- Codepoint ranges that render two cells wide (East Asian Wide/Fullwidth: CJK, Hangul, fullwidth
+-- forms, common emoji). Everything else counts as one cell.
+local WIDE_RANGES = {
+  { 0x1100, 0x115F },
+  { 0x2E80, 0xA4CF },
+  { 0xA960, 0xA97F },
+  { 0xAC00, 0xD7A3 },
+  { 0xF900, 0xFAFF },
+  { 0xFE30, 0xFE4F },
+  { 0xFF00, 0xFF60 },
+  { 0xFFE0, 0xFFE6 },
+  { 0x1F300, 0x1F64F },
+  { 0x1F900, 0x1FAFF },
+  { 0x20000, 0x2FFFD },
+}
+
+-- The display width in cells of one UTF-8 character (as split by utf8_chars): decode its codepoint
+-- and range-check it. Mirrors the shell's strdisplaywidth so label budgets are cell-accurate; kept
+-- pure (no vim API).
+local function char_cells(ch)
+  local b1 = string.byte(ch, 1)
+  local cp
+  if b1 < 0x80 then
+    cp = b1
+  elseif b1 < 0xE0 then
+    cp = (b1 % 0x20) * 0x40 + ((string.byte(ch, 2) or 0x80) % 0x40)
+  elseif b1 < 0xF0 then
+    cp = (b1 % 0x10) * 0x1000
+      + ((string.byte(ch, 2) or 0x80) % 0x40) * 0x40
+      + ((string.byte(ch, 3) or 0x80) % 0x40)
+  else
+    cp = (b1 % 0x08) * 0x40000
+      + ((string.byte(ch, 2) or 0x80) % 0x40) * 0x1000
+      + ((string.byte(ch, 3) or 0x80) % 0x40) * 0x40
+      + ((string.byte(ch, 4) or 0x80) % 0x40)
+  end
+  for _, range in ipairs(WIDE_RANGES) do
+    if cp >= range[1] and cp <= range[2] then
+      return 2
+    end
+  end
+  return 1
+end
+
+-- The display width in cells of a whole string.
+local function text_cells(s)
+  local w = 0
+  for _, ch in ipairs(utf8_chars(s)) do
+    w = w + char_cells(ch)
+  end
+  return w
+end
+
 -- The number of leading characters two char arrays share.
 local function lcp(a, b)
   local n = math.min(#a, #b)
@@ -306,10 +361,17 @@ function M.fit_legend(items, width)
     return {}
   end
 
-  local chars, len = {}, {}
+  -- Per label: its characters, their count, and prefix cell sums (cells[i][a] is the display width
+  -- of the first `a` characters), so every budget below is in cells, matching what the shell draws.
+  local chars, len, cells = {}, {}, {}
   for i = 1, n do
     chars[i] = utf8_chars(items[i].label)
     len[i] = #chars[i]
+    local sums = { [0] = 0 }
+    for k = 1, len[i] do
+      sums[k] = sums[k - 1] + char_cells(chars[i][k])
+    end
+    cells[i] = sums
   end
 
   -- 1) the shortest prefix that keeps each label distinct from every other, floored for readability
@@ -326,7 +388,7 @@ function M.fit_legend(items, width)
   end
 
   local function cost(i, a)
-    return LEGEND_OVERHEAD + a + (a < len[i] and 1 or 0)
+    return LEGEND_OVERHEAD + cells[i][a] + (a < len[i] and 1 or 0)
   end
 
   -- 2) keep the longest leading run whose floored minimums fit; evict the rest from the tail.
@@ -342,7 +404,11 @@ function M.fit_legend(items, width)
   -- A single leading label too wide even at its minimum: still show it, hard-truncated to the width
   -- (the shell drops it if even that overflows).
   if keep == 0 then
-    local a = math.max(1, math.min(len[1], width - LEGEND_OVERHEAD - 1))
+    local cap = width - LEGEND_OVERHEAD - 1
+    local a = 1
+    while a < len[1] and cells[1][a + 1] <= cap do
+      a = a + 1
+    end
     local text = table.concat(chars[1], "", 1, a)
     if a < len[1] then
       text = text .. LEGEND_MARKER
@@ -449,7 +515,7 @@ function M.label_placements(segments, width)
       text = fit.text,
       color_index = fit.color_index,
       center2 = rec.center2,
-      w = LEGEND_OVERHEAD + #utf8_chars(fit.text),
+      w = LEGEND_OVERHEAD + text_cells(fit.text),
       appear = rec.appear,
     }
   end

@@ -65,5 +65,14 @@ if not vim.b.daylog_highlight_attached then
     vim.keymap.set({ "n", "i" }, "<MouseMove>", function()
       require("daylog.timebar_ui").on_mouse_move()
     end, { buffer = 0 })
+
+    -- The tooltip normally hides on the next MouseMove, but that mapping is buffer-local: once
+    -- focus leaves this buffer no further move reaches it, so hide the hover on the way out.
+    vim.api.nvim_create_autocmd({ "BufLeave", "WinLeave" }, {
+      buffer = 0,
+      callback = function()
+        require("daylog.timebar_ui").hide_hover()
+      end,
+    })
   end
 end

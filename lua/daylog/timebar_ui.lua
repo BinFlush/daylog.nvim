@@ -56,6 +56,10 @@ local function hide_hover()
   hover_win = nil
 end
 
+-- Hide the hover tooltip. The ftplugin calls this when focus leaves a daylog buffer: the
+-- buffer-local MouseMove handler that would otherwise hide it stops firing there.
+M.hide_hover = hide_hover
+
 -- A dead period (a blank entry's interval) renders as this glyph on the gap highlight, so it reads as
 -- an explicit "nothing here" break rather than an activity's solid block or missing time.
 local GAP_GLYPH = "┊"
@@ -187,8 +191,9 @@ local function ensure_strip_autocmds()
   strip_autocmds_set = true
   local group = vim.api.nvim_create_augroup("DaylogTimeBarStrip", { clear = true })
 
-  -- A window closed: drop its strip (its log window went away), or forget a strip closed directly.
-  -- Deferred so the window is closed cleanly first.
+  -- A window closed: drop its strip (its log window went away), or tear down a strip whose own
+  -- window was closed directly (the scratch buffer and hover go with it). Deferred so the window
+  -- is closed cleanly first.
   vim.api.nvim_create_autocmd("WinClosed", {
     group = group,
     callback = function(args)
@@ -200,7 +205,7 @@ local function ensure_strip_autocmds()
         close_strip(closed)
         for owner, strip in pairs(bar_strips) do
           if strip.win == closed then
-            bar_strips[owner] = nil
+            close_strip(owner)
             break
           end
         end
