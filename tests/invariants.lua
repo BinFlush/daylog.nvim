@@ -246,7 +246,7 @@ return function(t)
         local logged = {}
         for _, level in ipairs({ "s", "t", "l", "w" }) do
           if math.random() < 0.4 then
-            logged[level] = math.random(0, 6) * quantize_minutes
+            logged[level] = { minutes = math.random(0, 6) * quantize_minutes }
           end
         end
         if next(logged) ~= nil then

@@ -66,7 +66,7 @@ local DEFAULT_KEYMAPS = {
   },
   {
     lhs = "<leader>dl",
-    desc = "toggle logged on the summary row",
+    desc = "toggle logged (marking opens the name picker)",
     rhs = function()
       require("daylog").log()
     end,

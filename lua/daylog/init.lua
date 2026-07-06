@@ -16,6 +16,7 @@ local log_current = require("daylog.usecases.log_current")
 local map = require("daylog.map")
 local migrate_logging = require("daylog.usecases.migrate_logging")
 local order_logs = require("daylog.usecases.order_logs")
+local pick = require("daylog.pick")
 local rename = require("daylog.rename")
 local repeat_current = require("daylog.usecases.repeat_current")
 local report_buffers = require("daylog.report")
@@ -111,8 +112,26 @@ function M.order()
   end
 end
 
+-- Toggle logged on the cursor's summary row. Marking opens the names picker at the row's level;
+-- unmarking (and any non-loggable cursor) runs the usecase directly, surfacing its own error.
 function M.log()
-  buffer.run_buffer_usecase(log_current.run, buffer.cursor_row())
+  local row = buffer.cursor_row()
+  local peek = log_current.peek(buffer.buffer_lines(), row)
+
+  if not peek or not peek.marking then
+    buffer.run_buffer_usecase(log_current.run, row)
+    return
+  end
+
+  local target_buf = vim.api.nvim_get_current_buf()
+  pick.pick_names(peek.level, {
+    on_select = function(names)
+      buffer.run_pinned_usecase(target_buf, "log", function(lines)
+        return log_current.run(lines, row, names)
+      end)
+    end,
+    on_cancel = function() end,
+  })
 end
 
 -- Manually balance summary rounding by `delta` q-steps (signed; 0 clears the nudge); the

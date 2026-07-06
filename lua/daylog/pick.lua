@@ -26,12 +26,12 @@ end
 
 local DEFAULT_FRECENCY_DAYS = 30
 
--- Scan the last `days` daylogs (buffer-aware, so today's unsaved entries count) into the
--- daylog-usage map the frecency ranker keys on. Empty when no daybook is configured.
-local function daylog_usage(days)
+-- Read the last `days` daylogs (buffer-aware, so today's unsaved entries count) as
+-- `{ date, lines }` lists. nil when no daybook is configured.
+local function trailing_day_lists(days)
   local settings = daybook_io.expanded_daybook_settings()
   if not settings then
-    return {}
+    return nil
   end
 
   local lists = {}
@@ -41,7 +41,26 @@ local function daylog_usage(days)
       lists[#lists + 1] = { date = date, lines = lines }
     end
   end
+  return lists
+end
+
+-- The daylog-usage map the frecency ranker keys on. Empty when no daybook is configured.
+local function daylog_usage(days)
+  local lists = trailing_day_lists(days)
+  if not lists then
+    return {}
+  end
   return rank.build_usage(lists, os.time())
+end
+
+-- The corpus of previously-used logging names at `level`, ranked by the same daylog frecency as the
+-- insert picker: a list of `{ name, score }` sorted by score desc then name asc. Excludes the
+-- synthetic "(unnamed)" -- the picker layer adds it.
+function M.name_corpus(level)
+  local picker = config.get().picker or {}
+  local lists = trailing_day_lists(picker.frecency_days or DEFAULT_FRECENCY_DAYS)
+  local usage = lists and rank.build_name_usage(lists, os.time()) or {}
+  return sources_picker.name_corpus_rows(usage[level] or {})
 end
 
 -- Reorder a source's items by the built-in daylog-frecency ranker, or a user-supplied
@@ -207,6 +226,40 @@ function M.unified(specs, opts)
 
   local rows = rank.build_insert_pool(sources, { usage = usage })
   M.choose(rows, opts)
+end
+
+-- The logging-names picker for `:Daylog log` when it MARKS a row. Offers the `level`'s
+-- previously-used names (frecency-ranked) with a synthetic "(unnamed)" first. Telescope gives a
+-- Tab-multi-select picker (<C-e> creates from the typed prompt); otherwise a comma-separated
+-- `vim.fn.input` mirrors the on-disk `[a,b]` grammar. Selected names are deduped+sorted before
+-- on_select.
+--
+-- opts: { on_select = fn(names_list), on_cancel = fn()|nil }.
+function M.pick_names(level, opts)
+  local corpus = M.name_corpus(level)
+
+  if pcall(require, "telescope") then
+    local rows = { { display = "(unnamed)", name = nil } }
+    for _, item in ipairs(corpus) do
+      rows[#rows + 1] = { display = item.name, name = item.name }
+    end
+    require("daylog.telescope").multi_select(rows, {
+      prompt = "Daylog: log names  (<CR> pick, <Tab> mark, <C-e> new)",
+      on_select = opts.on_select,
+      on_cancel = opts.on_cancel,
+    })
+    return
+  end
+
+  local input = vim.fn.input({
+    prompt = "daylog: log names (comma-separated, empty for none): ",
+  })
+  local names, err = sources_picker.parse_names_input(input)
+  if not names then
+    vim.notify(err, vim.log.levels.WARN)
+    return
+  end
+  opts.on_select(names)
 end
 
 return M

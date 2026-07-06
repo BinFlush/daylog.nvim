@@ -348,11 +348,21 @@ local function generate(rng, mode_name)
         local markers = {}
         for _, level in ipairs({ "S", "T", "L", "W" }) do
           if rng:chance(0.45) then
+            -- Some markers carry a bracketed name-set (1-2 names from a small pool), so the fuzz
+            -- exercises name-split reporting; the parser canonicalizes, so any order/dup is valid.
+            local name_suffix = ""
+            if rng:chance(0.25) then
+              local picked = {}
+              for _ = 1, rng:int(1, 2) do
+                picked[#picked + 1] = rng:choice({ "n1", "n2", "n3" })
+              end
+              name_suffix = "[" .. table.concat(picked, ",") .. "]"
+            end
             local value = ""
             if rng:chance(0.7) then
               value = tostring(rng:int(0, 6) * params.q)
             end
-            markers[#markers + 1] = level .. value
+            markers[#markers + 1] = level .. name_suffix .. value
           end
         end
         if #markers > 0 then

@@ -87,4 +87,39 @@ return function(t)
     t.eq(picker.meta_range("5 Fix  [Bug/Active]", ""), nil)
     t.eq(picker.meta_range("5 Fix  [Bug/Active]", nil), nil)
   end)
+
+  t.test("name_corpus_rows orders by score desc then name asc", function()
+    t.eq(
+      picker.name_corpus_rows({
+        zebra = { score = 100 },
+        apple = { score = 100 },
+        mid = { score = 250 },
+      }),
+      {
+        { name = "mid", score = 250 },
+        { name = "apple", score = 100 },
+        { name = "zebra", score = 100 },
+      }
+    )
+  end)
+
+  t.test("name_corpus_rows tolerates a nil or empty usage map", function()
+    t.eq(picker.name_corpus_rows(nil), {})
+    t.eq(picker.name_corpus_rows({}), {})
+  end)
+
+  t.test("parse_names_input splits, trims, dedups, and sorts", function()
+    t.eq(picker.parse_names_input("b, a"), { "a", "b" })
+    t.eq(picker.parse_names_input("dup, dup, other"), { "dup", "other" })
+    t.eq(picker.parse_names_input("a,,b,"), { "a", "b" })
+    -- Empty and whitespace-only input mean "no names".
+    t.eq(picker.parse_names_input(""), {})
+    t.eq(picker.parse_names_input("   "), {})
+  end)
+
+  t.test("parse_names_input rejects an invalid name element", function()
+    local names, err = picker.parse_names_input("ok, bad name!")
+    t.eq(names, nil)
+    t.ok(err:match("^daylog:") ~= nil)
+  end)
 end

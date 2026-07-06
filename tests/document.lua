@@ -135,7 +135,7 @@ return function(t)
       text = "negotiate with goose",
       explicit_tag = "sales",
       explicit_location = "client",
-      logged = { s = true },
+      logged = { s = {} },
     })
 
     t.eq(document.parse_line("08:21 negotiate with goose @client !S #sales"), {
@@ -146,7 +146,7 @@ return function(t)
       text = "negotiate with goose",
       explicit_tag = "sales",
       explicit_location = "client",
-      logged = { s = true },
+      logged = { s = {} },
     })
   end)
 
@@ -339,7 +339,7 @@ return function(t)
   t.test("document parses a frozen !S value and classifies it as a logged token", function()
     local node = document.parse_line("08:04 plan !S60")
     t.eq(node.kind, "entry")
-    t.eq(node.logged, { s = 60 })
+    t.eq(node.logged, { s = { minutes = 60 } })
 
     local kind = document.classify_control_token("!S60")
     t.eq(kind, "logged")

@@ -442,6 +442,62 @@ return function(t)
     )
   end)
 
+  t.test("render shows a name list on a logged row and stays bare when unnamed", function()
+    t.eq(
+      render.summary_lines({
+        summary_items = {
+          {
+            text = "build",
+            tag = "obs",
+            duration = 60,
+            unrounded_duration = 60,
+            logged = true,
+            names = { "name1", "name2" },
+          },
+        },
+        tag_totals = {
+          {
+            tag = "obs",
+            duration = 60,
+            unrounded_duration = 60,
+            logged = true,
+            names = { "name1", "name2" },
+          },
+        },
+        location_totals = {
+          {
+            location = "office",
+            duration = 60,
+            unrounded_duration = 60,
+            logged = true,
+          },
+        },
+        total_rows = {
+          {
+            duration = 60,
+            unrounded_duration = 60,
+            error_minutes = 0,
+          },
+        },
+        activity_total = 60,
+      }),
+      {
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) build !S[name1,name2]",
+        "",
+        "--- tags ---",
+        "1.00h (+0m) #obs !T[name1,name2]",
+        "",
+        "--- locations ---",
+        "1.00h (+0m) @office !L", -- unnamed logged row stays byte-identical to today
+        "",
+        "--- totals ---",
+        "1.00h (+0m) workday",
+      }
+    )
+  end)
+
   t.test("render builds a range report with daily sections before the aggregate total", function()
     t.eq(
       render.days_report_lines({

@@ -87,7 +87,7 @@ local function summary_item_label(item, show_tag)
   end
 
   if item.logged then
-    table.insert(parts, syntax.logged_token("s"))
+    table.insert(parts, syntax.logged_token("s", item.names))
   end
 
   return table.concat(parts, " ")
@@ -188,7 +188,7 @@ local function metadata_line(item, duration_str, label_fn, level)
   local prefix = duration_with_error(duration_str, item.error_minutes)
   local label = label_fn(item)
   if item.logged and level then
-    label = label .. " " .. syntax.logged_token(level)
+    label = label .. " " .. syntax.logged_token(level, item.names)
   end
   return string.format("%s %s", prefix, label)
 end

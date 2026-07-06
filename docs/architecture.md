@@ -118,6 +118,27 @@ them, falls back to the honest quantization (so footing always holds), and `logg
 that the commitments contradict. Diagnostics also flag an off-grid frozen value and same-cell values
 that disagree.
 
+### Named logging
+
+A marker may carry a **name-set** — `!T[jira,boss]` — recording who or what the slice was reported to.
+Names use the tag charset and are a canonical, sorted set (parsed by `syntax.parse_name_list`). The
+name-set at a level is **part of that level's group identity**: a cell's granule now carries all four
+level signatures (the `!S`/`!T`/`!L`/`!W` name-sets it belongs to), so two differently-named slices of one
+cell report as separate rows and split independently, while a same-named slice merges. Marking is
+**union-then-recommit**: `:Daylog log` sweeps the row's unlogged remainder *plus* the same-name logged
+slice and rewrites every swept entry at their combined displayed total, so re-logging a grown cell folds
+the new time into the existing named commitment rather than forking a rival row. Unmarking clears exactly
+the entries in the row's own name-set slice.
+
+Names are chosen through `:Daylog log`'s picker, wired in the shell (`init.lua` → `pick.pick_names`). The
+**corpus** of previously-used names is scanned from the trailing daybook files — the same buffer-aware
+window the insert picker uses — by `rank.build_name_usage`, which credits each name one frecency visit
+per level per day and buckets `{ s, t, l, w }` maps; `pick.name_corpus` frecency-ranks one level's names
+(score desc, name asc) and the picker prepends a synthetic `(unnamed)` row. The picker itself stays pure
+where it can: `sources/picker.name_corpus_rows` (ordering) and `parse_names_input` (the comma-input
+grammar) are pure and tested; the Telescope multi-select and the `vim.fn.input` fallback are the thin
+shell.
+
 ## Module overview
 
 ```text

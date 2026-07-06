@@ -16,8 +16,8 @@ local function push_diagnostic(diagnostics, diagnostic)
   table.insert(diagnostics, diagnostic)
 end
 
--- Copy the mutable per-entry logged table ({ level -> committed minutes | true }) so working
--- entries never alias it.
+-- Copy the mutable per-entry logged table ({ level -> { minutes, names } }) so working entries never
+-- alias it; deep-copies each level's table and its names array.
 local function copy_logged(logged)
   if logged == nil then
     return nil
@@ -25,7 +25,14 @@ local function copy_logged(logged)
 
   local out = {}
   for level, committed in pairs(logged) do
-    out[level] = committed
+    local names
+    if committed.names then
+      names = {}
+      for i, name in ipairs(committed.names) do
+        names[i] = name
+      end
+    end
+    out[level] = { minutes = committed.minutes, names = names }
   end
   return out
 end
