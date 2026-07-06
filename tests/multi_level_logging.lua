@@ -11,6 +11,7 @@ return function(t)
   local migrate = require("daylog.usecases.migrate_logging")
   local refresh_summaries = require("daylog.usecases.refresh_summaries")
   local support = require("daylog.usecases.support")
+  local log_current = require("daylog.usecases.log_current")
 
   local function first_entry(lines)
     return analyze.get_active_log(analyze.analyze(document.parse(lines))).entries[1]
@@ -314,5 +315,176 @@ return function(t)
     })
     t.eq(section_total(frozen.tag_totals), 90)
     t.eq(section_total(frozen.location_totals), 90)
+  end)
+
+  -- The row carrying `needle` (but not `exclude`), or nil; last match wins so a header sharing a
+  -- substring never shadows a summary row.
+  local function row_of(lines, needle, exclude)
+    local row
+    for i, line in ipairs(lines) do
+      if line:find(needle, 1, true) and not (exclude and line:find(exclude, 1, true)) then
+        row = i
+      end
+    end
+    return row
+  end
+
+  t.test(":Daylog log marks a tag row with a chosen name-set, and refresh is idempotent", function()
+    local src = { "--- log #obs q=15 d=dec ---", "08:00 hello", "09:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, ") #obs"), { "boss", "jira" })
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 hello !T[boss,jira]60"), "the entry gains the named frozen marker")
+    t.ok(has(out, ") #obs !T[boss,jira]"), "the tag row renders the named slice")
+    -- A second refresh finds nothing to change: the named marking round-trips.
+    t.eq(support.apply_edits(out, refresh_summaries.run(out).edits), out)
+  end)
+
+  t.test(":Daylog log unmarks exactly the row's name-set slice", function()
+    local src = {
+      "--- log #x q=15 d=dec ---",
+      "08:00 a !T[a]60",
+      "09:00 b !T[b]90",
+      "10:30",
+    }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, "#x !T[a]"))
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 a"), "the [a] entry survives")
+    t.ok(not has(out, "!T[a]"), "the [a] slice's marker is cleared everywhere")
+    t.ok(has(out, "09:00 b !T[b]90"), "the [b] slice is untouched")
+  end)
+
+  t.test("independent !S[a] and !S[b] freezes on one activity never merge", function()
+    local src = {
+      "--- log q=15 d=dec ---",
+      "08:00 task !S[a]60",
+      "09:00 task",
+      "10:00 done",
+    }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    -- Mark the still-unlogged `task` slice (the row with no !S) with a different name-set.
+    local result = log_current.run(rendered, row_of(rendered, ") task", "!S"), { "b" })
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 task !S[a]60"), "the [a] freeze is unchanged")
+    t.ok(has(out, "09:00 task !S[b]60"), "the [b] slice freezes on its own, not merged into [a]")
+  end)
+
+  t.test(":Daylog log canonicalizes an unsorted, duplicated name-set", function()
+    local src = { "--- log #x q=15 d=dec ---", "08:00 hi", "09:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, ") #x"), { "b", "a", "b" })
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 hi !T[a,b]60"), "the marker names dedupe and sort")
+  end)
+
+  t.test("peek reports mark-vs-unmark, level, and names without editing", function()
+    local unlogged = { "--- log #x q=15 d=dec ---", "08:00 hi", "09:00 done" }
+    local ru = support.apply_edits(unlogged, refresh_summaries.run(unlogged).edits)
+    t.eq(log_current.peek(ru, row_of(ru, ") #x")), { level = "t", marking = true })
+
+    local logged = { "--- log #x q=15 d=dec ---", "08:00 hi !T[boss]60", "09:00 done" }
+    local rl = support.apply_edits(logged, refresh_summaries.run(logged).edits)
+    t.eq(
+      log_current.peek(rl, row_of(rl, "#x !T[boss]")),
+      { level = "t", marking = false, names = { "boss" } }
+    )
+
+    -- The cursor on an entry line is not a summary row: peek propagates run's NOT_LOGGABLE error.
+    local _, err = log_current.peek(ru, 2)
+    t.eq(err, "daylog: put the cursor on a summary, tag, location, or workday row to log it")
+  end)
+
+  t.test("marking an unnamed tag remainder merges into one recommitted !T", function()
+    -- The everyday flow: mark a tag, log more time, refresh, mark the remainder row -- the whole
+    -- cell recommits at the combined displayed total, one merged row, no value conflict.
+    local src = { "--- log #x q=15 d=dec ---", "08:00 a !T60", "09:00 b", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, ") #x", "!T"))
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 a !T120"), "the already-logged entry recommits at the combined total")
+    t.ok(has(out, "09:00 b !T120"), "the swept entry freezes at the same combined total")
+    t.ok(has(out, "2.00h (+0m) #x !T"), "the tag section shows one merged row")
+    t.eq(#refresh_summaries.run(out).warnings, 0)
+  end)
+
+  t.test("marking a tag remainder with the logged slice's names merges into it", function()
+    local src = { "--- log #x q=15 d=dec ---", "08:00 a !T[a]60", "09:00 b", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, ") #x", "!T"), { "a" })
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 a !T[a]120"), "the [a] slice recommits at the combined total")
+    t.ok(has(out, "09:00 b !T[a]120"), "the remainder joins the [a] slice")
+    t.ok(has(out, "2.00h (+0m) #x !T[a]"), "one merged [a] row")
+    t.eq(#refresh_summaries.run(out).warnings, 0)
+  end)
+
+  t.test("marking a tag remainder with different names leaves the other slice alone", function()
+    local src = { "--- log #x q=15 d=dec ---", "08:00 a !T[a]60", "09:00 b", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, ") #x", "!T"), { "b" })
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 a !T[a]60"), "the [a] freeze is untouched")
+    t.ok(has(out, "09:00 b !T[b]60"), "the remainder freezes as its own [b] slice")
+    t.ok(has(out, "1.00h (+0m) #x !T[a]"), "the [a] row survives")
+    t.ok(has(out, "1.00h (+0m) #x !T[b]"), "the [b] row appears beside it")
+    t.eq(#refresh_summaries.run(out).warnings, 0)
+  end)
+
+  t.test("marking a grown named cell's intra-cell remainder recommits the whole slice", function()
+    -- Every entry is already !T[a] but the cell's real time outgrew the stale commitment: refresh
+    -- shows the [a] row plus a bare remainder row of the same cell. Re-marking that remainder with
+    -- {"a"} recommits the slice at the grown total, conflict-free.
+    local src = { "--- log #x q=15 d=dec ---", "08:00 a !T[a]60", "09:30 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    t.ok(has(rendered, "0.50h (-30m) #x"), "the grown cell shows an intra-cell remainder row")
+    local result = log_current.run(rendered, row_of(rendered, ") #x", "!T"), { "a" })
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 a !T[a]90"), "the slice recommits at the grown total")
+    t.ok(has(out, "1.50h (+0m) #x !T[a]"), "one whole-cell [a] row, no remainder")
+    t.ok(not has(out, "0.50h"), "the remainder row is gone")
+    t.eq(#refresh_summaries.run(out).warnings, 0)
+  end)
+
+  t.test("marking the workday remainder merges with the same-name !W slice", function()
+    local src = { "--- log q=15 d=dec ---", "08:00 a !W[n]60", "09:00 b", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, ") workday", "!W"), { "n" })
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 a !W[n]120"), "the [n] slice recommits at the combined day total")
+    t.ok(has(out, "09:00 b !W[n]120"), "the unlogged entry joins the [n] slice")
+    t.ok(has(out, "2.00h (+0m) workday !W[n]"), "one merged workday row")
+    t.eq(#refresh_summaries.run(out).warnings, 0)
+  end)
+
+  t.test("marking a partially-logged activity's remainder merges the !S commitment", function()
+    -- The s level union-merge (frozen_values): the unlogged remainder of a same-name activity
+    -- merges with the logged slice, recommitting every entry at the combined total.
+    local src = { "--- log q=15 d=dec ---", "08:00 task !S60", "09:00 task", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local result = log_current.run(rendered, row_of(rendered, ") task", "!S"))
+    local out = support.apply_edits(rendered, result.edits)
+
+    t.ok(has(out, "08:00 task !S120"), "the logged entry recommits at the combined total")
+    t.ok(has(out, "09:00 task !S120"), "the remainder entry joins the commitment")
+    t.ok(has(out, "2.00h (+0m) task !S"), "one merged summary row")
+    t.eq(#refresh_summaries.run(out).warnings, 0)
+
+    -- The named analog rides the same keying: {"a"} merges into the !S[a] slice.
+    local named = { "--- log q=15 d=dec ---", "08:00 task !S[a]60", "09:00 task", "10:00 done" }
+    local rn = support.apply_edits(named, refresh_summaries.run(named).edits)
+    local merged =
+      support.apply_edits(rn, log_current.run(rn, row_of(rn, ") task", "!S"), { "a" }).edits)
+    t.ok(has(merged, "08:00 task !S[a]120"), "the [a] slice recommits at the combined total")
+    t.ok(has(merged, "09:00 task !S[a]120"), "the remainder joins the [a] slice")
   end)
 end
