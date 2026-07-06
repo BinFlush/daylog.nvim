@@ -1,5 +1,6 @@
 local buffer = require("daylog.buffer")
 local config = require("daylog.config")
+local daybook = require("daylog.daybook")
 local daybook_io = require("daylog.daybook_io")
 local export = require("daylog.export")
 local render = require("daylog.render")
@@ -125,6 +126,124 @@ local function open_export(spec, format)
   fill_scratch(vim.split((text:gsub("\n$", "")), "\n", { plain = true }), name)
   vim.bo.filetype = format
   return text
+end
+
+-- One end of a `:Daylog report` range: a named token (`today`, `monday`, ...) or a `YYYY-MM-DD`
+-- literal resolved against `now`; or, when the bound is omitted, the daybook extreme that
+-- `fallback` returns (earliest for the start, latest for the end). Returns ts, or nil + err.
+local function resolve_range_bound(token, now, fallback)
+  if token then
+    local ts = daybook.resolve_date(token, now)
+    if not ts then
+      return nil, "daylog: invalid date: " .. token
+    end
+    return ts
+  end
+
+  local settings = expanded_daybook_settings()
+  if settings == nil then
+    return nil, "daylog: daybook.root is not configured"
+  end
+  local ts = fallback(settings)
+  if not ts then
+    return nil, "daylog: no daybook logs found"
+  end
+  return ts
+end
+
+-- Resolve a `:Daylog report` range request into a concrete, pinned list of dates. Each bound is a
+-- named token or a `YYYY-MM-DD` literal; an omitted start resolves to the earliest logged day on
+-- file and an omitted end to the latest (so an open end reaches as far as the data goes,
+-- future-dated files included). An explicit reversed range is rejected, and a span with no logs
+-- falls through to the "no daybook logs found" warning when the report is built.
+local function resolve_range_dates(request)
+  local now = os.time()
+
+  local from_ts, from_err = resolve_range_bound(request.from, now, daybook_io.earliest_daybook_date)
+  if not from_ts then
+    return nil, from_err
+  end
+
+  local to_ts, to_err = resolve_range_bound(request.to, now, daybook_io.latest_daybook_date)
+  if not to_ts then
+    return nil, to_err
+  end
+
+  if request.from and request.to and from_ts > to_ts then
+    return nil, "daylog: range start is after end"
+  end
+
+  return daybook.range_dates(from_ts, to_ts)
+end
+
+-- Resolve a parsed report request -- `{ count = N }` or `{ from, to }` -- into its concrete
+-- date list: a count pins the trailing days ending today, a range resolves each bound.
+-- Returns the dates, or nil and an error message.
+local function resolve_report_dates(request)
+  if request.count then
+    return daybook.trailing_dates(os.time(), request.count)
+  end
+
+  return resolve_range_dates(request)
+end
+
+-- Open a multi-day report over `range`: a count ("7"), a "FROM..TO" token range
+-- ("monday..today", "..today"), or a pre-parsed request table (`{ count = N }` / `{ from, to }`).
+-- `aggregate_only` shows only the period total. The resolved date list is pinned in the spec so
+-- the report keeps its span.
+function M.report(range, aggregate_only)
+  local request = type(range) == "table" and range or daybook.parse_report_range(range or "")
+  if not request then
+    warn("daylog: report expects a day count or a FROM..TO range (e.g. 7, monday..today, ..today)")
+    return
+  end
+
+  local dates, err = resolve_report_dates(request)
+  if not dates then
+    warn(err)
+    return
+  end
+
+  -- The buffer name keeps the requested range (a stable identity), while the report's
+  -- header label resolves to the span of days actually found.
+  local request_label = #dates > 0 and daybook.date_range_label(dates[1], dates[#dates]) or nil
+
+  open_report({
+    dates = dates,
+    request_label = request_label,
+    aggregate_only = aggregate_only or false,
+  })
+end
+
+-- Export a range's summary as CSV or JSON into a scratch buffer (which you `:w` or yank), and return
+-- the rendered string for scripting. `range` reuses the report date vocabulary (a count "7", a
+-- "FROM..TO" token range, named tokens), defaulting to today. The numbers match `:Daylog report`.
+function M.export(format, range)
+  format = type(format) == "string" and format:lower() or ""
+  if format ~= "csv" and format ~= "json" then
+    warn("daylog: export expects a format: csv or json")
+    return
+  end
+
+  local request
+  if range == nil or range == "" then
+    request = { count = 1 }
+  else
+    request = daybook.parse_report_range(range)
+  end
+  if not request then
+    warn("daylog: export range expects a day count or a FROM..TO range (e.g. 7, monday..today)")
+    return
+  end
+
+  local dates, err = resolve_report_dates(request)
+  if not dates then
+    warn(err)
+    return
+  end
+
+  local request_label = #dates > 0 and daybook.date_range_label(dates[1], dates[#dates]) or "export"
+  return open_export({ dates = dates, request_label = request_label }, format)
 end
 
 -- The report spec stored on `buf` (the current buffer when nil), or nil when that buffer is

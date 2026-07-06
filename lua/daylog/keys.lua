@@ -53,7 +53,9 @@ local function display_lhs(lhs)
 end
 
 -- Shell: render the cheatsheet in a centered float; q / <Esc> / <CR> or leaving it closes it.
+-- `entries` defaults to the active config's keymap entries (daylog.keymaps).
 function M.show(entries)
+  entries = entries or require("daylog.keymaps").help_entries()
   local display = {}
   for _, entry in ipairs(entries) do
     display[#display + 1] = { lhs = display_lhs(entry.lhs), desc = entry.desc }

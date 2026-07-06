@@ -186,6 +186,28 @@ function M.trailing_dates(now, count)
   return dates
 end
 
+-- Parse a report range string: a bare count ("7") -> { count = N }, or a "FROM..TO" token
+-- range -> { from, to } (either side may be empty for an open end). Returns nil otherwise. A
+-- bare number reads as a count here, never a day offset -- resolve_date owns the signed-offset
+-- day tokens, so the two readings never overlap.
+function M.parse_report_range(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+
+  if value:match("^%d+$") then
+    local count = tonumber(value)
+    return count >= 1 and { count = count } or nil
+  end
+
+  local from, to = value:match("^(.-)%.%.(.-)$")
+  if not from then
+    return nil
+  end
+
+  return { from = from ~= "" and from or nil, to = to ~= "" and to or nil }
+end
+
 -- The inclusive list of midday timestamps from `from_ts` to `to_ts`, one per calendar
 -- day. Empty when `from_ts` is after `to_ts`. Compares by date label (chronological as
 -- strings) so an off-midday endpoint still bounds the range by its calendar day.

@@ -61,25 +61,6 @@ local function classify_source_arg(arg)
   return "value"
 end
 
--- :Daylog <verb> -- the single command. Entry-point verbs work anywhere; editing verbs act on
--- the current daylog buffer (and surface in completion only there).
-local ENTRY_VERBS = { "today", "day", "next", "prev", "report", "export", "sync", "keys" }
-local EDIT_VERBS = {
-  "insert",
-  "repeat",
-  "new",
-  "copy",
-  "order",
-  "log",
-  "balance",
-  "split",
-  "map",
-  "rename",
-  "refresh",
-  "migrate",
-  "bar",
-}
-
 -- Date tokens completion offers for `day`/`report` arguments (signed +N/-N offsets and
 -- YYYY-MM-DD literals are typed, not completed).
 local DAY_TOKENS = {
@@ -106,34 +87,8 @@ local function prefix_matches(candidates, arglead)
   return matches
 end
 
--- Context-aware completion: the verb at the first argument (editing verbs only inside a daylog
--- buffer), then per-verb argument completion -- date tokens for day/report, source names for
--- insert/sync/rename/map.
-local function daylog_complete(arglead, cmdline, cursorpos)
-  local before = cmdline:sub(1, cursorpos):gsub(".-Daylog!?%s*", "", 1)
-  local verb = before:match("^(%S+)%s")
-
-  if not verb then
-    local verbs = vim.list_extend({}, ENTRY_VERBS)
-    if vim.bo.filetype == "daylog" then
-      vim.list_extend(verbs, EDIT_VERBS)
-    end
-    return prefix_matches(verbs, arglead)
-  end
-
-  if verb == "day" or verb == "report" then
-    return prefix_matches(DAY_TOKENS, arglead)
-  elseif verb == "export" then
-    -- first argument is the format, then the (optional) range tokens
-    if before:match("^export%s+%S+%s") then
-      return prefix_matches(DAY_TOKENS, arglead)
-    end
-    return prefix_matches({ "csv", "json" }, arglead)
-  elseif verb == "insert" or verb == "sync" or verb == "rename" or verb == "map" then
-    return source_complete(arglead)
-  end
-
-  return {}
+local function day_token_complete(arglead)
+  return prefix_matches(DAY_TOKENS, arglead)
 end
 
 -- Split :Daylog's raw arguments into a verb context: fargs (the verb word dropped), rest (the
@@ -153,99 +108,196 @@ local function verb_context(args)
   }
 end
 
--- verb -> handler(api, ctx). Each handler reads its arguments from ctx and calls the public api
--- verb. Bang selects the verb's variant (insert -> unified picker, map -> clear, report ->
--- aggregate only); a range applies to map.
+-- :Daylog <verb> -- the single command's dispatch table, and the one place a verb is described:
+-- verb -> { run, edit_only?, complete? }. run(api, ctx) reads its arguments from ctx and calls
+-- the public api verb. Bang selects the verb's variant (insert -> unified picker, map -> clear,
+-- report -> aggregate only); a range applies to map. Entry-point verbs work anywhere; verbs
+-- flagged edit_only act on the current daylog buffer (and surface in completion only there).
+-- complete(arglead, before) completes the verb's arguments.
 local VERBS = {
-  today = function(api)
-    api.today()
-  end,
-  day = function(api, ctx)
-    api.day(ctx.fargs[1])
-  end,
-  next = function(api, ctx)
-    local count, err = parse_step_count(ctx.fargs[1])
-    if not count then
-      warn(err)
-      return
-    end
-    api.next_day(count)
-  end,
-  prev = function(api, ctx)
-    local count, err = parse_step_count(ctx.fargs[1])
-    if not count then
-      warn(err)
-      return
-    end
-    api.prev_day(count)
-  end,
-  report = function(api, ctx)
-    api.report(ctx.rest, ctx.bang)
-  end,
-  export = function(api, ctx)
-    -- ctx.rest is "<format> <range...>"; split the format word off the range.
-    api.export(ctx.fargs[1], (ctx.rest:gsub("^%s*%S+%s*", "")))
-  end,
-  insert = function(api, ctx)
-    api.insert({ source = ctx.fargs[1], pick = ctx.bang })
-  end,
-  ["repeat"] = function(api)
-    api.repeat_()
-  end,
-  new = function(api)
-    api.new_log()
-  end,
-  copy = function(api)
-    api.copy()
-  end,
-  order = function(api)
-    api.order()
-  end,
-  log = function(api)
-    api.log()
-  end,
-  balance = function(api, ctx)
-    api.balance(ctx.fargs[1])
-  end,
-  split = function(api, ctx)
-    api.split(ctx.fargs)
-  end,
-  map = function(api, ctx)
-    if ctx.bang then
-      api.map({ clear = true, range = ctx.range })
-      return
-    end
-    local kind = classify_source_arg(ctx.rest)
-    api.map({
-      value = kind == "value" and ctx.rest or nil,
-      source = kind == "source" and ctx.rest or nil,
-      range = ctx.range,
-    })
-  end,
-  rename = function(api, ctx)
-    local kind = classify_source_arg(ctx.rest)
-    api.rename({
-      value = kind == "value" and ctx.rest or nil,
-      source = kind == "source" and ctx.rest or nil,
-      range = ctx.range,
-    })
-  end,
-  refresh = function(api)
-    api.refresh()
-  end,
-  migrate = function(api)
-    api.migrate_logging()
-  end,
-  sync = function(api, ctx)
-    api.sync(ctx.fargs[1])
-  end,
-  keys = function(api)
-    api.keys()
-  end,
-  bar = function(api)
-    api.bar()
-  end,
+  today = {
+    run = function(api)
+      api.today()
+    end,
+  },
+  day = {
+    complete = day_token_complete,
+    run = function(api, ctx)
+      api.day(ctx.fargs[1])
+    end,
+  },
+  next = {
+    run = function(api, ctx)
+      local count, err = parse_step_count(ctx.fargs[1])
+      if not count then
+        warn(err)
+        return
+      end
+      api.next_day(count)
+    end,
+  },
+  prev = {
+    run = function(api, ctx)
+      local count, err = parse_step_count(ctx.fargs[1])
+      if not count then
+        warn(err)
+        return
+      end
+      api.prev_day(count)
+    end,
+  },
+  report = {
+    complete = day_token_complete,
+    run = function(api, ctx)
+      api.report(ctx.rest, ctx.bang)
+    end,
+  },
+  export = {
+    complete = function(arglead, before)
+      -- first argument is the format, then the (optional) range tokens
+      if before:match("^export%s+%S+%s") then
+        return prefix_matches(DAY_TOKENS, arglead)
+      end
+      return prefix_matches({ "csv", "json" }, arglead)
+    end,
+    run = function(api, ctx)
+      -- ctx.rest is "<format> <range...>"; split the format word off the range.
+      api.export(ctx.fargs[1], (ctx.rest:gsub("^%s*%S+%s*", "")))
+    end,
+  },
+  insert = {
+    edit_only = true,
+    complete = source_complete,
+    run = function(api, ctx)
+      api.insert({ source = ctx.fargs[1], pick = ctx.bang })
+    end,
+  },
+  ["repeat"] = {
+    edit_only = true,
+    run = function(api)
+      api.repeat_()
+    end,
+  },
+  new = {
+    edit_only = true,
+    run = function(api)
+      api.new_log()
+    end,
+  },
+  copy = {
+    edit_only = true,
+    run = function(api)
+      api.copy()
+    end,
+  },
+  order = {
+    edit_only = true,
+    run = function(api)
+      api.order()
+    end,
+  },
+  log = {
+    edit_only = true,
+    run = function(api)
+      api.log()
+    end,
+  },
+  balance = {
+    edit_only = true,
+    run = function(api, ctx)
+      api.balance(ctx.fargs[1])
+    end,
+  },
+  split = {
+    edit_only = true,
+    run = function(api, ctx)
+      api.split(ctx.fargs)
+    end,
+  },
+  map = {
+    edit_only = true,
+    complete = source_complete,
+    run = function(api, ctx)
+      if ctx.bang then
+        api.map({ clear = true, range = ctx.range })
+        return
+      end
+      local kind = classify_source_arg(ctx.rest)
+      api.map({
+        value = kind == "value" and ctx.rest or nil,
+        source = kind == "source" and ctx.rest or nil,
+        range = ctx.range,
+      })
+    end,
+  },
+  rename = {
+    edit_only = true,
+    complete = source_complete,
+    run = function(api, ctx)
+      local kind = classify_source_arg(ctx.rest)
+      api.rename({
+        value = kind == "value" and ctx.rest or nil,
+        source = kind == "source" and ctx.rest or nil,
+        range = ctx.range,
+      })
+    end,
+  },
+  refresh = {
+    edit_only = true,
+    run = function(api)
+      api.refresh()
+    end,
+  },
+  migrate = {
+    edit_only = true,
+    run = function(api)
+      api.migrate_logging()
+    end,
+  },
+  sync = {
+    complete = source_complete,
+    run = function(api, ctx)
+      api.sync(ctx.fargs[1])
+    end,
+  },
+  keys = {
+    run = function(api)
+      api.keys()
+    end,
+  },
+  bar = {
+    edit_only = true,
+    run = function(api)
+      api.bar()
+    end,
+  },
 }
+
+-- Context-aware completion: the verb at the first argument (edit_only verbs only inside a daylog
+-- buffer), then the verb's own argument completion -- date tokens for day/report, source names
+-- for insert/sync/rename/map.
+local function daylog_complete(arglead, cmdline, cursorpos)
+  local before = cmdline:sub(1, cursorpos):gsub(".-Daylog!?%s*", "", 1)
+  local verb = before:match("^(%S+)%s")
+
+  if not verb then
+    local in_daylog = vim.bo.filetype == "daylog"
+    local verbs = {}
+    for name, spec in pairs(VERBS) do
+      if in_daylog or not spec.edit_only then
+        verbs[#verbs + 1] = name
+      end
+    end
+    return prefix_matches(verbs, arglead)
+  end
+
+  local spec = VERBS[verb]
+  if spec and spec.complete then
+    return spec.complete(arglead, before)
+  end
+
+  return {}
+end
 
 -- The verb names :Daylog dispatches, sorted -- derived from the dispatch table so a consumer
 -- (:checkhealth) can never drift from what actually runs.
@@ -279,7 +331,7 @@ function M.register()
       return
     end
 
-    handler(api, verb_context(args))
+    handler.run(api, verb_context(args))
   end, {
     nargs = "*",
     bang = true,
