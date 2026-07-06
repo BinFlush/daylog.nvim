@@ -160,7 +160,7 @@ function M.read_specs()
   local sources_cfg = config.get().sources or {}
   local specs = {}
   for _, name in ipairs(registry.names()) do
-    local ttl = sources_cfg[name] and sources_cfg[name].ttl or 1800
+    local ttl = sources_cfg[name] and sources_cfg[name].ttl or config.SOURCE_DEFAULT_TTL
     M.refresh_if_stale(name, ttl)
     specs[#specs + 1] = {
       name = name,

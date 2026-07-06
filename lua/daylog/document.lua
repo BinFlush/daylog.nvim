@@ -1,4 +1,5 @@
 local syntax = require("daylog.syntax")
+local strtext = require("daylog.text")
 
 local M = {}
 
@@ -6,13 +7,6 @@ local M = {}
 --
 -- Every source line becomes an explicit node so higher layers can derive
 -- log meaning without losing original layout, raw text, or source rows.
-
-local function normalize_text(text)
-  text = text:gsub("%s+", " ")
-  text = text:gsub("^%s+", "")
-  text = text:gsub("%s+$", "")
-  return text
-end
 
 local function parse_metadata_token(token)
   if token == syntax.TAG_CLEAR_TOKEN then
@@ -247,7 +241,7 @@ local function parse_entry(line, row)
 
   -- A summary row ("16:00 (+0m) workday") is an entry timestamp plus a (+Nm) marker; treat it as a
   -- note so a leaked summary row is never miscounted as an entry (the highlighter shares the rule).
-  if rest:match("^%s+%([%+%-]%d+m%)") then
+  if rest:match("^%s+" .. syntax.QUANT_MARKER) then
     return nil
   end
 
@@ -274,7 +268,7 @@ local function parse_entry(line, row)
     }
   end
 
-  local text = normalize_text(rest:gsub("^%s+", ""))
+  local text = strtext.normalize(rest:gsub("^%s+", ""))
   -- Peel the trailing metadata run first, then split the remaining `description => label`.
   local metadata, err = parse_entry_metadata(text)
   if err then
@@ -320,7 +314,7 @@ local function parse_line(line, row)
   -- H:MM followed by a (±Nm) marker is an hm-format summary row (e.g. "1:00 (+0m) foo"), not an entry.
   if
     (line:match("^%d:%d%d$") or line:match("^%d:%d%d%s"))
-    and not line:match("^%d:%d%d%s+%([%+%-]%d+m%)")
+    and not line:match("^%d:%d%d%s+" .. syntax.QUANT_MARKER)
   then
     return {
       kind = syntax.NODE_KIND.INVALID_ENTRY,
@@ -407,7 +401,7 @@ end
 -- refuses to read as an entry, keeping reader and highlighter in lockstep.
 function M.quant_error_spans(line)
   local spans = {}
-  for start, text in line:gmatch("()(%([%+%-]%d+m%))") do
+  for start, text in line:gmatch("()(" .. syntax.QUANT_MARKER .. ")") do
     spans[#spans + 1] = { col_start = start - 1, col_end = start - 1 + #text }
   end
   return spans
@@ -423,7 +417,7 @@ function M.summary_duration_length(line)
   end
 
   local hhmm = line:match("^%d+:%d%d")
-  if hhmm and (line:match("^%d:%d%d") or line:match("^%d+:%d%d%s+%([%+%-]%d+m%)")) then
+  if hhmm and (line:match("^%d:%d%d") or line:match("^%d+:%d%d%s+" .. syntax.QUANT_MARKER)) then
     return #hhmm
   end
 

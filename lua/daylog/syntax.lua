@@ -20,6 +20,10 @@ M.DURATION_FORMATS = { [M.DURATION_DECIMAL] = true, [M.DURATION_HM] = true }
 M.DEFAULT_QUANTIZE_MINUTES = 15
 M.END_OF_DAY_MINUTES = 24 * 60
 
+-- The `(±Nm)` rounding-error marker a generated summary row carries; the sign is mandatory so an
+-- unsigned `(Nm)` in a hand-written note is never read as a row. Shared by every summary-row scan.
+M.QUANT_MARKER = "%([%+%-]%d+m%)"
+
 -- Syntax node kinds, shared so producer (document.lua) and consumers cannot drift on a bare string.
 M.NODE_KIND = {
   LOG_HEADER = "log_header",
@@ -154,7 +158,7 @@ end
 -- `(±Nm)` marker) -- the shape backstop when no banner survives. The marker's sign is required
 -- (render emits `%+d`), so an unsigned `(Nm)` in a hand-written note is never mistaken for a row.
 function M.is_summary_row(raw)
-  return raw:match("^%S+ %([%+%-]%d+m%)") ~= nil
+  return raw:match("^%S+ " .. M.QUANT_MARKER) ~= nil
 end
 
 -- UTC-offset markers: a third sticky dimension alongside #tag/@location. The `utc±H[:MM]` token is

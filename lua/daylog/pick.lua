@@ -102,7 +102,7 @@ end
 --
 -- opts: { prompt, prompt_fallback, on_pick = fn(item), on_cancel = fn()|nil }
 function M.source(source, name, opts)
-  local ttl = source_opt(name, "ttl") or 1800
+  local ttl = source_opt(name, "ttl") or config.SOURCE_DEFAULT_TTL
   sources_sync.ensure_fresh(name, ttl, function(items)
     M.item(source, {
       source_name = name,

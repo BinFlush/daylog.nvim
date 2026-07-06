@@ -106,26 +106,14 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
     node
   )
 
-  return {
-    row = node.row,
-    minutes = node.minutes,
-    text = node.text,
-    explicit_tag = node.explicit_tag,
-    explicit_tag_clear = node.explicit_tag_clear,
-    explicit_location = node.explicit_location,
-    explicit_location_clear = node.explicit_location_clear,
-    explicit_offset = node.explicit_offset,
-    tag = resolved.tag,
-    location = resolved.location,
-    offset = resolved.offset,
-    -- The rounding nudge is per-entry and non-sticky, taken straight from the node.
-    nudge = node.nudge,
-    -- Per-entry, non-sticky logged state keyed by level, each holding committed minutes or `true`.
-    -- Only the summary level (`s`) drives the summary today. Copied so it never aliases the node's table.
-    logged = copy_logged(node.logged),
-    -- A mapping alias (` => label`): per-entry, non-sticky, taken straight from the node.
-    alias = node.alias,
-  }
+  -- The same field set copy_fields carries, plus the source row and the resolved sticky values
+  -- (a node holds only the explicit tokens, so tag/location/offset arrive here nil and are set).
+  local entry = copy_fields(node)
+  entry.row = node.row
+  entry.tag = resolved.tag
+  entry.location = resolved.location
+  entry.offset = resolved.offset
+  return entry
 end
 
 local function analyze_entry_items(block, diagnostics)

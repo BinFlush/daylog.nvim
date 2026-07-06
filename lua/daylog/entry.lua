@@ -1,5 +1,6 @@
 local analyze = require("daylog.analyze")
 local document = require("daylog.document")
+local strtext = require("daylog.text")
 local syntax = require("daylog.syntax")
 
 local M = {}
@@ -87,7 +88,7 @@ end
 -- control token in the trailing run (the parser peels metadata from the end) so the scan
 -- stops at a plain word; mid-text tokens (e.g. "fix #flaky tests") are left untouched.
 function M.sanitize_text(text)
-  text = text:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+  text = strtext.normalize(text)
   if text == "" then
     return text
   end

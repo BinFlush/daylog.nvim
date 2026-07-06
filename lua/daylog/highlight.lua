@@ -308,7 +308,7 @@ function M.indicator_rows(lines, analysis)
   -- Each entry item spans the entry and the notes/blanks beneath it, so one colour runs down the
   -- whole activity.
   for _, item in ipairs(active.entry_items) do
-    local label = (item.alias ~= nil and item.alias ~= "") and item.alias or item.text
+    local label = summary.entry_summary_text(item)
     local color_index = index[label]
     if color_index then
       for row = item.start_row, item.end_row do

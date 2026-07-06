@@ -239,7 +239,9 @@ local function normalize_keymaps(value)
   return result
 end
 
-local SOURCE_DEFAULT_TTL = 1800
+-- The default cache TTL (seconds) for a source without its own; shared with the sync/pick fallbacks.
+M.SOURCE_DEFAULT_TTL = 1800
+local SOURCE_DEFAULT_TTL = M.SOURCE_DEFAULT_TTL
 local SOURCE_DEFAULT_TEMPLATE = "{id} {title}"
 local SOURCE_DEFAULT_MIN_QUERY = 3
 -- A sanity cap: a single WIQL filters all listed projects, so a long list risks ADO's query-size
