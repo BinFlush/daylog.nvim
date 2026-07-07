@@ -585,4 +585,20 @@ return function(t)
     t.ok(has(out, "08:00 a !T[]60"), "the interval-starting entry is marked")
     t.ok(not has(out, "09:00 done !T[]"), "the closing entry is not marked")
   end)
+
+  t.test("merging a remainder commits the whole cell, not a short frozen value", function()
+    -- Regression: the logged interval is committed BELOW its own rounded duration (`!S[]45` on a 60m
+    -- interval), so its uncommitted 15m used to be dropped from the merge, committing `!S[]105` and
+    -- leaving a phantom remainder. The merge must commit the cell's honest total.
+    local src = { "--- log q=15 d=dec ---", "08:00 task !S[]45", "09:00 task", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    local out = support.apply_edits(
+      rendered,
+      log_current.run(rendered, row_of(rendered, ") task", "!S"), {}).edits
+    )
+    t.ok(has(out, "08:00 task !S[]120"), "the committed interval re-commits at the full 120m")
+    t.ok(has(out, "09:00 task !S[]120"), "the remainder joins at the full total")
+    t.ok(has(out, "2.00h (+0m) task !S[]"), "one whole-cell logged row, no phantom remainder")
+    t.eq(#refresh_summaries.run(out).warnings, 0)
+  end)
 end
