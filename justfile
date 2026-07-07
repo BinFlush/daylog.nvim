@@ -24,12 +24,21 @@ test:
 # runs a fast fixed-seed sample of the same fuzz. Args (all optional):
 #   mode    a synth mode (maximal|workday|billing) or "all"   [all]
 #   rounds  logs per mode                                  [5000]
-#   seed    master RNG seed, or "random" to roll one (printed) [1234567]
+#   seed    master RNG seed, "random" to roll one, or "HEAD" [HEAD]
+#           to derive it from the current commit hash.
+# "HEAD" varies the corpus per commit (surfacing latent bugs) yet stays
+# reproducible: same commit -> same seed, and the resolved seed is printed so a
+# failure replays via `just fuzz <mode> <rounds> <seed>`.
 # e.g. `just fuzz`, `just fuzz workday`, `just fuzz billing 20000 random`.
-fuzz mode="all" rounds="5000" seed="1234567":
-    DAYLOG_FUZZ_MODE={{mode}} \
-      DAYLOG_FUZZ_ROUNDS={{rounds}} \
-      DAYLOG_FUZZ_SEED={{seed}} \
+fuzz mode="all" rounds="5000" seed="HEAD":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    seed='{{seed}}'
+    if [ "$seed" = "HEAD" ]; then
+      hash=$(git rev-parse HEAD 2>/dev/null | head -c 8 || true)
+      if [ -n "$hash" ]; then seed=$(printf '%d' "0x$hash"); else seed=1234567; fi
+    fi
+    DAYLOG_FUZZ_MODE='{{mode}}' DAYLOG_FUZZ_ROUNDS='{{rounds}}' DAYLOG_FUZZ_SEED="$seed" \
       nvim --headless -i NONE -u NONE \
         "+set rtp+=." \
         "+luafile tests/fuzz.lua"
