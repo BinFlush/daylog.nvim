@@ -196,8 +196,12 @@ local VERBS = {
   },
   log = {
     edit_only = true,
-    run = function(api)
-      api.log()
+    run = function(api, ctx)
+      if ctx.bang then
+        api.unlog()
+      else
+        api.log()
+      end
     end,
   },
   balance = {

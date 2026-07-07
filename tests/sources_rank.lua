@@ -174,7 +174,7 @@ return function(t)
 
   t.test("build_name_usage ignores entries whose markers carry no names", function()
     local usage = rank.build_name_usage({
-      { date = NOW, lines = { "--- log ---", "08:00 hi !T60", "09:00 plain", "10:00 done" } },
+      { date = NOW, lines = { "--- log ---", "08:00 hi !T[]60", "09:00 plain", "10:00 done" } },
     }, NOW)
 
     t.eq(next(usage.s), nil)

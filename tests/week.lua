@@ -150,7 +150,7 @@ return function(t)
   end)
 
   t.test("multi-day report preserves the logged flag through daily recomputation", function()
-    -- A bare `!S` flags the row as logged without splitting; aggregating across days keeps the
+    -- A bare `!S[]` flags the row as logged without splitting; aggregating across days keeps the
     -- flag and foots to one honest row.
     local report = week.build_report({
       {
@@ -158,7 +158,7 @@ return function(t)
         path = "/tmp/2026-05-18.day",
         lines = {
           "--- log #ClientA q=30 ---",
-          "08:00 plan !S",
+          "08:00 plan !S[]",
           "08:20 plan",
           "08:40 done",
         },
@@ -168,7 +168,7 @@ return function(t)
         path = "/tmp/2026-05-19.day",
         lines = {
           "--- log #ClientA q=30 ---",
-          "08:00 plan !S",
+          "08:00 plan !S[]",
           "08:20 done",
         },
       },

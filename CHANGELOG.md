@@ -22,7 +22,30 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Changed
+
+- **`:Daylog log` adds logging names independently instead of toggling off; unlog is `:Daylog! log`
+  or `<leader>dL`.** Logging a name onto an already-logged summary/tag/location/workday row now ADDS
+  it to the row's slice rather than removing the marker -- `boss` onto `!S[ado]` gives `!S[ado,boss]`
+  (one slice reported to both, counted once), so an item can be reported to several places over time.
+  Report to several at once with one multi-select (`!S[ado,timesheet]`). Unlog with `:Daylog! log`
+  (bang) or the new `<leader>dL`: it removes names, opening a picker over the row's own names to
+  choose which when it carries several, and clears the marker once its last name is gone.
+- **Unnamed logged markers are written and shown with explicit empty brackets.** A summary-logged
+  entry now writes `!S[]60` (was `!S60`), a bare tag marker is `!T[]`, and the compact form is
+  `!S[]60T[]120`; summary rows show `#x !T[]`. This makes "logged to no name" visually explicit and
+  distinct from an unlogged row. Existing bare `!S`/`!T` markers still parse and report identically,
+  normalizing to the bracketed form on the next rewrite. (Derived-output change.)
+
 ### Fixed
+
+- **Logging a tag/location/workday remainder with a new name no longer inflates the day total.**
+  Marking the unlogged remainder of a cell (e.g. a `#tag`) with a name used to fold the cell's
+  already-committed unnamed slice into the new commitment, silently over-reporting -- a 2-hour day
+  could show as 3 hours with no diagnostic. It now commits only the remainder's own time.
+- **Logging a tag/location/workday no longer marks the block's closing entry.** The last entry starts
+  no interval; a marker on it was inert but would silently under-log once a later entry was appended
+  beneath it.
 
 - **The time bar no longer errors on Neovim 0.8.** The strip's `eventignore` list is filtered to the
   events the running Neovim knows; `WinResized` is 0.9+, so feeding `eventignore` that unknown name

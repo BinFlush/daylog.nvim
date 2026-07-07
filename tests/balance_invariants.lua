@@ -3,7 +3,7 @@ return function(t)
   -- docs/architecture.md / the plan): footing and its corollaries are structural
   -- partition-sum identities, so they must hold for ANY per-cell nudge. This throws
   -- adversarial per-entry nudge vectors (wide range, mixed signs, forcing clamps) at
-  -- synthesized logs -- on top of the offsets/tags/locations/!S the synth
+  -- synthesized logs -- on top of the offsets/tags/locations/!S[] the synth
   -- already varies -- and asserts, for the day summary AND a combined week:
   --   T1  every section's rows sum to its own total;
   --   T2  activity = Σtags = Σlocations = workday (uncounted time is a blank, excluded everywhere);
@@ -37,7 +37,7 @@ return function(t)
   local function assert_partition_invariants(ctx, s)
     -- T1: each section is a partition that sums to its OWN total. A balance nudge is inherited by the
     -- tag/location totals (they are the same time under a different grouping), so those totals differ
-    -- from activity only when a per-level `!S`/`!T`/`!L` commitment freezes a slice away from the rest.
+    -- from activity only when a per-level `!S[]`/`!T[]`/`!L[]` commitment freezes a slice away from the rest.
     eq(sum_field(s.summary_items, "duration"), s.activity_total, ctx .. " T1 items=activity")
     eq(sum_field(s.tag_totals, "duration"), s.activity_total, ctx .. " T1 tags=activity")
     eq(sum_field(s.location_totals, "duration"), s.activity_total, ctx .. " T1 locs=activity")

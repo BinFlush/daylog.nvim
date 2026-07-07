@@ -190,9 +190,9 @@ return function(t)
   t.test("analyze carries logged state without making it sticky", function()
     local analysis = analyze.analyze(document.parse({
       "--- log #ProjectOrion @office ---",
-      "08:00 plan !S",
+      "08:00 plan !S[]",
       "09:00 call @home",
-      "10:00 done !S",
+      "10:00 done !S[]",
     }))
 
     t.eq(analysis.log_blocks[1].entries, {
@@ -974,7 +974,7 @@ return function(t)
 
   t.test("analyze flags a blank entry that carries reporting metadata", function()
     -- A blank entry (bare timestamp) is uncounted and may carry no tag/location/marker/alias/nudge.
-    for _, line in ipairs({ "11:00 #x", "11:00 @o", "11:00 !S", "11:00 round+1" }) do
+    for _, line in ipairs({ "11:00 #x", "11:00 @o", "11:00 !S[]", "11:00 round+1" }) do
       local bad = analyze.analyze(document.parse({ "--- log ---", "08:00 a", line, "12:00 done" }))
       t.eq(bad.diagnostics[1] and bad.diagnostics[1].code, "blank_entry_metadata")
     end

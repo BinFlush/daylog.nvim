@@ -44,7 +44,7 @@ return function(t)
       "08:00 planning #ClientA @office",
       "10:00 meeting #ooo",
       "12:00 resume #- @-",
-      "14:00 done !S",
+      "14:00 done !S[]",
       "--- summary q=15 d=dec ---",
       "1.75h (+2m) planning",
       "",
@@ -74,7 +74,7 @@ return function(t)
     t.eq(group_at(4, col_of(4, "@-")), "DaylogLocation")
 
     -- Logged marker.
-    t.eq(group_at(5, col_of(5, "!S")), "DaylogLogged")
+    t.eq(group_at(5, col_of(5, "!S[]")), "DaylogLogged")
 
     -- Generated section header and quantized summary row. The row sits inside the
     -- summary section, ended by the blank line below.
@@ -132,8 +132,8 @@ return function(t)
     load({
       "08:00 task #a #b",
       "09:00 task @a @b",
-      "10:00 task #a !S #b",
-      "11:00 task !S @b #a",
+      "10:00 task #a !S[] #b",
+      "11:00 task !S[] @b #a",
     })
 
     -- Two tags: the parser rejects the entry, so neither tag highlights.
@@ -151,10 +151,13 @@ return function(t)
     )
 
     -- A repeated kind anywhere in the run invalidates the whole run.
-    t.ok(group_at(3, col_of(3, "#a")) ~= "DaylogTag", "a repeated tag around !S must not highlight")
+    t.ok(
+      group_at(3, col_of(3, "#a")) ~= "DaylogTag",
+      "a repeated tag around !S[] must not highlight"
+    )
 
     -- One of each, in any order, is valid and all three highlight.
-    t.eq(group_at(4, col_of(4, "!S")), "DaylogLogged")
+    t.eq(group_at(4, col_of(4, "!S[]")), "DaylogLogged")
     t.eq(group_at(4, col_of(4, "@b")), "DaylogLocation")
     t.eq(group_at(4, col_of(4, "#a")), "DaylogTag")
   end)
@@ -389,7 +392,7 @@ return function(t)
   t.test("a round nudge highlights distinctly and keeps the trailing run intact", function()
     load({
       "--- log #ClientA q=15 ---",
-      "08:00 plan #ClientA round+1 !S",
+      "08:00 plan #ClientA round+1 !S[]",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (-10m) plan round+1",
@@ -399,10 +402,10 @@ return function(t)
     })
 
     -- The marker is its own group on an entry, and -- crucially -- it does not break
-    -- the highlighting of the #tag and !S on either side of it in the trailing run.
+    -- the highlighting of the #tag and !S[] on either side of it in the trailing run.
     t.eq(group_at(2, col_of(2, "round+1")), "DaylogNudge")
     t.eq(group_at(2, col_of(2, "#ClientA")), "DaylogTag")
-    t.eq(group_at(2, col_of(2, "!S")), "DaylogLogged")
+    t.eq(group_at(2, col_of(2, "!S[]")), "DaylogLogged")
 
     -- It also highlights where it is propagated onto summary rows and the total.
     t.eq(group_at(5, col_of(5, "round+1")), "DaylogNudge")
@@ -420,13 +423,13 @@ return function(t)
   end)
 
   t.test("an aliased entry highlights the => label and its trailing metadata", function()
-    load({ "--- log ---", "09:00 fix login => BUG-123 Login #ClientA !S30" })
+    load({ "--- log ---", "09:00 fix login => BUG-123 Login #ClientA !S[]30" })
 
     -- The => label is the alias; the metadata after it still classifies as metadata.
     t.eq(group_at(2, col_of(2, "=>")), "DaylogAlias")
     t.eq(group_at(2, col_of(2, "BUG-123")), "DaylogAlias")
     t.eq(group_at(2, col_of(2, "#ClientA")), "DaylogTag")
-    t.eq(group_at(2, col_of(2, "!S30")), "DaylogLogged")
+    t.eq(group_at(2, col_of(2, "!S[]30")), "DaylogLogged")
 
     -- The description before the arrow is not part of the alias.
     t.ok(group_at(2, col_of(2, "fix")) ~= "DaylogAlias", "the description is not the alias")
@@ -435,14 +438,14 @@ return function(t)
   t.test("a logging error reddens the offending line and its whole summary", function()
     load({
       "--- log ---", -- 1
-      "08:00 lunch #ClientA !S7", -- 2  the offending line (!S7 is off the q=15 grid)
+      "08:00 lunch #ClientA !S[]7", -- 2  the offending line (!S[]7 is off the q=15 grid)
       "09:00 work #-", -- 3
       "11:00 done", -- 4
       "", -- 5
       "", -- 6
       "--- summary q=15 d=dec ---", -- 7
       "2.00h (+0m) work", -- 8
-      "1.00h (+0m) lunch !S", -- 9
+      "1.00h (+0m) lunch !S[]", -- 9
       "", -- 10
       "--- tags ---", -- 11
       "2.00h (+0m) (untagged)", -- 12
@@ -451,7 +454,7 @@ return function(t)
       "--- totals ---", -- 15
       "3.00h (+0m) workday", -- 16
     })
-    -- The offending entry line is red end to end (overriding the timestamp / tag / !S colours).
+    -- The offending entry line is red end to end (overriding the timestamp / tag / !S[] colours).
     t.eq(group_at(2, 1), "DaylogError")
     t.eq(group_at(2, col_of(2, "lunch")), "DaylogError")
     t.eq(group_at(2, col_of(2, "#ClientA")), "DaylogError")

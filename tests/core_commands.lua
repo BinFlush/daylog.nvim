@@ -15,6 +15,10 @@ return function(t)
     end)
   end
 
+  local function unlog_cmd()
+    vim.cmd("Daylog! log")
+  end
+
   t.test("bare :Daylog routes to today", function()
     with_daylog_setup({}, function()
       with_captured_notify(function(messages)
@@ -779,7 +783,7 @@ return function(t)
     t.reset({
       "--- log q=1 d=hm ---",
       "09:00 alpha",
-      "09:30 deploy !S30",
+      "09:30 deploy !S[]30",
       "10:00 done",
     })
     vim.cmd("Daylog refresh")
@@ -1071,12 +1075,12 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- log ---",
-      "08:00 implementation !S60",
+      "08:00 implementation !S[]60",
       "09:00 done",
       "",
       "",
       "--- summary q=15 d=dec ---",
-      "1.00h (+0m) implementation !S",
+      "1.00h (+0m) implementation !S[]",
       "",
       "--- totals ---",
       "1.00h (+0m) workday",
@@ -1098,30 +1102,30 @@ return function(t)
 
     t.eq(t.get_lines(), {
       "--- log q=30 ---",
-      "08:00 implementation !S60",
+      "08:00 implementation !S[]60",
       "09:00 done",
       "",
       "",
       "--- summary q=30 d=dec ---",
-      "1.00h (+0m) implementation !S",
+      "1.00h (+0m) implementation !S[]",
       "",
       "--- totals ---",
       "1.00h (+0m) workday",
     })
   end)
 
-  t.test("log log unmarks an already logged summary row", function()
+  t.test("Daylog! log unmarks an already logged summary row", function()
     t.reset({
       "--- log ---",
-      "08:00 implementation !S60",
+      "08:00 implementation !S[]60",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
-      "1.00h (+0m) implementation !S",
+      "1.00h (+0m) implementation !S[]",
     })
     t.set_cursor(6, 0)
 
-    log_cmd()
+    unlog_cmd()
 
     t.eq(t.get_lines(), {
       "--- log ---",
@@ -1137,13 +1141,49 @@ return function(t)
     })
   end)
 
+  t.test("Daylog log on a logged row adds names and never unlogs", function()
+    t.reset({
+      "--- log ---",
+      "08:00 implementation !S[]60",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) implementation !S[]",
+    })
+    t.set_cursor(6, 0)
+
+    log_cmd() -- the mocked empty picker input adds the (unnamed) name-set: a no-op here
+
+    -- The row stays logged (:Daylog log only ever adds); only :Daylog! log unlogs.
+    t.eq(t.get_lines()[2], "08:00 implementation !S[]60")
+  end)
+
+  t.test("Daylog! log on a multi-name row picks which name to unlog", function()
+    t.reset({
+      "--- log ---",
+      "08:00 work !S[ado,boss]60",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) work !S[ado,boss]",
+    })
+    t.set_cursor(6, 0)
+
+    with_mocked_input("boss", function()
+      vim.cmd("Daylog! log")
+    end)
+
+    -- boss is removed from the slice; ado and the value remain.
+    t.eq(t.get_lines()[2], "08:00 work !S[ado]60")
+  end)
+
   t.test("log log merges a newly logged row into an already logged one and sums", function()
     -- build has one logged interval (frozen 60) and one unlogged (60). Logging the
     -- unlogged one must combine them into a single 2.00h row, with BOTH entries
-    -- carrying the combined !S120 -- not each keeping its own 60.
+    -- carrying the combined !S[]120 -- not each keeping its own 60.
     t.reset({
       "--- log ---",
-      "08:00 build !S60",
+      "08:00 build !S[]60",
       "09:00 build",
       "10:00 done",
     })
@@ -1158,10 +1198,10 @@ return function(t)
       end
     end
     -- The unlogged "build" summary row: a summary line (not an entry) mentioning build
-    -- without an !S marker.
+    -- without an !S[] marker.
     local unlogged_row = find(function(line)
       return line:find("build", 1, true)
-        and not line:find("!S", 1, true)
+        and not line:find("!S[]", 1, true)
         and not line:match("^%d%d:%d%d")
     end)
     t.ok(unlogged_row ~= nil, "expected a separate unlogged build summary row")
@@ -1170,8 +1210,8 @@ return function(t)
     log_cmd()
 
     local out = t.get_lines()
-    t.eq(out[2], "08:00 build !S120")
-    t.eq(out[3], "09:00 build !S120")
+    t.eq(out[2], "08:00 build !S[]120")
+    t.eq(out[3], "09:00 build !S[]120")
 
     local function has(needle)
       for _, line in ipairs(out) do
@@ -1181,30 +1221,30 @@ return function(t)
       end
       return false
     end
-    t.ok(has("2.00h (+0m) build !S"), "the merged row reads 2.00h")
+    t.ok(has("2.00h (+0m) build !S[]"), "the merged row reads 2.00h")
     -- No separate unlogged build row survives.
     t.ok(find(function(line)
       return line:find("build", 1, true)
-        and not line:find("!S", 1, true)
+        and not line:find("!S[]", 1, true)
         and not line:match("^%d%d:%d%d")
     end) == nil, "the unlogged build row should be gone")
   end)
 
-  t.test("log log unmark of a merged row returns the full unlogged time", function()
+  t.test("Daylog! log unmark of a merged row returns the full unlogged time", function()
     -- Both build intervals are logged at the merged total; unmarking the row clears
     -- every entry and gives back the whole 2.00h as unlogged.
     t.reset({
       "--- log ---",
-      "08:00 build !S120",
-      "09:00 build !S120",
+      "08:00 build !S[]120",
+      "09:00 build !S[]120",
       "10:00 done",
       "",
       "--- summary q=15 d=dec ---",
-      "2.00h (+0m) build !S",
+      "2.00h (+0m) build !S[]",
     })
     t.set_cursor(7, 0)
 
-    log_cmd()
+    unlog_cmd()
 
     local out = t.get_lines()
     t.eq(out[2], "08:00 build")
@@ -1233,7 +1273,7 @@ return function(t)
 
     log_cmd()
     -- The source entry is frozen at its committed 60 minutes (1.00h).
-    t.eq(t.get_lines()[2], "00:00 logged item !S60")
+    t.eq(t.get_lines()[2], "00:00 logged item !S[]60")
 
     -- Append a third entry and refresh: the frozen logged slice holds at 1.00h, the block's
     -- remaining honest time surfaces as an unlogged "logged item" slice, and the 2-minute
@@ -1252,7 +1292,7 @@ return function(t)
       end
       return false
     end
-    t.ok(has("1.00h (+7m) logged item !S"), "logged row should still read 1.00h")
+    t.ok(has("1.00h (+7m) logged item !S[]"), "logged row should still read 1.00h")
     t.ok(has("0.25h (-15m) logged item"), "the unlogged remainder surfaces as its own row")
     t.ok(has("0.00h (+2m) other task"), "other task rounds to its own honest value")
     t.ok(has("1.25h (-6m) workday"), "the total is the honest sum of the displayed parts")
@@ -1260,7 +1300,7 @@ return function(t)
 
   t.test("logging two rounded rows commits identical values in either order", function()
     -- Reported order-dependence: `thing two round-1` then `thing one` used to commit
-    -- thing one at !S75 (stale whole-day target), while the reverse order gave !S60. The
+    -- thing one at !S[]75 (stale whole-day target), while the reverse order gave !S[]60. The
     -- committed value now tracks the frozen-aware display, so both orders converge.
     local function summary_item_row(text)
       for i, l in ipairs(t.get_lines()) do
@@ -1287,14 +1327,14 @@ return function(t)
 
     local two_then_one = log_both("thing two", "thing one")
     t.eq(two_then_one, log_both("thing one", "thing two"))
-    t.eq(two_then_one[2], "08:00 thing one !S60")
-    t.eq(two_then_one[3], "09:00 thing two round-1 !S60")
+    t.eq(two_then_one[2], "08:00 thing one !S[]60")
+    t.eq(two_then_one[3], "09:00 thing two round-1 !S[]60")
   end)
 
-  t.test("Daylog refresh warns when a frozen !S value no longer fits the bucket", function()
+  t.test("Daylog refresh warns when a frozen !S[] value no longer fits the bucket", function()
     t.reset({
       "--- log ---",
-      "08:00 plan !S7",
+      "08:00 plan !S[]7",
       "09:00 done",
     })
 
@@ -1312,8 +1352,8 @@ return function(t)
   t.test("Daylog refresh warns when same-row logged entries disagree on their !S value", function()
     t.reset({
       "--- log ---",
-      "08:00 build !S60",
-      "09:00 build !S45",
+      "08:00 build !S[]60",
+      "09:00 build !S[]45",
       "10:00 done",
     })
 
@@ -1325,7 +1365,7 @@ return function(t)
         found = true
       end
     end
-    t.ok(found, "expected a divergent-!S diagnostic")
+    t.ok(found, "expected a divergent-!S[] diagnostic")
   end)
 
   t.test(
@@ -1371,13 +1411,13 @@ return function(t)
         "09:20 versions",
         "10:12 folksy",
         "    what is he talking about    ",
-        "10:17 Q1 features !S45",
+        "10:17 Q1 features !S[]45",
         "11:01 versions",
         "",
         "",
         "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",
-        "0.75h (-1m) Q1 features !S",
+        "0.75h (-1m) Q1 features !S[]",
         "0.25h (+5m) stand",
         "0.00h (+5m) folksy",
         "",

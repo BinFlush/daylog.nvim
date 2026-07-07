@@ -319,7 +319,7 @@ return function(t)
     )
   end)
 
-  t.test("render unrounded summaries append !S on main rows", function()
+  t.test("render unrounded summaries append !S[] on main rows", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -363,7 +363,7 @@ return function(t)
       {
         "",
         "--- summary q=15 d=dec ---",
-        "1.00h (+0m) implementation !S",
+        "1.00h (+0m) implementation !S[]",
         "1.00h (+0m) implementation",
         "",
         "--- tags ---",
@@ -378,7 +378,7 @@ return function(t)
     )
   end)
 
-  t.test("render quantized summaries append !S on main rows", function()
+  t.test("render quantized summaries append !S[] on main rows", function()
     t.eq(
       render.summary_lines({
         summary_items = {
@@ -427,7 +427,7 @@ return function(t)
       {
         "",
         "--- summary q=15 d=dec ---",
-        "0.50h (-10m) implementation !S",
+        "0.50h (-10m) implementation !S[]",
         "0.50h (-10m) implementation",
         "",
         "--- tags ---",
@@ -490,7 +490,7 @@ return function(t)
         "1.00h (+0m) #obs !T[name1,name2]",
         "",
         "--- locations ---",
-        "1.00h (+0m) @office !L", -- unnamed logged row stays byte-identical to today
+        "1.00h (+0m) @office !L[]", -- unnamed logged row stays byte-identical to today
         "",
         "--- totals ---",
         "1.00h (+0m) workday",
@@ -759,7 +759,7 @@ return function(t)
     )
   end)
 
-  t.test("render reports append !S on main rows (no logged section)", function()
+  t.test("render reports append !S[] on main rows (no logged section)", function()
     t.eq(
       render.days_report_lines({
         period_label = "2026-W21",
@@ -817,13 +817,13 @@ return function(t)
       }, "hm"),
       {
         "--- day summary 2026-05-18 ---",
-        "1:00 (+0m) plan !S",
+        "1:00 (+0m) plan !S[]",
         "",
         "--- day totals 2026-05-18 ---",
         "1:00 (+0m) workday",
         "",
         "--- range summary 2026-W21 ---",
-        "1:00 (+0m) plan !S",
+        "1:00 (+0m) plan !S[]",
         "",
         "--- range totals 2026-W21 ---",
         "1:00 (+0m) workday",
@@ -1110,7 +1110,7 @@ return function(t)
     t.eq(#summary_rows, 2)
     t.eq(summary_rows[1].section, "summary")
     t.eq(summary_rows[1].item, first_item)
-    t.eq(summary_rows[1].line, "1.00h (+0m) implementation !S")
+    t.eq(summary_rows[1].line, "1.00h (+0m) implementation !S[]")
     t.eq(summary_rows[2].item, second_item)
     t.eq(summary_rows[2].line, "1.00h (+0m) implementation")
   end)

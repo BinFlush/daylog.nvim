@@ -243,10 +243,10 @@ return function(t)
     })
   end)
 
-  t.test("append_copy preserves !S and canonicalizes it after metadata", function()
+  t.test("append_copy preserves !S[] and canonicalizes it after metadata", function()
     local result = append_copy.run({
       "--- log #ClientA @office ---",
-      "08:00 plan !S @client",
+      "08:00 plan !S[] @client",
       "09:00 done",
     })
 
@@ -259,12 +259,12 @@ return function(t)
             "",
             "",
             "--- log #ClientA @office ---",
-            "08:00 plan @client !S",
+            "08:00 plan @client !S[]",
             "09:00 done",
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) plan !S",
+            "1.00h (+0m) plan !S[]",
             "",
             "--- tags ---",
             "1.00h (+0m) #ClientA",
@@ -426,10 +426,10 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current usecase does not propagate !S", function()
+  t.test("repeat_current usecase does not propagate !S[]", function()
     local result = repeat_current.run({
       "--- log #ClientA @office ---",
-      "08:00 planning !S",
+      "08:00 planning !S[]",
       "09:00 done",
     }, 2, "08:30")
 
@@ -664,11 +664,11 @@ return function(t)
     })
   end)
 
-  t.test("order_logs usecase preserves !S", function()
+  t.test("order_logs usecase preserves !S[]", function()
     local result = order_logs.run({
       "--- log #sales ---",
       "09:00 done",
-      "08:00 plan !S",
+      "08:00 plan !S[]",
     })
 
     t.eq(result, {
@@ -677,7 +677,7 @@ return function(t)
           start_index = 1,
           end_index = 3,
           lines = {
-            "08:00 plan !S",
+            "08:00 plan !S[]",
             "09:00 done",
           },
         },
@@ -726,7 +726,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) implementation !S",
+            "1.00h (+0m) implementation !S[]",
             "",
             "--- totals ---",
             "1.00h (+0m) workday",
@@ -735,7 +735,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !S60" },
+          lines = { "08:00 implementation !S[]60" },
         },
       },
     })
@@ -760,7 +760,7 @@ return function(t)
             "",
             "",
             "--- summary q=30 d=dec ---",
-            "1.00h (+0m) implementation !S",
+            "1.00h (+0m) implementation !S[]",
             "",
             "--- totals ---",
             "1.00h (+0m) workday",
@@ -769,7 +769,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !S60" },
+          lines = { "08:00 implementation !S[]60" },
         },
       },
     })
@@ -797,7 +797,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "2.00h (+0m) implementation !S",
+            "2.00h (+0m) implementation !S[]",
             "1.00h (+0m) meeting",
             "",
             "--- totals ---",
@@ -807,12 +807,12 @@ return function(t)
         {
           start_index = 3,
           end_index = 4,
-          lines = { "10:00 implementation !S120" },
+          lines = { "10:00 implementation !S[]120" },
         },
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !S120" },
+          lines = { "08:00 implementation !S[]120" },
         },
       },
     })
@@ -855,15 +855,15 @@ return function(t)
   end)
 
   t.test("log on a committed cell's drift remainder names the real remedy", function()
-    -- The cell is fully marked (!S60) but its real time grew to 67m; the 15m remainder row
+    -- The cell is fully marked (!S[]60) but its real time grew to 67m; the 15m remainder row
     -- has no unlogged source entries, so logging it must explain itself -- "regenerate the
     -- summary" (the stale message) reproduces the very same row.
     local refresh_summaries = require("daylog.usecases.refresh_summaries")
-    local base = { "--- log ---", "00:00 logged item !S60", "01:07 other task", "01:09 done" }
+    local base = { "--- log ---", "00:00 logged item !S[]60", "01:07 other task", "01:09 done" }
     local buf = support.apply_edits(base, refresh_summaries.run(base).edits)
     local row
     for i, line in ipairs(buf) do
-      if line:find(") logged item", 1, true) and not line:find("!S", 1, true) then
+      if line:find(") logged item", 1, true) and not line:find("!S[]", 1, true) then
         row = i
       end
     end
@@ -892,7 +892,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) implementation !S",
+            "1.00h (+0m) implementation !S[]",
             "",
             "--- totals ---",
             "1.00h (+0m) workday",
@@ -901,13 +901,13 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 implementation !S60" },
+          lines = { "08:00 implementation !S[]60" },
         },
       },
     })
   end)
 
-  t.test("log_current canonicalizes metadata order around the appended !S", function()
+  t.test("log_current canonicalizes metadata order around the appended !S[]", function()
     local result = log_current.run({
       "--- log ---",
       "08:00 plan #ClientA @office",
@@ -926,7 +926,7 @@ return function(t)
             "",
             "",
             "--- summary q=15 d=dec ---",
-            "1.00h (+0m) plan !S",
+            "1.00h (+0m) plan !S[]",
             "",
             "--- tags ---",
             "1.00h (+0m) #ClientA",
@@ -941,7 +941,7 @@ return function(t)
         {
           start_index = 1,
           end_index = 2,
-          lines = { "08:00 plan #ClientA @office !S60" },
+          lines = { "08:00 plan #ClientA @office !S[]60" },
         },
       },
     })
@@ -978,32 +978,32 @@ return function(t)
     local marked = false
     for _, edit in ipairs(result.edits) do
       for _, line in ipairs(edit.lines) do
-        if line:find("!T60", 1, true) then
+        if line:find("!T[]60", 1, true) then
           marked = true
         end
       end
     end
-    t.ok(marked, "the tag's contributing entry is frozen at !T60")
+    t.ok(marked, "the tag's contributing entry is frozen at !T[]60")
   end)
 
   t.test("log_current unmarks a logged tag row", function()
-    local result = log_current.run({
+    local result = log_current.run_unlog({
       "--- log #ClientA ---",
-      "08:00 implementation !T60",
+      "08:00 implementation !T[]60",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
       "",
       "--- tags ---",
-      "1.00h (+0m) #ClientA !T",
+      "1.00h (+0m) #ClientA !T[]",
     }, 9)
 
     t.ok(result ~= nil, "a logged tag row is loggable")
     local still_marked = false
     for _, edit in ipairs(result.edits) do
       for _, line in ipairs(edit.lines) do
-        if line:match("^%d%d:%d%d") and line:find("!T") then
+        if line:match("^%d%d:%d%d") and line:find("!T", 1, true) then
           still_marked = true
         end
       end
@@ -1028,12 +1028,12 @@ return function(t)
     local marked = false
     for _, edit in ipairs(result.edits) do
       for _, line in ipairs(edit.lines) do
-        if line:find("!L60", 1, true) then
+        if line:find("!L[]60", 1, true) then
           marked = true
         end
       end
     end
-    t.ok(marked, "the location's contributing entry is frozen at !L60")
+    t.ok(marked, "the location's contributing entry is frozen at !L[]60")
   end)
 
   t.test("log_current logs the workday total row at the workday level", function()
@@ -1053,32 +1053,32 @@ return function(t)
     local marked = false
     for _, edit in ipairs(result.edits) do
       for _, line in ipairs(edit.lines) do
-        if line:find("!W60", 1, true) then
+        if line:find("!W[]60", 1, true) then
           marked = true
         end
       end
     end
-    t.ok(marked, "every non-#ooo entry is frozen at !W60")
+    t.ok(marked, "every non-#ooo entry is frozen at !W[]60")
   end)
 
   t.test("log_current unmarks a logged workday total row", function()
-    local result = log_current.run({
+    local result = log_current.run_unlog({
       "--- log ---",
-      "08:00 implementation !W60",
-      "09:00 done !W60",
+      "08:00 implementation !W[]60",
+      "09:00 done !W[]60",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (+0m) implementation",
       "",
       "--- totals ---",
-      "1.00h (+0m) workday !W",
+      "1.00h (+0m) workday !W[]",
     }, 9)
 
     t.ok(result ~= nil, "a logged workday total row is loggable")
     local still_marked = false
     for _, edit in ipairs(result.edits) do
       for _, line in ipairs(edit.lines) do
-        if line:match("^%d%d:%d%d") and line:find("!W") then
+        if line:match("^%d%d:%d%d") and line:find("!W", 1, true) then
           still_marked = true
         end
       end
@@ -1121,13 +1121,13 @@ return function(t)
   end)
 
   t.test("log_current unmarks an already logged summary row", function()
-    local result = log_current.run({
+    local result = log_current.run_unlog({
       "--- log ---",
-      "08:00 implementation !S",
+      "08:00 implementation !S[]",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",
-      "1.00h (+0m) implementation !S",
+      "1.00h (+0m) implementation !S[]",
     }, 6)
 
     t.eq(result, {
@@ -1295,7 +1295,7 @@ return function(t)
               "",
               "",
               "--- summary q=15 d=dec ---",
-              "2.00h (+0m) planning !S",
+              "2.00h (+0m) planning !S[]",
               "1.00h (+0m) review",
               "",
               "--- tags ---",
@@ -1311,7 +1311,7 @@ return function(t)
           {
             start_index = 1,
             end_index = 2,
-            lines = { "08:00 planning !S120" },
+            lines = { "08:00 planning !S[]120" },
           },
         },
       })
@@ -1362,7 +1362,7 @@ return function(t)
               "",
               "--- summary q=15 d=dec ---",
               "2.00h (-8m) versions",
-              "0.75h (-1m) Q1 features !S",
+              "0.75h (-1m) Q1 features !S[]",
               "0.25h (+5m) stand",
               "0.00h (+5m) folksy",
               "",
@@ -1379,7 +1379,7 @@ return function(t)
           {
             start_index = 6,
             end_index = 7,
-            lines = { "10:17 Q1 features !S45" },
+            lines = { "10:17 Q1 features !S[]45" },
           },
         },
       })
@@ -1411,13 +1411,13 @@ return function(t)
         "09:20 versions",
         "10:12 folksy",
         "    what is he talking about    ",
-        "10:17 Q1 features !S45",
+        "10:17 Q1 features !S[]45",
         "11:01 versions",
         "",
         "",
         "--- summary q=15 d=dec ---",
         "2.00h (-8m) versions",
-        "0.75h (-1m) Q1 features !S",
+        "0.75h (-1m) Q1 features !S[]",
         "0.25h (+5m) stand",
         "0.00h (+5m) folksy",
         "",

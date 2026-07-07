@@ -179,7 +179,7 @@ return function(t)
   t.test("refuses to map a logged entry", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
-      "09:00 fix login !S30",
+      "09:00 fix login !S[]30",
       "09:30 done",
     })
 
@@ -268,7 +268,7 @@ return function(t)
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
       "09:00 fix login",
-      "09:30 deploy !S30",
+      "09:30 deploy !S[]30",
       "10:00 done",
     })
 
@@ -436,7 +436,7 @@ return function(t)
   t.test("refuses a summary-row range when a contributing entry is logged", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
-      "09:00 fix login !S30",
+      "09:00 fix login !S[]30",
       "09:30 done",
     })
 

@@ -126,11 +126,11 @@ return function(t)
     })
   end)
 
-  t.test("document parse recognizes trailing !S in flexible metadata order", function()
-    t.eq(document.parse_line("08:21 negotiate with goose !S #sales @client"), {
+  t.test("document parse recognizes trailing !S[] in flexible metadata order", function()
+    t.eq(document.parse_line("08:21 negotiate with goose !S[] #sales @client"), {
       kind = "entry",
       row = 1,
-      raw = "08:21 negotiate with goose !S #sales @client",
+      raw = "08:21 negotiate with goose !S[] #sales @client",
       minutes = 501,
       text = "negotiate with goose",
       explicit_tag = "sales",
@@ -138,10 +138,10 @@ return function(t)
       logged = { s = {} },
     })
 
-    t.eq(document.parse_line("08:21 negotiate with goose @client !S #sales"), {
+    t.eq(document.parse_line("08:21 negotiate with goose @client !S[] #sales"), {
       kind = "entry",
       row = 1,
-      raw = "08:21 negotiate with goose @client !S #sales",
+      raw = "08:21 negotiate with goose @client !S[] #sales",
       minutes = 501,
       text = "negotiate with goose",
       explicit_tag = "sales",
@@ -258,13 +258,13 @@ return function(t)
     })
   end)
 
-  t.test("document parse keeps inline !S in text unless it is trailing metadata", function()
-    t.eq(document.parse_line("08:04 discuss !S marker syntax"), {
+  t.test("document parse keeps inline !S[] in text unless it is trailing metadata", function()
+    t.eq(document.parse_line("08:04 discuss !S[] marker syntax"), {
       kind = "entry",
       row = 1,
-      raw = "08:04 discuss !S marker syntax",
+      raw = "08:04 discuss !S[] marker syntax",
       minutes = 484,
-      text = "discuss !S marker syntax",
+      text = "discuss !S[] marker syntax",
       explicit_tag = nil,
       explicit_location = nil,
     })
@@ -312,38 +312,41 @@ return function(t)
     })
   end)
 
-  t.test("document parse rejects duplicate trailing !S and keeps !S invalid in headers", function()
-    t.eq(document.parse_line("08:04 plan !S #sales !S"), {
-      kind = "invalid_entry",
-      row = 1,
-      raw = "08:04 plan !S #sales !S",
-      message = "duplicate trailing !S markers are not allowed",
-    })
+  t.test(
+    "document parse rejects duplicate trailing !S[] and keeps !S[] invalid in headers",
+    function()
+      t.eq(document.parse_line("08:04 plan !S[] #sales !S[]"), {
+        kind = "invalid_entry",
+        row = 1,
+        raw = "08:04 plan !S[] #sales !S[]",
+        message = "duplicate trailing !S markers are not allowed",
+      })
 
-    t.eq(document.parse_line("--- log !S ---"), {
-      kind = "log_header",
-      row = 1,
-      raw = "--- log !S ---",
-      metadata_tokens = {},
-      option_tokens = {},
-      invalid_tokens = { "!S" },
-    })
+      t.eq(document.parse_line("--- log !S[] ---"), {
+        kind = "log_header",
+        row = 1,
+        raw = "--- log !S[] ---",
+        metadata_tokens = {},
+        option_tokens = {},
+        invalid_tokens = { "!S[]" },
+      })
 
-    -- A bare and a frozen !S are still two markers; the duplicate guard rejects them.
-    t.eq(
-      document.parse_line("08:04 plan !S !S60").message,
-      "duplicate trailing !S markers are not allowed"
-    )
-  end)
+      -- A bare and a frozen !S[] are still two markers; the duplicate guard rejects them.
+      t.eq(
+        document.parse_line("08:04 plan !S[] !S[]60").message,
+        "duplicate trailing !S markers are not allowed"
+      )
+    end
+  )
 
-  t.test("document parses a frozen !S value and classifies it as a logged token", function()
-    local node = document.parse_line("08:04 plan !S60")
+  t.test("document parses a frozen !S[] value and classifies it as a logged token", function()
+    local node = document.parse_line("08:04 plan !S[]60")
     t.eq(node.kind, "entry")
     t.eq(node.logged, { s = { minutes = 60 } })
 
-    local kind = document.classify_control_token("!S60")
+    local kind = document.classify_control_token("!S[]60")
     t.eq(kind, "logged")
-    t.eq(document.classify_control_token("!Slamas"), nil)
+    t.eq(document.classify_control_token("!S[]lamas"), nil)
   end)
 
   t.test("document parse marks malformed time-like lines as invalid entries", function()
@@ -457,9 +460,9 @@ return function(t)
       explicit_offset = -240,
     })
 
-    -- Order within the trailing run is free, like #tag/@location/!S.
-    t.eq(document.parse_line("08:00 standup utc+2 @office !S").explicit_offset, 120)
-    t.eq(document.parse_line("08:00 standup @office utc+2 !S").explicit_offset, 120)
+    -- Order within the trailing run is free, like #tag/@location/!S[].
+    t.eq(document.parse_line("08:00 standup utc+2 @office !S[]").explicit_offset, 120)
+    t.eq(document.parse_line("08:00 standup @office utc+2 !S[]").explicit_offset, 120)
   end)
 
   t.test("document leaves a malformed utc token as plain activity text (fail-safe)", function()
@@ -529,7 +532,7 @@ return function(t)
     })
 
     -- Order-free within the trailing run, alongside the other tokens.
-    t.eq(document.parse_line("08:00 plan round-2 @office !S").nudge, -2)
+    t.eq(document.parse_line("08:00 plan round-2 @office !S[]").nudge, -2)
   end)
 
   t.test("document leaves a non-nudge round token as text and rejects duplicates", function()
@@ -575,7 +578,7 @@ return function(t)
     -- requires the sign. A hand-written note shaped like an unsigned `(Nm)` is not a row, so it
     -- is preserved rather than swept when the summary span is located.
     t.ok(syntax.is_summary_row("3.00h (+0m) workday"))
-    t.ok(syntax.is_summary_row("9:54 (-13m) design2 !S"))
+    t.ok(syntax.is_summary_row("9:54 (-13m) design2 !S[]"))
     t.ok(not syntax.is_summary_row("lunch (5m) break"))
   end)
 end

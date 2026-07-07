@@ -716,7 +716,7 @@ return function(t)
       -- never goes below zero -- so no warning may fire against a summary that renders fine.
       local result = refresh_summaries.run({
         "--- log q=15 ---",
-        "08:00 plan !S30",
+        "08:00 plan !S[]30",
         "09:00 plan round-3",
         "09:30 done",
       })
@@ -742,7 +742,7 @@ return function(t)
     -- blank-metadata diagnostic rather than silently drop it.
     local result = refresh_summaries.run({
       "--- log ---",
-      "08:00 !S30",
+      "08:00 !S[]30",
       "09:00 done",
     })
 
@@ -758,7 +758,7 @@ return function(t)
   end)
 
   t.test("refresh does not warn on an ordinary #ooo tag, or an ordinary logged entry", function()
-    -- #ooo is now an ordinary tag on a real activity, and `!S` on a real activity is a normal
+    -- #ooo is now an ordinary tag on a real activity, and `!S[]` on a real activity is a normal
     -- commitment; neither is a blank, so the blank-metadata diagnostic does not fire.
     local ooo_only = refresh_summaries.run({
       "--- log ---",
@@ -770,7 +770,7 @@ return function(t)
 
     local logged_only = refresh_summaries.run({
       "--- log ---",
-      "08:00 work !S60",
+      "08:00 work !S[]60",
       "09:00 done",
     })
     t.eq(has_blank_metadata_warning(logged_only.warnings), nil)

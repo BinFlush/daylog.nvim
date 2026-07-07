@@ -27,8 +27,8 @@ return function(t)
     t.eq(parsed.explicit_location_clear, true)
   end)
 
-  t.test("entry parse keeps trailing !S without making it sticky", function()
-    local parsed = entry.parse("08:04 bake strudel !S #sales @client", "ProjectOrion", "office")
+  t.test("entry parse keeps trailing !S[] without making it sticky", function()
+    local parsed = entry.parse("08:04 bake strudel !S[] #sales @client", "ProjectOrion", "office")
     t.eq(parsed.tag, "sales")
     t.eq(parsed.location, "client")
     t.eq(parsed.logged, { s = {} })
@@ -100,7 +100,7 @@ return function(t)
         location = "client",
         logged = { s = {} },
       }, "ProjectOrion", "office"),
-      "08:00 third #sales @client !S"
+      "08:00 third #sales @client !S[]"
     )
     t.eq(
       entry.format({
@@ -110,7 +110,7 @@ return function(t)
         location = nil,
         logged = { s = {} },
       }, "ProjectOrion", "office"),
-      "08:00 reset #- @- !S"
+      "08:00 reset #- @- !S[]"
     )
   end)
 
@@ -137,7 +137,7 @@ return function(t)
     t.eq(entry.format({ minutes = 480, text = "d", offset = nil }, nil, nil, nil), "08:00 d")
   end)
 
-  t.test("entry format orders trailing metadata as #tag @location utc and then !S", function()
+  t.test("entry format orders trailing metadata as #tag @location utc and then !S[]", function()
     t.eq(
       entry.format({
         minutes = 480,
@@ -147,7 +147,7 @@ return function(t)
         offset = 120,
         logged = { s = {} },
       }, "ProjectOrion", "office", nil),
-      "08:00 x #sales @client utc+2 !S"
+      "08:00 x #sales @client utc+2 !S[]"
     )
   end)
 
@@ -166,11 +166,11 @@ return function(t)
       entry.format({ minutes = 480, text = "plan", nudge = -2 }, nil, nil, nil),
       "08:00 plan round-2"
     )
-    -- A zero or absent nudge emits nothing (non-sticky, like !S).
+    -- A zero or absent nudge emits nothing (non-sticky, like !S[]).
     t.eq(entry.format({ minutes = 480, text = "plan", nudge = 0 }, nil, nil, nil), "08:00 plan")
     t.eq(entry.format({ minutes = 480, text = "plan" }, nil, nil, nil), "08:00 plan")
 
-    -- Trailing order: #tag @location utc±H round±N !S.
+    -- Trailing order: #tag @location utc±H round±N !S[].
     t.eq(
       entry.format({
         minutes = 480,
@@ -181,7 +181,7 @@ return function(t)
         nudge = 1,
         logged = { s = {} },
       }, "ProjectOrion", "office", nil),
-      "08:00 x #sales @client utc+2 round+1 !S"
+      "08:00 x #sales @client utc+2 round+1 !S[]"
     )
   end)
 
@@ -191,15 +191,15 @@ return function(t)
     t.eq(entry.sanitize_text("another round of edits"), "another round of edits")
   end)
 
-  t.test("entry parse reads a frozen !S value; a bare !S has none", function()
-    local parsed = entry.parse("08:00 plan !S60", "ClientA", "office")
+  t.test("entry parse reads a frozen !S[] value; a bare !S[] has none", function()
+    local parsed = entry.parse("08:00 plan !S[]60", "ClientA", "office")
     t.eq(parsed.logged, { s = { minutes = 60 } })
 
-    parsed = entry.parse("08:00 plan !S", "ClientA", "office")
+    parsed = entry.parse("08:00 plan !S[]", "ClientA", "office")
     t.eq(parsed.logged, { s = {} })
   end)
 
-  t.test("entry format emits a frozen !S value, bare when absent", function()
+  t.test("entry format emits a frozen !S[] value, bare when absent", function()
     t.eq(
       entry.format(
         { minutes = 480, text = "plan", logged = { s = { minutes = 60 } } },
@@ -207,26 +207,26 @@ return function(t)
         nil,
         nil
       ),
-      "08:00 plan !S60"
+      "08:00 plan !S[]60"
     )
     t.eq(
       entry.format({ minutes = 480, text = "plan", logged = { s = {} } }, nil, nil, nil),
-      "08:00 plan !S"
+      "08:00 plan !S[]"
     )
     -- A logged table with no levels (what an unmark leaves) emits no marker.
     t.eq(entry.format({ minutes = 480, text = "plan", logged = {} }, nil, nil, nil), "08:00 plan")
   end)
 
-  t.test("entry sanitize_text neutralizes a trailing frozen !S value", function()
-    t.eq(entry.sanitize_text("ship it !S45"), "ship it (!S45)")
+  t.test("entry sanitize_text neutralizes a trailing frozen !S[] value", function()
+    t.eq(entry.sanitize_text("ship it !S[]45"), "ship it (!S[]45)")
     -- A non-token word that merely starts with the letters is left alone.
-    t.eq(entry.sanitize_text("look at !Slamas"), "look at !Slamas")
+    t.eq(entry.sanitize_text("look at !S[]lamas"), "look at !S[]lamas")
   end)
 
   t.test("entry parse reads a multi-word alias with trailing metadata", function()
     -- The metadata trails the line as usual and attaches to the entry; the alias is the
     -- ` => label` between the description and that metadata.
-    local parsed = entry.parse("09:00 fix login => BUG-123 Fix the login #ProjectOrion !S30")
+    local parsed = entry.parse("09:00 fix login => BUG-123 Fix the login #ProjectOrion !S[]30")
     t.eq(parsed.text, "fix login")
     t.eq(parsed.tag, "ProjectOrion")
     t.eq(parsed.logged, { s = { minutes = 30 } })

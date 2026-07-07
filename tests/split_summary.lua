@@ -181,10 +181,10 @@ return function(t)
   t.test("split refuses a logged activity", function()
     local lines = buffer_with_summary({
       "--- log q=1 d=hm ---",
-      "08:00 meeting !S120",
+      "08:00 meeting !S[]120",
       "10:00 done",
     })
-    local _, err = split_summary.run(lines, row_of(lines, "(+0m) meeting !S"), { 1, 1 })
+    local _, err = split_summary.run(lines, row_of(lines, "(+0m) meeting !S[]"), { 1, 1 })
     t.eq(err, split_summary.REFUSE_LOGGED)
   end)
 
@@ -319,7 +319,7 @@ return function(t)
 
   t.test("split suffixes the resolved label: a mapped entry keeps its description", function()
     -- The `(n)` lands on the alias, so parts stay mapped and the description survives --
-    -- a bare and a mapped group split identically (the parts still lose !S / nudge).
+    -- a bare and a mapped group split identically (the parts still lose !S[] / nudge).
     local out = run(
       buffer_with_summary({
         "--- log q=1 d=hm ---",

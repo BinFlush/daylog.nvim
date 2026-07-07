@@ -248,7 +248,7 @@ return function(t)
     local out = run(
       buffer_with_summary({
         "--- log #ClientA @office q=15 ---",
-        "08:00 plan !S45",
+        "08:00 plan !S[]45",
         "08:45 review",
         "09:30 done",
       }),
@@ -256,10 +256,10 @@ return function(t)
       1
     )
 
-    t.eq(out[2], "08:00 plan !S45")
+    t.eq(out[2], "08:00 plan !S[]45")
     t.eq(out[3], "08:45 review round+1")
     t.eq(out[row_of(out, "(-15m) review")], "1.00h (-15m) review round+1")
-    t.eq(out[row_of(out, "(+0m) plan")], "0.75h (+0m) plan !S")
+    t.eq(out[row_of(out, "(+0m) plan")], "0.75h (+0m) plan !S[]")
   end)
 
   t.test("balance errors when a round-down leaves only logged items", function()
@@ -267,7 +267,7 @@ return function(t)
     -- first step, then has only the frozen row left and refuses rather than touch it.
     local lines = buffer_with_summary({
       "--- log #ClientA q=15 ---",
-      "08:00 fixed !S30",
+      "08:00 fixed !S[]30",
       "08:30 work",
       "08:45 done",
     })
@@ -280,7 +280,7 @@ return function(t)
     -- The plan main row is entirely logged, so there is nothing un-frozen to nudge.
     local lines = buffer_with_summary({
       "--- log #ClientA q=15 ---",
-      "08:00 plan !S45",
+      "08:00 plan !S[]45",
       "08:45 review",
       "09:30 done",
     })
@@ -292,7 +292,7 @@ return function(t)
   t.test("balance refuses a frozen logged entry addressed directly", function()
     local lines = buffer_with_summary({
       "--- log #ClientA q=15 ---",
-      "08:00 plan !S45",
+      "08:00 plan !S[]45",
       "08:45 review",
       "09:30 done",
     })
@@ -352,16 +352,16 @@ return function(t)
     t.eq(err, balance.SECTION_NOT_BALANCEABLE)
   end)
 
-  t.test("the frozen (!W) totals slice refuses balance instead of nudging its sibling", function()
+  t.test("the frozen (!W[]) totals slice refuses balance instead of nudging its sibling", function()
     local lines = buffer_with_summary({
       "--- log q=15 ---",
-      "08:00 a !W30",
+      "08:00 a !W[]30",
       "09:00 b",
       "09:50 done",
     })
 
     -- The committed slice is pinned, exactly like a logged main row.
-    local _, err = run(lines, "workday !W", 1)
+    local _, err = run(lines, "workday !W[]", 1)
     t.eq(err, balance.ONLY_LOGGED)
 
     -- The unlogged workday row is still the balance target.

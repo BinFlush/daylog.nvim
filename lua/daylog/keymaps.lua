@@ -66,9 +66,16 @@ local DEFAULT_KEYMAPS = {
   },
   {
     lhs = "<leader>dl",
-    desc = "toggle logged (marking opens the name picker)",
+    desc = "log the cursor row / add a name (opens the name picker)",
     rhs = function()
       require("daylog").log()
+    end,
+  },
+  {
+    lhs = "<leader>dL",
+    desc = "unlog the cursor row (picks which name when several)",
+    rhs = function()
+      require("daylog").unlog()
     end,
   },
   {

@@ -311,9 +311,14 @@ function M.parse_logged_token(token)
       if not close then
         return nil
       end
-      names = parse_name_list(body:sub(pos + 1, close - 1))
-      if not names then
-        return nil
+      local inner = body:sub(pos + 1, close - 1)
+      -- An empty `[]` is the explicit unnamed set (names stay nil); a non-empty body must be a valid
+      -- name list, else the whole token is not a marker.
+      if inner ~= "" then
+        names = parse_name_list(inner)
+        if not names then
+          return nil
+        end
       end
       pos = close + 1
     end
@@ -349,12 +354,13 @@ function M.names_key(v)
   return ""
 end
 
--- The display suffix for a per-level logged value's names (`"[a,b]"`), `""` when it carries none.
+-- The display suffix for a per-level logged value's names (`"[a,b]"`), explicit `"[]"` when it carries
+-- none -- an unnamed logged marker is always written with brackets, distinct from an unlogged entry.
 function M.format_names(v)
   if type(v) == "table" and v.names and #v.names > 0 then
     return "[" .. table.concat(v.names, ",") .. "]"
   end
-  return ""
+  return "[]"
 end
 
 -- Render an entry's `logged` table as one compact token (`!` + each present level's letter, name
@@ -380,12 +386,12 @@ function M.format_logged(logged)
   return "!" .. table.concat(body)
 end
 
--- Render a single-level display marker (`!S`/`!T[a,b]`/...) for a summary row; bare when `names` is
--- nil or empty, else carrying the (already canonical) name list.
+-- Render a single-level display marker (`!S[]`/`!T[a,b]`/...) for a summary row; an explicit `[]` when
+-- `names` is nil or empty, else the (already canonical) name list.
 function M.logged_token(level, names)
   local token = "!" .. LOGGED_LETTER[level]
   if not names or #names == 0 then
-    return token
+    return token .. "[]"
   end
 
   return token .. "[" .. table.concat(names, ",") .. "]"

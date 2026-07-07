@@ -599,9 +599,9 @@ return function(t)
   end)
 
   t.test("rename refuses a summary-logged entry; its commitment is tied to its identity", function()
-    -- Renaming a logged entry's text would carry its !S onto a new identity (silent under-reporting),
+    -- Renaming a logged entry's text would carry its !S[] onto a new identity (silent under-reporting),
     -- so rename refuses it like map does -- both by cursor and over a range.
-    local lines = { "--- log ---", "08:00 foo !S30", "09:00 bar !S30", "10:00 done" }
+    local lines = { "--- log ---", "08:00 foo !S[]30", "09:00 bar !S[]30", "10:00 done" }
     local cursor, cursor_err = rename_summary.run(lines, 2, "bar")
     t.eq(cursor, nil)
     t.eq(cursor_err, rename_summary.REFUSE_LOGGED)

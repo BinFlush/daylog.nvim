@@ -7,15 +7,21 @@ local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Toggle the logged state of the summary row under the cursor, at the level it reports: a main row
--- logs `!S`, a tag total `!T`, a location total `!L`. The row is only a selector: the log is
--- analyzed from source, contributing entries gain/lose the marker, and the summary is rebuilt.
--- Levels are independent. The `--- totals ---` workday row logs `!W` on every non-blank entry.
--- Marking may attach a chosen name-set and merges with the same-name logged slice (recommitting at
--- the combined total); unmarking a named row clears exactly that slice.
+-- Log the summary row under the cursor, at the level it reports: a main row logs `!S`, a tag total
+-- `!T`, a location total `!L`, the `--- totals ---` workday row `!W`. The row is only a selector: the
+-- log is analyzed from source, contributing entries gain/lose the marker, and the summary is rebuilt.
+-- Levels are independent.
+--
+-- Names on a marker are managed independently. `run` ADDS the chosen names to the row's slice: a fresh
+-- mark when the row is unlogged (merging with any same-name slice at the combined total), else it
+-- unions the names onto the existing marker, keeping its committed value. `run_unlog` REMOVES names --
+-- the chosen ones, or all when none are given -- and clears the marker once its last name is gone. So
+-- adding `boss` to a slice logged `!S[ado]` gives `!S[ado,boss]` (one slice reported to both); removing
+-- `boss` returns it to `!S[ado]`.
 
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, location, or workday row to log it"
+local NOTHING_TO_UNLOG = "daylog: this row is not logged; nothing to unlog"
 local REMAINDER_ROW =
   "daylog: this row is the drift beyond the cell's committed value; unlog the !S row to re-log it"
 
@@ -27,8 +33,7 @@ local LEVEL_BY_KIND = {
   [render.LAYOUT_KIND.TOTAL] = "w",
 }
 
--- Canonicalize the caller's name-set: nil when empty, else a deduped, sorted copy (never trust the
--- shell's ordering).
+-- Canonicalize a name-set: nil when empty, else a deduped, sorted copy.
 local function canonical_names(names)
   if names == nil or #names == 0 then
     return nil
@@ -44,18 +49,52 @@ local function canonical_names(names)
   return out
 end
 
--- The entry's logged table with `level` frozen at `committed` minutes and `names` on a mark
--- (`{ minutes, names }`), or removed on an unmark, preserving other levels. Always a table (never nil,
--- which an override can't use to clear a field); an empty one reads as "logged at no level".
+-- The canonical union / difference of two name lists (nil when the result is empty).
+local function union_names(current, added)
+  local out = {}
+  for _, name in ipairs(current or {}) do
+    out[#out + 1] = name
+  end
+  for _, name in ipairs(added or {}) do
+    out[#out + 1] = name
+  end
+  return canonical_names(out)
+end
+
+local function difference_names(current, removed)
+  local drop = {}
+  for _, name in ipairs(removed or {}) do
+    drop[name] = true
+  end
+  local out = {}
+  for _, name in ipairs(current or {}) do
+    if not drop[name] then
+      out[#out + 1] = name
+    end
+  end
+  return canonical_names(out)
+end
+
+-- The entry's logged table with `level` frozen at `committed` minutes and `names` on a mark, or removed
+-- on a clear (`committed` nil), preserving other levels.
 local function set_level(entry_item, level, committed, names)
   local logged = analyze.copy_logged(entry_item and entry_item.logged) or {}
   logged[level] = committed ~= nil and { minutes = committed, names = names } or nil
   return logged
 end
 
--- The frozen committed value to stamp per source entry when marking `!S`. Marking merges the row
--- with any already-logged row of the same activity AND the same chosen name-set, so the commitment is
--- the SUM of both rows' displayed durations, written onto EVERY entry in the merged row. Keyed by
+-- Rewrite only `level`'s name-set on `entry_item`, keeping its current committed minutes -- extend or
+-- reduce a logged slice's names without disturbing its value (or a bare marker's bareness).
+local function rename_level(entry_item, level, names)
+  local logged = analyze.copy_logged(entry_item and entry_item.logged) or {}
+  local marker = logged[level] or {}
+  logged[level] = { minutes = marker.minutes, names = names }
+  return logged
+end
+
+-- The frozen committed value to stamp per source entry when freshly marking `!S`. Marking merges the
+-- row with any already-logged row of the same activity AND the same chosen name-set, so the commitment
+-- is the SUM of both rows' displayed durations, written onto EVERY entry in the merged row. Keyed by
 -- activity identity (includes location) plus name-set, so each slice freezes on its own.
 local function frozen_values(block, target_rows, names)
   local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
@@ -97,10 +136,10 @@ local function frozen_values(block, target_rows, names)
   return frozen
 end
 
--- Toggle `!S` on a main summary row. The summary level splits its base by (location, name-set), so the
--- freeze is per slice via frozen_values; every merged entry takes the combined value.
-local function log_summary_row(analysis, block, item, names)
-  local target_logged = not item.logged
+-- Add/reduce/clear `!S` on a main summary row. Adding to an unlogged row freshly marks (per-slice
+-- frozen_values, merging with a same-name slice); adding to or reducing a logged row rewrites its
+-- name-set at the preserved value; clearing removes the marker from the slice.
+local function log_summary_row(analysis, block, item, names, clear)
   local row_key = item.s_names_key or ""
 
   -- An empty provenance here is not staleness (the layout was freshly recomputed): it is the
@@ -118,8 +157,7 @@ local function log_summary_row(analysis, block, item, names)
   local entry_by_row = {}
   for _, entry_item in ipairs(block.entry_items) do
     entry_by_row[entry_item.start_row] = entry_item
-    -- A blank is uncounted and never carries a marker; it shouldn't reach a summary row's source
-    -- rows anyway -- defensive backstop.
+    -- A blank is uncounted and never carries a marker; defensive backstop.
     if target_rows[entry_item.start_row] and summary.is_blank_entry(entry_item) then
       target_rows[entry_item.start_row] = nil
     end
@@ -131,51 +169,87 @@ local function log_summary_row(analysis, block, item, names)
     end
   end
 
-  local frozen = target_logged and frozen_values(block, target_rows, names) or {}
-
   local overrides = {}
-  if target_logged then
-    for row, minutes in pairs(frozen) do
+  if clear then
+    for row in pairs(target_rows) do
+      overrides[row] = { logged = set_level(entry_by_row[row], "s", nil) }
+    end
+  elseif not item.logged then
+    for row, minutes in pairs(frozen_values(block, target_rows, names)) do
       overrides[row] = { logged = set_level(entry_by_row[row], "s", minutes, names) }
     end
   else
     for row in pairs(target_rows) do
-      overrides[row] = { logged = set_level(entry_by_row[row], "s", nil) }
+      overrides[row] = { logged = rename_level(entry_by_row[row], "s", names) }
     end
   end
 
   return support.apply_entry_overrides(analysis, block, overrides)
 end
 
--- Toggle `!T` / `!L` on a tag or location total row. Marking merges the chosen name-set's slice with
--- the cell's unlogged remainder and recommits every swept entry at their combined displayed total;
--- unmarking drops the marker from exactly the entries in the row's name-set slice.
+-- Add/reduce/clear `!T` / `!L` / `!W` on a tag, location, or workday total row. A fresh mark sweeps the
+-- cell's unlogged remainder plus the chosen name-set's slice and commits their combined total; adding
+-- to or reducing a logged slice rewrites its name-set at the preserved value; clearing drops the marker
+-- from exactly that slice.
 local FIELD_BY_LEVEL = { t = "tag", l = "location" }
 
-local function log_section_row(analysis, block, item, level, names)
+local function log_section_row(analysis, block, item, level, names, clear)
   local field = FIELD_BY_LEVEL[level]
-  local target_logged = not item.logged
-  -- Marking matches on the CHOSEN name-set; unmarking on the row's own slice.
-  local match_key = target_logged and syntax.names_key({ names = names })
-    or (item[level .. "_names_key"] or "")
+  local cursor_key = item[level .. "_names_key"] or ""
 
-  -- A blank inherits the sticky tag/location, so it would otherwise match a tag/location cell;
-  -- exclude it up front at every level. The `w` cell is the whole counted day; tag/location cells
-  -- group by their own field value. Marking sweeps the unlogged entries plus the same-name logged
-  -- slice (the merge/recommit); unmarking sweeps only the entries in the row's slice.
+  local function in_cell(entry_item)
+    return not summary.is_blank_entry(entry_item)
+      and (level == "w" or (field ~= nil and entry_item[field] == item[field]))
+  end
+
+  if not clear and not item.logged then
+    -- Fresh mark: sweep the cell's unlogged entries plus the chosen name-set's slice, committing at
+    -- their combined displayed total. The block's last entry starts no interval (it only closes the
+    -- prior one), so never mark it -- a marker there would silently under-log once a later entry is
+    -- appended beneath it.
+    local chosen_key = syntax.names_key({ names = names })
+    local closer = block.entry_items[#block.entry_items]
+    local group = {}
+    for _, entry_item in ipairs(block.entry_items) do
+      if in_cell(entry_item) and entry_item ~= closer then
+        local marker = entry_item.logged and entry_item.logged[level]
+        if marker == nil or syntax.names_key(marker) == chosen_key then
+          group[#group + 1] = entry_item
+        end
+      end
+    end
+    if #group == 0 then
+      return nil, summary_cursor.STALE
+    end
+
+    local totals = summary.summarize_block(block)
+    local rows = level == "w" and (totals.total_rows or {})
+      or (level == "l" and totals.location_totals or totals.tag_totals)
+    local committed = 0
+    for _, row in ipairs(rows) do
+      local key = row[level .. "_names_key"] or ""
+      local row_in_cell = level == "w" or row[field] == item[field]
+      -- The commitment is the cell's UNLOGGED remainder (key "", not already committed) plus the
+      -- chosen name-set's slice -- never another name-set's committed slice (that would over-commit).
+      if row_in_cell and ((key == "" and not row.logged) or key == chosen_key) then
+        committed = committed + row.duration
+      end
+    end
+
+    local overrides = {}
+    for _, entry_item in ipairs(group) do
+      overrides[entry_item.start_row] = { logged = set_level(entry_item, level, committed, names) }
+    end
+    return support.apply_entry_overrides(analysis, block, overrides)
+  end
+
+  -- Clear or reduce/extend: act on exactly the cursor row's current name-set slice, preserving its
+  -- committed value.
   local group = {}
   for _, entry_item in ipairs(block.entry_items) do
-    local in_cell = not summary.is_blank_entry(entry_item)
-      and (level == "w" or (field ~= nil and entry_item[field] == item[field]))
-    if in_cell then
+    if in_cell(entry_item) then
       local marker = entry_item.logged and entry_item.logged[level]
-      local include
-      if target_logged then
-        include = marker == nil or syntax.names_key(marker) == match_key
-      else
-        include = marker ~= nil and syntax.names_key(marker) == match_key
-      end
-      if include then
+      if marker ~= nil and syntax.names_key(marker) == cursor_key then
         group[#group + 1] = entry_item
       end
     end
@@ -185,39 +259,18 @@ local function log_section_row(analysis, block, item, level, names)
   end
 
   local overrides = {}
-  if target_logged then
-    -- The commitment is the SUM of the cell's displayed unnamed and chosen-name rows -- the unlogged
-    -- remainder plus the same-name slice, never a differently-named one.
-    local totals = summary.summarize_block(block)
-    local rows
-    if level == "w" then
-      rows = totals.total_rows or {}
-    else
-      rows = level == "l" and totals.location_totals or totals.tag_totals
-    end
-    local committed = 0
-    for _, row in ipairs(rows) do
-      local key = row[level .. "_names_key"] or ""
-      local row_in_cell = level == "w" or row[field] == item[field]
-      if row_in_cell and (key == "" or key == match_key) then
-        committed = committed + row.duration
-      end
-    end
-
-    for _, entry_item in ipairs(group) do
-      overrides[entry_item.start_row] = { logged = set_level(entry_item, level, committed, names) }
-    end
-  else
-    for _, entry_item in ipairs(group) do
+  for _, entry_item in ipairs(group) do
+    if clear then
       overrides[entry_item.start_row] = { logged = set_level(entry_item, level, nil) }
+    else
+      overrides[entry_item.start_row] = { logged = rename_level(entry_item, level, names) }
     end
   end
-
   return support.apply_entry_overrides(analysis, block, overrides)
 end
 
 -- Resolve the cursor to a selectable summary row and its report level, or nil + err. Shared prologue
--- of run and peek.
+-- of run, run_unlog, and peek.
 local function resolve_level(lines, cursor_row)
   local result, err = summary_cursor.resolve_or_entry(lines, cursor_row)
   if not result then
@@ -237,23 +290,44 @@ local function resolve_level(lines, cursor_row)
   return { ctx = result.ctx, item = layout_row.item, level = level }
 end
 
-function M.run(lines, cursor_row, names)
+local function dispatch(resolved, names, clear)
+  local analysis, block, item = resolved.ctx.analysis, resolved.ctx.block, resolved.item
+  if resolved.level == "s" then
+    return log_summary_row(analysis, block, item, names, clear)
+  end
+  return log_section_row(analysis, block, item, resolved.level, names, clear)
+end
+
+-- Add `add_names` to the cursor row's slice (a fresh mark when the row is unlogged).
+function M.run(lines, cursor_row, add_names)
   local resolved, err = resolve_level(lines, cursor_row)
   if not resolved then
     return nil, err
   end
-
-  names = canonical_names(names)
-  local analysis, block, item = resolved.ctx.analysis, resolved.ctx.block, resolved.item
-  if resolved.level == "s" then
-    return log_summary_row(analysis, block, item, names)
-  end
-  return log_section_row(analysis, block, item, resolved.level, names)
+  local names = union_names(resolved.item.names, canonical_names(add_names))
+  return dispatch(resolved, names, false)
 end
 
--- Read-only companion of run: what the toggle would do without editing anything. Returns
--- `{ level, marking, names }` -- `marking` true when the row is currently unlogged (the toggle marks),
--- `names` the row's display name-set (nil when unnamed) -- or nil + err (same errors as run).
+-- Remove `remove_names` from the cursor row's slice -- all of them when nil -- clearing the marker once
+-- its last name is gone. Refuses an unlogged row.
+function M.run_unlog(lines, cursor_row, remove_names)
+  local resolved, err = resolve_level(lines, cursor_row)
+  if not resolved then
+    return nil, err
+  end
+  if not resolved.item.logged then
+    return nil, NOTHING_TO_UNLOG
+  end
+  local names
+  if remove_names ~= nil then
+    names = difference_names(resolved.item.names, remove_names)
+  end
+  return dispatch(resolved, names, names == nil)
+end
+
+-- Read-only companion of run: the cursor's report level, its current display name-set (nil when
+-- unnamed), and whether it is currently unlogged -- or nil + err (same errors as run). The shell opens
+-- the frecency name picker at `level` to add names, and a picker over `names` to choose which to unlog.
 function M.peek(lines, cursor_row)
   local resolved, err = resolve_level(lines, cursor_row)
   if not resolved then

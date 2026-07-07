@@ -112,14 +112,16 @@ function M.order()
   end
 end
 
--- Toggle logged on the cursor's summary row. Marking opens the names picker at the row's level;
--- unmarking (and any non-loggable cursor) runs the usecase directly, surfacing its own error.
+-- Log the cursor's summary row: open the frecency names picker at the row's level and ADD the chosen
+-- names to the slice -- a fresh mark when the row is unlogged, else the names union onto its existing
+-- marker. `:Daylog! log` / `<leader>dL` (M.unlog) removes names. A non-loggable cursor surfaces the
+-- usecase's error.
 function M.log()
   local row = buffer.cursor_row()
-  local peek = log_current.peek(buffer.buffer_lines(), row)
+  local peek, err = log_current.peek(buffer.buffer_lines(), row)
 
-  if not peek or not peek.marking then
-    buffer.run_buffer_usecase(log_current.run, row)
+  if not peek then
+    buffer.warn(err)
     return
   end
 
@@ -128,6 +130,35 @@ function M.log()
     on_select = function(names)
       buffer.run_pinned_usecase(target_buf, "log", function(lines)
         return log_current.run(lines, row, names)
+      end)
+    end,
+    on_cancel = function() end,
+  })
+end
+
+-- Unlog the cursor's slice (`:Daylog! log` / `<leader>dL`). With several logged names it opens a picker
+-- over them to choose which to remove; with one or none it clears the marker outright (the usecase
+-- refuses an unlogged row).
+function M.unlog()
+  local row = buffer.cursor_row()
+  local peek, err = log_current.peek(buffer.buffer_lines(), row)
+
+  if not peek then
+    buffer.warn(err)
+    return
+  end
+
+  local names = peek.names or {}
+  if #names < 2 then
+    buffer.run_buffer_usecase(log_current.run_unlog, row)
+    return
+  end
+
+  local target_buf = vim.api.nvim_get_current_buf()
+  pick.pick_names_from(names, {
+    on_select = function(remove)
+      buffer.run_pinned_usecase(target_buf, "log", function(lines)
+        return log_current.run_unlog(lines, row, remove)
       end)
     end,
     on_cancel = function() end,

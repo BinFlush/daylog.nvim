@@ -5,7 +5,7 @@ return function(t)
   local week = require("daylog.week")
   local export = require("daylog.export")
 
-  -- Two days: a comma in an activity (quoting), a `!S` logged row, an ordinary `#ooo` tag row (now
+  -- Two days: a comma in an activity (quoting), a `!S[]` logged row, an ordinary `#ooo` tag row (now
   -- counted like any tag), and a second day at a different q=, so quantized minutes flow straight
   -- through.
   local function sample_report()
@@ -16,7 +16,7 @@ return function(t)
         lines = {
           "--- log #ClientA q=30 ---",
           "08:00 plan, design",
-          "09:30 review !S",
+          "09:30 review !S[]",
           "10:30 lunch #ooo",
           "11:00 done",
         },

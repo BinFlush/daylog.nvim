@@ -262,4 +262,38 @@ function M.pick_names(level, opts)
   opts.on_select(names)
 end
 
+-- A picker over an explicit list of `names` (no frecency corpus, no `(unnamed)`), for choosing which
+-- of a logged row's names to unlog. An empty pick cancels.
+-- opts: { on_select = fn(names_list), on_cancel = fn()|nil }.
+function M.pick_names_from(names, opts)
+  if pcall(require, "telescope") then
+    local rows = {}
+    for _, name in ipairs(names) do
+      rows[#rows + 1] = { display = name, name = name }
+    end
+    require("daylog.telescope").multi_select(rows, {
+      prompt = "Daylog: unlog names  (<CR> pick, <Tab> mark)",
+      on_select = opts.on_select,
+      on_cancel = opts.on_cancel,
+    })
+    return
+  end
+
+  local input = vim.fn.input({
+    prompt = "daylog: names to unlog (comma-separated, empty to cancel): ",
+  })
+  local chosen, err = sources_picker.parse_names_input(input)
+  if not chosen then
+    vim.notify(err, vim.log.levels.WARN)
+    return
+  end
+  if #chosen == 0 then
+    if opts.on_cancel then
+      opts.on_cancel()
+    end
+    return
+  end
+  opts.on_select(chosen)
+end
+
 return M

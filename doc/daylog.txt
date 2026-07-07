@@ -139,10 +139,12 @@ Rules:
   of four independent levels: `!S` (its summary row), `!T` (its tag), `!L` (its location), or
   `!W` (the workday). An optional minute count -- `!S<minutes>`, written by |:Daylog-log| --
   freezes that level's row at its committed value, so appending later entries can never restate
-  it (see below). A bare marker is logged but unfrozen. An entry may carry several levels in one
-  compact token, in `S T L W` order:
-  `!S225T525W525` (mixing frozen and bare, e.g. `!S60T`). The separated form `!S225 !T525 !W525`
-  parses too; the writer always emits the compact token.
+  it (see below). A bare marker is logged but unfrozen. An unnamed marker is written with an
+  explicit empty name-set, `!S[]` (or `!S[]<minutes>` when frozen), so "logged, no name" is visible
+  and distinct from an unlogged row. An entry may carry several levels in one compact token, in
+  `S T L W` order: `!S[]225T[]525W[]525` (mixing frozen and bare, e.g. `!S[]60T[]`). The separated
+  form `!S[]225 !T[]525 !W[]525` parses too -- as does a legacy bare `!S60`, which normalizes to
+  `!S[]60` on the next rewrite; the writer always emits the compact, bracketed token.
 - A logged marker may carry a bracketed name-set -- `!T[jira,boss]` -- recording who or what the
   slice was reported to, at any level (`!S[a]`, `!T[a,b]`, `!L[a]`, `!W[a]`; names precede the
   optional frozen value, `!T[jira]525`). A name is letters, digits, underscores, and hyphens; the
@@ -165,7 +167,7 @@ Rules:
 Logged markers are preserved by source rewrites such as copy and order. Each summary section
 splits a committed cell by its own level: the summary rows by `!S`, the tag totals by `!T`, the
 location totals by `!L` -- a reported slice (shown at its committed value) and a remaining slice.
-A logged row renders with its level's marker (a logged tag row `... #ClientA !T`, or `... #ClientA
+A logged row renders with its level's marker (a logged tag row `... #ClientA !T[]`, or `... #ClientA
 !T[jira]` for a named slice; the marker carries the name-set but never the frozen minutes, which
 live only on the entry line). A named slice is its own row: `#ClientA !T[jira]` and `#ClientA
 !T[boss]` split the cell into two reported rows beside its remaining slice. Because the levels are
@@ -564,29 +566,36 @@ Rewrite all log blocks in chronological order.
                                                         *:Daylog-log*
 :Daylog log
 
-Toggle the logged state of the summary row under the cursor, at the level that row reports: a
-main (activity) row logs at the summary level (`!S`), a `--- tags ---` row at the tag level
-(`!T`), a `--- locations ---` row at the location level (`!L`), and the `workday` row of
-`--- totals ---` at the workday level (`!W`).
+Log the summary row under the cursor, at the level that row reports: a main (activity) row logs at
+the summary level (`!S`), a `--- tags ---` row at the tag level (`!T`), a `--- locations ---` row
+at the location level (`!L`), and the `workday` row of `--- totals ---` at the workday level
+(`!W`). The four levels are independent, so one activity can be logged at several at once -- run
+`:Daylog log` on each section's row.
 - The cursor must be on a main, tag, location, or workday total row inside the summary block of
   the active log. The summary is recomputed from source; the rendered row acts only as a
-  selector.
-- The logged state is toggled: an unlogged row's contributing entries gain that level's marker
-  -- `!S<minutes>` / `!T<minutes>` / `!L<minutes>` / `!W<minutes>`, freezing the row at its
-  currently displayed duration -- and a logged row's lose it. Marking a tag, location, or the
-  workday freezes the whole group at one committed value; the summary block is regenerated after.
-- Entry lines are not eligible; the cursor must be on a rendered summary row.
+  selector. Entry lines are not eligible.
+- Marking freezes the row's contributing entries at that level's marker -- `!S<minutes>` /
+  `!T<minutes>` / `!L<minutes>` / `!W<minutes>` -- at the row's currently displayed duration.
+  Marking a tag, location, or the workday freezes the whole group at one committed value; the
+  summary block is regenerated after.
+- Marking opens a picker of the logging names you have used before at that level, ranked by the same
+  daylog frecency as the insert picker (see |daylog-picker|). A synthetic `(unnamed)` entry leads the
+  list, so a plain `<CR>` marks with no name. With Telescope, typing filters; `<Tab>` toggles a name
+  (and advances) for a multi-select; `<CR>` confirms the toggled set, else the highlighted row, else
+  -- when the filter matches nothing -- creates the typed name(s); `<C-e>` creates the typed name --
+  or a comma-separated list -- outright, unioned with the toggled set (an invalid name warns and keeps
+  the picker open). Without Telescope, a prompt takes a comma-separated list of names (empty for
+  none); an invalid name warns and aborts the mark. Reporting one slice to several places is one
+  multi-select -- `!S[ado,timesheet]`.
+- Names are added independently: running `:Daylog log` again on an already-logged row ADDS the
+  picked name(s) to its slice, keeping the ones already there. Logging `boss` onto `!S[ado]` gives
+  `!S[ado,boss]` -- one slice reported to both, counted once. `:Daylog log` never unlogs.
+- `:Daylog! log` (bang), or `<leader>dL`, unlogs the cursor row's slice -- removing names rather
+  than marking. When the slice carries several names it opens a picker over THEM to choose which to
+  remove (with Telescope, `<Tab>`-mark several; without, a comma-separated prompt); removing a
+  slice's last name clears its marker. With one name or a bare marker it clears outright.
 - Summary rows that no longer match the recomputed summary are refused; run
   `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
-- Marking a row opens a picker of the logging names you have used before at that level, ranked by
-  the same daylog frecency as the insert picker (see |daylog-picker|). A synthetic `(unnamed)` entry
-  leads the list, so a plain `<CR>` marks with no name. With Telescope, typing filters; `<Tab>`
-  toggles a name (and advances) for a multi-select; `<CR>` confirms the toggled set, else the
-  highlighted row, else -- when the filter matches nothing -- creates the typed name(s); `<C-e>`
-  creates the typed name -- or a comma-separated list -- outright, unioned with the toggled set (an
-  invalid name warns and keeps the picker open). Without Telescope, a prompt takes a comma-separated
-  list of names (empty for none); an invalid name warns and aborts the mark. The chosen set marks
-  (and merges with) that name's slice. Unmarking never opens the picker.
 
                                                         *:Daylog-rename*
 :[range]Daylog rename [name|source]
