@@ -228,16 +228,27 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   end
 
   local result = quantize.constrained_quantize(granules, bucket_minutes, commitments)
-  -- Feasibility: two over-committed cells at different levels sharing a granule with contradictory
-  -- targets (cross-cutting / non-laminar) can leave one violating another. If any committed cell's
-  -- members no longer sum to its target, fall back to honest quantization and signal it (false).
-  for _, commitment in ipairs(commitments) do
-    local sum = 0
-    for _, index in ipairs(commitment.members) do
-      sum = sum + result[index].duration
+  -- Feasibility guards the display's footing invariant. build_section_rows renders each committed cell
+  -- as (logged = committed) + (remainder = cell_total - committed, dropped when <= 0), so a section
+  -- foots iff every committed cell's final total is >= its committed value. The shift only inflates
+  -- OVER-committed cells, but processing commitments in sequence can pull an exactly-met or
+  -- under-committed cell -- whose own commitment was never collected -- BELOW its committed value; when
+  -- any committed cell ends short, fall back to honest quantization (which foots) and signal it (false).
+  -- Checked at the same section scoping build_section_rows uses, so there is no spurious fallback.
+  for _, level in ipairs({ "s", "t", "l", "w" }) do
+    local key_fn = function(row)
+      return cell_key(row, level)
     end
-    if sum ~= commitment.target then
-      return honest, false
+    local committed = committed_by_cell(intervals, level, key_fn)
+    local totals = {}
+    for _, g in ipairs(result) do
+      local key = key_fn(g)
+      totals[key] = (totals[key] or 0) + g.duration
+    end
+    for key, target in pairs(committed) do
+      if (totals[key] or 0) < target then
+        return honest, false
+      end
     end
   end
   return result, true
@@ -328,6 +339,9 @@ local function build_section_rows(quantized, intervals, key_fields, level, feasi
     local cell_total = total[cell.key] or 0
     local committed_value = committed[cell.key]
     if committed_value ~= nil then
+      -- Backstop: never bill a logged row above the cell's real total. The feasibility guard already
+      -- ensures committed_value <= cell_total; this keeps a section footing structurally regardless.
+      committed_value = math.min(committed_value, cell_total)
       local remainder = cell_total - committed_value
       local logged = with_fields(cell)
       logged.logged = true
