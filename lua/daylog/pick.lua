@@ -53,14 +53,26 @@ local function daylog_usage(days)
   return rank.build_usage(lists, os.time())
 end
 
--- The corpus of previously-used logging names at `level`, ranked by the same daylog frecency as the
--- insert picker: a list of `{ name, score }` sorted by score desc then name asc. Excludes the
--- synthetic "(unnamed)" -- the picker layer adds it.
+-- The corpus of previously-used logging names at `level`, frecency-ranked into `{ name, score }`
+-- rows (excluding the synthetic "(unnamed)", which the picker layer adds). The CURRENT buffer's
+-- active log is always a source -- keyed by its daybook date, else today -- so names in the log you
+-- are editing are offered even with no daybook, before a save, or for an out-of-tree `.day` file; the
+-- trailing daybook history adds cross-day names, minus the current buffer's own day (already covered).
 function M.name_corpus(level)
   local picker = config.get().picker or {}
-  local lists = trailing_day_lists(picker.frecency_days or DEFAULT_FRECENCY_DAYS)
-  local usage = lists and rank.build_name_usage(lists, os.time()) or {}
-  return sources_picker.name_corpus_rows(usage[level] or {})
+  local settings = daybook_io.expanded_daybook_settings()
+  local buffer_date = settings and daybook_io.current_buffer_daybook_date(settings)
+
+  local lists = {
+    { date = buffer_date or os.time(), lines = vim.api.nvim_buf_get_lines(0, 0, -1, false) },
+  }
+  for _, day in ipairs(trailing_day_lists(picker.frecency_days or DEFAULT_FRECENCY_DAYS) or {}) do
+    if not (buffer_date and daybook.same_date(day.date, buffer_date)) then
+      lists[#lists + 1] = day
+    end
+  end
+
+  return sources_picker.name_corpus_rows(rank.build_name_usage(lists, os.time())[level] or {})
 end
 
 -- Reorder a source's items by the built-in daylog-frecency ranker, or a user-supplied
