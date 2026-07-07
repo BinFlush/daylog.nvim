@@ -46,6 +46,18 @@ happen, but they are called out clearly in this changelog.
 - **Logging a tag/location/workday no longer marks the block's closing entry.** The last entry starts
   no interval; a marker on it was inert but would silently under-log once a later entry was appended
   beneath it.
+- **Merging a partially-committed cell no longer writes a short logged value.** Marking a cell's
+  unlogged remainder to merge it into its logged slice summed the frozen row's committed value rather
+  than its honest duration, so a row committed below its rounded duration (`!S[]45` on a 60m interval)
+  merged to `!S[]105` and left a phantom remainder. It now commits the cell's full total.
+- **`:Daylog report` / `:Daylog export` tolerate a trailing space in the range.** `:Daylog report 7 `
+  (an easy stray space after completion) no longer fails with an "unparseable range" error.
+- **A westward `utc` offset is capped at the real -12:00.** `utc-13` and `utc-14` used to parse (the
+  magnitude was bounded symmetrically at 14h); only `-12:00`..`+14:00` is accepted now.
+- **A pathological `round±N` digit run is rejected** instead of overflowing to a garbage/`inf`
+  duration, mirroring the logged-marker value cap.
+- **Daybook file discovery walks the configured path literally** (via `vim.fs.find`), so a `daybook`
+  root containing `[`/`{`/`?` no longer misses files by interpreting them as a glob.
 
 - **The time bar no longer errors on Neovim 0.8.** The strip's `eventignore` list is filtered to the
   events the running Neovim knows; `WinResized` is 0.9+, so feeding `eventignore` that unknown name

@@ -70,6 +70,9 @@ return function(t)
     t.eq(picker.should_query("a", nil, nil), true)
     t.eq(picker.should_query("a", nil, 0), true)
     t.eq(picker.should_query("", nil, 0), false)
+    -- The threshold counts characters, not bytes, so a multibyte prompt is not searched early.
+    t.eq(picker.should_query("é", nil, 2), false) -- 1 character, 2 bytes
+    t.eq(picker.should_query("éé", nil, 2), true) -- 2 characters
   end)
 
   t.test("meta_range marks the metadata after the leading rendered name", function()

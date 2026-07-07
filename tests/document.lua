@@ -436,9 +436,14 @@ return function(t)
     t.eq(syntax.parse_utc_offset("utc+2:60"), nil)
     t.eq(syntax.parse_utc_offset("utc+99"), nil)
     t.eq(syntax.parse_utc_offset("utcby"), nil)
-    -- The TOTAL is capped at the real-world maximum (+14:00), not hours and minutes separately.
+    -- The TOTAL is capped at the real-world range asymmetrically (+14:00 east, -12:00 west), not
+    -- hours and minutes separately.
     t.eq(syntax.parse_utc_offset("utc+14"), 840)
     t.eq(syntax.parse_utc_offset("utc+14:59"), nil)
+    t.eq(syntax.parse_utc_offset("utc+15"), nil)
+    t.eq(syntax.parse_utc_offset("utc-12"), -720)
+    t.eq(syntax.parse_utc_offset("utc-13"), nil)
+    t.eq(syntax.parse_utc_offset("utc-14"), nil)
 
     -- The canonical token: ":MM" appears only when nonzero, and 0 is "utc+0".
     t.eq(syntax.utc_offset_token(0), "utc+0")
@@ -446,6 +451,15 @@ return function(t)
     t.eq(syntax.utc_offset_token(-240), "utc-4")
     t.eq(syntax.utc_offset_token(330), "utc+5:30")
     t.eq(syntax.utc_offset_token(-225), "utc-3:45")
+  end)
+
+  t.test("syntax parses round nudges and caps a pathological digit run", function()
+    t.eq(syntax.parse_round_nudge("round+1"), 1)
+    t.eq(syntax.parse_round_nudge("round-2"), -2)
+    t.eq(syntax.parse_round_nudge("round"), nil) -- the sign is mandatory
+    t.eq(syntax.parse_round_nudge("round+"), nil)
+    -- An overlong digit run overflows to inf and poisons quantization, so it is not a marker.
+    t.eq(syntax.parse_round_nudge("round+" .. string.rep("9", 10)), nil)
   end)
 
   t.test("document parses a trailing utc offset and peels a preceding tag", function()

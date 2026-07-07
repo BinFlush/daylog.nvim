@@ -186,9 +186,11 @@ function M.parse_offset_value(value)
 
   hours = tonumber(hours)
   minutes = tonumber(minutes)
-  -- Real-world offsets span -12:00..+14:00; cap the total so e.g. +14:59 fails to parse.
+  -- Real-world offsets span -12:00..+14:00: the eastward max is +14:00, the westward is -12:00, so
+  -- cap each side (e.g. +14:59 and -13 both fail to parse).
   local total = hours * 60 + minutes
-  if minutes > 59 or total > 14 * 60 then
+  local cap = sign == "-" and 12 * 60 or 14 * 60
+  if minutes > 59 or total > cap then
     return nil
   end
   if sign == "-" then
@@ -232,6 +234,12 @@ end
 function M.parse_round_nudge(token)
   local sign, digits = token:match("^round([%+%-])(%d+)$")
   if not sign then
+    return nil
+  end
+
+  -- A pathological digit run overflows to `inf` and poisons quantization; cap the length and treat
+  -- anything longer as not a marker, mirroring the logged-marker value cap.
+  if #digits > 9 then
     return nil
   end
 

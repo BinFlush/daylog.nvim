@@ -185,6 +185,8 @@ function M.parse_report_range(value)
   if type(value) ~= "string" then
     return nil
   end
+  -- Tolerate stray surrounding whitespace (a trailing space after tab-completion is easy to leave).
+  value = value:match("^%s*(.-)%s*$")
 
   if value:match("^%d+$") then
     local count = tonumber(value)

@@ -117,12 +117,18 @@ end
 -- Whether a prompt change should trigger a server search: at least min_len chars (clamped
 -- >= 1, so an empty prompt never searches) and different from last_query, which breaks the
 -- refresh re-fire loop.
+-- The UTF-8 character count (pure): each non-continuation byte starts one character. So the min-len
+-- threshold counts characters, not bytes, and a multibyte prompt is not searched a keystroke early.
+local function char_count(s)
+  return select(2, s:gsub("[^\128-\191]", ""))
+end
+
 function M.should_query(prompt, last_query, min_len)
   min_len = min_len or 1
   if min_len < 1 then
     min_len = 1
   end
-  return #prompt >= min_len and prompt ~= last_query
+  return char_count(prompt) >= min_len and prompt ~= last_query
 end
 
 return M

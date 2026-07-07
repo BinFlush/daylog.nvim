@@ -162,6 +162,13 @@ return function(t)
     t.eq(daybook.range_dates(later, day), {})
   end)
 
+  t.test("daybook parse_report_range tolerates surrounding whitespace", function()
+    t.eq(daybook.parse_report_range("7"), { count = 7 })
+    t.eq(daybook.parse_report_range("7 "), { count = 7 }) -- a stray trailing space still parses
+    t.eq(daybook.parse_report_range("  monday..today  "), { from = "monday", to = "today" })
+    t.eq(daybook.parse_report_range("bogus"), nil)
+  end)
+
   t.test("daybook parses a YYYY-MM-DD date, rejecting invalid ones", function()
     t.eq(daybook.date_label(daybook.parse_date("2026-05-18")), "2026-05-18")
     t.eq(daybook.parse_date("2026-13-01"), nil)

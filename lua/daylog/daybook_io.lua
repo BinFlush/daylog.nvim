@@ -122,10 +122,15 @@ end
 local function existing_daybook_dates(settings)
   local dates = {}
 
-  -- Trim any trailing slash so the glob yields single-slash paths that match date_from_path's
-  -- canonical form (a `root//2026/...` would be rejected as non-canonical).
+  -- Trim any trailing slash so the paths match date_from_path's canonical single-slash form (a
+  -- `root//2026/...` would be rejected as non-canonical). vim.fs.find treats `root` LITERALLY --
+  -- unlike a glob, which would interpret `[`/`{`/`?` in the configured path as pattern syntax.
   local root = (settings.root:gsub("/+$", ""))
-  for _, path in ipairs(vim.fn.glob(root .. "/**/*.day", true, true)) do
+  for _, path in
+    ipairs(vim.fs.find(function(name)
+      return name:sub(-4) == ".day"
+    end, { path = root, type = "file", limit = math.huge }))
+  do
     local date = daybook.date_from_path(settings, path)
     if date and daybook_path_has_content(path) then
       table.insert(dates, date)
