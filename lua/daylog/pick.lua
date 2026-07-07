@@ -243,8 +243,9 @@ end
 -- The logging-names picker for `:Daylog log` when it MARKS a row. Offers the `level`'s
 -- previously-used names (frecency-ranked) with a synthetic "(unnamed)" first. Telescope gives a
 -- Tab-multi-select picker (<C-e> creates from the typed prompt); otherwise a comma-separated
--- `vim.fn.input` mirrors the on-disk `[a,b]` grammar. Selected names are deduped+sorted before
--- on_select.
+-- `vim.fn.input` takes real names, with empty input meaning the unnamed name -- it cannot mix the
+-- unnamed name with a real one in one step (unlike the on-disk `[,a]` form; use Telescope, or two
+-- marks). Selected names are deduped+sorted before on_select.
 --
 -- opts: { on_select = fn(names_list), on_cancel = fn()|nil }.
 function M.pick_names(level, opts)

@@ -49,6 +49,11 @@ happen, but they are called out clearly in this changelog.
 - **Logging a tag/location/workday no longer marks the block's closing entry.** The last entry starts
   no interval; a marker on it was inert but would silently under-log once a later entry was appended
   beneath it.
+- **Logging a new name on a tag/location/workday slice's drift row no longer marks a different entry.**
+  When a committed named slice had grown past its frozen value it showed a "drift" row; pointing at
+  that row and logging a new name silently committed an unrelated entry in the cell (footing stayed
+  correct, so nothing warned). The section levels now refuse it -- "unlog the `!T` row to re-log it" --
+  exactly as the summary level already did.
 - **Merging a partially-committed cell no longer writes a short logged value.** Marking a cell's
   unlogged remainder to merge it into its logged slice summed the frozen row's committed value rather
   than its honest duration, so a row committed below its rounded duration (`!S[]45` on a 60m interval)

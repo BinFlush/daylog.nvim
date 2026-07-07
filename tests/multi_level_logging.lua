@@ -642,4 +642,49 @@ return function(t)
     t.ok(has(b, "08:00 task !S[,hey]45"), "a name joins the unnamed slice at its preserved value")
     t.eq(#refresh_summaries.run(b).warnings, 0)
   end)
+
+  t.test("a section fresh-mark refuses a committed slice's drift row, not another entry", function()
+    -- Regression: pointing at the uncommitted "drift" of an already-committed named slice (`!T[a]60`
+    -- on a 90m interval) and logging a NEW name silently marked a DIFFERENT entry in the cell. It must
+    -- refuse, like the summary level, and name its own marker.
+    local src = { "--- log #x q=15 d=dec ---", "08:00 a !T[a]60", "09:30 b", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+
+    local res, err = log_current.run(rendered, row_of(rendered, "(-30m) #x"), { "b" })
+    t.eq(res, nil)
+    t.ok(err:find("drift beyond", 1, true) ~= nil, tostring(err))
+    t.ok(err:find("!T", 1, true) ~= nil, tostring(err)) -- the section's own marker, not !S
+
+    -- the genuinely unlogged remainder in the same cell still marks fine (the guard does not overreach)
+    local out = support.apply_edits(
+      rendered,
+      log_current.run(rendered, row_of(rendered, "(+0m) #x"), { "b" }).edits
+    )
+    t.ok(has(out, "09:30 b !T[b]30"), "the unlogged remainder still marks")
+    t.ok(not has(out, "08:00 a !T[a,b]"), "the committed [a] slice is untouched")
+  end)
+
+  t.test(
+    "merging an unlogged remainder at one location commits that location's own time and foots",
+    function()
+      -- Untested seam: a location-spanning activity with a committed named slice at @home; merging the
+      -- @office unlogged remainder into the same name commits @office's own 60m (not folded with @home's
+      -- 45), and the day still foots.
+      local src = {
+        "--- log q=15 d=dec ---",
+        "08:00 task @home !S[hey]45",
+        "09:00 task @office",
+        "10:00 done",
+      }
+      local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+      local out = support.apply_edits(
+        rendered,
+        log_current.run(rendered, row_of(rendered, "(+0m) task"), { "hey" }).edits
+      )
+      t.ok(has(out, "08:00 task @home !S[hey]45"), "the @home hey slice keeps its own commitment")
+      t.ok(has(out, "09:00 task @office !S[hey]60"), "the @office remainder commits its own 60m")
+      t.ok(has(out, "2.00h (+0m) workday"), "the day still foots")
+      t.eq(#refresh_summaries.run(out).warnings, 0)
+    end
+  )
 end

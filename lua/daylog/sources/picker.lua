@@ -94,8 +94,9 @@ function M.name_corpus_rows(usage)
 end
 
 -- Parse a comma-separated log-names string into a deduped, sorted name list, each matching
--- `^[%w_%-]+$` (the on-disk `[a,b]` grammar). Whitespace is trimmed and empty chunks (trailing
--- commas) are skipped; an invalid element returns nil + a `daylog:`-prefixed error. PURE.
+-- `^[%w_%-]+$` -- real names only. Unlike the on-disk `[,a]` form, empty chunks (trailing commas or
+-- an empty element) are skipped, so this never yields the unnamed name; whitespace is trimmed, and an
+-- invalid element returns nil + a `daylog:`-prefixed error. PURE.
 function M.parse_names_input(input)
   local names, seen = {}, {}
   for chunk in (input or ""):gmatch("[^,]+") do

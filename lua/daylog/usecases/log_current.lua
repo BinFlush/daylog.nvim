@@ -23,8 +23,13 @@ local M = {}
 local INCONSISTENT_SOURCE = "daylog: logged marking is inconsistent; regenerate the summary"
 local NOT_LOGGABLE = "daylog: put the cursor on a summary, tag, location, or workday row to log it"
 local NOTHING_TO_UNLOG = "daylog: this row is not logged; nothing to unlog"
-local REMAINDER_ROW =
-  "daylog: this row is the drift beyond the cell's committed value; unlog the !S row to re-log it"
+-- The cursor is on a slice's "drift" (uncommitted time beyond its frozen value), not a free
+-- remainder, so it cannot be fresh-marked. Names the level's own marker so the message fits any level.
+local function remainder_row_error(level)
+  return "daylog: this row is the drift beyond the cell's committed value; unlog the !"
+    .. level:upper()
+    .. " row to re-log it"
+end
 
 -- Each selectable layout kind's report level; run and peek share this dispatch.
 local LEVEL_BY_KIND = {
@@ -156,7 +161,7 @@ local function log_summary_row(analysis, block, item, names, clear)
   -- remainder slice of a fully-marked cell whose real time grew past its commitment.
   local source_rows = item.source_entry_rows or {}
   if #source_rows == 0 then
-    return nil, REMAINDER_ROW
+    return nil, remainder_row_error("s")
   end
 
   local target_rows = {}
@@ -218,6 +223,13 @@ local function log_section_row(analysis, block, item, level, names, clear)
     -- prior one), so never mark it -- a marker there would silently under-log once a later entry is
     -- appended beneath it.
     local chosen_key = syntax.names_key({ names = names })
+
+    -- A non-empty cursor key means the row is a committed named slice's uncommitted "drift". Re-marking
+    -- it with the SAME name-set recommits that slice at its grown total (allowed); any OTHER name-set
+    -- would sweep a DIFFERENT entry rather than the pointed slice, so refuse -- as log_summary_row does.
+    if cursor_key ~= "" and cursor_key ~= chosen_key then
+      return nil, remainder_row_error(level)
+    end
     local closer = block.entry_items[#block.entry_items]
     local group = {}
     for _, entry_item in ipairs(block.entry_items) do
