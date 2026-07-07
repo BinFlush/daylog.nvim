@@ -45,17 +45,18 @@ end
 
 function M.write_cache(name, items, now)
   local path = M.cache_path(name)
+  local tmp = path .. ".tmp"
+  -- Write to a temp file then atomically rename, so a concurrent reader never sees a half-written
+  -- cache; vim.loop.fs_rename overwrites cross-platform (os.rename cannot on native Windows).
   local ok = pcall(function()
     vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
-    -- Write to a temp file then atomically rename, so a concurrent reader never sees a
-    -- half-written cache; vim.loop.fs_rename overwrites cross-platform (os.rename cannot on
-    -- native Windows). The assert turns a rename failure into the pcall's warn.
-    local tmp = path .. ".tmp"
     vim.fn.writefile({ vim.json.encode(cache.encode(items, now)) }, tmp)
     assert(vim.loop.fs_rename(tmp, path))
   end)
 
   if not ok then
+    -- A failed rename (or a throw mid-write) can strand the temp file; drop it best-effort.
+    os.remove(tmp)
     warn("daylog: failed to write source cache: " .. name)
   end
 

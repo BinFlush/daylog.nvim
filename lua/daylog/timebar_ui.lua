@@ -229,19 +229,25 @@ end
 
 -- The window/buffer transition events the split + focus restore fire, ignored while opening the strip
 -- so it cannot recurse into the highlighter (via the ftplugin's BufWinEnter) -- targeted rather than
--- "all" so unrelated autocmds still run during that instant.
-local STRIP_OPEN_EVENTS = table.concat({
-  "BufEnter",
-  "BufLeave",
-  "BufWinEnter",
-  "BufWinLeave",
-  "WinEnter",
-  "WinLeave",
-  "WinNew",
-  "WinClosed",
-  "WinScrolled",
-  "WinResized",
-}, ",")
+-- "all" so unrelated autocmds still run during that instant. WinResized is 0.9+, so filter to events
+-- that exist -- eventignore rejects an unknown name (E474) on the 0.8 floor.
+local STRIP_OPEN_EVENTS = table.concat(
+  vim.tbl_filter(function(event)
+    return vim.fn.exists("##" .. event) == 1
+  end, {
+    "BufEnter",
+    "BufLeave",
+    "BufWinEnter",
+    "BufWinLeave",
+    "WinEnter",
+    "WinLeave",
+    "WinNew",
+    "WinClosed",
+    "WinScrolled",
+    "WinResized",
+  }),
+  ","
+)
 
 -- Open a fixed-height split below `dwin` showing `sbuf`, without moving the user's focus. Returns the
 -- new window or nil. eventignore guards against recursing into the highlighter; the focus restore and

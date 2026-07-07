@@ -20,6 +20,17 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Fixed
+
+- **The time bar no longer errors on Neovim 0.8.** The strip's `eventignore` list is filtered to the
+  events the running Neovim knows; `WinResized` is 0.9+, so feeding `eventignore` that unknown name
+  threw `E474` on the 0.8 floor, crashing the bar render whenever a `.day` file was opened with the
+  bar enabled.
+- **A failed source-cache write no longer strands a temp file.** `write_cache` removes its `.tmp`
+  scratch file when the atomic rename fails, instead of leaving it behind.
+
 ## 0.15.0 - 2026-07-06
 
 ### Changed
@@ -70,9 +81,9 @@ happen, but they are called out clearly in this changelog.
   logged at the summary (`!S`), tag (`!T`), location (`!L`), or workday (`!W`) level, each independently.
   The v0.1.x single summary-logged marker `!L` is now `!S`, and `!L` becomes the *location* level. **Run
   `:Daylog migrate` once on existing logs** to rewrite `!L`→`!S` before typing any new location marker
-  (it can't be auto-detected — an old and a new `!L` are the same token). This release lands the marker
-  foundation only: `!S` behaves exactly as `!L` did, and `!T`/`!L`/`!W` parse and round-trip but do not
-  yet affect summaries. (v0.1.0 compat fixtures contain no `!L`, so the frozen baseline is unaffected.)
+  (it can't be auto-detected — an old and a new `!L` are the same token). `!S` behaves as `!L` did, and
+  `!T`/`!L`/`!W` add the tag, location, and workday levels described above. (v0.1.0 compat fixtures
+  contain no `!L`, so the frozen baseline is unaffected.)
 
 ### Added
 
