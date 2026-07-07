@@ -239,7 +239,7 @@ function M.pick_names(level, opts)
   local corpus = M.name_corpus(level)
 
   if pcall(require, "telescope") then
-    local rows = { { display = "(unnamed)", name = nil } }
+    local rows = { { display = "(unnamed)", name = "" } }
     for _, item in ipairs(corpus) do
       rows[#rows + 1] = { display = item.name, name = item.name }
     end
@@ -252,12 +252,16 @@ function M.pick_names(level, opts)
   end
 
   local input = vim.fn.input({
-    prompt = "daylog: log names (comma-separated, empty for none): ",
+    prompt = "daylog: log names (comma-separated, empty for unnamed): ",
   })
   local names, err = sources_picker.parse_names_input(input)
   if not names then
     vim.notify(err, vim.log.levels.WARN)
     return
+  end
+  -- Empty input is the unnamed name (""), not a no-op: :Daylog log always adds something.
+  if #names == 0 then
+    names = { "" }
   end
   opts.on_select(names)
 end
@@ -269,7 +273,7 @@ function M.pick_names_from(names, opts)
   if pcall(require, "telescope") then
     local rows = {}
     for _, name in ipairs(names) do
-      rows[#rows + 1] = { display = name, name = name }
+      rows[#rows + 1] = { display = name ~= "" and name or "(unnamed)", name = name }
     end
     require("daylog.telescope").multi_select(rows, {
       prompt = "Daylog: unlog names  (<CR> pick, <Tab> mark)",

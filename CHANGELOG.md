@@ -31,11 +31,14 @@ happen, but they are called out clearly in this changelog.
   Report to several at once with one multi-select (`!S[ado,timesheet]`). Unlog with `:Daylog! log`
   (bang) or the new `<leader>dL`: it removes names, opening a picker over the row's own names to
   choose which when it carries several, and clears the marker once its last name is gone.
-- **Unnamed logged markers are written and shown with explicit empty brackets.** A summary-logged
-  entry now writes `!S[]60` (was `!S60`), a bare tag marker is `!T[]`, and the compact form is
-  `!S[]60T[]120`; summary rows show `#x !T[]`. This makes "logged to no name" visually explicit and
-  distinct from an unlogged row. Existing bare `!S`/`!T` markers still parse and report identically,
-  normalizing to the bracketed form on the next rewrite. (Derived-output change.)
+- **The unnamed name is a first-class, additive member of a marker's name-set.** A bare `!S` (or
+  `!S[]`) is the set `{unnamed}` — written with explicit empty brackets, `!S[]60` (was `!S60`), compact
+  `!S[]60T[]120`, summary rows `#x !T[]` — so "logged to no one" is visible and distinct from an
+  unlogged row. Because unnamed is just a name, `:Daylog log` ADDS it: logging unnamed onto an
+  `!S[hey]` slice yields `!S[,hey]` (the set `{unnamed, hey}`), and a real name added to `!S[]` yields
+  `!S[,hey]` too — never a silent no-op or a replacement. Existing bare `!S`/`!T` markers still parse
+  and report identically, normalizing to the bracketed form on the next rewrite. (Derived-output
+  change.)
 
 ### Fixed
 

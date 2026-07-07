@@ -122,13 +122,18 @@ that disagree.
 
 A marker may carry a **name-set** — `!T[jira,boss]` — recording who or what the slice was reported to.
 Names use the tag charset and are a canonical, sorted set (parsed by `syntax.parse_name_list`). The
-name-set at a level is **part of that level's group identity**: a cell's granule now carries all four
-level signatures (the `!S`/`!T`/`!L`/`!W` name-sets it belongs to), so two differently-named slices of one
-cell report as separate rows and split independently, while a same-named slice merges. Marking is
-**union-then-recommit**: `:Daylog log` sweeps the row's unlogged remainder *plus* the same-name logged
-slice and rewrites every swept entry at their combined displayed total, so re-logging a grown cell folds
-the new time into the existing named commitment rather than forking a rival row. Unmarking clears exactly
-the entries in the row's own name-set slice.
+**unnamed name is the empty string `""`**, a first-class member that sorts first: `!S[]` is `{""}` and
+`!S[,hey]` is `{"", "hey"}`, so a bare `!S` (or `!S[]`) is "logged to no one" — distinct from an unlogged
+row, and addable alongside real names (a marker always carries at least `{""}`). The name-set at a level
+is **part of that level's group identity**: a cell's granule carries all four level signatures (the
+`!S`/`!T`/`!L`/`!W` name-sets it belongs to), so two differently-named slices of one cell report as separate
+rows and split independently, while a same-named slice merges. Marking **adds** the chosen names (including
+`""`) to the row's slice: `:Daylog log` unions them onto a currently-logged slice, or sweeps an unlogged
+remainder *plus* the same-name logged slice and rewrites every swept entry at their combined displayed
+total, so re-logging a grown cell folds the new time into the existing named commitment rather than forking
+a rival row. A **fresh mark of an unlogged remainder starts from nothing** — its cell's display name-set is
+not inherited (only a currently-logged slice contributes existing names to the union). Unmarking removes
+the chosen names, clearing the marker once its last name is gone.
 
 Names are chosen through `:Daylog log`'s picker, wired in the shell (`init.lua` → `pick.pick_names`). The
 **corpus** of previously-used names is scanned from the trailing daybook files — the same buffer-aware

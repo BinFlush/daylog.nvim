@@ -32,10 +32,10 @@ return function(t)
     local e =
       first_entry({ "--- log ---", "08:00 fix #c @o !S[]60 !T[]120 !L[]90 !W[]480", "09:00 done" })
     t.eq(e.logged, {
-      s = { minutes = 60 },
-      t = { minutes = 120 },
-      l = { minutes = 90 },
-      w = { minutes = 480 },
+      s = { minutes = 60, names = { "" } },
+      t = { minutes = 120, names = { "" } },
+      l = { minutes = 90, names = { "" } },
+      w = { minutes = 480, names = { "" } },
     })
   end)
 
@@ -43,7 +43,7 @@ return function(t)
     "a bare marker stores true; the writer emits one compact token in S/T/L/W order",
     function()
       local e = first_entry({ "--- log ---", "08:00 task !W[] !L[] !T[]", "09:00 done" })
-      t.eq(e.logged, { t = {}, l = {}, w = {} })
+      t.eq(e.logged, { t = { names = { "" } }, l = { names = { "" } }, w = { names = { "" } } })
       t.eq(entry.format(e, nil, nil, nil), "08:00 task !T[]L[]W[]")
     end
   )
@@ -55,12 +55,12 @@ return function(t)
   end)
 
   t.test("parse_logged_token returns level+value pairs, or nil for a non-marker", function()
-    t.eq(syntax.parse_logged_token("!T[]30"), { { level = "t", minutes = 30 } })
-    t.eq(syntax.parse_logged_token("!L[]"), { { level = "l" } }) -- bare: minutes absent
+    t.eq(syntax.parse_logged_token("!T[]30"), { { level = "t", minutes = 30, names = { "" } } })
+    t.eq(syntax.parse_logged_token("!L[]"), { { level = "l", names = { "" } } }) -- bare: the unnamed name
     t.eq(syntax.parse_logged_token("!S[]225T[]525W[]525"), {
-      { level = "s", minutes = 225 },
-      { level = "t", minutes = 525 },
-      { level = "w", minutes = 525 },
+      { level = "s", minutes = 225, names = { "" } },
+      { level = "t", minutes = 525, names = { "" } },
+      { level = "w", minutes = 525, names = { "" } },
     })
     -- A pair carries its bracketed name list, canonicalized (deduped + sorted).
     t.eq(syntax.parse_logged_token("!S[a]60T[a,b]120"), {
@@ -77,7 +77,11 @@ return function(t)
     local compact = first_entry({ "--- log ---", "08:00 x !S[]225T[]525W[]525", "09:00 done" })
     local separated =
       first_entry({ "--- log ---", "08:00 x !S[]225 !T[]525 !W[]525", "09:00 done" })
-    t.eq(compact.logged, { s = { minutes = 225 }, t = { minutes = 525 }, w = { minutes = 525 } })
+    t.eq(compact.logged, {
+      s = { minutes = 225, names = { "" } },
+      t = { minutes = 525, names = { "" } },
+      w = { minutes = 525, names = { "" } },
+    })
     t.eq(separated.logged, compact.logged)
     t.eq(entry.format(compact, nil, nil, nil), "08:00 x !S[]225T[]525W[]525")
     t.eq(entry.format(separated, nil, nil, nil), "08:00 x !S[]225T[]525W[]525")
@@ -105,13 +109,13 @@ return function(t)
 
   t.test("a frozen-zero marker (`!S[]0`) round-trips and stays frozen", function()
     local e = first_entry({ "--- log ---", "08:00 x !S[]0 !T[]0", "09:00 done" })
-    t.eq(e.logged, { s = { minutes = 0 }, t = { minutes = 0 } })
+    t.eq(e.logged, { s = { minutes = 0, names = { "" } }, t = { minutes = 0, names = { "" } } })
     t.eq(entry.format(e, nil, nil, nil), "08:00 x !S[]0T[]0")
   end)
 
   t.test("leading zeros in a frozen value normalize (`!S[]007` -> `!S[]7`)", function()
     local e = first_entry({ "--- log ---", "08:00 x !S[]007", "09:00 done" })
-    t.eq(e.logged, { s = { minutes = 7 } })
+    t.eq(e.logged, { s = { minutes = 7, names = { "" } } })
     t.eq(entry.format(e, nil, nil, nil), "08:00 x !S[]7")
   end)
 
@@ -149,20 +153,33 @@ return function(t)
     t.eq(entry.format(e, nil, nil, nil), "08:00 x !T[Boss,boss]")
   end)
 
-  t.test("a malformed name list is not a marker, so the whole token stays literal text", function()
-    for _, bad in ipairs({ "!T[a,]", "!T[,b]", "!T[a,,b]", "!T[a!]" }) do
-      t.eq(syntax.parse_logged_token(bad), nil)
-      local e = first_entry({ "--- log ---", "08:00 meet " .. bad, "09:00 done" })
-      t.eq(e.text, "meet " .. bad)
-      t.eq(e.logged, nil)
+  t.test(
+    "a name element with an illegal character is not a marker; the token stays literal",
+    function()
+      for _, bad in ipairs({ "!T[a!]", "!T[a#]", "!T[a/b]" }) do
+        t.eq(syntax.parse_logged_token(bad), nil)
+        local e = first_entry({ "--- log ---", "08:00 meet " .. bad, "09:00 done" })
+        t.eq(e.text, "meet " .. bad)
+        t.eq(e.logged, nil)
+      end
     end
+  )
+
+  t.test("an empty name element is the unnamed name, so `[,hey]` is a first-class set", function()
+    t.eq(syntax.parse_logged_token("!T[a,]"), { { level = "t", names = { "", "a" } } })
+    t.eq(syntax.parse_logged_token("!T[,b]"), { { level = "t", names = { "", "b" } } })
+    t.eq(syntax.parse_logged_token("!T[a,,b]"), { { level = "t", names = { "", "a", "b" } } })
+    -- The unnamed name sorts first and round-trips in the compact form.
+    local e = first_entry({ "--- log ---", "08:00 x !S[,hey]60", "09:00 done" })
+    t.eq(e.logged, { s = { minutes = 60, names = { "", "hey" } } })
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S[,hey]60")
   end)
 
   t.test("an explicit empty name-set `!T[]` is an unnamed logged marker", function()
-    t.eq(syntax.parse_logged_token("!S[]"), { { level = "s" } }) -- empty brackets: no names, no value
-    t.eq(syntax.parse_logged_token("!T[]60"), { { level = "t", minutes = 60 } })
+    t.eq(syntax.parse_logged_token("!S[]"), { { level = "s", names = { "" } } }) -- the unnamed name
+    t.eq(syntax.parse_logged_token("!T[]60"), { { level = "t", minutes = 60, names = { "" } } })
     local e = first_entry({ "--- log ---", "08:00 x !S[] !T[]60", "09:00 done" })
-    t.eq(e.logged, { s = {}, t = { minutes = 60 } })
+    t.eq(e.logged, { s = { names = { "" } }, t = { minutes = 60, names = { "" } } })
     t.eq(entry.format(e, nil, nil, nil), "08:00 x !S[]T[]60") -- round-trips, still explicit
   end)
 
@@ -172,7 +189,7 @@ return function(t)
 
   t.test("an entry logged only at a non-summary level has no summary state", function()
     local e = first_entry({ "--- log ---", "08:00 task !T[]", "09:00 done" })
-    t.eq(e.logged, { t = {} })
+    t.eq(e.logged, { t = { names = { "" } } })
     t.eq(e.logged.s, nil)
     t.eq(entry.format(e, nil, nil, nil), "08:00 task !T[]")
   end)
@@ -600,5 +617,29 @@ return function(t)
     t.ok(has(out, "09:00 task !S[]120"), "the remainder joins at the full total")
     t.ok(has(out, "2.00h (+0m) task !S[]"), "one whole-cell logged row, no phantom remainder")
     t.eq(#refresh_summaries.run(out).warnings, 0)
+  end)
+
+  t.test("logging the unnamed name is additive, and names join the unnamed slice", function()
+    -- The unnamed name ("") is a first-class member: adding it to !S[hey] yields !S[,hey], and adding
+    -- a real name to the unnamed !S[] slice keeps the unnamed name (an add, never a replace).
+    local src =
+      { "--- log q=15 d=dec ---", "08:00 task !S[]45", "09:00 task !S[hey]60", "10:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+
+    local a = support.apply_edits(
+      rendered,
+      log_current.run(rendered, row_of(rendered, "task !S[hey]"), { "" }).edits
+    )
+    t.ok(has(a, "09:00 task !S[,hey]60"), "the unnamed name joins the hey slice")
+    t.ok(has(a, "1.00h (+0m) task !S[,hey]"), "the slice reports as {unnamed, hey}")
+    t.ok(has(a, "0.75h (+15m) task !S[]"), "the separate unnamed slice is untouched")
+    t.eq(#refresh_summaries.run(a).warnings, 0)
+
+    local b = support.apply_edits(
+      rendered,
+      log_current.run(rendered, row_of(rendered, "task !S[]"), { "hey" }).edits
+    )
+    t.ok(has(b, "08:00 task !S[,hey]45"), "a name joins the unnamed slice at its preserved value")
+    t.eq(#refresh_summaries.run(b).warnings, 0)
   end)
 end

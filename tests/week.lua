@@ -183,6 +183,8 @@ return function(t)
           unrounded_duration = 60,
           error_minutes = 0,
           logged = true,
+          names = { "" },
+          s_names_key = "",
         },
       },
       tag_totals = {

@@ -122,7 +122,10 @@ function M.build_name_usage(day_line_lists, now)
           local marker = entry.logged and entry.logged[level]
           if marker and marker.names then
             for _, name in ipairs(marker.names) do
-              add_visit(bucket, name, day.date)
+              -- The unnamed name ("") is not a real corpus name; it is the synthetic "(unnamed)".
+              if name ~= "" then
+                add_visit(bucket, name, day.date)
+              end
             end
           end
         end

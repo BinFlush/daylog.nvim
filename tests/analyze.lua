@@ -204,7 +204,7 @@ return function(t)
         explicit_location = nil,
         tag = "ProjectOrion",
         location = "office",
-        logged = { s = {} },
+        logged = { s = { names = { "" } } },
       },
       {
         row = 3,
@@ -223,7 +223,7 @@ return function(t)
         explicit_location = nil,
         tag = "ProjectOrion",
         location = "home",
-        logged = { s = {} },
+        logged = { s = { names = { "" } } },
       },
     })
   end)

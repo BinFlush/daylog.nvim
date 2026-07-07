@@ -314,7 +314,10 @@ function M.run(lines, cursor_row, add_names)
   if not resolved then
     return nil, err
   end
-  local names = union_names(resolved.item.names, canonical_names(add_names))
+  -- An unlogged remainder row carries its cell's name-set for display, but a fresh mark starts from
+  -- nothing; only a currently-logged slice contributes existing names to the union.
+  local current = resolved.item.logged and resolved.item.names or nil
+  local names = union_names(current, canonical_names(add_names))
   return dispatch(resolved, names, false)
 end
 
@@ -347,7 +350,7 @@ function M.peek(lines, cursor_row)
   return {
     level = resolved.level,
     marking = not resolved.item.logged,
-    names = resolved.item.names,
+    names = resolved.item.logged and resolved.item.names or nil,
   }
 end
 

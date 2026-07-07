@@ -139,18 +139,21 @@ Rules:
   of four independent levels: `!S` (its summary row), `!T` (its tag), `!L` (its location), or
   `!W` (the workday). An optional minute count -- `!S<minutes>`, written by |:Daylog-log| --
   freezes that level's row at its committed value, so appending later entries can never restate
-  it (see below). A bare marker is logged but unfrozen. An unnamed marker is written with an
-  explicit empty name-set, `!S[]` (or `!S[]<minutes>` when frozen), so "logged, no name" is visible
-  and distinct from an unlogged row. An entry may carry several levels in one compact token, in
-  `S T L W` order: `!S[]225T[]525W[]525` (mixing frozen and bare, e.g. `!S[]60T[]`). The separated
-  form `!S[]225 !T[]525 !W[]525` parses too -- as does a legacy bare `!S60`, which normalizes to
-  `!S[]60` on the next rewrite; the writer always emits the compact, bracketed token.
+  it (see below). A bare marker is logged but unfrozen, and carries the unnamed name: `!S[]` is
+  the set `{unnamed}` (written explicitly with empty brackets, `!S[]<minutes>` when frozen), so
+  "logged, no name" is visible and distinct from an unlogged row. An entry may carry several
+  levels in one compact token, in `S T L W` order: `!S[]225T[]525W[]525` (mixing frozen and
+  bare, e.g. `!S[]60T[]`). The separated form `!S[]225 !T[]525 !W[]525` parses too -- as does a
+  legacy bare `!S60`, which normalizes to `!S[]60` on the next rewrite; the writer always emits
+  the compact, bracketed token.
 - A logged marker may carry a bracketed name-set -- `!T[jira,boss]` -- recording who or what the
   slice was reported to, at any level (`!S[a]`, `!T[a,b]`, `!L[a]`, `!W[a]`; names precede the
   optional frozen value, `!T[jira]525`). A name is letters, digits, underscores, and hyphens; the
-  list is a set, so duplicates drop and names always render in canonical sorted order. The name-set
-  is part of the row's identity: two differently-named slices of one cell report as separate rows
-  and never merge, while same-named slices do. Names are chosen through |:Daylog-log|'s picker.
+  list is a set, so duplicates drop and names render in canonical sorted order. An EMPTY element is
+  the unnamed name and sorts first, so `!S[,hey]` is the set `{unnamed, hey}` -- "reported to no one"
+  is a first-class member you can hold alongside real names. The name-set is part of the row's
+  identity: two differently-named slices of one cell report as separate rows and never merge, while
+  same-named slices do. |:Daylog-log|'s picker ADDS the chosen names (including unnamed) to the row.
 - `utc±H[:MM]` sets the UTC offset in effect from that entry on; see
   |daylog-sticky-metadata|. It is only needed when the clock moves (travel or
   DST) and is invisible otherwise.
@@ -580,12 +583,12 @@ at the location level (`!L`), and the `workday` row of `--- totals ---` at the w
   summary block is regenerated after.
 - Marking opens a picker of the logging names you have used before at that level, ranked by the same
   daylog frecency as the insert picker (see |daylog-picker|). A synthetic `(unnamed)` entry leads the
-  list, so a plain `<CR>` marks with no name. With Telescope, typing filters; `<Tab>` toggles a name
+  list, so a plain `<CR>` marks with the unnamed name. With Telescope, typing filters; `<Tab>` toggles a name
   (and advances) for a multi-select; `<CR>` confirms the toggled set, else the highlighted row, else
   -- when the filter matches nothing -- creates the typed name(s); `<C-e>` creates the typed name --
   or a comma-separated list -- outright, unioned with the toggled set (an invalid name warns and keeps
   the picker open). Without Telescope, a prompt takes a comma-separated list of names (empty for
-  none); an invalid name warns and aborts the mark. Reporting one slice to several places is one
+  the unnamed name); an invalid name warns and aborts the mark. Reporting one slice to several places is one
   multi-select -- `!S[ado,timesheet]`.
 - Names are added independently: running `:Daylog log` again on an already-logged row ADDS the
   picked name(s) to its slice, keeping the ones already there. Logging `boss` onto `!S[ado]` gives

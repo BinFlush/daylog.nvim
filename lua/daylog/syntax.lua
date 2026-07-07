@@ -261,19 +261,17 @@ end
 -- never moves as later entries are appended. A bare marker (`!S`) is logged-but-unfrozen; only
 -- :Daylog log writes the number.
 
--- Parse a bracket body (`a,b`) into a canonical (deduped, sorted) name list, or nil when it is empty
--- or holds an empty or illegally-charactered element. Names use the tag charset and are case-sensitive.
+-- Parse a bracket body (`a,b`) into a canonical (deduped, sorted) name list, or nil when an element
+-- holds an illegal character. An EMPTY element is the unnamed name (`""`): `[]` is `{""}` and `[,hey]`
+-- is `{"", "hey"}`, so "reported to no one" is a first-class member alongside real names. Names use
+-- the tag charset and are case-sensitive; `""` sorts first.
 local function parse_name_list(inner)
-  if inner == "" then
-    return nil
-  end
-
   local seen, names = {}, {}
   local start = 1
   while true do
     local comma = inner:find(",", start, true)
     local element = inner:sub(start, comma and comma - 1 or #inner)
-    if element:match("^[%w_%-]+$") == nil then
+    if element ~= "" and element:match("^[%w_%-]+$") == nil then
       return nil
     end
     if not seen[element] then
@@ -319,14 +317,9 @@ function M.parse_logged_token(token)
       if not close then
         return nil
       end
-      local inner = body:sub(pos + 1, close - 1)
-      -- An empty `[]` is the explicit unnamed set (names stay nil); a non-empty body must be a valid
-      -- name list, else the whole token is not a marker.
-      if inner ~= "" then
-        names = parse_name_list(inner)
-        if not names then
-          return nil
-        end
+      names = parse_name_list(body:sub(pos + 1, close - 1))
+      if not names then
+        return nil
       end
       pos = close + 1
     end
@@ -342,7 +335,8 @@ function M.parse_logged_token(token)
     pairs_out[#pairs_out + 1] = {
       level = level,
       minutes = digits ~= "" and tonumber(digits) or nil,
-      names = names,
+      -- A logged marker always carries a name-set; a bare `!S` (or `!S[]`) is the unnamed name `""`.
+      names = names or { "" },
     }
   end
 

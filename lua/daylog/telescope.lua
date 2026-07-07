@@ -282,9 +282,9 @@ function M.multi_select(rows, opts)
         actions.move_selection_next(prompt_bufnr)
       end)
 
-      -- The current toggled rows' names, deduped ("(unnamed)"'s nil contributes none), plus whether
-      -- anything is toggled at all -- toggling only "(unnamed)" is a deliberate empty set, not
-      -- "nothing toggled".
+      -- The current toggled rows' names, deduped. "(unnamed)" carries the empty name "", so toggling
+      -- only it yields {""} (the unnamed slice) -- a deliberate choice, distinct from "nothing
+      -- toggled" (which falls back to the highlighted row).
       local function toggled_names()
         local names, seen = {}, {}
         local multi = action_state.get_current_picker(prompt_bufnr):get_multi_selection()
