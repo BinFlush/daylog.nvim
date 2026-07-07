@@ -20,7 +20,18 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
-## 0.16.0 - 2026-07-07
+## Unreleased
+
+### Fixed
+
+- **Summary over-count on certain heavy-commitment logs.** When a logged commitment (an `!S`/`!T`/`!L`/
+  `!W` value) was already met exactly by the honest rounding, it was not tracked, so another
+  commitment's rounding adjustment could pull that cell below its committed value; the summary then
+  billed the full committed value against the smaller cell, over-counting one section by a bucket. The
+  feasibility check now guards every committed cell (not only over-committed ones), so a log whose
+  commitments genuinely cannot all be honored falls back to honest quantization with the existing
+  "commitments contradict" diagnostic instead of silently mis-footing. (Derived-output change for the
+  affected logs.)
 
 ### Changed
 

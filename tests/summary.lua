@@ -2000,4 +2000,73 @@ return function(t)
     t.eq(#conflicts, 1)
     t.eq(conflicts[1].row, 2)
   end)
+
+  t.test(
+    "heavy over-commitment: an exactly-met cell perturbed by another shift still foots",
+    function()
+      -- Regression for a latent 0.16.0 over-count. An !S value the honest pass already meets exactly was
+      -- not tracked as a commitment, so a later commitment's down-shift could steal a bucket from its
+      -- granule; the display then billed the full committed value against a now-smaller cell, over-counting
+      -- the summary section by one bucket while feasible stayed true. These commitments are genuinely
+      -- contradictory, so the block must fall back to honest quantization and every section must foot.
+      local block = block_from_lines({
+        "--- log q=45 d=hm ---",
+        "00:11 spike1 #planninga @planningd !SLW",
+        "01:14 refactor2 #- @debugc !S90",
+        "02:17 spike1 #planninga @- round-2 !S135 !T !L180 !W",
+        "03:20 refactor2 #- @reviewa round-2 !S[n2,n1]90L[n1]180W",
+        "04:31 spike1 #planninga @planningd !ST[n1,n3]225W225",
+        "05:43 testing3 #planninga @reviewa !W",
+        "05:57 testing3 #ooo @researchb !S270 !T135 !W135",
+        "06:21 refactor2 #planninga @planningd !S !L[n2]180",
+        "06:31 review4 #planninga !W135",
+        "08:53 testing3 #planninga !S90T45L225W45",
+        "09:36 oncall5 #- !SL[n1,n2]W[n1,n2]0",
+        "09:43 oncall5 #planninga @reviewa round-2 !T[n2]45",
+        "10:23 lunch6",
+        "10:41 triage7 #planninga @researchb !S225W[n2,n3]",
+        "10:52 spike1 #planninga @debugc !T90 !W[n1,n3]135",
+        "11:05 lunch6 !S180T45",
+        "11:09 refactor2 #ooo @reviewa !ST225L225",
+        "12:02 pairing8 #planninga !T180L[n1]180W",
+        "12:57 pairing8 #planninga @- !W135",
+        "13:35 review4 #planninga !S45 !L45",
+        "14:51 lunch6 #ooo !L270",
+        "14:56 docs9 #planninga @planningd",
+        "15:28 lunch10 #planninga @researchb !SL90W",
+        "15:36 testing11 #ooo !W0",
+        "17:49 testing11 #planninga @researchb !S0 !L225",
+        "18:52 spike1 #planninga !S",
+        "19:34 lunch10 #planninga @planningd !S135T",
+        "20:09 testing3 #planninga round-1",
+        "20:26 retro12 #- round-2 !T135 !L",
+        "20:36 oncall5 #planninga !S[n2,n3]90 !T[n2,n3] !L45",
+        "21:16 grooming13 #planninga @reviewa !T270 !L135",
+        "21:50 lunch14 #planninga !S[n3]90W180",
+        "22:29 retro12 round-2 !L135",
+        "23:50 deploy15 #planninga",
+      })
+      local s = summary.summarize_block(block)
+      local function section_sum(rows)
+        local n = 0
+        for _, r in ipairs(rows) do
+          n = n + r.duration
+        end
+        return n
+      end
+      t.eq(section_sum(s.summary_items), s.activity_total)
+      t.eq(section_sum(s.tag_totals), s.activity_total)
+      t.eq(section_sum(s.location_totals), s.activity_total)
+      t.eq(section_sum(s.total_rows), s.activity_total)
+
+      -- Genuinely-contradictory commitments are surfaced (honest fallback), not silently over-counted.
+      local contradicts = false
+      for _, d in ipairs(summary.logging_diagnostics(block)) do
+        if d.message:find("contradict", 1, true) then
+          contradicts = true
+        end
+      end
+      t.ok(contradicts, "the infeasible commitments raise the contradiction diagnostic")
+    end
+  )
 end
