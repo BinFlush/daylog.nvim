@@ -117,6 +117,13 @@ end
 -- marker. `:Daylog! log` / `<leader>dL` (M.unlog) removes names. A non-loggable cursor surfaces the
 -- usecase's error.
 function M.log()
+  -- On a report buffer, the log fans out across the relevant day files (like rename).
+  local report_spec = report_buffers.spec_for()
+  if report_spec then
+    require("daylog.log").from_report(report_spec, false)
+    return
+  end
+
   local row = buffer.cursor_row()
   local peek, err = log_current.peek(buffer.buffer_lines(), row)
 
@@ -140,6 +147,12 @@ end
 -- over them to choose which to remove; with one or none it clears the marker outright (the usecase
 -- refuses an unlogged row).
 function M.unlog()
+  local report_spec = report_buffers.spec_for()
+  if report_spec then
+    require("daylog.log").from_report(report_spec, true)
+    return
+  end
+
   local row = buffer.cursor_row()
   local peek, err = log_current.peek(buffer.buffer_lines(), row)
 

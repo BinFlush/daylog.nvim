@@ -366,4 +366,134 @@ function M.peek(lines, cursor_row)
   }
 end
 
+-- The summary item a by-value log target names in a freshly recomputed summary, matched by level +
+-- value + the slice's names_key (a cell can hold an unlogged remainder and a logged slice). nil when
+-- the value is absent (so a multi-day fan-out skips that day).
+local function find_target_item(recomputed, target)
+  local key = target.names_key or ""
+  if target.level == "s" then
+    for _, item in ipairs(recomputed.summary_items or {}) do
+      if
+        (item.text or "") == target.value
+        and item.tag == target.tag
+        and (item.s_names_key or "") == key
+      then
+        return item
+      end
+    end
+  elseif target.level == "t" then
+    for _, item in ipairs(recomputed.tag_totals or {}) do
+      if item.tag == target.value and (item.t_names_key or "") == key then
+        return item
+      end
+    end
+  elseif target.level == "l" then
+    for _, item in ipairs(recomputed.location_totals or {}) do
+      if item.location == target.value and (item.l_names_key or "") == key then
+        return item
+      end
+    end
+  else
+    for _, item in ipairs(recomputed.total_rows or {}) do
+      if (item.w_names_key or "") == key then
+        return item
+      end
+    end
+  end
+  return nil
+end
+
+-- Locate a by-value target in `lines`' active log: { ctx, item, level }; nil, nil when the log has no
+-- summary yet or lacks the value (skip that day); nil + err on an invalid log.
+local function resolve_by_value(lines, target)
+  local ctx, err = support.get_validated_active(lines)
+  if not ctx then
+    return nil, err
+  end
+
+  local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
+  if not region then
+    return nil, nil
+  end
+
+  local item = find_target_item(recomputed, target)
+  if not item then
+    return nil, nil
+  end
+
+  return { ctx = ctx, item = item, level = target.level }
+end
+
+-- Fresh-marking a drift/remainder row errors in the single-file path; from a report we skip that day
+-- instead of aborting the batch. Compared via the same generator, so it never drifts from the message.
+local function is_remainder_error(err)
+  for _, level in ipairs({ "s", "t", "l", "w" }) do
+    if err == remainder_row_error(level) then
+      return true
+    end
+  end
+  return false
+end
+
+-- Log by value rather than by cursor (the multi-day report fan-out): add `add_names` to the slice named
+-- by `target` ({ level, value, tag?, names_key, names }). Returns the edit script; nil, nil when the
+-- value is absent or the day's slice is a drift remainder (skip that day); nil + err on an invalid log.
+function M.run_by_value(lines, target, add_names)
+  local resolved, err = resolve_by_value(lines, target)
+  if not resolved then
+    return nil, err
+  end
+  local current = resolved.item.logged and resolved.item.names or nil
+  local names = union_names(current, canonical_names(add_names))
+  local result, run_err = dispatch(resolved, names, false)
+  if not result and run_err and is_remainder_error(run_err) then
+    return nil, nil
+  end
+  return result, run_err
+end
+
+-- Unlog by value (report fan-out): remove `remove_names` from the slice -- all when nil. A day whose
+-- slice isn't logged is skipped (nil, nil), since a report unlog spans days that may differ.
+function M.run_unlog_by_value(lines, target, remove_names)
+  local resolved, err = resolve_by_value(lines, target)
+  if not resolved then
+    return nil, err
+  end
+  if not resolved.item.logged then
+    return nil, nil
+  end
+  local names
+  if remove_names ~= nil then
+    names = difference_names(resolved.item.names, remove_names)
+  end
+  return dispatch(resolved, names, names == nil)
+end
+
+-- Classify a report layout row into a by-value log target, or nil + err for a non-loggable row. Unlike
+-- rename, activity rows and the untagged / no-location groups ARE loggable, so log carries its own
+-- classifier (passed to report_cursor.resolve).
+function M.classify_report_row(layout_row)
+  local level = LEVEL_BY_KIND[layout_row.kind]
+  if not level then
+    return nil, NOT_LOGGABLE
+  end
+
+  local item = layout_row.item
+  local target = { level = level, names = item.logged and item.names or nil }
+  if level == "s" then
+    target.value = item.text or ""
+    target.tag = item.tag
+    target.names_key = item.s_names_key or ""
+  elseif level == "t" then
+    target.value = item.tag
+    target.names_key = item.t_names_key or ""
+  elseif level == "l" then
+    target.value = item.location
+    target.names_key = item.l_names_key or ""
+  else
+    target.names_key = item.w_names_key or ""
+  end
+  return target
+end
+
 return M

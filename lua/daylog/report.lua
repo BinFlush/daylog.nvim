@@ -100,6 +100,8 @@ local function open_report(spec)
 
   open_report_buffer(lines, report_buffer_name(spec))
   vim.api.nvim_buf_set_var(0, "log_report", spec)
+  -- No daylog filetype here, so apply the keymaps directly: <leader>dl / dL / dR act on the report.
+  require("daylog.keymaps").apply(0)
 end
 
 -- Build the CSV/JSON export for a spec and open it in a read-only scratch buffer with the matching

@@ -356,6 +356,40 @@ return function(t)
     return row
   end
 
+  t.test("run_by_value logs a target by value and skips an absent one", function()
+    local src = { "--- log #obs q=15 d=dec ---", "08:00 hello", "09:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+
+    local result = log_current.run_by_value(
+      rendered,
+      { level = "s", value = "hello", tag = "obs" },
+      { "boss" }
+    )
+    t.ok(
+      has(support.apply_edits(rendered, result.edits), "08:00 hello !S[boss]60"),
+      "the activity is logged by value"
+    )
+
+    -- An absent value returns nil, nil so a multi-day fan-out skips that day (never an error).
+    local none, err = log_current.run_by_value(
+      rendered,
+      { level = "s", value = "nope", tag = "obs" },
+      { "boss" }
+    )
+    t.eq(none, nil)
+    t.eq(err, nil)
+  end)
+
+  t.test("run_unlog_by_value skips a day whose slice is not logged", function()
+    local src = { "--- log #obs q=15 d=dec ---", "08:00 hello", "09:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+
+    local none, err =
+      log_current.run_unlog_by_value(rendered, { level = "s", value = "hello", tag = "obs" }, nil)
+    t.eq(none, nil)
+    t.eq(err, nil)
+  end)
+
   t.test(":Daylog log marks a tag row with a chosen name-set, and refresh is idempotent", function()
     local src = { "--- log #obs q=15 d=dec ---", "08:00 hello", "09:00 done" }
     local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)

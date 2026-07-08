@@ -22,6 +22,14 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- **`:Daylog log` works from a report.** `:Daylog log` / `:Daylog! log` on a row of a `:Daylog report`
+  buffer now mark (or unlog) that item across the underlying day files — one file for a per-day row,
+  every day of the period for an aggregate row — the same way `:Daylog rename` already fans out. Each
+  day freezes its own committed value, a day lacking the item is skipped, the chosen name-set applies to
+  all, and a confirmation lists the files first.
+
 ### Changed
 
 - **The time bar places activity labels more cleverly.** Each label's colour swatch now sits *on* one of

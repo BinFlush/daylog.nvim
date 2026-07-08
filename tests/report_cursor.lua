@@ -84,6 +84,24 @@ return function(t)
     t.eq(resolved.target, { kind = "tag", current = "ClientA" })
   end)
 
+  t.test("report_cursor honors a passed classifier (log accepts activity rows)", function()
+    local log_current = require("daylog.usecases.log_current")
+    local layout = render.days_report_layout(sample_report(), "dec", {})
+    local index = find(layout, function(row)
+      return row.scope == "aggregate"
+        and row.kind == render.LAYOUT_KIND.SUMMARY_ITEM
+        and row.item.text == "implementation"
+    end)
+
+    -- Rename's default classifier refuses this activity row; log's classifier resolves it.
+    local resolved = report_cursor.resolve(layout, index, log_current.classify_report_row)
+    t.eq(resolved.scope, "aggregate")
+    t.eq(resolved.target.level, "s")
+    t.eq(resolved.target.value, "implementation")
+    t.eq(resolved.target.tag, "ClientA")
+    t.eq(resolved.target.names_key, "")
+  end)
+
   t.test("report_cursor refuses header, totals, blank, and out-of-range rows", function()
     local layout = render.days_report_layout(sample_report(), "dec", {})
 

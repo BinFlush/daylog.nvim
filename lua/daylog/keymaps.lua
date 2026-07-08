@@ -192,6 +192,12 @@ local function apply_keymaps(buf)
   vim.b[buf].daylog_applied_maps = applied
 end
 
+-- Apply the configured keymaps to `buf` directly. The report scratch buffer has no daylog filetype,
+-- so the FileType hook never reaches it; report.lua calls this so log/unlog/rename work there by key.
+function M.apply(buf)
+  apply_keymaps(buf)
+end
+
 local function each_loaded_daylog_buffer(fn)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].filetype == "daylog" then

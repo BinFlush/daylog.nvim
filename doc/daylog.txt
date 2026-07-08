@@ -462,8 +462,9 @@ to the latest log even if that is days ahead, while `monday..today` stops at tod
   `auto_summary` (see |daylog-auto-summary|).
 - `:Daylog! report` (bang) omits the per-day review sections and shows only the range
   aggregate summary.
-- The report is read-only, but `:Daylog rename` acts on it: a row renames the item
-  across the period (aggregate row) or in one day (per-day row).
+- The report is read-only, but `:Daylog rename` and `:Daylog log` / `:Daylog! log` act on it: a
+  row renames, or logs/unlogs, the item across the period (aggregate row) or in one day (per-day
+  row), fanning the change out to the underlying day files.
 - Non-empty invalid daybook files abort the report instead of producing partial
   totals.
 
@@ -600,6 +601,10 @@ at the location level (`!L`), and the `workday` row of `--- totals ---` at the w
   slice's last name clears its marker. With one name or a bare marker it clears outright.
 - Summary rows that no longer match the recomputed summary are refused; run
   `:Daylog refresh` (or let `auto_summary` refresh) to bring them current.
+- From a `:Daylog report` buffer, `:Daylog log` / `:Daylog! log` mark (or unlog) the row across the
+  relevant day files -- that one file for a per-day row, every day of the period for an aggregate
+  row (each day freezes its own committed value). A day lacking the item is skipped; the chosen
+  name-set applies to all of them, and a confirmation lists the files first.
 
                                                         *:Daylog-rename*
 :[range]Daylog rename [name|source]

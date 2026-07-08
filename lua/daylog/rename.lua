@@ -4,6 +4,7 @@ local pick = require("daylog.pick")
 local daybook_io = require("daylog.daybook_io")
 local render = require("daylog.render")
 local report_buffers = require("daylog.report")
+local report_write = require("daylog.report_write")
 local rename_summary = require("daylog.usecases.rename_summary")
 local report_cursor = require("daylog.usecases.report_cursor")
 local support = require("daylog.usecases.support")
@@ -23,9 +24,7 @@ local buffer_lines = buffer.buffer_lines
 local cursor_row = buffer.cursor_row
 local buffer_changed = buffer.buffer_changed
 local run_pinned_usecase = buffer.run_pinned_usecase
-local highlight_buffer = buffer.highlight_buffer
 local daybook_lines = daybook_io.daybook_lines
-local loaded_buffer_for_path = daybook_io.loaded_buffer_for_path
 local build_report_for_spec = report_buffers.build_report_for_spec
 local refresh_report_windows = report_buffers.refresh_report_windows
 
@@ -178,53 +177,6 @@ function M.summary_range(new_value, range)
   })
 end
 
--- The day files a resolved report row acts on: one path for a per-day row, every
--- day of the period for an aggregate row.
-local function report_target_paths(report, resolved)
-  if resolved.scope == "day" then
-    return { resolved.path }
-  end
-
-  local paths = {}
-  for _, day in ipairs(report.days) do
-    paths[#paths + 1] = day.path
-  end
-  return paths
-end
-
--- Write a day file's new content into its open buffer when one exists (so the report reflects it at
--- once), else straight to disk.
-local function write_daybook_change(path, new_lines)
-  local buf = loaded_buffer_for_path(path)
-  if buf then
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, new_lines)
-    if vim.bo[buf].filetype == "daylog" then
-      highlight_buffer(buf)
-    end
-    return
-  end
-
-  vim.fn.writefile(new_lines, path)
-end
-
-local function confirm_report_rename(target, value, changes)
-  local names = {}
-  for _, change in ipairs(changes) do
-    names[#names + 1] = "  " .. vim.fn.fnamemodify(change.path, ":t")
-  end
-
-  local prompt = string.format(
-    "daylog: rename %s '%s' to '%s' in %d file(s)?\n%s",
-    RENAME_PROMPT_LABEL[target.kind],
-    target.current,
-    value,
-    #changes,
-    table.concat(names, "\n")
-  )
-
-  return vim.fn.confirm(prompt, "&Yes\n&No", 1) == 1
-end
-
 -- Prompt for the new value across the report: a vim.ui.select over the merge
 -- candidates (plus a type-a-new-name option), or a plain input when there are none.
 local function prompt_report_rename(target, candidates, apply)
@@ -294,7 +246,7 @@ rename_from_report = function(spec, new_value, source_name)
   end
 
   local target = resolved.target
-  local paths = report_target_paths(report, resolved)
+  local paths = report_write.target_paths(report, resolved)
   local target_buf = vim.api.nvim_get_current_buf()
 
   local function apply(value)
@@ -326,12 +278,18 @@ rename_from_report = function(spec, new_value, source_name)
       return
     end
 
-    if not confirm_report_rename(target, value, changes) then
+    local sentence = string.format(
+      "rename %s '%s' to '%s'",
+      RENAME_PROMPT_LABEL[target.kind],
+      target.current,
+      value
+    )
+    if not report_write.confirm(sentence, changes) then
       return
     end
 
     for _, change in ipairs(changes) do
-      write_daybook_change(change.path, change.lines)
+      report_write.write_change(change.path, change.lines)
     end
 
     refresh_report_windows()

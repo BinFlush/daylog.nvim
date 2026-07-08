@@ -11,10 +11,10 @@ local M = {}
 
 M.NOT_A_ROW = "daylog: put the cursor on a summary item, tag, or location row of the report"
 
--- Map `cursor_row` (1-based) in `layout` to { scope, path?, date_label?, target } (target is
--- the { kind, current, tag? } rename_summary acts on); nil plus a message for a blank, header,
--- or totals row.
-function M.resolve(layout, cursor_row)
+-- Map `cursor_row` (1-based) in `layout` to { scope, path?, date_label?, target }; `classify` turns a
+-- layout row into the opaque `target` the caller's operation acts on (defaults to rename's classifier,
+-- log passes its own). nil plus a message for a blank, header, or otherwise ineligible row.
+function M.resolve(layout, cursor_row, classify)
   if type(cursor_row) ~= "number" then
     return nil, M.NOT_A_ROW
   end
@@ -24,7 +24,7 @@ function M.resolve(layout, cursor_row)
     return nil, M.NOT_A_ROW
   end
 
-  local target, err = rename_summary.classify(row)
+  local target, err = (classify or rename_summary.classify)(row)
   if not target then
     return nil, err
   end

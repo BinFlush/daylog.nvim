@@ -244,6 +244,13 @@ local function refresh_diagnostics()
 end
 
 local function apply_result(result)
+  -- A read-only buffer (a report or export scratch) can't be edited: warn rather than let the edit
+  -- script hit E21. Commands that DO act on a report (log/unlog/rename/map) branch off before here.
+  if not vim.bo.modifiable then
+    warn("daylog: this buffer is read-only (a report or export); open the day file to edit it")
+    return
+  end
+
   -- A row-only cursor follow keeps the user's column: capture it before the edits move things.
   local preserved_col
   if result.cursor_row then
