@@ -134,8 +134,9 @@ return function(t)
     )
   end)
 
-  -- label_placements: place each distinct label once, centred over its widest segment, resolving
-  -- overlaps optimally (isotonic regression / PAVA). Segments are hand-built; `col` is 1-based.
+  -- label_placements: place each distinct label once, its colour swatch centred over its widest
+  -- segment, resolving overlaps optimally (isotonic regression / PAVA). Segments are hand-built; `col`
+  -- is 1-based (the swatch's left column).
   local function mkseg(width, color_index, label)
     return { width = width, color_index = color_index, label = label }
   end
@@ -150,14 +151,14 @@ return function(t)
     return out
   end
 
-  t.test("label_placements centres a lone label over its segment", function()
-    t.eq(cols(timebar.label_placements({ mkseg(10, 1, "a") }, 10)), { { "a", 1, 3 } })
+  t.test("label_placements centres a lone label's swatch over its segment", function()
+    t.eq(cols(timebar.label_placements({ mkseg(10, 1, "a") }, 10)), { { "a", 1, 5 } })
   end)
 
   t.test("label_placements leaves well-separated labels each over their target", function()
     t.eq(
       cols(timebar.label_placements({ mkseg(10, 1, "a"), mkseg(10, 2, "b") }, 20)),
-      { { "a", 1, 3 }, { "b", 2, 13 } }
+      { { "a", 1, 5 }, { "b", 2, 15 } }
     )
   end)
 
@@ -167,7 +168,7 @@ return function(t)
       cols(
         timebar.label_placements({ mkgap(6), mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 20)
       ),
-      { { "aa", 1, 3 }, { "bb", 2, 10 } }
+      { { "aa", 1, 6 }, { "bb", 2, 13 } }
     )
   end)
 
@@ -183,7 +184,7 @@ return function(t)
     -- "a" appears as a width-2 and a width-5 segment; its label goes over the width-5 one.
     t.eq(
       cols(timebar.label_placements({ mkseg(2, 1, "a"), mkseg(10, 2, "b"), mkseg(5, 1, "a") }, 40)),
-      { { "b", 2, 5 }, { "a", 1, 13 } }
+      { { "b", 2, 7 }, { "a", 1, 15 } }
     )
   end)
 
@@ -191,7 +192,7 @@ return function(t)
     -- alpha (footprint 8) and beta (footprint 5) can't both fit in 13 cells; beta is dropped.
     t.eq(
       cols(timebar.label_placements({ mkseg(8, 1, "alpha"), mkseg(5, 2, "beta") }, 13)),
-      { { "alpha", 1, 1 } }
+      { { "alpha", 1, 4 } }
     )
   end)
 

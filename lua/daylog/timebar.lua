@@ -312,6 +312,8 @@ end
 local LEGEND_OVERHEAD = 5 -- per legend item besides the label: swatch (2) + a leading + two trailing
 local LEGEND_FLOOR = 3 -- never shave a label below this many characters (or its length, if shorter)
 local LEGEND_MARKER = "…" -- appended to a shortened label; one display cell
+local SWATCH_ANCHOR = 2 -- the label's colour swatch is 2 cells; centring IT (not the full footprint)
+-- on a target lands the colour square on the alignment point, with the text flowing to its right.
 
 -- Fit legend `items` (in appearance order) into `width` cells: abbreviate the longest labels to a
 -- still-distinct "…"-marked prefix before dropping any, then drop from the tail. PURE.
@@ -418,7 +420,8 @@ function M.fit_legend(items, width)
   return out
 end
 
--- Place each distinct label once, centred over its widest segment, overlaps resolved optimally. This is
+-- Place each distinct label once, its colour swatch centred over its widest segment (text to the
+-- right), overlaps resolved optimally. This is
 -- 1-D placement: minimise total squared displacement from the target centres subject to non-overlap =
 -- isotonic regression, solved by Pool-Adjacent-Violators (PAVA); fit_legend first guarantees the
 -- survivors fit `width`. All arithmetic is integer half-cells (×2), exact and deterministic. See
@@ -496,11 +499,12 @@ function M.label_placements(segments, width)
     return out
   end
 
-  -- Isotonic targets in half-cells: t_i = centre_i - w_i - Σ_{j<i} 2·w_j.
+  -- Isotonic targets in half-cells: anchor each label's SWATCH (not its whole footprint) on the target
+  -- centre, so t_i = centre_i - SWATCH_ANCHOR - Σ_{j<i} 2·w_j; the full width w still drives non-overlap.
   local xmax = 2 * (width - sum_w)
   local t, prefix2 = {}, 0
   for i = 1, n do
-    t[i] = items[i].center2 - items[i].w - prefix2
+    t[i] = items[i].center2 - SWATCH_ANCHOR - prefix2
     prefix2 = prefix2 + 2 * items[i].w
   end
 

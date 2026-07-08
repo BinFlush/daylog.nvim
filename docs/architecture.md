@@ -458,8 +458,9 @@ bar's x-axis is **piecewise linear**: each segment carries its own `[start, stop
 span, and the now-marker and the hover clock only resolve a column when it lands inside a
 displayed segment (a dropped gap or zero-width segment is a hole where no marker is drawn).
 
-Labels are placed once per distinct activity, over that activity's widest segment. This is
-**1-D isotonic regression**: minimise the total squared displacement of each label from its
+Labels are placed once per distinct activity, with the label's colour swatch centred over that
+activity's widest segment (the text flows to the swatch's right). This is
+**1-D isotonic regression**: minimise the total squared displacement of each label's swatch from its
 target centre subject to non-overlap, solved by Pool-Adjacent-Violators (PAVA) over integer
 half-cells (exact and deterministic) — a crowded cluster pools into one block centred on its
 centroid. Widths are counted in display cells (a pure codepoint-width table mirrors the
