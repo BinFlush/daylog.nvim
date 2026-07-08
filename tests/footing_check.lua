@@ -15,6 +15,10 @@ local analyze = require("daylog.analyze")
 local summary = require("daylog.summary")
 local render = require("daylog.render")
 local diagnostics = require("daylog.diagnostics")
+local refresh_summaries = require("daylog.usecases.refresh_summaries")
+local support = require("daylog.usecases.support")
+local body = require("daylog.body")
+local entry = require("daylog.entry")
 
 local M = { Rng = Rng, synth = synth }
 
@@ -65,6 +69,26 @@ local function total(list)
     s = s + v
   end
   return s
+end
+
+local function lines_equal(a, b)
+  if #a ~= #b then
+    return false
+  end
+  for i = 1, #a do
+    if a[i] ~= b[i] then
+      return false
+    end
+  end
+  return true
+end
+
+local function sum_field(list, field)
+  local n = 0
+  for _, it in ipairs(list or {}) do
+    n = n + (it[field] or 0)
+  end
+  return n
 end
 
 -- Built only on failure (guarded by the caller) so the hot loop stays cheap.
@@ -131,6 +155,93 @@ function M.check(sub, mode)
         return report(sub, mode, wl, fmt, rendered, msg)
       end
     end
+  end
+
+  -- Partition + residual identities (T1/T2/T3), minute-level: tags and locations are partitions of the
+  -- same activity total, and each row's residual is exactly unrounded - displayed. Stronger than the
+  -- displayed-section footing above; extends tests/balance_invariants to the deep sweep.
+  for _, part in ipairs({ { "tags", s.tag_totals }, { "locations", s.location_totals } }) do
+    if sum_field(part[2], "duration") ~= s.activity_total then
+      return report(
+        sub,
+        mode,
+        wl,
+        "min",
+        {},
+        string.format(
+          "%s partition sum=%d activity=%d",
+          part[1],
+          sum_field(part[2], "duration"),
+          s.activity_total
+        )
+      )
+    end
+  end
+  for _, part in ipairs({
+    { "items", s.summary_items },
+    { "tags", s.tag_totals },
+    { "locs", s.location_totals },
+  }) do
+    for i, it in ipairs(part[2]) do
+      local want = (it.unrounded_duration or it.duration) - it.duration
+      if (it.error_minutes or 0) ~= want then
+        return report(
+          sub,
+          mode,
+          wl,
+          "min",
+          {},
+          string.format("%s[%d] residual=%d expected=%d", part[1], i, it.error_minutes or 0, want)
+        )
+      end
+    end
+  end
+  if (s.activity_error_minutes or 0) ~= sum_field(s.summary_items, "error_minutes") then
+    return report(
+      sub,
+      mode,
+      wl,
+      "min",
+      {},
+      string.format(
+        "activity residual %d != sum item residuals %d",
+        s.activity_error_minutes or 0,
+        sum_field(s.summary_items, "error_minutes")
+      )
+    )
+  end
+
+  -- Refresh fixpoint: summary regeneration is idempotent on raw text, so refreshing an
+  -- already-refreshed log changes nothing. Stresses named-marker re-location -- refresh must re-find
+  -- the !S[names] row it just wrote.
+  local once = support.apply_edits(wl.lines, refresh_summaries.run(wl.lines).edits)
+  -- Empty edit set on an already-refreshed log IS the fixpoint (applying it returns `once` unchanged),
+  -- so one re-run suffices -- no need for a third refresh.
+  if #refresh_summaries.run(once).edits ~= 0 then
+    return report(sub, mode, wl, "-", once, "refresh is not a fixpoint")
+  end
+
+  -- Entry-writer fixpoint: re-emit the block's entries through the canonical writer (as :Daylog copy
+  -- does), re-parse, and re-emit again -- byte-identical, or a named/multilevel marker was mangled on
+  -- rewrite. (A synth log starts with its header on line 1.)
+  local reemit = body.normalized_lines(block, entry.format)
+  local full = { wl.lines[1] }
+  for _, l in ipairs(reemit) do
+    full[#full + 1] = l
+  end
+  local reblock = analyze.get_active_log(analyze.analyze(document.parse(full)))
+  if not reblock then
+    return report(sub, mode, wl, "-", reemit, "re-emitted entries no longer parse as a log")
+  end
+  if not lines_equal(reemit, body.normalized_lines(reblock, entry.format)) then
+    return report(
+      sub,
+      mode,
+      wl,
+      "-",
+      reemit,
+      "entry writer is not a fixpoint (marker mangled on rewrite)"
+    )
   end
 
   return nil
