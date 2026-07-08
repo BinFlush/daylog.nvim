@@ -458,15 +458,22 @@ bar's x-axis is **piecewise linear**: each segment carries its own `[start, stop
 span, and the now-marker and the hover clock only resolve a column when it lands inside a
 displayed segment (a dropped gap or zero-width segment is a hole where no marker is drawn).
 
-Labels are placed once per distinct activity, with the label's colour swatch centred over that
-activity's widest segment (the text flows to the swatch's right). This is
-**1-D isotonic regression**: minimise the total squared displacement of each label's swatch from its
-target centre subject to non-overlap, solved by Pool-Adjacent-Violators (PAVA) over integer
-half-cells (exact and deterministic) — a crowded cluster pools into one block centred on its
-centroid. Widths are counted in display cells (a pure codepoint-width table mirrors the
-shell's `strdisplaywidth`, so a double-width CJK/emoji label is budgeted correctly). When
-labels cannot all fit, `fit_legend` abbreviates the longest to a still-distinct `…`-marked
-prefix and drops the least-present from the tail, guaranteeing the survivors fit the width.
+Labels are placed once per distinct activity, the label's colour swatch over **one** of the activity's
+segments (text flows to the swatch's right), with **the text length itself a placement variable**: a
+label that would block its neighbour is *shortened*, not dropped. `fit_legend` decides which activities
+are shown (dropping the least-present only when even minimal labels can't all fit the width; widths in
+display cells via a pure codepoint-width table mirroring `strdisplaywidth`, so double-width CJK/emoji is
+budgeted correctly). Then, over the product of each survivor's occurrence choices (bounded — the busiest
+label's narrowest occurrences are trimmed first), the layout is scored **lexicographically**: (1) fewest
+labels dropped, (2) fewest characters hidden (prefer full text), (3) lowest Σ rank of the anchored
+occurrence (rank 0 = the activity's longest segment), (4) keep the most-present activity. Each assignment
+is placed in three passes: (a) pack every label at its shortest still-distinct form (swatch overlapping
+its block, clearing the previous label) so a label is dropped only when even that floor cannot fit;
+(b) right-to-left, grow each shown label's text into the room a **right-aligned** right neighbour leaves
+(past the left labels' reserved floors) — so free bar space flows left to whoever can still use it,
+rather than being stranded behind a right label pinned near its centre; (c) with lengths now fixed,
+position the swatches — each centred on its block, pushed off-centre only as far as a neighbour genuinely
+needs the room. A label is never shown off its own colour. Integer arithmetic, fully deterministic.
 
 The strip is a real reserved-height window, not virtual lines, so it must not outlive its
 log window or block `:q`. Closing a strip inside `BufWinLeave` would abort the quit, so

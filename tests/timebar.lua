@@ -134,9 +134,12 @@ return function(t)
     )
   end)
 
-  -- label_placements: place each distinct label once, its colour swatch centred over its widest
-  -- segment, resolving overlaps optimally (isotonic regression / PAVA). Segments are hand-built; `col`
-  -- is 1-based (the swatch's left column).
+  -- label_placements: place each distinct label once, its colour swatch over ONE of the activity's
+  -- segments, its text length a placement variable. A bounded lexicographic search minimises drops, then
+  -- hidden characters (prefer full text), then Σ rank (0 = the longest segment), then keeps the
+  -- most-present. A blocking label is SHORTENED rather than its neighbour dropped; a label is dropped
+  -- only when even its shortest still-distinct form can't sit on any of its blocks, never shown
+  -- off-colour. Segments are hand-built; `col` is 1-based (the swatch's left column).
   local function mkseg(width, color_index, label)
     return { width = width, color_index = color_index, label = label }
   end
@@ -155,50 +158,99 @@ return function(t)
     t.eq(cols(timebar.label_placements({ mkseg(10, 1, "a") }, 10)), { { "a", 1, 5 } })
   end)
 
-  t.test("label_placements leaves well-separated labels each over their target", function()
+  t.test("label_placements sits well-separated labels each on their segment", function()
     t.eq(
       cols(timebar.label_placements({ mkseg(10, 1, "a"), mkseg(10, 2, "b") }, 20)),
       { { "a", 1, 5 }, { "b", 2, 15 } }
     )
   end)
 
-  t.test("label_placements pools crowded labels around their centroid", function()
-    -- aa and bb sit close (cols 7-9, 10-12); their labels pool and spread abutting, not overlapping.
-    t.eq(
-      cols(
-        timebar.label_placements({ mkgap(6), mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 20)
-      ),
-      { { "aa", 1, 6 }, { "bb", 2, 13 } }
-    )
-  end)
+  t.test(
+    "label_placements drops the less-present label when two can't both sit on-block",
+    function()
+      -- aa and bb are on adjacent 3-cell blocks (cols 7-9, 10-12); already at their 2-char floor there
+      -- is nothing to shorten, so bb is dropped rather than shown off its block.
+      t.eq(
+        cols(
+          timebar.label_placements({ mkgap(6), mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 20)
+        ),
+        { { "aa", 1, 7 } }
+      )
+    end
+  )
 
-  t.test("label_placements packs a pooled cluster from the edge when it must", function()
-    -- aa + bb fill the whole width (Σ label widths == width): packed from col 1.
+  t.test("label_placements drops a label it cannot place on its block at the edge", function()
     t.eq(
       cols(timebar.label_placements({ mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 14)),
-      { { "aa", 1, 1 }, { "bb", 2, 8 } }
+      { { "aa", 1, 1 } }
     )
   end)
 
-  t.test("label_placements sits a label over its LARGEST segment", function()
-    -- "a" appears as a width-2 and a width-5 segment; its label goes over the width-5 one.
+  t.test("label_placements sits a label over its LARGEST feasible segment", function()
+    -- "a" appears as a width-2 and a width-5 segment; its label anchors over the width-5 one (rank 0).
     t.eq(
       cols(timebar.label_placements({ mkseg(2, 1, "a"), mkseg(10, 2, "b"), mkseg(5, 1, "a") }, 40)),
-      { { "b", 2, 7 }, { "a", 1, 15 } }
+      { { "b", 2, 7 }, { "a", 1, 14 } }
     )
+  end)
+
+  t.test("label_placements migrates a label off its widest segment to show it in full", function()
+    -- A's widest block is bl0 (width 12), but B's narrow block sits right after it: anchoring there would
+    -- force shortening A's long text. Its roomier width-8 occurrence fits A whole, so A migrates there
+    -- (hiding no characters beats sitting on the bigger block) and both are shown.
+    t.eq(
+      cols(timebar.label_placements({
+        mkseg(12, 1, "AAAAAAAAAAA"),
+        mkseg(2, 2, "B"),
+        mkgap(16),
+        mkseg(8, 1, "AAAAAAAAAAA"),
+        mkgap(12),
+      }, 50)),
+      { { "B", 2, 13 }, { "AAAAAAAAAAA", 1, 34 } }
+    )
+  end)
+
+  t.test("label_placements shortens a blocking label so its neighbour is kept", function()
+    -- "activityone" (11 chars) sits at bl0 with "two" jammed onto the 2-cell block right after it. Rather
+    -- than drop "two", the long label is shortened (…) to clear the swatch, so both stay on-colour.
+    local placed =
+      timebar.label_placements({ mkseg(12, 1, "activityone"), mkseg(2, 2, "two"), mkgap(6) }, 20)
+    t.eq(#placed, 2) -- both kept
+    t.eq(placed[1].color_index, 1)
+    t.ok(placed[1].text:sub(-3) == "…", "the blocking label is shortened with an ellipsis")
+    t.eq(placed[2].text, "two") -- the neighbour survives in full
   end)
 
   t.test("label_placements abbreviates then drops the least-present when crowded", function()
-    -- alpha (footprint 8) and beta (footprint 5) can't both fit in 13 cells; beta is dropped.
+    -- alpha + beta can't both fit in 13 cells; fit_legend drops beta before placement.
     t.eq(
       cols(timebar.label_placements({ mkseg(8, 1, "alpha"), mkseg(5, 2, "beta") }, 13)),
       { { "alpha", 1, 4 } }
     )
   end)
 
-  t.test("label_placements shows a single over-long label truncated at col 1", function()
-    t.eq(cols(timebar.label_placements({ mkseg(3, 1, "verylonglabel") }, 6)), { { "v…", 1, 1 } })
+  t.test("label_placements drops a single label too long to fit even truncated", function()
+    -- verylonglabel truncates to "v…" but swatch+footprint still exceeds a 6-cell bar: nothing shows.
+    t.eq(cols(timebar.label_placements({ mkseg(3, 1, "verylonglabel") }, 6)), {})
   end)
+
+  t.test(
+    "label_placements slides a right label to its block edge so a left label expands",
+    function()
+      -- "verylonglabel" at bl0-10 is followed by "short" on bl12-16 with open bar to its right. Instead of
+      -- sitting centred on its block and constricting the long label, "short" slides to its block's right
+      -- edge (col 16), donating the room so the long label grows to 9 chars rather than being cut to 7.
+      t.eq(
+        cols(
+          timebar.label_placements(
+            { mkseg(10, 1, "verylonglabel"), mkgap(2), mkseg(4, 2, "short"), mkgap(14) },
+            30
+          )
+        ),
+        { { "verylongl…", 1, 1 }, { "short", 2, 16 } }
+      )
+    end
+  )
 
   t.test("label_placements keeps double-width labels within their cell budget", function()
     -- Each abbreviated CJK label renders 12 cells; the two must tile the 24-cell bar without

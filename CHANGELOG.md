@@ -20,6 +20,17 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Changed
+
+- **The time bar places activity labels more cleverly.** Each label's colour swatch now sits *on* one of
+  its activity's segments (rather than the whole label being centred over it), and the segment is chosen
+  from *all* of the activity's occurrences to lay the row out best. When labels are crowded, a long label
+  is shortened (with `…`) rather than a neighbour dropped, and free bar space reflows leftward so a
+  constricted label can expand — a right label even slides to its own block's edge to make room. A label
+  is dropped only when even its shortest still-distinct form cannot sit anywhere on its colour.
+
 ## 0.16.1 - 2026-07-08
 
 ### Fixed

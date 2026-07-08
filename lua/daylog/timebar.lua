@@ -290,15 +290,6 @@ local function char_cells(ch)
   return 1
 end
 
--- The display width in cells of a whole string.
-local function text_cells(s)
-  local w = 0
-  for _, ch in ipairs(utf8_chars(s)) do
-    w = w + char_cells(ch)
-  end
-  return w
-end
-
 -- The number of leading characters two char arrays share.
 local function lcp(a, b)
   local n = math.min(#a, #b)
@@ -312,8 +303,6 @@ end
 local LEGEND_OVERHEAD = 5 -- per legend item besides the label: swatch (2) + a leading + two trailing
 local LEGEND_FLOOR = 3 -- never shave a label below this many characters (or its length, if shorter)
 local LEGEND_MARKER = "…" -- appended to a shortened label; one display cell
-local SWATCH_ANCHOR = 2 -- the label's colour swatch is 2 cells; centring IT (not the full footprint)
--- on a target lands the colour square on the alignment point, with the text flowing to its right.
 
 -- Fit legend `items` (in appearance order) into `width` cells: abbreviate the longest labels to a
 -- still-distinct "…"-marked prefix before dropping any, then drop from the tail. PURE.
@@ -420,38 +409,44 @@ function M.fit_legend(items, width)
   return out
 end
 
--- Place each distinct label once, its colour swatch centred over its widest segment (text to the
--- right), overlaps resolved optimally. This is
--- 1-D placement: minimise total squared displacement from the target centres subject to non-overlap =
--- isotonic regression, solved by Pool-Adjacent-Violators (PAVA); fit_legend first guarantees the
--- survivors fit `width`. All arithmetic is integer half-cells (×2), exact and deterministic. See
--- docs/architecture.md (Time bar). Returns { { text, color_index, col } } sorted by `col`.
-function M.label_placements(segments, width)
-  -- Distinct labels keyed by colour index: the centre (half-cells) of the WIDEST occurrence, total
-  -- footprint (eviction priority), and `appear` first-appearance tiebreak.
+local ASSIGNMENT_BUDGET = 20000 -- cap on the anchor-assignment search; trim to widest-few beyond it
+
+-- Gather each colour's occurrences (blocks as 0-based [bl, br)), total duration, and appearance order.
+local function label_occurrences(segments)
   local info, order, left = {}, {}, 0
   for _, seg in ipairs(segments) do
     if seg.label then
       local rec = info[seg.color_index]
       if not rec then
-        rec = { widest = -1, total = 0, label = seg.label, appear = #order + 1 }
+        rec = { label = seg.label, total = 0, appear = #order + 1, occ = {} }
         info[seg.color_index] = rec
         order[#order + 1] = seg.color_index
       end
       rec.total = rec.total + seg.width
-      if seg.width > rec.widest then
-        rec.widest = seg.width
-        rec.center2 = 2 * left + seg.width
-      end
+      rec.occ[#rec.occ + 1] = { bl = left, br = left + seg.width, width = seg.width }
     end
     left = left + seg.width
   end
+  return info, order
+end
+
+-- Place each distinct label once, its colour swatch on ONE of the activity's segments, and give it as
+-- much of its text as fits. fit_legend picks which activities are shown; then, over a bounded search of
+-- which occurrence each label anchors to, the layout minimises lexicographically:
+--   (1) labels dropped, (2) characters hidden (prefer full text), (3) Σ rank of the anchored occurrence
+--   (0 = the activity's longest segment), (4) duration dropped.
+-- Each label is packed at its shortest still-distinct form for feasibility -- so a blocker is SHORTENED,
+-- not its neighbour dropped -- then grown back toward full text into whatever slack remains; a label is
+-- dropped only when even its floor cannot sit on any of its blocks. Its swatch is centred on the block
+-- where room allows. Returns { { text, color_index, col } } sorted by col. PURE, deterministic.
+function M.label_placements(segments, width)
+  local info, order = label_occurrences(segments)
   if #order == 0 then
     return {}
   end
 
-  -- Feed fit_legend in total-footprint order (appearance tiebreak) so it keeps the most-present, evicts
-  -- the tail.
+  -- fit_legend decides which activities show (dropping the least-present when even minimal labels can't
+  -- all fit the width); presence order feeds it.
   local by_presence = {}
   for _, ci in ipairs(order) do
     local rec = info[ci]
@@ -465,86 +460,203 @@ function M.label_placements(segments, width)
     return a.appear < b.appear
   end)
 
-  -- Placement items: target centre + width recomputed from the (possibly abbreviated) returned text.
-  local items = {}
+  -- Candidates: char array + cell prefix sums (to price any prefix length) + occurrences ranked
+  -- longest-first (rank 0 = longest).
+  local cands = {}
   for _, fit in ipairs(M.fit_legend(by_presence, width)) do
     local rec = info[fit.color_index]
-    items[#items + 1] = {
-      text = fit.text,
+    local chars = utf8_chars(rec.label)
+    local sums = { [0] = 0 }
+    for k = 1, #chars do
+      sums[k] = sums[k - 1] + char_cells(chars[k])
+    end
+    local occ = {}
+    for _, o in ipairs(rec.occ) do
+      occ[#occ + 1] = { bl = o.bl, br = o.br, width = o.width }
+    end
+    table.sort(occ, function(a, b)
+      if a.width ~= b.width then
+        return a.width > b.width
+      end
+      return a.bl < b.bl
+    end)
+    for r = 1, #occ do
+      occ[r].rank = r - 1
+    end
+    cands[#cands + 1] = {
       color_index = fit.color_index,
-      center2 = rec.center2,
-      w = LEGEND_OVERHEAD + text_cells(fit.text),
+      chars = chars,
+      cells = sums,
+      full = #chars,
+      total = rec.total,
       appear = rec.appear,
+      occ = occ,
     }
   end
-  table.sort(items, function(a, b)
-    if a.center2 ~= b.center2 then
-      return a.center2 < b.center2
+  local n = #cands
+  if n == 0 then
+    return {}
+  end
+  -- Shortest still-distinct prefix each label may shrink to (floored at LEGEND_FLOOR).
+  for i, c in ipairs(cands) do
+    local distinct = 1
+    for j, d in ipairs(cands) do
+      if i ~= j then
+        distinct = math.max(distinct, lcp(c.chars, d.chars) + 1)
+      end
     end
+    c.min_len = math.min(c.full, math.max(LEGEND_FLOOR, distinct))
+  end
+  table.sort(cands, function(a, b)
     return a.appear < b.appear
   end)
 
-  local n = #items
-  local sum_w = 0
-  for _, it in ipairs(items) do
-    sum_w = sum_w + it.w
+  -- Footprint (cells) of showing `a` chars of `c`: overhead + prefix cells + ellipsis when shortened.
+  local function footprint(c, a)
+    return LEGEND_OVERHEAD + c.cells[a] + (a < c.full and 1 or 0)
   end
-
-  -- keep==0 corner: a single label wider than the whole bar; place at col 1, shell drops if it overflows.
-  if sum_w > width then
-    local out = {}
-    for i = 1, n do
-      out[i] = { text = items[i].text, color_index = items[i].color_index, col = 1 }
+  -- Longest prefix length in [min_len, full] whose footprint fits `cap`, or nil if even min_len overflows.
+  local function fit_len(c, cap)
+    if footprint(c, c.min_len) > cap then
+      return nil
     end
-    return out
-  end
-
-  -- Isotonic targets in half-cells: anchor each label's SWATCH (not its whole footprint) on the target
-  -- centre, so t_i = centre_i - SWATCH_ANCHOR - Σ_{j<i} 2·w_j; the full width w still drives non-overlap.
-  local xmax = 2 * (width - sum_w)
-  local t, prefix2 = {}, 0
-  for i = 1, n do
-    t[i] = items[i].center2 - SWATCH_ANCHOR - prefix2
-    prefix2 = prefix2 + 2 * items[i].w
-  end
-
-  -- PAVA: pooled blocks (sum, count) over the targets; merge while the previous block's mean strictly
-  -- exceeds the current (integer cross-multiply).
-  local blocks = {}
-  for i = 1, n do
-    local cur = { sum = t[i], count = 1 }
-    while #blocks >= 1 and blocks[#blocks].sum * cur.count > cur.sum * blocks[#blocks].count do
-      local top = table.remove(blocks)
-      cur = { sum = top.sum + cur.sum, count = top.count + cur.count }
+    local a = c.min_len
+    while a < c.full and footprint(c, a + 1) <= cap do
+      a = a + 1
     end
-    blocks[#blocks + 1] = cur
+    return a
   end
 
-  -- Snap to integer cells, forward de-overlap. Block value x = clamp(sum/count, 0, xmax); L_i = x +
-  -- Σ_{j<i} 2·w_j, rounded.
-  local suffix_w, s = {}, 0
-  for i = n, 1, -1 do
-    s = s + items[i].w
-    suffix_w[i] = s
-  end
-  local out, idx, prefixw, right = {}, 0, 0, 0
-  for _, blk in ipairs(blocks) do
-    for _ = 1, blk.count do
-      idx = idx + 1
-      local it = items[idx]
-      local want
-      if blk.sum <= 0 then
-        want = prefixw -- x = 0
-      elseif blk.sum >= xmax * blk.count then
-        want = math.floor(xmax / 2) + prefixw -- x = xmax (even)
-      else
-        want = math.floor((blk.sum + 2 * prefixw * blk.count + blk.count) / (2 * blk.count)) -- round half up
+  -- Bound the search: trim the busiest label's narrowest occurrences until the product of choices fits.
+  local function over_budget()
+    local p = 1
+    for _, c in ipairs(cands) do
+      p = p * #c.occ
+      if p > ASSIGNMENT_BUDGET then
+        return true
       end
-      local col_left = math.min(math.max(want, right), width - suffix_w[idx])
-      out[#out + 1] = { text = it.text, color_index = it.color_index, col = col_left + 1 }
-      right = col_left + it.w
-      prefixw = prefixw + it.w
     end
+    return false
+  end
+  while over_budget() do
+    local pick, most = nil, 1
+    for i, c in ipairs(cands) do
+      if #c.occ > most then
+        most, pick = #c.occ, i
+      end
+    end
+    if not pick then
+      break
+    end
+    table.remove(cands[pick].occ)
+  end
+
+  -- Evaluate one assignment (choice[i] = occurrence for cand i). Pass 1: pack each label at its FLOOR
+  -- footprint, leftmost, its swatch overlapping its block and clearing the previous; a label whose floor
+  -- can't fit is dropped, and its leftmost floor column is kept in `s`. Pass 2 (right-to-left): grow each
+  -- shown label's text into the room a RIGHT-ALIGNED right neighbour leaves (past the left labels'
+  -- reserved floors) -- so free space to the right flows left to whoever can still use it, rather than
+  -- stranding it behind a right label pinned near its centre. Returns drops, hidden chars, Σrank, dropped
+  -- duration, and the placed list { c, o, s, len } in block order.
+  local function evaluate(choice)
+    local seq = {}
+    for i = 1, n do
+      seq[#seq + 1] = { c = cands[i], o = choice[i] }
+    end
+    table.sort(seq, function(a, b)
+      if a.o.bl ~= b.o.bl then
+        return a.o.bl < b.o.bl
+      end
+      return a.c.appear < b.c.appear
+    end)
+    local placed, drops, sum_rank, drop_dur, prev_right = {}, 0, 0, 0, 0
+    for _, e in ipairs(seq) do
+      local c, o = e.c, e.o
+      local floor_w = footprint(c, c.min_len)
+      local s = math.max(prev_right, math.max(0, o.bl - 1))
+      if s <= o.br - 1 and s + floor_w <= width then
+        placed[#placed + 1] = { c = c, o = o, s = s }
+        sum_rank = sum_rank + o.rank
+        prev_right = s + floor_w
+      else
+        drops = drops + 1
+        drop_dur = drop_dur + c.total
+      end
+    end
+    local hidden, bound = 0, width
+    for i = #placed, 1, -1 do
+      local p = placed[i]
+      -- `bound - p.s` is the span from this label's reserved-floor column to the right neighbour's
+      -- right-aligned swatch: the most text it can show.
+      p.len = fit_len(p.c, bound - p.s) or p.c.min_len
+      hidden = hidden + (p.c.full - p.len)
+      bound = math.min(p.o.br - 1, bound - footprint(p.c, p.len))
+    end
+    return drops, hidden, sum_rank, drop_dur, placed
+  end
+
+  -- Odometer over occurrence choices; keep the lexicographically best (drops, hidden, Σrank, drop-dur).
+  local idx = {}
+  for i = 1, n do
+    idx[i] = 1
+  end
+  local best, best_placed
+  while true do
+    local choice = {}
+    for i = 1, n do
+      choice[i] = cands[i].occ[idx[i]]
+    end
+    local drops, hidden, sum_rank, drop_dur, placed = evaluate(choice)
+    local key = { drops, hidden, sum_rank, drop_dur }
+    if not best then
+      best, best_placed = key, placed
+    else
+      for k = 1, 4 do
+        if key[k] ~= best[k] then
+          if key[k] < best[k] then
+            best, best_placed = key, placed
+          end
+          break
+        end
+      end
+    end
+    local i = n
+    while i >= 1 do
+      idx[i] = idx[i] + 1
+      if idx[i] <= #cands[i].occ then
+        break
+      end
+      idx[i] = 1
+      i = i - 1
+    end
+    if i < 1 then
+      break
+    end
+  end
+
+  -- Position the winner's swatches now that lengths are fixed: the leftmost feasible packing (with the
+  -- grown text) is each swatch's floor; then right-to-left, centre each on its block, clamped so it never
+  -- shoves a left label off its block or overruns the next. A swatch slides off-centre only as far as a
+  -- neighbour genuinely needs the room. Text is truncated to its chosen length (+ ellipsis when shortened).
+  local m = #best_placed
+  local leftmost, prev_right = {}, 0
+  for i = 1, m do
+    local p = best_placed[i]
+    leftmost[i] = math.max(prev_right, math.max(0, p.o.bl - 1))
+    prev_right = leftmost[i] + footprint(p.c, p.len)
+  end
+  local out, next_left = {}, width
+  for i = m, 1, -1 do
+    local p = best_placed[i]
+    local fw = footprint(p.c, p.len)
+    local target = math.floor((p.o.bl + p.o.br) / 2) - 1
+    local s = math.max(leftmost[i], math.min(target, math.min(p.o.br - 1, next_left - fw)))
+    local t = table.concat(p.c.chars, "", 1, p.len)
+    if p.len < p.c.full then
+      t = t .. LEGEND_MARKER
+    end
+    out[i] = { text = t, color_index = p.c.color_index, col = s + 1 }
+    next_left = s
   end
   return out
 end
