@@ -39,6 +39,8 @@ happen, but they are called out clearly in this changelog.
   also re-emits the entry following an affected one, dropping a token that became redundant while
   keeping one that is still needed.
 
+## 0.16.0 - 2026-07-07
+
 ### Changed
 
 - **`:Daylog log` adds logging names independently instead of toggling off; unlog is `:Daylog! log`
