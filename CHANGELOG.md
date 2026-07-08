@@ -32,6 +32,12 @@ happen, but they are called out clearly in this changelog.
   commitments genuinely cannot all be honored falls back to honest quantization with the existing
   "commitments contradict" diagnostic instead of silently mis-footing. (Derived-output change for the
   affected logs.)
+- **`:Daylog rename` left a superfluous tag/location on the following entry.** Renaming a lone entry's
+  `#tag` (or `@location`) to match its surroundings correctly dropped that entry's now-inherited token,
+  but the entry after it kept the explicit token it only carried to switch *back* -- renaming `b #old`
+  to the ambient `#A` left the next line as `c #A` even though `c` now inherits `#A`. The rename now
+  also re-emits the entry following an affected one, dropping a token that became redundant while
+  keeping one that is still needed.
 
 ### Changed
 

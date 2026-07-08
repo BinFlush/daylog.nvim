@@ -1,5 +1,6 @@
 return function(t)
   local rename_summary = require("daylog.usecases.rename_summary")
+  local refresh_summaries = require("daylog.usecases.refresh_summaries")
 
   -- Apply an edit script to a line list exactly as the shell does
   -- (nvim_buf_set_lines with 0-based, end-exclusive indexes). The usecase returns
@@ -230,10 +231,12 @@ return function(t)
       "2.00h (+0m) workday",
     }, 11, "b")
 
+    -- After plan becomes #b, build inherits #b from it, so build's now-redundant explicit tag is
+    -- dropped -- the rename cleans up the follower's switch-back token rather than leaving it superfluous.
     t.eq(out, {
       "--- log ---",
       "08:00 plan #b",
-      "09:00 build #b",
+      "09:00 build",
       "10:00 done",
       "",
       "",
@@ -248,6 +251,38 @@ return function(t)
       "2.00h (+0m) workday",
     })
   end)
+
+  t.test(
+    "a tag rename drops a follower's redundant switch-back tag but keeps a distinct one",
+    function()
+      local raw = {
+        "--- log #A ---",
+        "08:00 a",
+        "09:00 b #old",
+        "10:00 c #A", -- explicit only to switch back from b's #old
+        "10:30 d #Z", -- genuinely switches away
+        "11:00 done",
+      }
+      local refreshed = apply(raw, refresh_summaries.run(raw))
+      local out = apply(
+        refreshed,
+        rename_summary.run_by_value(refreshed, { kind = "tag", current = "old" }, "A")
+      )
+      local entries = {}
+      for _, l in ipairs(out) do
+        if l:match("^%d%d:%d%d") then
+          entries[#entries + 1] = l
+        end
+      end
+      t.eq(entries, {
+        "08:00 a",
+        "09:00 b", -- renamed old -> A; inherits, tag dropped
+        "10:00 c", -- redundant after b -> A; dropped
+        "10:30 d #Z", -- still needed; kept
+        "11:00 done",
+      })
+    end
+  )
 
   t.test("resolve returns the other tags as merge candidates", function()
     local target = rename_summary.resolve({

@@ -208,8 +208,14 @@ local function build_source_edits(block, ops)
   -- the rename applied to each resolved value at format time, so renaming the result equals
   -- inheriting an already-renamed current. The UTC offset is threaded raw (untouched); an
   -- entry that only inherited the renamed value renders identically and skip_unchanged drops it.
-  local edits = support.rewrite_entry_lines(block, function(item, resolved)
-    if not ops.affected(item) then
+  local edits = support.rewrite_entry_lines(block, function(item, resolved, prev)
+    -- Re-emit an affected entry, and also the entry FOLLOWING one: renaming a predecessor's effective
+    -- tag/location can make the follower's explicit token redundant (it now inherits the renamed value)
+    -- or newly needed. skip_unchanged drops the re-emission unless the follower's canonical line
+    -- actually changed, so only a follower that truly needs it is rewritten. `ops.affected(prev)`
+    -- reuses the per-kind predicate on the predecessor's resolved sticky (never true for an item rename,
+    -- which leaves tags/locations untouched).
+    if not (ops.affected(item) or ops.affected(prev)) then
       return nil
     end
     return {
