@@ -31,6 +31,13 @@ happen, but they are called out clearly in this changelog.
   constricted label can expand — a right label even slides to its own block's edge to make room. A label
   is dropped only when even its shortest still-distinct form cannot sit anywhere on its colour.
 
+### Fixed
+
+- **Repeating from a summary row no longer brings in a hidden mapping.** `:Daylog repeat` on a main
+  summary row (same day, or across days into today) now inserts the resolved label you actually see in
+  the summary as a plain unmapped entry, instead of copying the source entry's `description => alias`
+  pair. Repeating an entry line directly is unchanged — it still reproduces the mapping.
+
 ## 0.16.1 - 2026-07-08
 
 ### Fixed

@@ -8,6 +8,7 @@ local M = {}
 
 function M.run(lines, row, time, auto_offset)
   local ctx, err = support.get_validated_at_row(lines, row)
+  local from_summary = false
 
   if not ctx then
     -- A cursor on a summary row maps back to its source entry; a nil summary error means the
@@ -17,6 +18,7 @@ function M.run(lines, row, time, auto_offset)
       return nil, summary_err or err
     end
 
+    from_summary = true
     row = entry_row
     ctx, err = support.get_validated_at_row(lines, row)
     if not ctx then
@@ -27,6 +29,12 @@ function M.run(lines, row, time, auto_offset)
   local current_item = support.entry_item_at_row(ctx.block, row)
   if not current_item then
     return nil, "daylog: current line is not a valid entry"
+  end
+
+  -- The summary shows only the resolved label, so repeating from it brings that in as a bare entry --
+  -- never the source row's hidden `lhs => rhs` mapping.
+  if from_summary then
+    current_item = support.resolved_bare_item(current_item)
   end
 
   local minutes, minutes_err = support.parse_clock_minutes(time)

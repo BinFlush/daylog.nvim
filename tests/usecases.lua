@@ -525,6 +525,57 @@ return function(t)
     })
   end)
 
+  t.test(
+    "repeat_current from a summary row brings in the resolved label, not the mapping",
+    function()
+      -- The mapped entry "fix login => Auth work" reports under "Auth work"; repeating that summary row
+      -- brings in the resolved label as a plain unmapped entry, never the hidden `lhs => rhs`.
+      local result = repeat_current.run({
+        "--- log ---",
+        "08:00 fix login => Auth work",
+        "09:00 review",
+        "10:00 done",
+        "",
+        "--- summary q=15 d=dec ---",
+        "1.00h (+0m) Auth work",
+        "1.00h (+0m) review",
+        "",
+        "--- totals ---",
+        "2.00h (+0m) workday",
+      }, 7, "11:30")
+
+      t.eq(result, {
+        edits = {
+          { start_index = 4, end_index = 4, lines = { "11:30 Auth work" } },
+        },
+      })
+    end
+  )
+
+  t.test("repeat_current on the mapped entry itself keeps the mapping", function()
+    -- Repeating the source entry directly (cursor on the entry, not the summary) reproduces it
+    -- verbatim, mapping and all -- only the summary path resolves to bare.
+    local result = repeat_current.run({
+      "--- log ---",
+      "08:00 fix login => Auth work",
+      "09:00 review",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) Auth work",
+      "1.00h (+0m) review",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    }, 2, "11:30")
+
+    t.eq(result, {
+      edits = {
+        { start_index = 4, end_index = 4, lines = { "11:30 fix login => Auth work" } },
+      },
+    })
+  end)
+
   t.test("repeat_current refuses a non-main summary row", function()
     local result, err = repeat_current.run({
       "--- log #ClientA @office ---",
@@ -592,6 +643,29 @@ return function(t)
     }, 6)
 
     t.eq(activity.text, "planning")
+    t.eq(activity.tag, "ClientA")
+  end)
+
+  t.test("carryover.entry_at_row from a summary row carries the resolved label bare", function()
+    -- The mapped entry reports under its alias "Auth work"; the cross-day repeat carries that resolved
+    -- label in, not the source's description or its `=> alias` mapping.
+    local activity = carryover.entry_at_row({
+      "--- log #ClientA ---",
+      "08:00 fix login => Auth work",
+      "09:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) Auth work",
+      "",
+      "--- tags ---",
+      "1.00h (+0m) #ClientA",
+      "",
+      "--- totals ---",
+      "1.00h (+0m) workday",
+    }, 6)
+
+    t.eq(activity.text, "Auth work")
+    t.eq(activity.alias, nil) -- carried in bare, no mapping leaks
     t.eq(activity.tag, "ClientA")
   end)
 

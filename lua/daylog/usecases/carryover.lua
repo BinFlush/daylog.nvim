@@ -59,7 +59,9 @@ function M.entry_at_row(lines, row)
   if entry_row then
     local resolved = item_at_row(lines, entry_row)
     if resolved then
-      return activity_from_item(resolved)
+      -- A summary row shows only the resolved label, so carry that in bare (see support), not the
+      -- source entry's description-plus-mapping.
+      return activity_from_item(support.resolved_bare_item(resolved))
     end
   end
 

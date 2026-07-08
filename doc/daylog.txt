@@ -523,9 +523,10 @@ files untouched.
 :Daylog repeat
 
 Repeat the activity under the cursor at the current time.
-- The cursor must be on a timestamped entry, or on a main summary row (the latest
-  source entry that produced the row is repeated, so an activity can be resumed
-  straight from the summary; tag, location, and total rows are not eligible).
+- The cursor must be on a timestamped entry, or on a main summary row. From a summary
+  row only the resolved label shown there is brought in -- as a plain unmapped entry,
+  never a hidden `=> alias` mapping -- carrying the tag/location of the latest source
+  entry that produced the row (tag, location, and total rows are not eligible).
 - The entry is inserted in chronological order; sticky tag and location meaning are
   preserved, with clear tokens emitted when needed.
 

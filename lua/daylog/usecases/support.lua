@@ -126,6 +126,16 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
   }
 end
 
+-- Repeating from a SUMMARY row brings in only what the summary shows -- the resolved label (its alias
+-- when mapped, else its description) as a plain unmapped entry, never a surprise `lhs => rhs`. Returns a
+-- copy of the source item carrying that resolved label as its text with the alias stripped.
+function M.resolved_bare_item(item)
+  local fields = analyze.copy_fields(item)
+  fields.text = summary.entry_summary_text(item)
+  fields.alias = nil
+  return fields
+end
+
 -- Build the edit for a fresh entry repeating `source` at `minutes`: copy the source's metadata
 -- (alias included) but take the new time, dropping any logged / round±N marker -- a repeat or
 -- carryover is a new entry, not a continuation of the commitment. A drifted live offset
