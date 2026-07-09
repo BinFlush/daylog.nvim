@@ -162,6 +162,7 @@ quantize.lua      -> largest-remainder rounding arithmetic
 summary_block.lua -> locate a log's single generated summary region
 render.lua        -> output rendering
 export.lua        -> machine-readable CSV/JSON export of a report (pure)
+commit_audit.lua  -> classify a git commit's .day changes (notes/today/other-day) (pure)
 week.lua          -> daybook week/days report assembly (reuses the reporting core)
 highlight.lua     -> parser-driven highlight spans (pure)
 text.lua          -> small shared text predicates (e.g. is_empty)
@@ -177,6 +178,7 @@ rename.lua        -> shell: rename picker / confirm / multi-file write
 map.lua           -> shell: mapping picker
 pick.lua          -> shell: mixed-row picker (Telescope or vim.ui.select)
 daybook_io.lua    -> shell: daybook file IO and buffer/path resolution
+commit_audit_install.lua -> shell: write the daybook commit-audit post-commit hook
 current_time.lua  -> shell: current-time stamping + cross-day carryover
 filetype.lua      -> shell: filetype registration
 telescope.lua     -> shell: optional Telescope live-search picker (insert + rename)

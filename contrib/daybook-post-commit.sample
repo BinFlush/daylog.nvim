@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Example post-commit hook for your DAYBOOK repo (not daylog.nvim itself).
+#
+# Prefer the one-command installer, which bakes the path in for you:
+#   :lua require("daylog").install_commit_audit_hook()
+# This file is the manual alternative. It classifies each commit's .day changes and records a git note
+# (ref `daylog`); an other-day change (or one left with a daylog problem) also gets a
+# `daylog-other-day/<date>-<hash>` tag. Notes/tags are refs only, so gitwatch does not re-fire.
+#
+# Manual install: set the path below, copy this file to <daybook>/.git/hooks/post-commit, `chmod +x` it.
+set -euo pipefail
+
+# ┌─ EDIT THIS: absolute path to your installed daylog.nvim ─┐
+SCRIPT="$HOME/.local/share/nvim/lazy/daylog.nvim/scripts/commit-audit.lua"
+# └─────────────────────────────────────────────────────────┘
+
+# Fast path: a commit touching no .day file is trivially notes-only -- skip starting nvim.
+# --root so the very first (parentless) commit's added files are still seen.
+if git diff-tree --root --no-commit-id --name-only -r HEAD -- '*.day' | grep -q .; then
+  nvim --clean -l "$SCRIPT" commit HEAD || true
+else
+  git notes --ref=daylog add -f -m notes HEAD || true
+fi

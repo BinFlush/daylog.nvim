@@ -29,6 +29,13 @@ happen, but they are called out clearly in this changelog.
   looks like a path (contains a `/`, starts with `~`, or ends `.csv`/`.json`). Without a path it still
   opens the read-only preview buffer to yank or `:w` elsewhere. `require("daylog").export(format, range,
   path)` takes the optional `path` too.
+- **Optional commit audit.** A `post-commit` hook (`contrib/daybook-post-commit.sample`) classifies each
+  daybook commit by parsing its `.day` diff — `notes`, `today`, or `other-day` (the log changed for a day
+  other than the commit day) — recording a git note per commit (`git log --notes=daylog`) and tagging the
+  other-day commits `daylog-other-day/<date>-<hash>`. Only the active `--- log ---` block is compared, so
+  notes/summary edits stay `notes`. Install it from Neovim with
+  `require("daylog").install_commit_audit_hook()` (nothing to edit — the plugin path and your daybook.root
+  are filled in). See docs/version-control.md.
 
 ### Changed
 

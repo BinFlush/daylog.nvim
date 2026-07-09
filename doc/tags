@@ -27,6 +27,7 @@ daylog-autosave	daylog.txt	/*daylog-autosave*
 daylog-balance	daylog.txt	/*daylog-balance*
 daylog-blank-entry	daylog.txt	/*daylog-blank-entry*
 daylog-commands	daylog.txt	/*daylog-commands*
+daylog-commit-audit	daylog.txt	/*daylog-commit-audit*
 daylog-compatibility	daylog.txt	/*daylog-compatibility*
 daylog-config	daylog.txt	/*daylog-config*
 daylog-contents	daylog.txt	/*daylog-contents*

@@ -184,7 +184,9 @@ All optional. `defaults` seed each new day's header; `daybook.root` is where dat
 
 - `:help daylog.nvim` — format, commands, and every option.
 - Local version control of your daybook: pair `autosave` with [`gitwatch`](https://github.com/gitwatch/gitwatch)
-  for a hands-free, auto-committed git history — see [docs/version-control.md](docs/version-control.md).
+  for a hands-free, auto-committed git history — see [docs/version-control.md](docs/version-control.md). An
+  optional post-commit hook (`:lua require("daylog").install_commit_audit_hook()`) flags commits that
+  change time tracking for a day other than the commit day.
 - `:checkhealth daylog` — verify your setup.
 - daylog is pre-1.0; breaking changes are listed in [CHANGELOG.md](CHANGELOG.md). Pin a tag if you
   need stable `.day` parsing.

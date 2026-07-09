@@ -839,6 +839,8 @@ your own config all call the same code:
 - `order()`, `log()`, `balance(steps)`, `split(weights)`, `map(opts)`
   (`opts.value` / `opts.source` / `opts.clear` / `opts.range`), `rename(opts)`.
 - `refresh()`, `sync(source)`, `keys()`, `export(format, range, path)`.
+- `install_commit_audit_hook(opts)` -- write the daybook commit-audit `post-commit`
+  hook (see |daylog-commit-audit|); `opts.dir` / `opts.force` are optional.
 
 `when` and `range` accept the same strings the command does (|daylog-date-tokens|).
 
@@ -1192,6 +1194,22 @@ control. Pairing |daylog-autosave| with a watcher that auto-commits gives you a
 hands-free git history of your log. For a step-by-step setup -- `git init`, `gitwatch`,
 and a systemd user service -- see the guide at docs/version-control.md in the
 repository.
+
+                                                  *daylog-commit-audit*
+An optional `post-commit` hook classifies each daybook commit by parsing its `.day` diff:
+`notes` (only notes/summary changed), `today` (the active log's entries changed for the
+commit's own day), or `other-day` (they changed for another day -- the case worth review).
+It writes a git note per commit (`git log --notes=daylog`) and tags the other-day commits
+`daylog-other-day/<date>-<hash>` (`git tag -l 'daylog-other-day/*'`). Notes/tags are refs
+only, so gitwatch never re-fires.
+
+Install the hook from Neovim (nothing to edit -- the plugin path and your daybook.root are
+filled in): >
+
+  :lua require("daylog").install_commit_audit_hook()
+<
+`{ dir = <repo> }` targets another repo; `{ force = true }` replaces an existing hook. See
+the "Classify commits by time-tracking impact" section of docs/version-control.md.
 
                                                           *daylog-picker*
 `picker` tunes how a |daylog-sources| source's cached work items are ordered in

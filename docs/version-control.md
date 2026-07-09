@@ -87,6 +87,51 @@ user instance is already up.
 Not on systemd? Run `gitwatch -s 5 ~/daylog` under whatever keeps background jobs on
 your platform — launchd on macOS, a terminal multiplexer, or a `@reboot` cron entry.
 
+## 4. Classify commits by time-tracking impact (optional)
+
+A `post-commit` hook can parse each commit's `.day` diff and classify what it changed, so
+a commit that edits time tracking for a day other than the commit's own day is easy to
+find. Each commit is one of:
+
+- `notes` — no logged time changed (notes or the generated summary only);
+- `today` — the active log's entries changed for the commit's own day;
+- `other-day` — the active log's entries changed for another day.
+
+The classification is recorded as a **git note** (ref `daylog`) on every commit, and each
+`other-day` commit is tagged `daylog-other-day/<date>-<hash>`. Only the active `--- log ---`
+block is compared, so notes, the summary, and older logs never count as a time change.
+
+Install it from inside Neovim — daylog knows its own path and your `daybook.root`, so it
+writes the hook with everything filled in (nothing to edit):
+
+```vim
+:lua require("daylog").install_commit_audit_hook()
+```
+
+It refuses to overwrite an existing hook; pass `{ force = true }` to replace one, or
+`{ dir = "/path/to/repo" }` to target a repo other than `daybook.root`. (To wire it up by
+hand instead, copy `contrib/daybook-post-commit.sample` to `<daybook>/.git/hooks/post-commit`,
+set the path inside, and `chmod +x` it.)
+
+Review the results:
+
+```sh
+git log --notes=daylog                            # classification inline in the log
+git config notes.displayRef refs/notes/daylog     # ...or show notes by default
+git tag -l 'daylog-other-day/*'                   # just the commits flagged for review
+```
+
+Backfill existing history in one pass (the script self-locates the plugin, so it just needs
+its own path):
+
+```sh
+nvim --clean -l ~/.local/share/nvim/lazy/daylog.nvim/scripts/commit-audit.lua range HEAD~50..HEAD
+```
+
+The hook writes only git refs (notes and tags), never a working-tree file, so it does not
+trigger gitwatch. If your daybook has a remote, note that notes and tags are not pushed by
+default: `git push origin 'refs/notes/*' --tags`.
+
 ## Notes
 
 - Commits are **local by default**. To push to a remote as well, add `-r <remote>` to

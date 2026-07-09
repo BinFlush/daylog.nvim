@@ -51,6 +51,12 @@ M.insert_unified = insert.insert_unified
 M.report = report_buffers.report
 M.export = report_buffers.export
 
+-- Install the daybook post-commit audit hook (see docs/version-control.md). Lazy-required so this
+-- rarely-used tooling never loads on the common path.
+function M.install_commit_audit_hook(opts)
+  return require("daylog.commit_audit_install").run(opts)
+end
+
 -- Refresh the on-disk cache for one source, or every configured source.
 function M.sync(name)
   if name and name ~= "" then
