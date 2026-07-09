@@ -24,6 +24,11 @@ happen, but they are called out clearly in this changelog.
 
 ### Added
 
+- **Debounced autosave.** Set `autosave = <seconds>` in `setup()` to have a modified `.day` buffer write
+  itself to disk that many seconds after your last edit (each new edit resets the timer). Disabled by
+  default. It is a normal `:write`, so your `auto_summary` setting still governs the summary; only real
+  daylog buffers are touched, never the read-only report/export scratch buffers.
+
 - **`:Daylog log` works from a report.** `:Daylog log` / `:Daylog! log` on a row of a `:Daylog report`
   buffer now mark (or unlog) that item across the underlying day files — one file for a per-day row,
   every day of the period for an aggregate row — the same way `:Daylog rename` already fans out. Each

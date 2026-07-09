@@ -2,6 +2,7 @@
 
 local append_copy = require("daylog.usecases.append_copy")
 local auto_summary = require("daylog.auto_summary")
+local autosave = require("daylog.autosave")
 local balance_summary = require("daylog.usecases.balance_summary")
 local buffer = require("daylog.buffer")
 local commands = require("daylog.commands")
@@ -268,6 +269,7 @@ function M.setup(options)
   commands.register()
 
   auto_summary.setup(config.get().auto_summary)
+  autosave.setup(config.get().autosave)
   keymaps.setup()
 end
 

@@ -1019,6 +1019,7 @@ Configure `daylog.nvim` with:
     auto_summary = 'idle',
     active_indicator = true,
     auto_timezone = true,
+    autosave = 2,
     picker = { frecency_days = 30 },
   })
 <
@@ -1159,6 +1160,21 @@ no-op. Set `auto_timezone = false` to record offsets only when you type them.
 >
   require('daylog').setup({ auto_timezone = false })
 <
+
+                                                          *daylog-autosave*
+`autosave` writes a modified `.day` buffer to disk automatically, a configurable
+number of seconds after your last edit -- each new edit resets the timer. It is
+optional and disabled by default; set it to a positive number of seconds (fractional
+allowed) to enable.
+
+>
+  require('daylog').setup({ autosave = 2 })
+<
+
+It performs a normal `:write`, so your |daylog-auto-summary| setting still governs the
+summary (under `change` it has already refreshed by the time autosave fires; under
+`save` the write itself refreshes it). Only real, modified daylog buffers are written --
+never the read-only |:Daylog-report| / |:Daylog-export| scratch buffers.
 
                                                           *daylog-picker*
 `picker` tunes how a |daylog-sources| source's cached work items are ordered in

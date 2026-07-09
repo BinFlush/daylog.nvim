@@ -8,6 +8,7 @@ local current = {
   active_indicator = true,
   auto_timezone = true,
   keymaps = false,
+  autosave = false,
 }
 
 local AUTO_SUMMARY_MODES = {
@@ -27,6 +28,10 @@ end
 
 local function positive_integer(value)
   return type(value) == "number" and value > 0 and value == math.floor(value)
+end
+
+local function positive_number(value)
+  return type(value) == "number" and value > 0
 end
 
 local function nonempty_string(value)
@@ -151,6 +156,20 @@ local function normalize_auto_summary(value)
 
   if type(value) ~= "string" or not AUTO_SUMMARY_MODES[value] then
     error("daylog: auto_summary must be one of off, change, idle, save")
+  end
+
+  return value
+end
+
+-- Debounced autosave: `false` (default) disables it; a positive number of seconds writes a modified
+-- `.day` buffer that many seconds after its last edit (each new edit resets the timer).
+local function normalize_autosave(value)
+  if value == nil or value == false then
+    return false
+  end
+
+  if not positive_number(value) then
+    error("daylog: autosave must be false or a positive number of seconds")
   end
 
   return value
@@ -426,6 +445,7 @@ local function normalize_config(options)
     keymaps = normalize_keymaps(options.keymaps),
     time_bar = normalize_time_bar(options.time_bar),
     time_bar_hover = normalize_time_bar_hover(options.time_bar_hover),
+    autosave = normalize_autosave(options.autosave),
   }
 
   local daybook = normalize_daybook(options.daybook)

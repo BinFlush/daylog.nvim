@@ -32,6 +32,7 @@ return function(t)
       keymaps = false,
       time_bar = false,
       time_bar_hover = false,
+      autosave = false,
     })
 
     config.setup()
@@ -43,6 +44,7 @@ return function(t)
       keymaps = false,
       time_bar = false,
       time_bar_hover = false,
+      autosave = false,
     })
   end)
 
@@ -95,6 +97,32 @@ return function(t)
     config.setup()
   end)
 
+  t.test("config setup accepts an autosave delay and defaults it off", function()
+    config.setup({ autosave = 2 })
+    t.eq(config.get().autosave, 2)
+
+    config.setup({ autosave = 1.5 }) -- fractional seconds allowed
+    t.eq(config.get().autosave, 1.5)
+
+    config.setup({ autosave = false })
+    t.eq(config.get().autosave, false)
+
+    config.setup()
+    t.eq(config.get().autosave, false) -- disabled by default
+  end)
+
+  t.test("config setup validates autosave", function()
+    for _, bad in ipairs({ 0, -1, "2", true }) do
+      local ok, err = pcall(config.setup, { autosave = bad })
+      t.ok(not ok, "autosave = " .. tostring(bad) .. " is rejected")
+      t.ok(
+        tostring(err):match("autosave must be false or a positive number of seconds") ~= nil,
+        tostring(err)
+      )
+    end
+    config.setup()
+  end)
+
   t.test("config setup validates daybook settings", function()
     local ok, err = pcall(config.setup, {
       daybook = "bad",
@@ -136,6 +164,7 @@ return function(t)
       keymaps = false,
       time_bar = false,
       time_bar_hover = false,
+      autosave = false,
     })
 
     config.setup()
