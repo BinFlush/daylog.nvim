@@ -7,24 +7,6 @@ function M.round_to_nearest_bucket(minutes, bucket_minutes)
   return math.floor((minutes + (bucket_minutes / 2)) / bucket_minutes) * bucket_minutes
 end
 
--- The quantization target: frozen (`logged_minutes`) rows are held at their committed value, the
--- un-frozen rows round to their OWN nearest-bucket total, and the two are summed. So the day total is
--- the honest sum of the displayed parts, never a frozen row nudging an un-frozen one.
-function M.frozen_aware_target(rows, bucket_minutes)
-  local frozen_total = 0
-  local unfrozen_unrounded = 0
-
-  for _, row in ipairs(rows) do
-    if row.logged_minutes ~= nil then
-      frozen_total = frozen_total + row.logged_minutes
-    else
-      unfrozen_unrounded = unfrozen_unrounded + (row.unrounded_duration or row.duration)
-    end
-  end
-
-  return M.round_to_nearest_bucket(unfrozen_unrounded, bucket_minutes) + frozen_total
-end
-
 local function copy_rows(rows)
   local result = {}
 
@@ -118,12 +100,6 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   end
 
   return result
-end
-
--- Quantize fine-grained rows as daylog reports them (frozen_aware_target). The single entry point the
--- display and committed-value readers share, so they cannot drift apart.
-function M.quantize_fine_grained(rows, bucket_minutes)
-  return M.quantize_rows(rows, bucket_minutes, M.frozen_aware_target(rows, bucket_minutes))
 end
 
 -- Quantize granules under cell-level commitments. Two passes: (1) honest largest-remainder over all

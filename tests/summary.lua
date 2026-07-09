@@ -692,6 +692,48 @@ return function(t)
     t.eq(thing_one("09:00 thing two round-1 !S[]60"), 60) -- thing two frozen: still 60, not 75
   end)
 
+  t.test(
+    "fine_grained_quantized gives an un-frozen row the value it displays, not its own round",
+    function()
+      -- The reported bug. Three activities are committed 8 min BELOW their honest rounding (225/150/75;
+      -- honest 223/154/81), so the lone un-frozen "status" (honest 52) absorbs the leftover buckets on the
+      -- display -> 60. fine_grained must report that same 60 (what :Daylog log freezes), not status's own
+      -- honest round of 45 -- committing 45 strands a spurious 0.25h remainder.
+      local block = block_from_lines({
+        "--- log q=15 d=dec ---",
+        "08:00 a !S[x]225",
+        "08:39 a !S[x]225",
+        "09:00 a !S[x]225",
+        "09:17 a !S[x]225",
+        "09:26 b !S[x]150",
+        "09:42 b !S[x]150",
+        "11:31 b !S[x]150",
+        "12:00 a !S[x]225",
+        "13:19 a !S[x]225",
+        "13:56 a !S[x]225",
+        "14:10 a !S[x]225",
+        "14:17 c !S[x]75",
+        "14:32 c !S[x]75",
+        "15:38 status",
+        "16:30",
+      })
+      -- The display shows status at 60...
+      for _, item in ipairs(summary.summarize_block(block).summary_items) do
+        if item.text == "status" then
+          t.eq(item.duration, 60)
+        end
+      end
+      -- ...and fine_grained agrees.
+      local status
+      for _, row in ipairs(summary.fine_grained_quantized(block.entries, block.quantize_minutes)) do
+        if row.text == "status" and not row.logged then
+          status = row.duration
+        end
+      end
+      t.eq(status, 60)
+    end
+  )
+
   t.test("logged_value_conflicts flags entries under one row that disagree on !S[]", function()
     -- Two "build" intervals fold into one row; the fold keeps only the first value, so
     -- disagreeing committed values are a conflict the shell must surface.

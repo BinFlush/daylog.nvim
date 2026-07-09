@@ -41,6 +41,12 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- **`:Daylog log` now freezes exactly the value the summary shows.** When some activities were already
+  logged with rounded values below their honest total, the remaining un-logged row absorbed the leftover
+  rounding on screen (e.g. displaying `1.00h`), but logging it committed a *different*, smaller value and
+  stranded a spurious remainder row. Logging (and `:Daylog balance`) now read the same rounding the
+  display renders, so the committed value always equals the displayed one and nothing is stranded.
+
 - **Repeating from a summary row no longer brings in a hidden mapping.** `:Daylog repeat` on a main
   summary row (same day, or across days into today) now inserts the resolved label you actually see in
   the summary as a plain unmapped entry, instead of copying the source entry's `description => alias`

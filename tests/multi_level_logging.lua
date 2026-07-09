@@ -390,6 +390,51 @@ return function(t)
     t.eq(err, nil)
   end)
 
+  t.test(
+    "logging an un-frozen row absorbing frozen slack commits its displayed value, no strand",
+    function()
+      -- Reported bug: a/b/c are committed 8m below their honest rounding (225/150/75; honest 223/154/81),
+      -- so "status" (honest 52) displays 1.00h = 60, absorbing the slack. Logging must freeze 60 -- freezing
+      -- its own honest 45 would strand a spurious 0.25h status remainder.
+      local base = {
+        "--- log q=15 d=dec ---",
+        "08:00 a !S[x]225",
+        "08:39 a !S[x]225",
+        "09:00 a !S[x]225",
+        "09:17 a !S[x]225",
+        "09:26 b !S[x]150",
+        "09:42 b !S[x]150",
+        "11:31 b !S[x]150",
+        "12:00 a !S[x]225",
+        "13:19 a !S[x]225",
+        "13:56 a !S[x]225",
+        "14:10 a !S[x]225",
+        "14:17 c !S[x]75",
+        "14:32 c !S[x]75",
+        "15:38 status",
+        "16:30",
+      }
+      local rendered = support.apply_edits(base, refresh_summaries.run(base).edits)
+      local result = log_current.run_by_value(
+        rendered,
+        { level = "s", value = "status", names_key = "" },
+        { "x" }
+      )
+      local out = support.apply_edits(rendered, result.edits)
+
+      t.ok(has(out, "15:38 status !S[x]60"), "status frozen at its displayed 60, not 45")
+
+      local status_rows = 0
+      for _, l in ipairs(out) do
+        if l:match("%) status") then
+          status_rows = status_rows + 1
+        end
+      end
+      t.eq(status_rows, 1) -- exactly one logged summary row -- no stranded 0.25h remainder
+      t.ok(has(out, "1.00h (-8m) status !S[x]"), "status fully logged at 1.00h")
+    end
+  )
+
   t.test(":Daylog log marks a tag row with a chosen name-set, and refresh is idempotent", function()
     local src = { "--- log #obs q=15 d=dec ---", "08:00 hello", "09:00 done" }
     local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)

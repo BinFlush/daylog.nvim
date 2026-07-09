@@ -51,9 +51,7 @@ return function(t)
   t.test("quantize_rows holds a frozen row at its value and excludes it from the pool", function()
     -- Given a target, a frozen row is held at its committed value and pulled out of the
     -- pool; the leftover budget (target - frozen = 75 - 60 = 15) distributes over the
-    -- un-frozen rows. The target itself is the caller's business: summarize_entries now
-    -- derives it via frozen_aware_target (tested below), so this exact 75-budget only
-    -- arises when the un-frozen rows' own total is 15.
+    -- un-frozen rows. The target itself is the caller's business.
     local rows = {
       { unrounded_duration = 67, logged_minutes = 60 },
       { unrounded_duration = 2 },
@@ -89,42 +87,6 @@ return function(t)
       60
     )
     t.eq(result[1].duration, 60)
-  end)
-
-  t.test("frozen_aware_target is the plain rounded total when nothing is frozen", function()
-    -- No frozen rows -> the whole rounds to the nearest bucket, exactly as before.
-    t.eq(
-      quantize.frozen_aware_target({
-        { unrounded_duration = 60 },
-        { unrounded_duration = 68 },
-      }, 15),
-      135
-    )
-  end)
-
-  t.test("frozen_aware_target rounds only the un-frozen rows, then adds the commitments", function()
-    -- thing two (68m) is frozen at a manually-rounded 60; thing one (60m) is un-frozen.
-    -- The target is round(60) + 60 = 120, NOT round(128) = 135 -- so the un-frozen row
-    -- keeps its own honest 60 instead of being pushed up to absorb the frozen row's nudge.
-    t.eq(
-      quantize.frozen_aware_target({
-        { unrounded_duration = 60 },
-        { unrounded_duration = 68, logged_minutes = 60 },
-      }, 15),
-      120
-    )
-  end)
-
-  t.test("frozen_aware_target is the sum of commitments when every row is frozen", function()
-    -- All rows frozen -> nothing to round; the target is just the committed minutes,
-    -- even when a commitment is not bucket-aligned.
-    t.eq(
-      quantize.frozen_aware_target({
-        { unrounded_duration = 67, logged_minutes = 45 },
-        { unrounded_duration = 20, logged_minutes = 15 },
-      }, 30),
-      60
-    )
   end)
 
   t.test("project_rows groups by key fields and sums durations", function()

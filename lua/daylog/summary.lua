@@ -95,19 +95,6 @@ function M.closing_entry_row_for(entries, item)
   return nil
 end
 
--- The quantization base: preserves location so tag/location totals project from the same rows, and
--- accumulates each row's source-entry provenance.
-local function build_fine_grained_rows(intervals)
-  return projection.project_rows(
-    intervals,
-    { "text", "tag", "location", "logged", "s_names_key" },
-    { "text", "tag", "location", "logged", "logged_minutes", "s_names_key", "s_names" },
-    true,
-    -- All intervals of one row share its single nudge, so fold by value (max magnitude), never sum.
-    "max"
-  )
-end
-
 -- The cell an interval/granule belongs to at each level: activity (s), tag (t), location (l), or the
 -- whole day (`workday`, w).
 local function cell_key(row, level)
@@ -345,6 +332,10 @@ local function build_section_rows(quantized, intervals, key_fields, level, feasi
       local remainder = cell_total - committed_value
       local logged = with_fields(cell)
       logged.logged = true
+      -- The frozen commitment, so the fine-grained consumers (log/balance) can tell a committed slice
+      -- (held at this value) from a bare `!S` marker (plain branch, no `logged_minutes`). Inert for the
+      -- display, which reads only `duration`.
+      logged.logged_minutes = committed_value
       logged.duration = committed_value
       -- Keep the section's rows a partition of the cell's real: the logged row absorbs the unmarked real
       -- only when the remainder row is dropped (remainder 0), so residuals match every other section.
@@ -505,12 +496,24 @@ function M.summarize_block(block)
   return M.summarize_entries(block.entries, block.quantize_minutes)
 end
 
--- The quantized fine-grained rows (keyed by text+tag+location+logged, each with unrounded_duration,
--- quantized `duration`, current `nudge`, provenance) the balance calculator reasons over.
+-- The activity rows the logging and balance use cases reason over, split per
+-- (text, tag, location, s_names_key) with `source_entry_rows`, `nudge`, `unrounded_duration`, quantized
+-- `duration`, and `logged_minutes` on a committed slice. Built from the SAME granule quantization the
+-- display renders (location kept in the key so an `!S` value is committed per activity+location), so the
+-- value logging freezes always equals the value the summary shows -- they cannot drift apart.
 function M.fine_grained_quantized(entries, quantize_minutes)
   local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
-  local unrounded_rows = build_fine_grained_rows(build_intervals(entries))
-  return quantize.quantize_fine_grained(unrounded_rows, bucket_minutes), bucket_minutes
+  local intervals = build_intervals(entries)
+  local quantized, feasible =
+    quantize_granules(build_granules(intervals), intervals, bucket_minutes)
+  return build_section_rows(
+    quantized,
+    intervals,
+    { "text", "tag", "location", "s_names_key" },
+    "s",
+    feasible
+  ),
+    bucket_minutes
 end
 
 -- The quantized granules exactly as the displayed summary re-sums them, for callers judging

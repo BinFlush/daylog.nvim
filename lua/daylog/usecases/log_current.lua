@@ -1,5 +1,4 @@
 local analyze = require("daylog.analyze")
-local quantize = require("daylog.quantize")
 local render = require("daylog.render")
 local summary = require("daylog.summary")
 local summary_cursor = require("daylog.usecases.summary_cursor")
@@ -103,7 +102,7 @@ end
 -- is the SUM of both rows' displayed durations, written onto EVERY entry in the merged row. Keyed by
 -- activity identity (includes location) plus name-set, so each slice freezes on its own.
 local function frozen_values(block, target_rows, names)
-  local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+  local rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
   local chosen_key = syntax.names_key({ names = names })
 
   local logged_by_key = {}
@@ -125,17 +124,11 @@ local function frozen_values(block, target_rows, names)
       end
 
       if is_target then
+        -- Freeze the value the summary DISPLAYS: this unlogged slice's own displayed duration merged
+        -- with any already-logged same-activity same-name slice at its committed value. Both come from
+        -- the one display quantization, so the committed total equals the cell total -- nothing strands.
         local existing = logged_by_key[summary.activity_identity_key(row) .. "\0" .. chosen_key]
-        -- The unlogged target's own duration already reflects any nudge; only the EXISTING frozen
-        -- row needs its honest rounded duration in place of its committed value -- a commitment below
-        -- the row's own rounded duration would otherwise drop that uncommitted remainder, under-
-        -- committing the merge.
-        local existing_honest = existing
-          and quantize.round_to_nearest_bucket(
-            existing.unrounded_duration or existing.duration,
-            bucket_minutes
-          )
-        local combined = row.duration + (existing_honest or 0)
+        local combined = row.duration + (existing and existing.duration or 0)
         for _, source_row in ipairs(row.source_entry_rows or {}) do
           frozen[source_row] = combined
         end
