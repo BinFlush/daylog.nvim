@@ -140,11 +140,7 @@ local function open_export(spec, format, path)
   local text = export[format](report)
 
   if path and path ~= "" then
-    local rows = 0
-    for _, day in ipairs(report.days) do
-      rows = rows + #day.activity_rows
-    end
-    return write_export(text, path, rows)
+    return write_export(text, path, export.row_count(report))
   end
 
   local name = "daylog-export-" .. (spec.request_label or "export") .. "." .. format

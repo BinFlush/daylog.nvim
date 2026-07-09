@@ -1,15 +1,31 @@
--- Machine-readable export of a report's summary into CSV or JSON (PURE). One row per
--- (day, activity, tag, location): quantized minutes, decimal hours, whether the slice is logged, and the
--- `!S` recipient names it was reported to; takes a report from week.build_dates_report (each day carries
--- `activity_rows`, the location-split projection).
+-- Machine-readable export of a report's generated summary block into CSV or JSON (PURE). One row per
+-- summary-block row, tagged by a `level` column (activity / tag / location / workday): the quantized
+-- minutes + hours, the residual (real elapsed minutes and the `(±Nm)` rounding delta), whether the slice
+-- is logged, and the recipient names it was reported to. Takes a report from week.build_dates_report
+-- (each day carries `activity_rows`, the location-split projection, plus `summary` totals sections).
 
 local M = {}
 
-local FIELDS = { "date", "activity", "tag", "location", "minutes", "hours", "logged", "logged_to" }
+local FIELDS = {
+  "date",
+  "level",
+  "activity",
+  "tag",
+  "location",
+  "minutes",
+  "hours",
+  "unrounded_minutes",
+  "error_minutes",
+  "logged",
+  "logged_to",
+}
 
--- The `!S` recipients an activity row was reported to: its name-set minus the unnamed `""` sentinel (the
--- `logged` flag already conveys "reported"), in the canonical sorted order the names already carry. A
--- list, emitted comma-joined in CSV and as an array in JSON; empty for unlogged or logged-to-no-one.
+-- Sort order for the level discriminator.
+local LEVEL_RANK = { activity = 1, tag = 2, location = 3, workday = 4 }
+
+-- The recipients a row was reported to: its name-set minus the unnamed `""` sentinel (the `logged` flag
+-- already conveys "reported"), in the canonical sorted order the names already carry. A list, emitted
+-- comma-joined in CSV and as an array in JSON; empty for unlogged or logged-to-no-one.
 local function recipients(names)
   local out = {}
   if names then
@@ -31,28 +47,56 @@ local function decimal_hours(minutes)
   )
 end
 
--- Flatten a report into export rows -- one per (day, activity, tag, location) slice. Uses each day's
--- `activity_rows` (the location-split, display-consistent projection), so an activity logged at two
--- locations becomes one row per location. Sorted deterministically so the export is stable/diffable.
+-- One export row for a summary-block `item` at `level`; `keys` fills the activity/tag/location columns
+-- the level applies to (the rest stay empty).
+local function row_of(date, level, keys, item)
+  return {
+    date = date,
+    level = level,
+    activity = keys.activity or "",
+    tag = keys.tag or "",
+    location = keys.location or "",
+    minutes = item.duration,
+    hours = decimal_hours(item.duration),
+    unrounded_minutes = item.unrounded_duration or item.duration,
+    error_minutes = item.error_minutes or 0,
+    logged = item.logged == true,
+    logged_to = recipients(item.names),
+  }
+end
+
+-- Flatten a report into export rows: for each day, the four summary-block sections in turn -- activity
+-- (location-split), tag, location, and workday totals -- each carrying its own level's logged state and
+-- minutes. Sorted deterministically so the export is stable/diffable.
 local function rows(report)
   local out = {}
   for _, day in ipairs(report.days) do
-    for _, item in ipairs(day.activity_rows) do
-      out[#out + 1] = {
-        date = day.date_label,
-        activity = item.text,
-        tag = item.tag or "",
-        location = item.location or "",
-        minutes = item.duration,
-        hours = decimal_hours(item.duration),
-        logged = item.logged == true,
-        logged_to = recipients(item.names),
-      }
+    local date = day.date_label
+    for _, item in ipairs(day.activity_rows or {}) do
+      out[#out + 1] = row_of(
+        date,
+        "activity",
+        { activity = item.text, tag = item.tag, location = item.location },
+        item
+      )
+    end
+    local summary = day.summary or {}
+    for _, item in ipairs(summary.tag_totals or {}) do
+      out[#out + 1] = row_of(date, "tag", { tag = item.tag }, item)
+    end
+    for _, item in ipairs(summary.location_totals or {}) do
+      out[#out + 1] = row_of(date, "location", { location = item.location }, item)
+    end
+    for _, item in ipairs(summary.total_rows or {}) do
+      out[#out + 1] = row_of(date, "workday", {}, item)
     end
   end
   table.sort(out, function(a, b)
     if a.date ~= b.date then
       return a.date < b.date
+    end
+    if a.level ~= b.level then
+      return LEVEL_RANK[a.level] < LEVEL_RANK[b.level]
     end
     if a.activity ~= b.activity then
       return a.activity < b.activity
@@ -80,7 +124,8 @@ local FORMULA_PREFIX =
   { ["="] = true, ["+"] = true, ["-"] = true, ["@"] = true, ["\t"] = true, ["\r"] = true }
 
 -- RFC 4180: quote a field that holds a comma, quote, CR or LF; double any internal quote. Formula
--- prefixes are neutralized first, so the guard survives the quoting.
+-- prefixes are neutralized first, so the guard survives the quoting. Applied only to text/list cells --
+-- numbers (incl. a negative error_minutes) bypass it so `-10` is not rewritten to `'-10`.
 local function csv_field(value)
   local s = tostring(value)
   if s ~= "" and FORMULA_PREFIX[s:sub(1, 1)] then
@@ -92,14 +137,25 @@ local function csv_field(value)
   return s
 end
 
+-- The number of data rows the export emits (all levels), for the "exported N rows" notice.
+function M.row_count(report)
+  return #rows(report)
+end
+
 function M.csv(report)
   local lines = { table.concat(FIELDS, ",") }
   for _, row in ipairs(rows(report)) do
     local cells = {}
     for i, field in ipairs(FIELDS) do
       local value = row[field]
-      -- A list field (logged_to) becomes one comma-joined cell -- csv_field then quotes it (RFC 4180).
-      cells[i] = csv_field(type(value) == "table" and table.concat(value, ",") or value)
+      local kind = type(value)
+      if kind == "number" or kind == "boolean" then
+        cells[i] = tostring(value) -- numeric/flag cells skip the formula guard (keeps a signed number)
+      elseif kind == "table" then
+        cells[i] = csv_field(table.concat(value, ",")) -- logged_to: one comma-joined, then quoted
+      else
+        cells[i] = csv_field(value)
+      end
     end
     lines[#lines + 1] = table.concat(cells, ",")
   end
@@ -125,10 +181,10 @@ local function json_array(list)
   return "[" .. table.concat(items, ", ") .. "]"
 end
 
--- A field's JSON literal: minutes/hours as bare numbers, the flags as booleans, logged_to as an array of
--- strings, the rest as strings.
+-- A field's JSON literal: the minute counts as bare numbers, hours as a bare number, the flag as a
+-- boolean, logged_to as an array of strings, the rest as strings.
 local function json_value(field, value)
-  if field == "minutes" then
+  if field == "minutes" or field == "unrounded_minutes" or field == "error_minutes" then
     return tostring(value)
   elseif field == "hours" then
     return value -- already a locale-safe "N.NN" string -> a JSON number

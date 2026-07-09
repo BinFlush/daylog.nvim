@@ -482,25 +482,36 @@ or ends `.csv`/`.json`) writes the export straight to that file, creating parent
 directories, and reports how many rows were written. With no path the export opens in
 a read-only scratch buffer to yank or `:w` elsewhere.
 
-One row per activity per day (and per `@location`), carrying the report's quantized
-numbers:
+The export is a machine-readable dump of each day's generated summary block: one row per
+summary row, tagged by which section (`level`) it came from. Columns:
 - `date` -- the day (`YYYY-MM-DD`).
-- `activity` -- the resolved label (the `=> alias` when mapped, else the entry text).
-- `tag` -- the effective `#tag` (empty when none).
-- `location` -- the effective `@location` (empty when none); an activity split across
-  locations exports as one row per location.
+- `level` -- which summary section: `activity` (the `--- summary ---` rows), `tag`,
+  `location`, or `workday` (the totals row). Each level is a full partition of the counted
+  day, so FILTER by `level` -- do not sum across levels (they cover the same time).
+- `activity` -- the resolved label (`=> alias` when mapped, else the entry text); set on
+  `activity` rows only. The activity level is split per `@location`.
+- `tag` -- the effective `#tag`; set on `activity` and `tag` rows.
+- `location` -- the effective `@location`; set on `activity` and `location` rows.
 - `minutes` -- the quantized duration (what you bill, per that day's `q=`).
 - `hours` -- `minutes / 60`, to two decimals.
-- `logged` -- whether the row is reported to an external system (marked `!S`).
-- `logged_to` -- the `!S` recipient names (who it was reported to, e.g. `jira`);
-  empty when unlogged OR logged to no one -- `logged` disambiguates the two. CSV joins
-  the names with a comma; JSON is an array of strings.
+- `unrounded_minutes` -- the real elapsed minutes before quantization.
+- `error_minutes` -- the rounding residual the report shows as `(±Nm)` (= real - billed;
+  can be negative).
+- `logged` -- whether the row is reported to an external system (marked `!S`/`!T`/`!L`/`!W`
+  at its level).
+- `logged_to` -- the recipient names (who it was reported to, e.g. `jira`); empty when
+  unlogged OR logged to no one -- `logged` disambiguates the two. CSV joins the names with
+  a comma; JSON is an array of strings.
 
-CSV is RFC 4180 (a header row; fields holding a comma, quote, or newline are quoted).
-A field beginning `=` `+` `-` or `@` is prefixed with a `'` so a spreadsheet cannot
-treat a logged activity as a formula. JSON is a flat array of row objects (unaffected
-by the prefixing). `require("daylog").export(format, range, path)` returns the rendered
-string for scripting (see |daylog-lua|).
+A partially logged row exports as two rows: the reported slice (`logged` true, its
+recipients) and the unlogged remainder.
+
+CSV is RFC 4180 (a header row; fields holding a comma, quote, or newline are quoted). A
+text field beginning `=` `+` `-` or `@` is prefixed with a `'` so a spreadsheet cannot
+treat it as a formula (numeric columns are left as-is, so a negative `error_minutes` stays
+a number). JSON is a flat array of row objects (unaffected by the prefixing).
+`require("daylog").export(format, range, path)` returns the rendered string for scripting
+(see |daylog-lua|).
 
                                                         *:Daylog-insert*
 :Daylog[!] insert [source]

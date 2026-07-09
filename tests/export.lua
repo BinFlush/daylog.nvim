@@ -1,157 +1,126 @@
--- Pure tests for CSV/JSON export of a multi-day report: one row per (day, activity, tag, location),
--- sorted deterministically, with RFC-4180 CSV quoting + formula-injection guarding and a JSON encoding
--- whose numbers stay numbers. (The :Daylog export command / file-write path is exercised in
+-- Pure tests for CSV/JSON export as a full projection of the generated summary block: one row per
+-- (day, level) with the level's minutes, residual (unrounded + rounding error), logged state and
+-- recipients. Covers RFC-4180 quoting, the formula-injection guard (text only), the partial-log split,
+-- and that a negative error_minutes stays a bare number. (The command / file-write path is in
 -- tests/daybook_commands.lua.)
 return function(t)
   local week = require("daylog.week")
   local export = require("daylog.export")
 
-  -- Two days: a comma in an activity (quoting), a `!S[]` logged row, an ordinary `#ooo` tag row, and a
-  -- second day at a different q=, so quantized minutes flow straight through. No locations here.
-  local function sample_report()
-    return week.build_report({
-      {
-        date_label = "2026-06-29",
-        path = "a",
-        lines = {
-          "--- log #ClientA q=30 ---",
-          "08:00 plan, design",
-          "09:30 review !S[]",
-          "10:30 lunch #ooo",
-          "11:00 done",
-        },
-      },
-      {
-        date_label = "2026-06-30",
-        path = "b",
-        lines = { "--- log #ClientB q=15 ---", "09:00 standup", "09:30 done" },
-      },
-    })
+  local function report(lines)
+    return week.build_report({ { date_label = "2026-06-29", path = "a", lines = lines } })
   end
 
   -- A hand-built report for escaping/injection edge cases a real `.day` line can't hold (newlines etc.).
+  -- Only activity_rows are supplied, so the export emits activity-level rows alone.
   local function synthetic(activity_rows)
     return { days = { { date_label = "2026-01-01", activity_rows = activity_rows } } }
   end
 
-  t.test("export.csv renders one sorted, quantized row per activity, RFC-4180 quoted", function()
+  local HEADER =
+    "date,level,activity,tag,location,minutes,hours,unrounded_minutes,error_minutes,logged,logged_to"
+
+  -- One day exercising: a partial log (build feature 120m, only 60m reported to ado+jira), an unlogged
+  -- activity, the tag total reported to client, the workday reported, and a blank break (excluded).
+  local RICH = {
+    "--- log #ClientA @office q=30 ---",
+    "09:00 standup !S[jira]30 !T[client]180 !W[]180",
+    "09:30 build feature !S[jira,ado]60 !T[client]180 !W[]180",
+    "10:30 build feature !T[client]180 !W[]180",
+    "11:30",
+    "12:00 email !T[client]180 !W[]180",
+    "12:30 done",
+  }
+
+  t.test("export projects every summary-block level as a row, tagged by `level`", function()
     t.eq(
-      export.csv(sample_report()),
+      export.csv(report(RICH)),
       table.concat({
-        "date,activity,tag,location,minutes,hours,logged,logged_to",
-        "2026-06-29,lunch,ooo,,30,0.50,false,",
-        '2026-06-29,"plan, design",ClientA,,90,1.50,false,',
-        "2026-06-29,review,ClientA,,60,1.00,true,",
-        "2026-06-30,standup,ClientB,,30,0.50,false,",
+        HEADER,
+        "2026-06-29,activity,build feature,ClientA,office,60,1.00,60,0,false,",
+        '2026-06-29,activity,build feature,ClientA,office,60,1.00,60,0,true,"ado,jira"',
+        "2026-06-29,activity,email,ClientA,office,30,0.50,30,0,false,",
+        "2026-06-29,activity,standup,ClientA,office,30,0.50,30,0,true,jira",
+        "2026-06-29,tag,,ClientA,,180,3.00,180,0,true,client",
+        "2026-06-29,location,,,office,180,3.00,180,0,false,",
+        "2026-06-29,workday,,,,180,3.00,180,0,true,",
         "",
       }, "\n")
     )
   end)
 
-  t.test("export.json decodes to the same rows, with numbers and booleans (not strings)", function()
-    local rows = vim.json.decode(export.json(sample_report()))
-    t.eq(rows, {
-      {
-        date = "2026-06-29",
-        activity = "lunch",
-        tag = "ooo",
-        location = "",
-        minutes = 30,
-        hours = 0.5,
-        logged = false,
-        logged_to = {},
-      },
-      {
-        date = "2026-06-29",
-        activity = "plan, design",
-        tag = "ClientA",
-        location = "",
-        minutes = 90,
-        hours = 1.5,
-        logged = false,
-        logged_to = {},
-      },
-      {
-        date = "2026-06-29",
-        activity = "review",
-        tag = "ClientA",
-        location = "",
-        minutes = 60,
-        hours = 1.0,
-        logged = true,
-        logged_to = {},
-      },
-      {
-        date = "2026-06-30",
-        activity = "standup",
-        tag = "ClientB",
-        location = "",
-        minutes = 30,
-        hours = 0.5,
-        logged = false,
-        logged_to = {},
-      },
-    })
-    t.eq(type(rows[1].minutes), "number")
-    t.eq(type(rows[1].hours), "number")
-    t.eq(type(rows[3].logged), "boolean")
-  end)
-
-  t.test("an activity at two locations exports one row per location", function()
-    local report = week.build_report({
-      {
-        date_label = "2026-06-29",
-        path = "a",
-        lines = { "--- log q=15 ---", "08:00 coding @office", "09:00 coding @home", "10:00 done" },
-      },
-    })
-    t.eq(
-      export.csv(report),
-      table.concat({
-        "date,activity,tag,location,minutes,hours,logged,logged_to",
-        "2026-06-29,coding,,home,60,1.00,false,",
-        "2026-06-29,coding,,office,60,1.00,false,",
-        "",
-      }, "\n")
-    )
-  end)
-
-  t.test("logged_to carries the !S recipient names (comma-joined CSV, JSON array)", function()
-    local report = week.build_report({
-      {
-        date_label = "2026-06-29",
-        path = "a",
-        lines = {
-          "--- log #ClientA q=30 ---",
-          "08:00 review !S[jira]", -- one recipient
-          "09:00 plan !S[]", -- logged, no name
-          "09:30 email", -- unlogged
-          "10:00 sync !S[boss,jira]", -- two recipients (canonical sorted)
-          "10:30 done",
-        },
-      },
-    })
-
-    t.eq(
-      export.csv(report),
-      table.concat({
-        "date,activity,tag,location,minutes,hours,logged,logged_to",
-        "2026-06-29,email,ClientA,,30,0.50,false,",
-        "2026-06-29,plan,ClientA,,30,0.50,true,",
-        "2026-06-29,review,ClientA,,60,1.00,true,jira",
-        '2026-06-29,sync,ClientA,,30,0.50,true,"boss,jira"',
-        "",
-      }, "\n")
-    )
-
-    local by_activity = {}
-    for _, row in ipairs(vim.json.decode(export.json(report))) do
-      by_activity[row.activity] = row.logged_to
+  t.test(
+    "the partial log is two rows (reported slice + unlogged remainder) and each level foots",
+    function()
+      local by = { activity = {}, tag = 0, location = 0, workday = 0 }
+      for _, row in ipairs(vim.json.decode(export.json(report(RICH)))) do
+        if row.level == "activity" then
+          by.activity[#by.activity + 1] = row
+        else
+          by[row.level] = by[row.level] + row.minutes
+        end
+      end
+      -- build feature split: 60m reported to ado+jira, 60m not.
+      local logged, remainder
+      for _, r in ipairs(by.activity) do
+        if r.activity == "build feature" then
+          if r.logged then
+            logged = r
+          else
+            remainder = r
+          end
+        end
+      end
+      t.eq(logged.minutes, 60)
+      t.eq(logged.logged_to, { "ado", "jira" })
+      t.eq(remainder.minutes, 60)
+      t.eq(remainder.logged_to, {})
+      -- each level totals the same 180m counted day (the 30m break is excluded).
+      t.eq(by.tag, 180)
+      t.eq(by.location, 180)
+      t.eq(by.workday, 180)
     end
-    t.eq(by_activity.email, {}) -- unlogged
-    t.eq(by_activity.plan, {}) -- logged to no one
-    t.eq(by_activity.review, { "jira" })
-    t.eq(by_activity.sync, { "boss", "jira" })
+  )
+
+  t.test("residual columns carry real elapsed minutes and a signed rounding error", function()
+    local resid =
+      { "--- log #ClientA @office q=30 ---", "09:00 plan", "09:20 review", "09:55 done" }
+    t.eq(
+      export.csv(report(resid)),
+      table.concat({
+        HEADER,
+        "2026-06-29,activity,plan,ClientA,office,30,0.50,20,-10,false,",
+        "2026-06-29,activity,review,ClientA,office,30,0.50,35,5,false,",
+        "2026-06-29,tag,,ClientA,,60,1.00,55,-5,false,",
+        "2026-06-29,location,,,office,60,1.00,55,-5,false,",
+        "2026-06-29,workday,,,,60,1.00,55,-5,false,",
+        "",
+      }, "\n")
+    )
+    -- The negative error_minutes stays a bare JSON number, not a quoted/guarded string.
+    local plan = vim.json.decode(export.json(report(resid)))[1]
+    t.eq(plan.minutes, 30)
+    t.eq(plan.unrounded_minutes, 20)
+    t.eq(plan.error_minutes, -10)
+    t.eq(type(plan.error_minutes), "number")
+  end)
+
+  t.test("an activity at two locations is one activity row per location", function()
+    local r =
+      report({ "--- log q=15 ---", "08:00 coding @office", "09:00 coding @home", "10:00 done" })
+    t.eq(
+      export.csv(r),
+      table.concat({
+        HEADER,
+        "2026-06-29,activity,coding,,home,60,1.00,60,0,false,",
+        "2026-06-29,activity,coding,,office,60,1.00,60,0,false,",
+        "2026-06-29,tag,,,,120,2.00,120,0,false,",
+        "2026-06-29,location,,,home,60,1.00,60,0,false,",
+        "2026-06-29,location,,,office,60,1.00,60,0,false,",
+        "2026-06-29,workday,,,,120,2.00,120,0,false,",
+        "",
+      }, "\n")
+    )
   end)
 
   t.test("CSV quotes commas, quotes, newlines and CRs (RFC 4180)", function()
@@ -165,15 +134,14 @@ return function(t)
     t.ok(csv:find('"cr\rhere"', 1, true) ~= nil, "embedded CR is quoted")
   end)
 
-  t.test("CSV neutralizes spreadsheet formula prefixes", function()
+  t.test("CSV neutralizes spreadsheet formula prefixes in text, but not in numbers", function()
     local csv = export.csv(synthetic({
       { text = "=cmd", tag = "", location = "", duration = 15, logged = false },
-      { text = "+1", tag = "", location = "", duration = 15, logged = false },
       { text = "-2h round", tag = "", location = "", duration = 15, logged = false },
       { text = "@ref", tag = "", location = "", duration = 15, logged = false },
       { text = "safe", tag = "", location = "", duration = 15, logged = false },
     }))
-    for _, guarded in ipairs({ "'=cmd", "'+1", "'-2h round", "'@ref" }) do
+    for _, guarded in ipairs({ "'=cmd", "'-2h round", "'@ref" }) do
       t.ok(csv:find(guarded, 1, true) ~= nil, "formula prefix guarded: " .. guarded)
     end
     t.ok(csv:find(",safe,", 1, true) ~= nil, "ordinary text is untouched")
@@ -186,8 +154,8 @@ return function(t)
     t.eq(rows[1].activity, 'q"\\b\tt\nn') -- round-trips through the hand-rolled escaper
   end)
 
-  t.test("rows are sorted by (date, activity, tag, location)", function()
-    local csv = export.csv({
+  t.test("rows are sorted by (date, level, activity, tag, location)", function()
+    local rows = vim.json.decode(export.json({
       days = {
         {
           date_label = "2026-01-02",
@@ -202,19 +170,16 @@ return function(t)
           },
         },
       },
-    })
+    }))
     local order = {}
-    for line in csv:gmatch("[^\n]+") do
-      local d, a, tag = line:match("^(%d[%d%-]+),([^,]*),([^,]*)")
-      if d then
-        order[#order + 1] = d .. "/" .. a .. "/" .. tag
-      end
+    for _, row in ipairs(rows) do
+      order[#order + 1] = row.date .. "/" .. row.activity .. "/" .. row.tag
     end
     t.eq(order, { "2026-01-01/a/", "2026-01-01/b/x", "2026-01-01/b/y", "2026-01-02/z/" })
   end)
 
   t.test("export of an empty report is a header-only CSV and an empty JSON array", function()
-    t.eq(export.csv({ days = {} }), "date,activity,tag,location,minutes,hours,logged,logged_to\n")
+    t.eq(export.csv({ days = {} }), HEADER .. "\n")
     t.eq(export.json({ days = {} }), "[]\n")
   end)
 end

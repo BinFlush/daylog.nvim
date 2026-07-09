@@ -161,7 +161,7 @@ projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
 summary_block.lua -> locate a log's single generated summary region
 render.lua        -> output rendering
-export.lua        -> machine-readable CSV/JSON export of a report, incl. !S recipients (pure)
+export.lua        -> machine-readable CSV/JSON dump of the summary block (all levels + residuals) (pure)
 commit_audit.lua  -> classify a git commit's .day changes (notes/today/other-day) (pure)
 week.lua          -> daybook week/days report assembly (reuses the reporting core)
 highlight.lua     -> parser-driven highlight spans (pure)

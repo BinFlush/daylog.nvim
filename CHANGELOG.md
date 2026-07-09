@@ -24,10 +24,15 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
-- **Export records who a slice was logged to.** The CSV/JSON export gained a `logged_to` column carrying
-  the `!S` recipient names (e.g. `jira`, `boss,jira`) — CSV comma-joins them, JSON emits an array — so a
-  logged row shows its recipients instead of collapsing to a bare flag. `logged` stays a boolean; together
-  they distinguish unlogged, logged-to-no-one (`!S[]`), and logged-to-a-name.
+- **Export is now a full projection of the summary block.** The CSV/JSON export used to emit only the
+  per-activity (`!S`) rows; it now dumps every summary section, tagged by a new `level` column
+  (`activity` / `tag` / `location` / `workday`), so tag, location, and workday logging (`!T`/`!L`/`!W`) is
+  exported too. Each row carries its recipients (`logged_to` — the marker's names; CSV comma-joins, JSON is
+  an array) and the residual alongside the billed `minutes`: `unrounded_minutes` (real elapsed) and
+  `error_minutes` (the `(±Nm)` rounding delta, can be negative). A partially logged row exports as two rows
+  (the reported slice + the unlogged remainder). Numeric columns skip the CSV formula guard, so a negative
+  `error_minutes` stays a number. Each level is a full partition of the counted day — filter by `level`,
+  don't sum across them.
 
 ## 0.18.0 - 2026-07-09
 

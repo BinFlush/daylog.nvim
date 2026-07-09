@@ -1160,16 +1160,20 @@ return function(t)
 
         with_captured_notify(function(messages)
           vim.cmd("Daylog export csv 2026-05-18..2026-05-18 " .. vim.fn.fnameescape(out))
+          -- one activity + its tag / location / workday total rows.
           t.eq(messages, {
-            { message = "daylog: exported 1 row(s) to " .. out, level = vim.log.levels.INFO },
+            { message = "daylog: exported 4 row(s) to " .. out, level = vim.log.levels.INFO },
           })
         end)
 
         -- Written to disk, not opened as a preview buffer (the current buffer is untouched).
         t.eq(t.get_lines(), { "notes" })
         t.eq(vim.fn.readfile(out), {
-          "date,activity,tag,location,minutes,hours,logged,logged_to",
-          "2026-05-18,plan,ClientA,office,60,1.00,false,",
+          "date,level,activity,tag,location,minutes,hours,unrounded_minutes,error_minutes,logged,logged_to",
+          "2026-05-18,activity,plan,ClientA,office,60,1.00,60,0,false,",
+          "2026-05-18,tag,,ClientA,,60,1.00,60,0,false,",
+          "2026-05-18,location,,,office,60,1.00,60,0,false,",
+          "2026-05-18,workday,,,,60,1.00,60,0,false,",
         })
       end)
     end
@@ -1185,11 +1189,53 @@ return function(t)
       t.eq(rows, {
         {
           date = "2026-05-18",
+          level = "activity",
           activity = "plan",
           tag = "ClientA",
           location = "office",
           minutes = 60,
           hours = 1.0,
+          unrounded_minutes = 60,
+          error_minutes = 0,
+          logged = false,
+          logged_to = {},
+        },
+        {
+          date = "2026-05-18",
+          level = "tag",
+          activity = "",
+          tag = "ClientA",
+          location = "",
+          minutes = 60,
+          hours = 1.0,
+          unrounded_minutes = 60,
+          error_minutes = 0,
+          logged = false,
+          logged_to = {},
+        },
+        {
+          date = "2026-05-18",
+          level = "location",
+          activity = "",
+          tag = "",
+          location = "office",
+          minutes = 60,
+          hours = 1.0,
+          unrounded_minutes = 60,
+          error_minutes = 0,
+          logged = false,
+          logged_to = {},
+        },
+        {
+          date = "2026-05-18",
+          level = "workday",
+          activity = "",
+          tag = "",
+          location = "",
+          minutes = 60,
+          hours = 1.0,
+          unrounded_minutes = 60,
+          error_minutes = 0,
           logged = false,
           logged_to = {},
         },
