@@ -469,25 +469,35 @@ to the latest log even if that is days ahead, while `monday..today` stops at tod
   totals.
 
                                                         *:Daylog-export*
-:Daylog export {csv|json} [range]
+:Daylog export {csv|json} [range] [path]
 
 Export a span of daybook dates as machine-readable data -- for a timesheet, an
-invoicing tool, or a script -- into a scratch buffer you save (`:w name.csv`) or yank.
+invoicing tool, or a script.
 
 `{csv|json}` selects the format. `[range]` is the same as |:Daylog-report| (a
 `{count}`, a `{from}..{to}` token range, `..`), and defaults to today.
 
-One row per activity per day, carrying the report's quantized numbers:
+`[path]` (recognized as the last argument when it contains a `/`, starts with `~`,
+or ends `.csv`/`.json`) writes the export straight to that file, creating parent
+directories, and reports how many rows were written. With no path the export opens in
+a read-only scratch buffer to yank or `:w` elsewhere.
+
+One row per activity per day (and per `@location`), carrying the report's quantized
+numbers:
 - `date` -- the day (`YYYY-MM-DD`).
 - `activity` -- the resolved label (the `=> alias` when mapped, else the entry text).
 - `tag` -- the effective `#tag` (empty when none).
+- `location` -- the effective `@location` (empty when none); an activity split across
+  locations exports as one row per location.
 - `minutes` -- the quantized duration (what you bill, per that day's `q=`).
 - `hours` -- `minutes / 60`, to two decimals.
 - `logged` -- whether the row is marked `!S`.
 
-CSV is RFC 4180 (a header row; fields holding a comma or quote are quoted). JSON is a
-flat array of row objects. `require("daylog").export(format, range)` returns the
-rendered string for scripting (see |daylog-lua|).
+CSV is RFC 4180 (a header row; fields holding a comma, quote, or newline are quoted).
+A field beginning `=` `+` `-` or `@` is prefixed with a `'` so a spreadsheet cannot
+treat a logged activity as a formula. JSON is a flat array of row objects (unaffected
+by the prefixing). `require("daylog").export(format, range, path)` returns the rendered
+string for scripting (see |daylog-lua|).
 
                                                         *:Daylog-insert*
 :Daylog[!] insert [source]
@@ -828,7 +838,7 @@ your own config all call the same code:
 - `insert(opts)` (`opts.source` / `opts.pick`), `repeat_()`, `new_log()`, `copy()`.
 - `order()`, `log()`, `balance(steps)`, `split(weights)`, `map(opts)`
   (`opts.value` / `opts.source` / `opts.clear` / `opts.range`), `rename(opts)`.
-- `refresh()`, `sync(source)`, `keys()`, `export(format, range)`.
+- `refresh()`, `sync(source)`, `keys()`, `export(format, range, path)`.
 
 `when` and `range` accept the same strings the command does (|daylog-date-tokens|).
 

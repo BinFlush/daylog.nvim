@@ -46,6 +46,9 @@ local function analyze_day(day)
     date_label = day.date_label,
     path = day.path,
     summary = summary.summarize_block(block),
+    -- The location-split, display-consistent activity projection :Daylog export flattens (the merged
+    -- `summary.summary_items` drop location); inert for the rendered report.
+    activity_rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes),
     quantize_minutes = block.quantize_minutes,
   },
     nil

@@ -90,7 +90,7 @@ or lunch drops out of every total. The rest of the grammar (`#-` / `@-` to clear
 | `:Daylog[!] insert [source]` | Stamp the current time; with a source, pick a work item; `!` opens a fuzzy picker of your recent activities + every source's items |
 | `:Daylog repeat` | Repeat the activity under the cursor (entry or summary row) at the current time |
 | `:Daylog[!] report {range}` | Open a multi-day report — a count, a date range, or tokens like `monday..` (`!` for the range summary only — drops the per-day sections) |
-| `:Daylog export csv\|json [range]` | Export a day or range's summary as CSV/JSON into a scratch buffer (`:w` or yank) for a timesheet / invoicing / a script |
+| `:Daylog export csv\|json [range] [path]` | Export a day or range's activities (per day, tag, and location) as CSV/JSON — to a file when given a `path`, else into a scratch buffer to yank — for a timesheet / invoicing / a script |
 | `:Daylog log` | Toggle logged state at the cursor row's level — an activity (`!S`), a tag (`!T`), or a location (`!L`) |
 | `:Daylog balance [steps]` | Nudge the rounding of the row (or entry) under the cursor by ±N q-steps (`0` clears) |
 | `:[range]Daylog rename [name\|source]` | Rename the entry's text or a `#tag`/`@location` under the cursor; over a visual range, set every selected entry to one description (not activity summary rows — use `map` for the report label) |

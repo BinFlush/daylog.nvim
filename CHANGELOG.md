@@ -20,6 +20,25 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Added
+
+- **Export straight to a file.** `:Daylog export csv [range] <path>` (or `json`) now writes the export to
+  `<path>` — creating parent directories and reporting how many rows it wrote — when the last argument
+  looks like a path (contains a `/`, starts with `~`, or ends `.csv`/`.json`). Without a path it still
+  opens the read-only preview buffer to yank or `:w` elsewhere. `require("daylog").export(format, range,
+  path)` takes the optional `path` too.
+
+### Changed
+
+- **Export gained a `location` column** and now emits one row per `(day, activity, tag, location)`, so an
+  activity split across `@location`s exports as one row per location (matching a timesheet); rows are
+  sorted deterministically for stable diffs.
+- **CSV export neutralizes spreadsheet formula prefixes.** A field beginning `=` `+` `-` or `@` is
+  prefixed with a `'`, so a logged activity like `-2h round` cannot be executed as a formula on open
+  (JSON is unaffected).
+
 ## 0.17.0 - 2026-07-09
 
 ### Added

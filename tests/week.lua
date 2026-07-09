@@ -23,6 +23,12 @@ return function(t)
       },
     })
 
+    -- Each day also carries `activity_rows` (the location-split projection :Daylog export flattens);
+    -- it is inert for the report and has its own coverage in tests/export.lua, so drop it here.
+    for _, day in ipairs(report.days) do
+      day.activity_rows = nil
+    end
+
     t.eq(report, {
       days = {
         {

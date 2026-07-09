@@ -159,8 +159,26 @@ local VERBS = {
       return prefix_matches({ "csv", "json" }, arglead)
     end,
     run = function(api, ctx)
-      -- ctx.rest is "<format> <range...>"; split the format word off the range.
-      api.export(ctx.fargs[1], (ctx.rest:gsub("^%s*%S+%s*", "")))
+      -- Args after the format are the range, with an OPTIONAL trailing output path (path-shaped:
+      -- contains a `/`, starts with `~`, or ends `.csv`/`.json`); everything before it is the range.
+      local range = {}
+      for i = 2, #ctx.fargs do
+        range[#range + 1] = ctx.fargs[i]
+      end
+      local last = range[#range]
+      local path
+      if
+        last
+        and (
+          last:find("/")
+          or last:sub(1, 1) == "~"
+          or last:match("%.csv$")
+          or last:match("%.json$")
+        )
+      then
+        path = table.remove(range)
+      end
+      api.export(ctx.fargs[1], table.concat(range, " "), path)
     end,
   },
   insert = {

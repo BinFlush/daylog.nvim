@@ -104,10 +104,33 @@ local function open_report(spec)
   require("daylog.keymaps").apply(0)
 end
 
--- Build the CSV/JSON export for a spec and open it in a read-only scratch buffer with the matching
--- filetype. Returns the rendered string, or nil on error (already warned). A snapshot -- unlike a
--- report it is not tagged for auto-refresh.
-local function open_export(spec, format)
+-- Write the export string to `path` (creating the parent dir if needed). Returns the string, or nil
+-- after warning on a write failure.
+local function write_export(text, path, row_count)
+  local full = vim.fn.expand(path)
+  local dir = vim.fn.fnamemodify(full, ":h")
+  if dir ~= "" and vim.fn.isdirectory(dir) == 0 then
+    vim.fn.mkdir(dir, "p")
+  end
+
+  local ok =
+    pcall(vim.fn.writefile, vim.split((text:gsub("\n$", "")), "\n", { plain = true }), full)
+  if not ok then
+    warn("daylog: could not write the export to " .. full)
+    return nil
+  end
+
+  vim.notify(
+    string.format("daylog: exported %d row(s) to %s", row_count, full),
+    vim.log.levels.INFO
+  )
+  return text
+end
+
+-- Build the CSV/JSON export for a spec. With a `path` it writes the file; otherwise it opens a read-only
+-- scratch buffer with the matching filetype (a snapshot -- unlike a report it is not auto-refreshed).
+-- Returns the rendered string, or nil on error (already warned).
+local function open_export(spec, format, path)
   local report, err = build_report_for_spec(spec)
   if not report then
     warn(err)
@@ -115,6 +138,15 @@ local function open_export(spec, format)
   end
 
   local text = export[format](report)
+
+  if path and path ~= "" then
+    local rows = 0
+    for _, day in ipairs(report.days) do
+      rows = rows + #day.activity_rows
+    end
+    return write_export(text, path, rows)
+  end
+
   local name = "daylog-export-" .. (spec.request_label or "export") .. "." .. format
   fill_scratch(vim.split((text:gsub("\n$", "")), "\n", { plain = true }), name)
   vim.bo.filetype = format
@@ -202,10 +234,11 @@ function M.report(range, aggregate_only)
   })
 end
 
--- Export a range's summary as CSV or JSON into a scratch buffer (which you `:w` or yank), and return
--- the rendered string for scripting. `range` reuses the report date vocabulary (a count "7", a
--- "FROM..TO" token range, named tokens), defaulting to today. The numbers match `:Daylog report`.
-function M.export(format, range)
+-- Export a range's activities as CSV or JSON. With a `path` it writes the file (creating parent dirs);
+-- otherwise it opens a read-only preview buffer to yank or `:w <path>` yourself. Returns the rendered
+-- string for scripting. `range` reuses the report date vocabulary (a count "7", a "FROM..TO" token
+-- range, named tokens), defaulting to today. The numbers match `:Daylog report`.
+function M.export(format, range, path)
   format = type(format) == "string" and format:lower() or ""
   if format ~= "csv" and format ~= "json" then
     warn("daylog: export expects a format: csv or json")
@@ -230,7 +263,7 @@ function M.export(format, range)
   end
 
   local request_label = #dates > 0 and daybook.date_range_label(dates[1], dates[#dates]) or "export"
-  return open_export({ dates = dates, request_label = request_label }, format)
+  return open_export({ dates = dates, request_label = request_label }, format, path)
 end
 
 -- The report spec stored on `buf` (current when nil), or nil when it is not a daylog report.

@@ -1,10 +1,10 @@
 -- Machine-readable export of a report's summary into CSV or JSON (PURE). One row per
--- (day, activity, tag): quantized minutes, decimal hours, and the logged flag; takes a report
--- from week.build_dates_report.
+-- (day, activity, tag, location): quantized minutes, decimal hours, and the logged flag; takes a report
+-- from week.build_dates_report (each day carries `activity_rows`, the location-split projection).
 
 local M = {}
 
-local FIELDS = { "date", "activity", "tag", "minutes", "hours", "logged" }
+local FIELDS = { "date", "activity", "tag", "location", "minutes", "hours", "logged" }
 
 -- Decimal hours from whole minutes, locale-independently (`%f`'s decimal point could be a comma and corrupt CSV/JSON).
 local function decimal_hours(minutes)
@@ -15,27 +15,57 @@ local function decimal_hours(minutes)
   )
 end
 
--- Flatten a report into export rows -- one per summary item per day, tagged with that day's date.
+-- Flatten a report into export rows -- one per (day, activity, tag, location) slice. Uses each day's
+-- `activity_rows` (the location-split, display-consistent projection), so an activity logged at two
+-- locations becomes one row per location. Sorted deterministically so the export is stable/diffable.
 local function rows(report)
   local out = {}
   for _, day in ipairs(report.days) do
-    for _, item in ipairs(day.summary.summary_items) do
+    for _, item in ipairs(day.activity_rows) do
       out[#out + 1] = {
         date = day.date_label,
         activity = item.text,
         tag = item.tag or "",
+        location = item.location or "",
         minutes = item.duration,
         hours = decimal_hours(item.duration),
         logged = item.logged == true,
       }
     end
   end
+  table.sort(out, function(a, b)
+    if a.date ~= b.date then
+      return a.date < b.date
+    end
+    if a.activity ~= b.activity then
+      return a.activity < b.activity
+    end
+    if a.tag ~= b.tag then
+      return a.tag < b.tag
+    end
+    if a.location ~= b.location then
+      return a.location < b.location
+    end
+    if a.logged ~= b.logged then
+      return not a.logged -- unlogged before logged
+    end
+    return a.minutes > b.minutes
+  end)
   return out
 end
 
--- RFC 4180: quote a field that holds a comma, quote, CR or LF; double any internal quote.
+-- A leading =, +, -, @ (or TAB/CR) makes a spreadsheet treat the cell as a formula; free-form activity
+-- text can start with any of them (e.g. `-2h round`). Prefix a `'` to neutralize it (OWASP mitigation).
+local FORMULA_PREFIX =
+  { ["="] = true, ["+"] = true, ["-"] = true, ["@"] = true, ["\t"] = true, ["\r"] = true }
+
+-- RFC 4180: quote a field that holds a comma, quote, CR or LF; double any internal quote. Formula
+-- prefixes are neutralized first, so the guard survives the quoting.
 local function csv_field(value)
   local s = tostring(value)
+  if s ~= "" and FORMULA_PREFIX[s:sub(1, 1)] then
+    s = "'" .. s
+  end
   if s:find('[",\r\n]') then
     return '"' .. s:gsub('"', '""') .. '"'
   end

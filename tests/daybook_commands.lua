@@ -1133,6 +1133,108 @@ return function(t)
     end)
   end)
 
+  -- A one-day daybook (plan @office #ClientA, 08:00-09:00) for the file-write export path.
+  local function with_export_daybook(fn)
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 18, hour = 12, min = 0, sec = 0 })
+    write_daybook_file(root, "%Y", now, {
+      "--- log #ClientA @office q=30 ---",
+      "08:00 plan",
+      "09:00 done",
+    })
+    with_daylog_setup({
+      daybook = { root = root, directory = "%Y" },
+    }, function()
+      vim.cmd("silent! only!")
+      t.reset({ "notes" })
+      with_mocked_time(now, fn)
+    end)
+  end
+
+  t.test(
+    "export csv writes the file (creating parents) with a header and row-count notice",
+    function()
+      with_export_daybook(function()
+        -- A not-yet-existing parent directory: the write must mkdir it.
+        local out = vim.fn.tempname() .. "/sub/out.csv"
+
+        with_captured_notify(function(messages)
+          vim.cmd("Daylog export csv 2026-05-18..2026-05-18 " .. vim.fn.fnameescape(out))
+          t.eq(messages, {
+            { message = "daylog: exported 1 row(s) to " .. out, level = vim.log.levels.INFO },
+          })
+        end)
+
+        -- Written to disk, not opened as a preview buffer (the current buffer is untouched).
+        t.eq(t.get_lines(), { "notes" })
+        t.eq(vim.fn.readfile(out), {
+          "date,activity,tag,location,minutes,hours,logged",
+          "2026-05-18,plan,ClientA,office,60,1.00,false",
+        })
+      end)
+    end
+  )
+
+  t.test("export json writes a decodable file", function()
+    with_export_daybook(function()
+      local out = vim.fn.tempname() .. ".json"
+
+      vim.cmd("Daylog export json 2026-05-18..2026-05-18 " .. vim.fn.fnameescape(out))
+
+      local rows = vim.json.decode(table.concat(vim.fn.readfile(out), "\n"))
+      t.eq(rows, {
+        {
+          date = "2026-05-18",
+          activity = "plan",
+          tag = "ClientA",
+          location = "office",
+          minutes = 60,
+          hours = 1.0,
+          logged = false,
+        },
+      })
+    end)
+  end)
+
+  t.test("export rejects an unknown format and writes nothing", function()
+    with_daylog_setup({}, function()
+      t.reset({ "scratch" })
+
+      with_captured_notify(function(messages)
+        vim.cmd("Daylog export xml 3")
+        t.eq(messages, {
+          { message = "daylog: export expects a format: csv or json", level = vim.log.levels.WARN },
+        })
+      end)
+
+      t.eq(t.get_lines(), { "scratch" })
+    end)
+  end)
+
+  t.test("export warns and writes no file when the range holds no logs", function()
+    local root = vim.fn.tempname()
+    local now = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })
+    local out = vim.fn.tempname() .. ".csv"
+
+    with_daylog_setup({
+      daybook = { root = root, directory = "%Y" },
+    }, function()
+      t.reset({ "scratch" })
+
+      with_captured_notify(function(messages)
+        with_mocked_time(now, function()
+          vim.cmd("Daylog export csv 3 " .. vim.fn.fnameescape(out))
+        end)
+        t.eq(messages, {
+          { message = "daylog: no daybook logs found", level = vim.log.levels.WARN },
+        })
+      end)
+
+      t.eq(vim.fn.filereadable(out), 0)
+      t.eq(t.get_lines(), { "scratch" })
+    end)
+  end)
+
   t.test("days bang opens only the range aggregate scratch report", function()
     local root = vim.fn.tempname()
     local now = os.time({

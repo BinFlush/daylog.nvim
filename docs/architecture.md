@@ -161,6 +161,7 @@ projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
 summary_block.lua -> locate a log's single generated summary region
 render.lua        -> output rendering
+export.lua        -> machine-readable CSV/JSON export of a report (pure)
 week.lua          -> daybook week/days report assembly (reuses the reporting core)
 highlight.lua     -> parser-driven highlight spans (pure)
 text.lua          -> small shared text predicates (e.g. is_empty)
@@ -171,7 +172,7 @@ sources/          -> external work-item sources (pure providers + shell IO/UI)
 init.lua          -> shell: setup, autocmds, source wiring, edit-script application
 commands.lua      -> shell: user-command and autocmd definitions
 buffer.lua        -> shell: buffer/cursor/clock, edit application, diagnostic + highlight publishing
-report.lua        -> shell: multi-day report buffers
+report.lua        -> shell: multi-day report buffers + export (preview buffer or file write)
 rename.lua        -> shell: rename picker / confirm / multi-file write
 map.lua           -> shell: mapping picker
 pick.lua          -> shell: mixed-row picker (Telescope or vim.ui.select)
@@ -592,7 +593,6 @@ raw headless test/health commands) are documented in the README and `justfile`.
 
 ## Future ideas
 
-- export formats
 - richer reports
 - validation command
 - more filetype niceties
