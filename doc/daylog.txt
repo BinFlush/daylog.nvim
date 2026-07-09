@@ -1176,6 +1176,13 @@ summary (under `change` it has already refreshed by the time autosave fires; und
 `save` the write itself refreshes it). Only real, modified daylog buffers are written --
 never the read-only |:Daylog-report| / |:Daylog-export| scratch buffers.
 
+                                                  *daylog-version-control*
+Your daybook is just `.day` files on disk, so it works with any backup or version
+control. Pairing |daylog-autosave| with a watcher that auto-commits gives you a
+hands-free git history of your log. For a step-by-step setup -- `git init`, `gitwatch`,
+and a systemd user service -- see the guide at docs/version-control.md in the
+repository.
+
                                                           *daylog-picker*
 `picker` tunes how a |daylog-sources| source's cached work items are ordered in
 the picker. It is optional. By default the items you actually work on lead:

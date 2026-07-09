@@ -169,6 +169,7 @@ require("daylog").setup({
   defaults = { tag = "ClientA", location = "office", quantize_minutes = 15, duration_format = "dec" },
   daybook = { root = "~/daylog", directory = "%Y/%V" }, -- directory is an optional strftime template
   auto_summary = "change", -- change | idle | save | off
+  autosave = false, -- debounced auto-write of `.day` buffers; set to a delay in seconds to enable
   auto_timezone = true, -- record UTC offset + DST/travel drift so a clock change never skews a duration
   time_bar = false, -- show the color-coded time bar by default (:Daylog bar / <leader>db toggles it)
   time_bar_hover = false, -- mouse-hover tooltip on the bar (time + activity); also needs `:set mousemoveevent`
@@ -182,6 +183,8 @@ All optional. `defaults` seed each new day's header; `daybook.root` is where dat
 ## More
 
 - `:help daylog.nvim` — format, commands, and every option.
+- Local version control of your daybook: pair `autosave` with [`gitwatch`](https://github.com/gitwatch/gitwatch)
+  for a hands-free, auto-committed git history — see [docs/version-control.md](docs/version-control.md).
 - `:checkhealth daylog` — verify your setup.
 - daylog is pre-1.0; breaking changes are listed in [CHANGELOG.md](CHANGELOG.md). Pin a tag if you
   need stable `.day` parsing.
