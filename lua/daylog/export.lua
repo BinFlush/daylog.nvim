@@ -1,10 +1,26 @@
 -- Machine-readable export of a report's summary into CSV or JSON (PURE). One row per
--- (day, activity, tag, location): quantized minutes, decimal hours, and the logged flag; takes a report
--- from week.build_dates_report (each day carries `activity_rows`, the location-split projection).
+-- (day, activity, tag, location): quantized minutes, decimal hours, whether the slice is logged, and the
+-- `!S` recipient names it was reported to; takes a report from week.build_dates_report (each day carries
+-- `activity_rows`, the location-split projection).
 
 local M = {}
 
-local FIELDS = { "date", "activity", "tag", "location", "minutes", "hours", "logged" }
+local FIELDS = { "date", "activity", "tag", "location", "minutes", "hours", "logged", "logged_to" }
+
+-- The `!S` recipients an activity row was reported to: its name-set minus the unnamed `""` sentinel (the
+-- `logged` flag already conveys "reported"), in the canonical sorted order the names already carry. A
+-- list, emitted comma-joined in CSV and as an array in JSON; empty for unlogged or logged-to-no-one.
+local function recipients(names)
+  local out = {}
+  if names then
+    for _, name in ipairs(names) do
+      if name ~= "" then
+        out[#out + 1] = name
+      end
+    end
+  end
+  return out
+end
 
 -- Decimal hours from whole minutes, locale-independently (`%f`'s decimal point could be a comma and corrupt CSV/JSON).
 local function decimal_hours(minutes)
@@ -30,6 +46,7 @@ local function rows(report)
         minutes = item.duration,
         hours = decimal_hours(item.duration),
         logged = item.logged == true,
+        logged_to = recipients(item.names),
       }
     end
   end
@@ -49,7 +66,10 @@ local function rows(report)
     if a.logged ~= b.logged then
       return not a.logged -- unlogged before logged
     end
-    return a.minutes > b.minutes
+    if a.minutes ~= b.minutes then
+      return a.minutes > b.minutes
+    end
+    return table.concat(a.logged_to, ",") < table.concat(b.logged_to, ",")
   end)
   return out
 end
@@ -77,7 +97,9 @@ function M.csv(report)
   for _, row in ipairs(rows(report)) do
     local cells = {}
     for i, field in ipairs(FIELDS) do
-      cells[i] = csv_field(row[field])
+      local value = row[field]
+      -- A list field (logged_to) becomes one comma-joined cell -- csv_field then quotes it (RFC 4180).
+      cells[i] = csv_field(type(value) == "table" and table.concat(value, ",") or value)
     end
     lines[#lines + 1] = table.concat(cells, ",")
   end
@@ -95,7 +117,16 @@ local function json_string(s)
     .. '"'
 end
 
--- A field's JSON literal: minutes/hours as bare numbers, the flags as booleans, the rest as strings.
+local function json_array(list)
+  local items = {}
+  for i, value in ipairs(list) do
+    items[i] = json_string(value)
+  end
+  return "[" .. table.concat(items, ", ") .. "]"
+end
+
+-- A field's JSON literal: minutes/hours as bare numbers, the flags as booleans, logged_to as an array of
+-- strings, the rest as strings.
 local function json_value(field, value)
   if field == "minutes" then
     return tostring(value)
@@ -103,6 +134,8 @@ local function json_value(field, value)
     return value -- already a locale-safe "N.NN" string -> a JSON number
   elseif field == "logged" then
     return value and "true" or "false"
+  elseif field == "logged_to" then
+    return json_array(value)
   end
   return json_string(tostring(value))
 end

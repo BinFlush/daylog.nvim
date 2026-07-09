@@ -38,11 +38,11 @@ return function(t)
     t.eq(
       export.csv(sample_report()),
       table.concat({
-        "date,activity,tag,location,minutes,hours,logged",
-        "2026-06-29,lunch,ooo,,30,0.50,false",
-        '2026-06-29,"plan, design",ClientA,,90,1.50,false',
-        "2026-06-29,review,ClientA,,60,1.00,true",
-        "2026-06-30,standup,ClientB,,30,0.50,false",
+        "date,activity,tag,location,minutes,hours,logged,logged_to",
+        "2026-06-29,lunch,ooo,,30,0.50,false,",
+        '2026-06-29,"plan, design",ClientA,,90,1.50,false,',
+        "2026-06-29,review,ClientA,,60,1.00,true,",
+        "2026-06-30,standup,ClientB,,30,0.50,false,",
         "",
       }, "\n")
     )
@@ -59,6 +59,7 @@ return function(t)
         minutes = 30,
         hours = 0.5,
         logged = false,
+        logged_to = {},
       },
       {
         date = "2026-06-29",
@@ -68,6 +69,7 @@ return function(t)
         minutes = 90,
         hours = 1.5,
         logged = false,
+        logged_to = {},
       },
       {
         date = "2026-06-29",
@@ -77,6 +79,7 @@ return function(t)
         minutes = 60,
         hours = 1.0,
         logged = true,
+        logged_to = {},
       },
       {
         date = "2026-06-30",
@@ -86,6 +89,7 @@ return function(t)
         minutes = 30,
         hours = 0.5,
         logged = false,
+        logged_to = {},
       },
     })
     t.eq(type(rows[1].minutes), "number")
@@ -104,12 +108,50 @@ return function(t)
     t.eq(
       export.csv(report),
       table.concat({
-        "date,activity,tag,location,minutes,hours,logged",
-        "2026-06-29,coding,,home,60,1.00,false",
-        "2026-06-29,coding,,office,60,1.00,false",
+        "date,activity,tag,location,minutes,hours,logged,logged_to",
+        "2026-06-29,coding,,home,60,1.00,false,",
+        "2026-06-29,coding,,office,60,1.00,false,",
         "",
       }, "\n")
     )
+  end)
+
+  t.test("logged_to carries the !S recipient names (comma-joined CSV, JSON array)", function()
+    local report = week.build_report({
+      {
+        date_label = "2026-06-29",
+        path = "a",
+        lines = {
+          "--- log #ClientA q=30 ---",
+          "08:00 review !S[jira]", -- one recipient
+          "09:00 plan !S[]", -- logged, no name
+          "09:30 email", -- unlogged
+          "10:00 sync !S[boss,jira]", -- two recipients (canonical sorted)
+          "10:30 done",
+        },
+      },
+    })
+
+    t.eq(
+      export.csv(report),
+      table.concat({
+        "date,activity,tag,location,minutes,hours,logged,logged_to",
+        "2026-06-29,email,ClientA,,30,0.50,false,",
+        "2026-06-29,plan,ClientA,,30,0.50,true,",
+        "2026-06-29,review,ClientA,,60,1.00,true,jira",
+        '2026-06-29,sync,ClientA,,30,0.50,true,"boss,jira"',
+        "",
+      }, "\n")
+    )
+
+    local by_activity = {}
+    for _, row in ipairs(vim.json.decode(export.json(report))) do
+      by_activity[row.activity] = row.logged_to
+    end
+    t.eq(by_activity.email, {}) -- unlogged
+    t.eq(by_activity.plan, {}) -- logged to no one
+    t.eq(by_activity.review, { "jira" })
+    t.eq(by_activity.sync, { "boss", "jira" })
   end)
 
   t.test("CSV quotes commas, quotes, newlines and CRs (RFC 4180)", function()
@@ -172,7 +214,7 @@ return function(t)
   end)
 
   t.test("export of an empty report is a header-only CSV and an empty JSON array", function()
-    t.eq(export.csv({ days = {} }), "date,activity,tag,location,minutes,hours,logged\n")
+    t.eq(export.csv({ days = {} }), "date,activity,tag,location,minutes,hours,logged,logged_to\n")
     t.eq(export.json({ days = {} }), "[]\n")
   end)
 end

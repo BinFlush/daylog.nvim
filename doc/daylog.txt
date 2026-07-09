@@ -491,7 +491,10 @@ numbers:
   locations exports as one row per location.
 - `minutes` -- the quantized duration (what you bill, per that day's `q=`).
 - `hours` -- `minutes / 60`, to two decimals.
-- `logged` -- whether the row is marked `!S`.
+- `logged` -- whether the row is reported to an external system (marked `!S`).
+- `logged_to` -- the `!S` recipient names (who it was reported to, e.g. `jira`);
+  empty when unlogged OR logged to no one -- `logged` disambiguates the two. CSV joins
+  the names with a comma; JSON is an array of strings.
 
 CSV is RFC 4180 (a header row; fields holding a comma, quote, or newline are quoted).
 A field beginning `=` `+` `-` or `@` is prefixed with a `'` so a spreadsheet cannot

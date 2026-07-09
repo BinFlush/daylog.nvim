@@ -20,6 +20,15 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Changed
+
+- **Export records who a slice was logged to.** The CSV/JSON export gained a `logged_to` column carrying
+  the `!S` recipient names (e.g. `jira`, `boss,jira`) — CSV comma-joins them, JSON emits an array — so a
+  logged row shows its recipients instead of collapsing to a bare flag. `logged` stays a boolean; together
+  they distinguish unlogged, logged-to-no-one (`!S[]`), and logged-to-a-name.
+
 ## 0.18.0 - 2026-07-09
 
 ### Added

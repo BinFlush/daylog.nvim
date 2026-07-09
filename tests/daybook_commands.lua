@@ -1168,8 +1168,8 @@ return function(t)
         -- Written to disk, not opened as a preview buffer (the current buffer is untouched).
         t.eq(t.get_lines(), { "notes" })
         t.eq(vim.fn.readfile(out), {
-          "date,activity,tag,location,minutes,hours,logged",
-          "2026-05-18,plan,ClientA,office,60,1.00,false",
+          "date,activity,tag,location,minutes,hours,logged,logged_to",
+          "2026-05-18,plan,ClientA,office,60,1.00,false,",
         })
       end)
     end
@@ -1191,6 +1191,7 @@ return function(t)
           minutes = 60,
           hours = 1.0,
           logged = false,
+          logged_to = {},
         },
       })
     end)
