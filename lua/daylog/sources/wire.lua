@@ -7,6 +7,20 @@ local sources_registry = require("daylog.sources.registry")
 
 local M = {}
 
+-- Resolve a source's PAT lazily: call its `token()` (pcall'd so a throw is reported, not fatal) and
+-- require a non-empty string. Returns the token, or nil and a specific daylog: message. Named so the
+-- two error branches are directly testable.
+function M.resolve_token(source_cfg)
+  local ok, token = pcall(source_cfg.token)
+  if not ok then
+    return nil, "daylog: source token() errored: " .. tostring(token)
+  end
+  if type(token) ~= "string" or token == "" then
+    return nil, "daylog: source token() did not return a non-empty string"
+  end
+  return token
+end
+
 -- Build and register the sources declared in config, injecting the shell transport, JSON
 -- codec, and a lazy token resolver; clears first so repeated setup() starts from a clean registry.
 function M.instantiate()
@@ -21,16 +35,7 @@ function M.instantiate()
     local source, err = sources_registry.instantiate(name, source_config, {
       transport = sources_http,
       json = vim.json,
-      token_resolver = function(source_cfg)
-        local ok, token = pcall(source_cfg.token)
-        if not ok then
-          return nil, "daylog: source token() errored: " .. tostring(token)
-        end
-        if type(token) ~= "string" or token == "" then
-          return nil, "daylog: source token() did not return a non-empty string"
-        end
-        return token
-      end,
+      token_resolver = M.resolve_token,
     })
 
     if source then
