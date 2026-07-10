@@ -11,7 +11,8 @@ local M = {}
 -- Each interval is cut into consecutive sub-intervals `foo (1)`, `foo (2)`, ... by whole minutes,
 -- distributed by the weight vector. Total time is preserved exactly (endpoints never move), so the
 -- day still foots. The 2-D apportionment lives in split.lua; this turns it into entry edits and a
--- rebuilt summary. A logged activity is frozen and cannot be split.
+-- rebuilt summary. An activity whose entries carry any logging marker (!S/!T/!L/!W) is frozen and
+-- cannot be split.
 
 M.REFUSE_LOGGED = "daylog: refusing to split a logged activity"
 M.REFUSE_OFFSET =
@@ -104,13 +105,17 @@ function M.run(lines, cursor_row, weights)
   local block = result.ctx.block
   local item = result.layout_row.item
 
-  if item.logged then
-    return nil, M.REFUSE_LOGGED
-  end
-
   local source_set = {}
   for _, row in ipairs(item.source_entry_rows or {}) do
     source_set[row] = true
+  end
+
+  -- A logging commitment at ANY level (!S / !T / !L / !W) freezes the interval; the rewrite carries no
+  -- logged token, so splitting would silently drop the marker. Refuse rather than corrupt it.
+  for _, entry in ipairs(block.entries) do
+    if source_set[entry.row] and entry.logged ~= nil then
+      return nil, M.REFUSE_LOGGED
+    end
   end
 
   local records, index_by_row = target_intervals(block, source_set)

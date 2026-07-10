@@ -188,6 +188,18 @@ return function(t)
     t.eq(err, split_summary.REFUSE_LOGGED)
   end)
 
+  t.test("split refuses an activity whose entries carry a non-!S marker (!T/!L/!W)", function()
+    -- The `meeting` activity is not !S-logged, but its tag total is committed (`!T[]120`). Splitting
+    -- would rewrite the entry without the marker and silently erase the commitment -- refuse instead.
+    local lines = buffer_with_summary({
+      "--- log #ClientA q=1 d=hm ---",
+      "08:00 meeting !T[]120",
+      "10:00 done",
+    })
+    local _, err = split_summary.run(lines, row_of(lines, "(+0m) meeting"), { 1, 1 })
+    t.eq(err, split_summary.REFUSE_LOGGED)
+  end)
+
   t.test("split apportions real time across an offset change", function()
     -- The header pins the start at utc+0, so the first entry is explicitly UTC and the log
     -- stays timezone-consistent (offset-free entries before a utc token would be refused).

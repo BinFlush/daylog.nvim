@@ -73,7 +73,9 @@ return function(t)
         for i = log_count + 1, #buffer do
           if buffer[i] == row.line then
             local _, err = split_summary.run(buffer, i, weights)
-            if err ~= split_summary.NOTHING then
+            -- Skip rows the split refuses because a contributing entry carries a logging marker at
+            -- any level (!S/!T/!L/!W) -- only a marker-free interval is splittable.
+            if err ~= split_summary.NOTHING and err ~= split_summary.REFUSE_LOGGED then
               return i
             end
             break
@@ -109,8 +111,8 @@ return function(t)
 
     local result, err = split_summary.run(buffer, cursor, weights)
     if not result then
-      if err == split_summary.REFUSE_OFFSET then
-        return nil -- an interval crossing a UTC offset change is correctly refused
+      if err == split_summary.REFUSE_OFFSET or err == split_summary.REFUSE_LOGGED then
+        return nil -- correctly refused: a UTC-offset-crossing cut, or an entry carrying a marker
       end
       return string.format(
         "split refused (%s) on seed=%d mode=%s\n%s",
