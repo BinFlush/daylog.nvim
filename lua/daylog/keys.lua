@@ -14,12 +14,14 @@ function M.format(entries)
     lines[#lines + 1] = "  No keymaps set in daylog files."
     lines[#lines + 1] = "  Enable the default set with  setup({ keymaps = true })"
   else
+    -- Measure by display width, not byte length: a multibyte leader (<leader> already expanded) would
+    -- otherwise over-pad and misalign the description column.
     local width = 0
     for _, entry in ipairs(entries) do
-      width = math.max(width, #entry.lhs)
+      width = math.max(width, vim.fn.strdisplaywidth(entry.lhs))
     end
     for _, entry in ipairs(entries) do
-      local pad = string.rep(" ", width - #entry.lhs)
+      local pad = string.rep(" ", width - vim.fn.strdisplaywidth(entry.lhs))
       lines[#lines + 1] = "  " .. entry.lhs .. pad .. "   " .. entry.desc
     end
   end

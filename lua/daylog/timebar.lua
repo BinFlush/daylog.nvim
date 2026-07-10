@@ -258,7 +258,9 @@ local WIDE_RANGES = {
   { 0xFE30, 0xFE4F },
   { 0xFF00, 0xFF60 },
   { 0xFFE0, 0xFFE6 },
-  { 0x1F300, 0x1F64F },
+  { 0x1F000, 0x1F0FF }, -- mahjong / dominoes / playing cards
+  { 0x1F300, 0x1F64F }, -- misc symbols & pictographs, emoticons
+  { 0x1F680, 0x1F6FF }, -- transport & map symbols (e.g. U+1F680 rocket)
   { 0x1F900, 0x1FAFF },
   { 0x20000, 0x2FFFD },
 }
@@ -289,6 +291,8 @@ local function char_cells(ch)
   end
   return 1
 end
+
+M.char_cells = char_cells
 
 -- The number of leading characters two char arrays share.
 local function lcp(a, b)

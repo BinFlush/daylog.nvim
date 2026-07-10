@@ -7,6 +7,14 @@ return function(t)
     return analyze.get_active_log(analyze.analyze(document.parse(lines))).entries
   end
 
+  t.test("char_cells stays in lockstep with strdisplaywidth (incl. emoji)", function()
+    -- The pure width table must match the shell's strdisplaywidth, or a label budgeted narrow here is
+    -- dropped by the wider shell measurement. Covers ASCII, a CJK char, and emoji from added ranges.
+    for _, ch in ipairs({ "a", " ", "世", "🚀", "🀄", "🎯", "🤔" }) do
+      t.eq(timebar.char_cells(ch), vim.fn.strdisplaywidth(ch), "width of " .. ch)
+    end
+  end)
+
   t.test("time_at_column maps bar columns back to clock minutes", function()
     -- one segment 08:00 (480) -> 12:00 (720) over 80 cells: 3 minutes per cell, at each cell's left edge.
     local segs = { { width = 80, start = 480, stop = 720 } }
