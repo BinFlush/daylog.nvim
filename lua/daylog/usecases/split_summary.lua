@@ -147,7 +147,10 @@ function M.run(lines, cursor_row, weights)
   -- resolved metadata, so the entry after the activity needs no compensating token.
   local source_edits = support.rewrite_entry_lines(block, function(entry_item)
     local parts = parts_by_row[entry_item.start_row]
-    if not parts then
+    -- A zero-duration interval (two entries share a timestamp) yields no parts; leave its entry
+    -- untouched rather than returning an empty field-set, which rewrite_entry_lines reads as a line
+    -- deletion -- dropping the entry and its sticky #tag/@location/utc and desyncing the summary.
+    if not parts or #parts == 0 then
       return nil
     end
 
@@ -172,7 +175,7 @@ function M.run(lines, cursor_row, weights)
   local modified = {}
   for _, semantic_entry in ipairs(block.entries) do
     local parts = parts_by_row[semantic_entry.row]
-    if parts then
+    if parts and #parts > 0 then
       for _, part in ipairs(parts) do
         local text, alias = part_identity(semantic_entry, part.index)
         modified[#modified + 1] = {

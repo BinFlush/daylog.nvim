@@ -94,6 +94,27 @@ return function(t)
     t.ok(has(out, "1:00 (+0m) meeting (2)"), "part 2 reads one hour")
   end)
 
+  t.test("split preserves a zero-duration interval's entry and its sticky tag", function()
+    -- Two entries share 09:00, so foo's first interval is zero-duration. Splitting must not delete
+    -- that entry: it carries the sticky #work the second entry inherits, so dropping it would lose the
+    -- tag and desync the summary.
+    local out = run(
+      buffer_with_summary({
+        "--- log q=1 d=hm ---",
+        "09:00 foo #work",
+        "09:00 foo",
+        "10:00 done",
+      }),
+      "(+0m) foo",
+      { 1, 1 }
+    )
+
+    t.eq(out[2], "09:00 foo #work", "the zero-duration entry and its #work survive the split")
+    t.eq(out[3], "09:00 foo (1)")
+    t.eq(out[4], "09:30 foo (2)")
+    t.ok(has(out, "1:00 (+0m) #work"), "the #work tag total stays 60 minutes")
+  end)
+
   t.test("split divides one interval by weight", function()
     local out = run(
       buffer_with_summary({
