@@ -369,6 +369,28 @@ return function(t)
     t.eq(err, "daylog: the (untagged) group cannot be renamed; tag the entries first")
   end)
 
+  t.test("rename refuses the (no location) group", function()
+    local _, err = rename_summary.run({
+      "--- log ---",
+      "08:00 plan @office",
+      "09:00 admin @-",
+      "10:00 done",
+      "",
+      "--- summary q=15 d=dec ---",
+      "1.00h (+0m) plan",
+      "1.00h (+0m) admin",
+      "",
+      "--- locations ---",
+      "1.00h (+0m) @office",
+      "1.00h (+0m) (no location)",
+      "",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    }, 12, "somewhere")
+
+    t.eq(err, rename_summary.CANNOT_NO_LOCATION)
+  end)
+
   t.test("rename rejects an invalid tag name", function()
     local _, err = rename_summary.run({
       "--- log #proj ---",

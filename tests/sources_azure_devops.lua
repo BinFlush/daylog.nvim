@@ -100,6 +100,11 @@ return function(t)
     t.eq(transport.seen[1].method, "POST")
     t.eq(transport.seen[1].auth, ":secret-pat")
     t.ok(transport.seen[1].url:match("/wiql%?api%-version=7%.0$") ~= nil)
+
+    -- The hydrate GET opts out of the fail-on-missing policy, so one deleted/inaccessible id can't
+    -- 404 the whole batch -- the readable remainder still comes back.
+    t.eq(transport.seen[2].method, "GET")
+    t.ok(transport.seen[2].url:match("errorPolicy=Omit") ~= nil, "hydrate sets errorPolicy=Omit")
   end)
 
   t.test("JSON nulls never leak into items (they would crash the ranker's sort)", function()

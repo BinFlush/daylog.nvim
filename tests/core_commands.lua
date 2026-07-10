@@ -802,6 +802,29 @@ return function(t)
     t.eq(t.get_lines()[2], "09:00 alpha") -- nothing mapped
   end)
 
+  t.test("balance rejects a non-decimal step argument instead of silently balancing", function()
+    t.reset({
+      "--- log q=60 d=hm ---",
+      "08:00 alpha",
+      "09:00 beta",
+      "11:00 done",
+    })
+    vim.cmd("Daylog refresh")
+    local before = t.get_lines()
+
+    -- 0x2/1e1 are tonumber-able but not decimal integers; they must warn, not balance by 2/10.
+    for _, arg in ipairs({ "0x2", "1e1", "1.5" }) do
+      helpers.with_captured_notify(function(messages)
+        vim.cmd("Daylog balance " .. arg)
+        t.ok(
+          #messages == 1 and messages[1].message:find("integer step count"),
+          "balance " .. arg .. " warns"
+        )
+      end)
+    end
+    t.eq(t.get_lines(), before)
+  end)
+
   t.test("balance follows a reordered summary row with the cursor", function()
     t.reset({
       "--- log q=60 d=hm ---",

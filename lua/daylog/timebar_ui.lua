@@ -360,7 +360,6 @@ function M.render(buf, lines, analysis)
       win = strip_win,
       buf = sbuf,
       first_minutes = entries[1].minutes,
-      last_minutes = entries[#entries].minutes,
       -- Each bar's strip row + segments; the hover maps the pointer line to its row. One entry unless mapped.
       bars = bars,
     }

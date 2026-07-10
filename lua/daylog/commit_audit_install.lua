@@ -11,6 +11,13 @@ local M = {}
 
 local warn = buffer.warn
 
+-- Whether a configured core.hooksPath is absolute: a POSIX leading `/` or a Windows drive prefix
+-- (`C:/`, `C:\`). A relative value is joined onto the repo toplevel. Exposed for a cross-platform
+-- unit test -- the Windows case can't be installed end-to-end on a POSIX CI.
+function M.is_absolute_hooks_path(path)
+  return path:sub(1, 1) == "/" or path:match("^%a:[/\\]") ~= nil
+end
+
 -- git in `dir`; returns its trimmed first stdout line and whether it succeeded.
 local function git(dir, args)
   local command = { "git", "-C", dir }
@@ -45,7 +52,8 @@ local function hooks_dir(root)
   local hooks
   local configured = git(root, { "config", "--get", "core.hooksPath" })
   if configured ~= "" then
-    hooks = configured:sub(1, 1) == "/" and configured
+    -- Only a genuinely relative value is joined onto the repo toplevel.
+    hooks = M.is_absolute_hooks_path(configured) and configured
       or (git(root, { "rev-parse", "--show-toplevel" }) .. "/" .. configured)
   else
     hooks = gitdir .. "/hooks"
