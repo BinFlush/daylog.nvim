@@ -236,11 +236,19 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- OVER-committed cells, but processing commitments in sequence can pull an exactly-met or
   -- under-committed cell -- whose own commitment was never collected -- BELOW its committed value; when
   -- any committed cell ends short, fall back to honest quantization (which foots) and signal it (false).
-  -- Checked at the same section scoping build_section_rows uses, so there is no spurious fallback.
+  -- Tag/location/workday are checked at the section scope build_section_rows displays. Level s, though,
+  -- is enforced (and read back by fine_grained_quantized) per (text, tag, location) while the display
+  -- aggregates locations; check it at that finer scope too, so one location's !S pulled below its
+  -- committed value -- masked at the aggregate by another location's surplus -- still forces the honest
+  -- fallback (and its contradiction warning) rather than silently drifting fine_grained's per-slice value.
   for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local key_fn = function(row)
-      return cell_key(row, level)
-    end
+    local key_fn = level == "s"
+        and function(row)
+          return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
+        end
+      or function(row)
+        return cell_key(row, level)
+      end
     local committed = committed_by_cell(intervals, level, key_fn)
     local totals = {}
     for _, g in ipairs(result) do

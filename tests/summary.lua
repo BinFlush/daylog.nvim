@@ -2169,4 +2169,37 @@ return function(t)
     t.eq(zero[1].duration, 60, "q=0 uses the default 15-minute bucket (60 min is exact)")
     t.eq(zero[1].duration, default[1].duration, "q=0 matches the nil (default) bucket")
   end)
+
+  t.test(
+    "a per-location !S unmet by a cross-cutting commitment falls back honest and warns",
+    function()
+      -- foo@a !S30 + foo@b !S30 = 60 of #x, but #x !T45 caps the tag at 45, so the commitments contradict.
+      -- The per-location feasibility check (not the location-aggregated one) catches it, so the summary
+      -- shows the real 30 minutes instead of a masked inflated 60, warns, and fine_grained never drifts.
+      local block = block_from_lines({
+        "--- log q=15 ---",
+        "08:00 foo #x @a !S30",
+        "08:15 foo #x @b !S30 !T45 !L45",
+        "08:30 done",
+      })
+      t.eq(
+        summary.summarize_block(block).activity_total,
+        30,
+        "foots to the real 30 min, not a masked 60"
+      )
+
+      local contradicts = false
+      for _, d in ipairs(summary.logging_diagnostics(block)) do
+        if d.message:find("contradict", 1, true) then
+          contradicts = true
+        end
+      end
+      t.ok(contradicts, "the contradiction is surfaced")
+
+      -- Under the honest fallback no slice is held at a committed value, so fine_grained can't drift.
+      for _, r in ipairs(summary.fine_grained_quantized(block.entries, 15)) do
+        t.eq(r.logged_minutes, nil, "no committed slice under the honest fallback")
+      end
+    end
+  )
 end

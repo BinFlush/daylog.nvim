@@ -5,6 +5,7 @@ return function(t)
   local document = require("daylog.document")
   local analyze = require("daylog.analyze")
   local summary = require("daylog.summary")
+  local syntax = require("daylog.syntax")
   local render = require("daylog.render")
   local support = require("daylog.usecases.support")
   local refresh = require("daylog.usecases.refresh_summaries")
@@ -280,5 +281,104 @@ return function(t)
       ),
       "balance +N/-N"
     )
+  end)
+
+  -- Cross-cutting per-location logging. constrained_quantize enforces (and fine_grained_quantized reads)
+  -- an !S per (text, tag, location), but the feasibility guard checked the location-aggregated cell -- so
+  -- one location's !S could be pulled below its committed value, masked by another location's surplus,
+  -- with no warning, and fine_grained's per-slice value silently drifting from the on-disk marker. The
+  -- synth never puts one activity in two locations, so this targeted generator does.
+  local function mstr(m)
+    return string.format("%02d:%02d", math.floor(m / 60), m % 60)
+  end
+
+  local function gen_cross_cutting(rng)
+    local q = rng:choice({ 15, 30, 60 })
+    local cur = rng:int(0, 8) * 60
+    local lines = { "--- log q=" .. q .. " ---" }
+    local tag_done, loc_done, slice_done = {}, {}, {}
+    for _ = 1, rng:int(3, 6) do
+      local text = rng:choice({ "A", "B" })
+      local tag = rng:choice({ "x", "y" })
+      local loc = rng:choice({ "a", "b" })
+      local dur = rng:int(1, 4) * q
+      if cur + dur >= syntax.END_OF_DAY_MINUTES then
+        break
+      end
+      local markers = ""
+      -- One !S per slice: same-slice markers are last-wins, not summed, so a second would read as drift.
+      local skey = text .. "|" .. tag .. "|" .. loc
+      if not slice_done[skey] and rng:chance(0.6) then
+        slice_done[skey] = true
+        markers = markers .. " !S" .. (rng:int(0, 4) * q)
+      end
+      if not tag_done[tag] and rng:chance(0.5) then
+        tag_done[tag] = true
+        markers = markers .. " !T" .. (rng:int(1, 6) * q)
+      end
+      if not loc_done[loc] and rng:chance(0.5) then
+        loc_done[loc] = true
+        markers = markers .. " !L" .. (rng:int(1, 6) * q)
+      end
+      lines[#lines + 1] = mstr(cur) .. " " .. text .. " #" .. tag .. " @" .. loc .. markers
+      cur = cur + dur
+    end
+    if #lines < 3 then
+      return nil
+    end
+    lines[#lines + 1] = mstr(cur) .. " done"
+    return lines
+  end
+
+  -- On a log the code treats as clean (no logging diagnostics), every !S slice's fine_grained committed
+  -- value must equal its on-disk marker; a drift is the silent per-location feasibility bug.
+  local function feasibility_drift(lines)
+    local analysis = analyze.analyze(document.parse(lines))
+    if #analysis.diagnostics > 0 then
+      return nil
+    end
+    local block = analyze.get_active_log(analysis)
+    if not block or #summary.logging_diagnostics(block) > 0 then
+      return nil
+    end
+    local committed = {}
+    for _, r in ipairs(summary.fine_grained_quantized(block.entries, block.quantize_minutes)) do
+      if r.logged_minutes ~= nil then
+        local key = (r.text or "") .. "|" .. (r.tag or "") .. "|" .. (r.location or "")
+        committed[key] = (committed[key] or 0) + r.logged_minutes
+      end
+    end
+    for _, e in ipairs(block.entries) do
+      local v = syntax.committed_minutes(e.logged and e.logged.s)
+      if v then
+        local key = summary.entry_summary_text(e)
+          .. "|"
+          .. (e.tag or "")
+          .. "|"
+          .. (e.location or "")
+        if (committed[key] or 0) ~= v then
+          return string.format(
+            "slice %s: fine_grained committed %s but the marker is !S%d (no warning)",
+            key,
+            tostring(committed[key]),
+            v
+          )
+        end
+      end
+    end
+    return nil
+  end
+
+  t.test("a per-location !S never silently drifts from its fine_grained value (fuzz)", function()
+    local master = Rng.new(20260711)
+    for _ = 1, 2000 do
+      local lines = gen_cross_cutting(Rng.new(master:int(1, 2147483646)))
+      if lines then
+        local err = feasibility_drift(lines)
+        if err then
+          error(err .. "\n--- log ---\n" .. table.concat(lines, "\n"), 0)
+        end
+      end
+    end
   end)
 end
