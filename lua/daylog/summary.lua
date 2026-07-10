@@ -103,17 +103,19 @@ function M.closing_entry_row_for(entries, item)
   return nil
 end
 
--- The cell an interval/granule belongs to at each level: activity (s), tag (t), location (l), or the
--- whole day (`workday`, w).
-local function cell_key(row, level)
-  if level == "t" then
+-- The commitment scope an interval's !S/!T/!L/!W value must agree within (and the cell its committed
+-- value inflates). !S is frozen per (activity, LOCATION) [+ names], so its key carries location -- the
+-- display cell (build_section_rows' key_fields) aggregates locations, and keeping these two scopes
+-- distinct is load-bearing: their drift caused the per-location feasibility bug. t/l/w key on one cell.
+local function commit_key(row, level)
+  if level == "s" then
+    return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
+  elseif level == "t" then
     return (row.tag or "\0notag") .. "\0" .. (row.t_names_key or "")
   elseif level == "l" then
     return (row.location or "\0noloc") .. "\0" .. (row.l_names_key or "")
-  elseif level == "w" then
-    return "workday" .. "\0" .. (row.w_names_key or "")
   end
-  return table.concat({ row.text or "", row.tag or "", row.s_names_key or "" }, "\0")
+  return "workday" .. "\0" .. (row.w_names_key or "")
 end
 
 -- Group intervals into granules, the finest cell every partition coarsens: (text, tag, location).
@@ -152,9 +154,7 @@ local function committed_by_cell(intervals, level, cell_key_fn)
     local value = syntax.committed_minutes(marker)
     if value ~= nil then
       local cell = cell_key_fn(interval)
-      local scope = level == "s"
-          and (M.activity_identity_key(interval) .. "\0" .. (interval.s_names_key or ""))
-        or cell
+      local scope = commit_key(interval, level)
       scopes[cell] = scopes[cell] or {}
       scopes[cell][scope] = value
     end
@@ -194,13 +194,9 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- suppresses it. Without this the tag/location/workday sections leak a stray `round±N`.
   local overcommitted = {}
   for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local key_fn = level == "s"
-        and function(row)
-          return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
-        end
-      or function(row)
-        return cell_key(row, level)
-      end
+    local key_fn = function(row)
+      return commit_key(row, level)
+    end
     local committed = committed_by_cell(intervals, level, key_fn)
 
     local members = {}
@@ -242,13 +238,9 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- committed value -- masked at the aggregate by another location's surplus -- still forces the honest
   -- fallback (and its contradiction warning) rather than silently drifting fine_grained's per-slice value.
   for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local key_fn = level == "s"
-        and function(row)
-          return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
-        end
-      or function(row)
-        return cell_key(row, level)
-      end
+    local key_fn = function(row)
+      return commit_key(row, level)
+    end
     local committed = committed_by_cell(intervals, level, key_fn)
     local totals = {}
     for _, g in ipairs(result) do
@@ -576,19 +568,6 @@ function M.activity_identity_key(row)
   }, "\0")
 end
 
--- The grouping an interval's committed value must agree within, per level: activity (s), tag, location,
--- or the whole workday (w).
-local function level_group_key(row, level)
-  if level == "t" then
-    return (row.tag or "") .. "\0" .. (row.t_names_key or "")
-  elseif level == "l" then
-    return (row.location or "") .. "\0" .. (row.l_names_key or "")
-  elseif level == "w" then
-    return "\0" .. (row.w_names_key or "")
-  end
-  return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
-end
-
 -- Same-level intervals whose committed values disagree, each { row } at the earliest entry: the fold
 -- would silently collapse them to one, so catch it first. A bare marker is its own value (`!T` vs `!T60`
 -- conflicts).
@@ -598,7 +577,7 @@ local function conflicts_at_level(intervals, level)
   for _, interval in ipairs(intervals) do
     local committed = interval.logged_by_level and interval.logged_by_level[level]
     if committed ~= nil then
-      local key = level_group_key(interval, level)
+      local key = commit_key(interval, level)
       local group = groups[key]
       if not group then
         group = { row = interval.source_entry_row, values = {}, distinct = 0 }
@@ -649,7 +628,7 @@ function M.logging_diagnostics(block)
     for _, level in ipairs(syntax.LOGGED_LEVELS) do
       local committed = syntax.committed_minutes(item.logged and item.logged[level])
       if committed ~= nil and (committed < 0 or committed % bucket ~= 0) then
-        local key = level .. "\0" .. level_group_key(item, level)
+        local key = level .. "\0" .. commit_key(item, level)
         if not seen_off_grid[key] then
           seen_off_grid[key] = true
           out[#out + 1] = {
