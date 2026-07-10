@@ -1,5 +1,6 @@
 local entry = require("daylog.entry")
 local support = require("daylog.usecases.support")
+local syntax = require("daylog.syntax")
 
 local M = {}
 
@@ -49,10 +50,19 @@ function M.run(lines, row, time, text, auto_offset)
     result.offset_change = { from = state.offset, to = stamp }
   end
 
-  -- Land the cursor at end of the inserted line and enter insert mode so the user can keep typing.
+  -- Enter insert mode so the user can keep typing the description. A drifted offset makes entry.format
+  -- trail a `utc±H` token; land the cursor BEFORE it (startinsert = "cursor", like insert_now) so
+  -- continued typing extends the description instead of being swallowed past the offset -- which would
+  -- reparse the token into the text and silently drop the entry's offset. Otherwise append at EOL.
   local insert_index = support.get_insert_index(ctx.block, minutes)
-  result.cursor = { insert_index + 1, #inserted_line }
-  result.startinsert = true
+  if stamp ~= nil then
+    local utc_token = " " .. syntax.utc_offset_token(ins_offset)
+    result.cursor = { insert_index + 1, #inserted_line - #utc_token }
+    result.startinsert = "cursor"
+  else
+    result.cursor = { insert_index + 1, #inserted_line }
+    result.startinsert = true
+  end
 
   return result
 end
