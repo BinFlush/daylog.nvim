@@ -175,6 +175,7 @@ dofile(root .. "/tests/summary_fuzz.lua")(t)
 dofile(root .. "/tests/balance_invariants.lua")(t)
 dofile(root .. "/tests/split_invariants.lua")(t)
 dofile(root .. "/tests/logging_invariants.lua")(t)
+dofile(root .. "/tests/robustness.lua")(t)
 dofile(root .. "/tests/regen_invariants.lua")(t)
 dofile(root .. "/tests/regen_scenarios.lua")(t)
 

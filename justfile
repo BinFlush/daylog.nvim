@@ -43,6 +43,15 @@ fuzz mode="all" rounds="5000" seed="HEAD":
         "+set rtp+=." \
         "+luafile tests/fuzz.lua"
 
+# Dependency-free line coverage of lua/daylog via a debug hook: run the whole suite and print the
+# uncovered code-looking lines per file. Slow (the hook makes the fuzz sweeps take minutes), so it is
+# NOT part of `just check` -- it is a manual tool for finding untested branches.
+coverage:
+    nvim --headless -i NONE -u NONE \
+      "+set rtp+=." \
+      "+lua local c=dofile('tests/coverage.lua'); c.start(); pcall(function() dofile('tests/run.lua') end); c.report()" \
+      "+qa!"
+
 health:
     nvim --headless -u NONE \
       "+set rtp+=." \

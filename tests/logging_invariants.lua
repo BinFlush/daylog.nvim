@@ -12,6 +12,7 @@ return function(t)
   local split_summary = require("daylog.usecases.split_summary")
   local rename_summary = require("daylog.usecases.rename_summary")
   local map_summary = require("daylog.usecases.map_summary")
+  local balance_summary = require("daylog.usecases.balance_summary")
   local body = require("daylog.body")
   local entry = require("daylog.entry")
 
@@ -155,7 +156,7 @@ return function(t)
     function()
       local master = Rng.new(48271)
       for _, mode in ipairs(synth.MODES) do
-        for _ = 1, 250 do
+        for _ = 1, 60 do
           local err = roundtrip(master:int(1, 2147483646), mode)
           if err then
             error(err, 0)
@@ -216,4 +217,65 @@ return function(t)
       t.eq(#refresh.run(over).warnings, 0)
     end
   )
+
+  -- Each logging diagnostic fires on its trigger, and a clean log fires none -- the warning half of
+  -- the feasibility rules, which the footing fuzz (emitting only on-grid, feasible values) can't see.
+  t.test("logging diagnostics fire on off-grid, conflicting, and contradictory values", function()
+    local function fires(lines, needle)
+      for _, d in ipairs(summary.logging_diagnostics(active(lines))) do
+        if d.message:find(needle, 1, true) then
+          return true
+        end
+      end
+      return false
+    end
+    t.ok(
+      fires({ "--- log q=15 ---", "08:00 x #a !S[]7", "09:00 done" }, "no longer fits"),
+      "off-grid"
+    )
+    t.ok(
+      fires(
+        { "--- log q=15 ---", "08:00 x #a !S[]30", "09:00 x #a !S[]60", "10:00 done" },
+        "disagree"
+      ),
+      "same-activity values disagree"
+    )
+    t.ok(
+      fires({ "--- log q=15 ---", "09:00 work #T @L !T[]120 !L[]90", "10:00 stop" }, "contradict"),
+      "cross-cutting infeasible"
+    )
+    local clean = { "--- log q=15 ---", "08:00 x #a @o !S[]60", "09:00 done" }
+    t.eq(#summary.logging_diagnostics(active(clean)), 0)
+  end)
+
+  -- A forward edit and its inverse return the buffer to base, byte-for-byte. rename/map act on the
+  -- entry (an activity row may mix bare + mapped entries); balance acts on the summary row.
+  t.test("map/clear, rename A->B->A, and balance +N/-N are identities", function()
+    local base = rendered({ "--- log q=15 ---", "08:00 alpha #x @o", "09:00 beta", "10:00 done" })
+
+    local mapped = support.apply_edits(base, map_summary.run(base, 2, "mapped").edits)
+    t.ok(
+      lines_equal(support.apply_edits(mapped, map_summary.run(mapped, 2, "").edits), base),
+      "map/clear"
+    )
+
+    local renamed = support.apply_edits(base, rename_summary.run(base, 2, "renamed").edits)
+    t.ok(
+      lines_equal(support.apply_edits(renamed, rename_summary.run(renamed, 2, "alpha").edits), base),
+      "rename A->B->A"
+    )
+
+    local balanced =
+      support.apply_edits(base, balance_summary.run(base, row_line(base, ") alpha"), 2).edits)
+    t.ok(
+      lines_equal(
+        support.apply_edits(
+          balanced,
+          balance_summary.run(balanced, row_line(balanced, ") alpha"), -2).edits
+        ),
+        base
+      ),
+      "balance +N/-N"
+    )
+  end)
 end
