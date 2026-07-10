@@ -28,7 +28,13 @@ end
 -- The daybook repo's hooks directory (honoring core.hooksPath), created if missing. Returns dir, or
 -- nil and an error message when `root` is not inside a git repo.
 local function hooks_dir(root)
-  local gitdir, ok = git(root, { "rev-parse", "--absolute-git-dir" })
+  -- Prefer the COMMON git dir so a linked worktree installs into the shared hooks dir (a per-worktree
+  -- one would not fire for commits made from another worktree). Fall back to the absolute git dir on
+  -- older git that lacks --path-format.
+  local gitdir, ok = git(root, { "rev-parse", "--path-format=absolute", "--git-common-dir" })
+  if not ok then
+    gitdir, ok = git(root, { "rev-parse", "--absolute-git-dir" })
+  end
   if not ok then
     return nil,
       "daylog: "
@@ -112,6 +118,13 @@ function M.run(opts)
   vim.fn.setfperm(hook, "rwxr-xr-x")
 
   vim.notify("daylog: installed commit-audit hook at " .. hook, vim.log.levels.INFO)
+  -- The hook runs `nvim -l`, added in Neovim 0.9; on an older nvim it is a silent no-op (the hook's
+  -- `|| true` swallows it). Flag it so the audit is not silently dead.
+  if vim.fn.has("nvim-0.9") == 0 then
+    warn(
+      "daylog: the commit-audit hook needs Neovim 0.9+ (nvim -l); on this older nvim it will no-op"
+    )
+  end
   return hook
 end
 

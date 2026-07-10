@@ -113,6 +113,9 @@ It refuses to overwrite an existing hook; pass `{ force = true }` to replace one
 hand instead, copy `contrib/daybook-post-commit.sample` to `<daybook>/.git/hooks/post-commit`,
 set the path inside, and `chmod +x` it.)
 
+> The hook runs the audit with `nvim -l`, which needs **Neovim 0.9+**. On an older nvim the
+> hook is a silent no-op; the installer warns when it detects one.
+
 Review the results:
 
 ```sh

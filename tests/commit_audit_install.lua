@@ -63,6 +63,28 @@ return function(t)
     )
   end)
 
+  t.test("install honors an absolute core.hooksPath", function()
+    local dir = vim.fn.tempname()
+    git_init(dir)
+    local hooks = vim.fn.tempname() .. "/abs-hooks"
+    vim.fn.system({ "git", "-C", dir, "config", "core.hooksPath", hooks })
+
+    local hook = daylog.install_commit_audit_hook({ dir = dir })
+    t.eq(hook, hooks .. "/post-commit")
+    t.eq(vim.fn.filereadable(hook), 1)
+  end)
+
+  t.test("install honors a repo-relative core.hooksPath", function()
+    local dir = vim.fn.tempname()
+    git_init(dir)
+    vim.fn.system({ "git", "-C", dir, "config", "core.hooksPath", ".husky" })
+
+    local top = vim.fn.trim(vim.fn.system({ "git", "-C", dir, "rev-parse", "--show-toplevel" }))
+    local hook = daylog.install_commit_audit_hook({ dir = dir })
+    t.eq(hook, top .. "/.husky/post-commit")
+    t.eq(vim.fn.filereadable(hook), 1)
+  end)
+
   t.test("install warns when the target is not a git repository", function()
     local dir = vim.fn.tempname()
     vim.fn.mkdir(dir, "p") -- created, but never `git init`ed
