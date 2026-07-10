@@ -2156,4 +2156,17 @@ return function(t)
       t.ok(contradicts, "the infeasible commitments raise the contradiction diagnostic")
     end
   )
+
+  t.test("a non-positive quantize falls back to the default instead of dividing by zero", function()
+    -- 0 is truthy in Lua, so `q or DEFAULT` used to pass it straight into the quantizer -> nan durations.
+    local entries = analyze.get_active_log(analyze.analyze(document.parse({
+      "--- log ---",
+      "08:00 x",
+      "09:00 done",
+    }))).entries
+    local zero = summary.quantized_granules(entries, 0)
+    local default = summary.quantized_granules(entries, nil)
+    t.eq(zero[1].duration, 60, "q=0 uses the default 15-minute bucket (60 min is exact)")
+    t.eq(zero[1].duration, default[1].duration, "q=0 matches the nil (default) bucket")
+  end)
 end
