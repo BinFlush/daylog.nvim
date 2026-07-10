@@ -100,4 +100,32 @@ return function(t)
       },
     })
   end)
+
+  t.test(
+    "insert_entry lands the cursor before a drifted utc token so typing keeps the offset",
+    function()
+      -- Header utc+2 with the live offset drifted to utc+1 (60): entry.format trails a "utc+1" token, so
+      -- the cursor must sit before it (startinsert = "cursor") -- otherwise continued typing reparses the
+      -- token into the description and silently drops the entry's offset.
+      local result = insert_entry.run({
+        "--- log utc+2 ---",
+        "08:00 earlier",
+        "10:00 later",
+      }, 2, "09:00", "meeting", 60)
+
+      local insert_line
+      for _, e in ipairs(result.edits) do
+        for _, l in ipairs(e.lines) do
+          if l:find("meeting", 1, true) then
+            insert_line = l
+          end
+        end
+      end
+      t.eq(insert_line, "09:00 meeting utc+1")
+      t.eq(result.startinsert, "cursor")
+      -- Cursor after "meeting", before " utc+1".
+      t.eq(result.cursor[2], #"09:00 meeting")
+      t.eq(insert_line:sub(result.cursor[2] + 1), " utc+1")
+    end
+  )
 end

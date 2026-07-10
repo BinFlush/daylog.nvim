@@ -7,6 +7,14 @@ local M = {}
 -- Semantic reporting for log blocks: interval derivation, report sections, sorting, logged totals. PURE.
 -- (Grouping engine lives in projection.lua, rounding arithmetic in quantize.lua.)
 
+-- The rounding bucket for a block, defaulting a nil OR non-positive quantize. Guarding <= 0 (not just
+-- nil) keeps a direct call with q=0 from dividing by zero -- 0 is truthy in Lua, so `q or DEFAULT`
+-- would pass it straight through into the quantizer.
+local function bucket_of(quantize_minutes)
+  return (quantize_minutes and quantize_minutes > 0) and quantize_minutes
+    or syntax.DEFAULT_QUANTIZE_MINUTES
+end
+
 -- The text an entry contributes to the summary: its alias when set, else its description.
 -- Every grouping/display and the frecency ranker key on this, so a bare and a mapped entry
 -- reporting as the same label rank as one activity.
@@ -228,11 +236,19 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- OVER-committed cells, but processing commitments in sequence can pull an exactly-met or
   -- under-committed cell -- whose own commitment was never collected -- BELOW its committed value; when
   -- any committed cell ends short, fall back to honest quantization (which foots) and signal it (false).
-  -- Checked at the same section scoping build_section_rows uses, so there is no spurious fallback.
+  -- Tag/location/workday are checked at the section scope build_section_rows displays. Level s, though,
+  -- is enforced (and read back by fine_grained_quantized) per (text, tag, location) while the display
+  -- aggregates locations; check it at that finer scope too, so one location's !S pulled below its
+  -- committed value -- masked at the aggregate by another location's surplus -- still forces the honest
+  -- fallback (and its contradiction warning) rather than silently drifting fine_grained's per-slice value.
   for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local key_fn = function(row)
-      return cell_key(row, level)
-    end
+    local key_fn = level == "s"
+        and function(row)
+          return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
+        end
+      or function(row)
+        return cell_key(row, level)
+      end
     local committed = committed_by_cell(intervals, level, key_fn)
     local totals = {}
     for _, g in ipairs(result) do
@@ -483,7 +499,7 @@ end
 -- Build the full quantized summary from one shared quantization: every section re-sums the same
 -- granules, so all foot to the one activity total.
 function M.summarize_entries(entries, quantize_minutes)
-  local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+  local bucket_minutes = bucket_of(quantize_minutes)
   local intervals = build_intervals(entries)
   local quantized, feasible =
     quantize_granules(build_granules(intervals), intervals, bucket_minutes)
@@ -527,7 +543,7 @@ end
 -- display renders (location kept in the key so an `!S` value is committed per activity+location), so the
 -- value logging freezes always equals the value the summary shows -- they cannot drift apart.
 function M.fine_grained_quantized(entries, quantize_minutes)
-  local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+  local bucket_minutes = bucket_of(quantize_minutes)
   local intervals = build_intervals(entries)
   local quantized, feasible =
     quantize_granules(build_granules(intervals), intervals, bucket_minutes)
@@ -544,7 +560,7 @@ end
 -- The quantized granules exactly as the displayed summary re-sums them, for callers judging
 -- display-level facts (an out-of-range nudge) on the same base the render shows. PURE.
 function M.quantized_granules(entries, quantize_minutes)
-  local bucket_minutes = quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+  local bucket_minutes = bucket_of(quantize_minutes)
   local intervals = build_intervals(entries)
   return (quantize_granules(build_granules(intervals), intervals, bucket_minutes))
 end
@@ -624,7 +640,7 @@ local LEVEL_NOUN = { s = "activity", t = "tag", l = "location", w = "workday" }
 -- (diagnostics) and the highlighter (reddening) so the two can never drift apart. PURE.
 function M.logging_diagnostics(block)
   local out = {}
-  local bucket = block.quantize_minutes or syntax.DEFAULT_QUANTIZE_MINUTES
+  local bucket = bucket_of(block.quantize_minutes)
   local intervals = build_intervals(block.entries)
 
   -- A frozen value off the bucket grid, reported once per level-group (anchored at its first entry).

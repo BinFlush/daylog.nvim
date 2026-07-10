@@ -39,6 +39,22 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- **`:Daylog split` no longer deletes an entry logged at the same minute as the next.** Two entries
+  sharing a timestamp make the first interval zero-duration; splitting the activity dropped that entry's
+  line and the sticky `#tag`/`@location`/`utc` the next entry inherited, desyncing the summary. The entry
+  and its metadata are now preserved.
+- **`:Daylog insert <source>` keeps a drifted UTC offset while you keep typing.** With `auto_timezone` on
+  and the live zone drifted, the inserted entry trails a `utc±H` token and the cursor landed after it, so
+  continued typing swallowed the offset into the description and silently shifted the interval. The cursor
+  now lands before the token, like `:Daylog insert now`.
+- **A frozen logging value larger than a day is rejected.** A hand-edited value over 1440 minutes (e.g.
+  `!S999999990`) drove a multi-second refresh stall and printed absurd totals; it is now an invalid entry.
+- **Cross-cutting logging that can't honor a per-location `!S` is flagged, not silently mis-split.** When
+  the same activity spanned two locations each with their own `!S`, a `!T`/`!L` that undercut their sum
+  could pull one location's slice below its committed value while the other location's surplus masked it —
+  the summary footed, but the per-slice value drifted from the marker, so a later `:Daylog log`/`balance`
+  could freeze the wrong value. It now falls back to the honest durations and raises the contradiction
+  warning.
 - **`:Daylog split` no longer silently drops non-`!S` logging.** Splitting an activity whose entries
   carried a committed `!T`/`!L`/`!W` marker (but not `!S`) erased the commitment; it is now refused, like an
   `!S`-logged activity.
