@@ -7,6 +7,36 @@ return function(t)
     return analyze.analyze(document.parse(lines))
   end
 
+  t.test(
+    "tail_bounds backs the zone up over a corrupted --- ... --- header, sparing its entries",
+    function()
+      -- A summary followed by a mangled header that no longer parses as a log/summary, plus entries.
+      -- Scanning only for the next LOG would run the blast to EOF; tail_bounds must stop AT the header.
+      local lines = {
+        "--- log ---", -- 1
+        "08:00 plan", -- 2
+        "09:00 done", -- 3
+        "", -- 4
+        "--- summary q=15 d=dec ---", -- 5
+        "1.00h (+0m) plan", -- 6
+        "", -- 7
+        "--- corrupted ---", -- 8  (matches ---...--- but is not a log/summary header)
+        "10:00 review", -- 9
+        "11:00 done", -- 10
+      }
+      local analysis = analyze_lines(lines)
+      local tail_start, stop_row = summary_block.tail_bounds(analysis, analysis.log_blocks[1])
+      t.eq(tail_start, 4)
+      t.eq(stop_row, 8) -- stops at, not past, the corrupted header (rows 8-10 preserved)
+    end
+  )
+
+  t.test("edit_distance returns nil when the DP grid would exceed the cell cap", function()
+    local long = string.rep("x", 1001) -- (1001+1)^2 = 1004004 > 1e6
+    t.eq(summary_block.edit_distance(long, long), nil)
+    t.eq(summary_block.edit_distance("abc", "abd"), 1) -- the ordinary case still measures
+  end)
+
   local function locate(lines)
     local analysis = analyze_lines(lines)
     local block = analyze.get_active_log(analysis)

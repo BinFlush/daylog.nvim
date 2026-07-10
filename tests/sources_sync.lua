@@ -115,4 +115,106 @@ return function(t)
     end)
     registry.clear()
   end)
+
+  -- Drive ensure_fresh across its three cache states by stubbing the cache IO / sync.
+  local function with_stubs(stubs, fn)
+    local saved = {}
+    for k, v in pairs(stubs) do
+      saved[k], sync[k] = sync[k], v
+    end
+    local ok, err = xpcall(fn, debug.traceback)
+    for k in pairs(stubs) do
+      sync[k] = saved[k]
+    end
+    if not ok then
+      error(err, 0)
+    end
+  end
+
+  t.test("ensure_fresh serves a fresh cache immediately and does not refresh", function()
+    local synced = false
+    with_stubs({
+      read_cache = function()
+        return { items = { { id = "1" } }, fetched_at = os.time() }
+      end,
+      sync = function()
+        synced = true
+      end,
+    }, function()
+      local got
+      sync.ensure_fresh("S", 300, function(items)
+        got = items
+      end)
+      t.eq(got, { { id = "1" } })
+      t.eq(synced, false)
+    end)
+  end)
+
+  t.test("ensure_fresh serves a stale cache and refreshes it in the background", function()
+    local synced = false
+    with_stubs({
+      read_cache = function()
+        return { items = { { id = "1" } }, fetched_at = 0 } -- long past the ttl
+      end,
+      sync = function(_, opts)
+        synced = true
+        t.eq(opts.silent, true)
+      end,
+    }, function()
+      local got
+      sync.ensure_fresh("S", 300, function(items)
+        got = items
+      end)
+      t.eq(got, { { id = "1" } })
+      t.eq(synced, true)
+    end)
+  end)
+
+  t.test("ensure_fresh with no cache fetches once, then hands items over on success", function()
+    with_stubs({
+      read_cache = function()
+        return nil
+      end,
+      read_items = function()
+        return { { id = "9" } }
+      end,
+      sync = function(_, _, cb)
+        cb(true)
+      end,
+    }, function()
+      with_captured_notify(function(messages)
+        local got, unavailable
+        sync.ensure_fresh("S", 300, function(items)
+          got = items
+        end, function()
+          unavailable = true
+        end)
+        t.eq(got, { { id = "9" } })
+        t.eq(unavailable, nil)
+        t.ok(messages[1].message:find("syncing", 1, true) ~= nil, "notifies it is syncing")
+      end)
+    end)
+  end)
+
+  t.test("ensure_fresh with no cache calls on_unavailable when the fetch fails", function()
+    with_stubs({
+      read_cache = function()
+        return nil
+      end,
+      sync = function(_, _, cb)
+        cb(false)
+      end,
+    }, function()
+      with_captured_notify(function()
+        local got, unavailable
+        sync.ensure_fresh("S", 300, function(items)
+          got = items
+        end, function()
+          unavailable = true
+        end)
+        t.eq(got, nil)
+        t.eq(unavailable, true)
+      end)
+    end)
+  end)
 end
