@@ -124,10 +124,13 @@ function M.classify(files, commit_date)
           append_unique(other_days, other_seen, day)
           reasons[#reasons + 1] = file.path .. ": log changed for " .. day
         end
-        if has_problem(new_lines) then
-          needs_review = true
-          reasons[#reasons + 1] = file.path .. ": committed with a daylog problem"
-        end
+      end
+
+      -- Flag a committed file left with any daylog problem regardless of the active-log fingerprint --
+      -- a broken earlier (non-active) log, or a diagnostic-introducing note, still deserves review.
+      if has_problem(new_lines) then
+        needs_review = true
+        reasons[#reasons + 1] = file.path .. ": committed with a daylog problem"
       end
     end
   end

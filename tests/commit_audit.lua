@@ -120,6 +120,35 @@ return function(t)
     t.ok(#result.reasons > 0, "a reason is recorded")
   end)
 
+  t.test(
+    "a broken non-active log sets needs_review even when the active log is unchanged",
+    function()
+      -- Two logs; the FIRST (non-active) one is edited into unordered timestamps while the latest log --
+      -- the one the fingerprint tracks -- is untouched. Classification stays notes, but review is flagged.
+      local old = {
+        "--- log ---",
+        "08:00 plan",
+        "09:00 done",
+        "",
+        "--- log ---",
+        "10:00 review",
+        "11:00 done",
+      }
+      local new = {
+        "--- log ---",
+        "09:00 plan",
+        "08:00 done",
+        "",
+        "--- log ---",
+        "10:00 review",
+        "11:00 done",
+      }
+      local result = one(TODAY, old, new)
+      t.eq(result.classification, "notes")
+      t.eq(result.needs_review, true)
+    end
+  )
+
   t.test("changes to non-day files are ignored", function()
     local result = audit.classify({
       { path = "README.md", old_lines = { "a" }, new_lines = { "b" } },
