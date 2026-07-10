@@ -91,7 +91,7 @@ function M.sync(name, opts, cb)
   local finished = false
 
   local ok, err = pcall(function()
-    source.fetch(function(items, fetch_err)
+    source.fetch(function(items, fetch_err, total)
       finished = true
       in_flight[name] = false
 
@@ -106,7 +106,20 @@ function M.sync(name, opts, cb)
       end
 
       if not opts.silent then
-        notify(string.format("daylog: synced %d items from %s", #items, name))
+        -- The source caps how many items it hydrates; warn when it truncated so the offline cache is
+        -- not silently missing items (the Telescope live path shows the same on its search results).
+        if total and total > #items then
+          warn(
+            string.format(
+              "daylog: synced the first %d of %d items from %s; narrow its query to cache the rest",
+              #items,
+              total,
+              name
+            )
+          )
+        else
+          notify(string.format("daylog: synced %d items from %s", #items, name))
+        end
       end
       cb(true)
     end)
