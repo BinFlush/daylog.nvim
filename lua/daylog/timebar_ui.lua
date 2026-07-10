@@ -87,6 +87,8 @@ local function build_bar_row(segments, now_col)
   return bar
 end
 
+M.build_bar_row = build_bar_row
+
 -- One label row as a chunk list ({ {text, hl}, ... }): each placement (swatch + name) drawn at its
 -- `col` from timebar.label_placements. `col` is char-based, so this guards true display width -- a
 -- double-width (CJK/emoji) label that would collide or overrun the bar is dropped, not overlapped.
@@ -130,6 +132,8 @@ local function bar_virt_lines(layout, width)
   end
   return rows, bars
 end
+
+M.bar_virt_lines = bar_virt_lines
 
 -- The current local time in minutes, only when `buf` is today's dated daylog file (so the "now"
 -- marker appears only on the current day); nil for any other day or a non-dated file.
