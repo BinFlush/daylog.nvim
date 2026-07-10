@@ -469,6 +469,43 @@ return function(t)
     })
   end)
 
+  t.test("repeat_current before a trailing blank does not leak a clear onto the blank", function()
+    -- Regression: the inserted #proj entry changes the sticky tag, but the immediate follower is a
+    -- blank break (uncounted, carries no metadata), so no #- is emitted onto it (which would trip
+    -- blank_entry_metadata). With no real entry after the blank there is nothing left to compensate.
+    local result = repeat_current.run({
+      "--- log ---",
+      "08:00 focus #proj",
+      "09:00 other #-",
+      "09:20",
+    }, 2, "09:15")
+
+    t.eq(result, {
+      edits = {
+        { start_index = 3, end_index = 3, lines = { "09:15 focus #proj" } },
+      },
+    })
+  end)
+
+  t.test("repeat_current across a blank compensates the first non-blank follower", function()
+    -- The blank passes the sticky tag through, so the compensating #- lands on the real entry after
+    -- it (10:00 more), not on the blank. The follower edit (higher index) precedes the insert edit.
+    local result = repeat_current.run({
+      "--- log ---",
+      "08:00 focus #proj",
+      "09:00 other #-",
+      "09:20",
+      "10:00 more",
+    }, 2, "09:15")
+
+    t.eq(result, {
+      edits = {
+        { start_index = 4, end_index = 5, lines = { "10:00 more #-" } },
+        { start_index = 3, end_index = 3, lines = { "09:15 focus #proj" } },
+      },
+    })
+  end)
+
   t.test("repeat_current usecase does not propagate !S[]", function()
     local result = repeat_current.run({
       "--- log #ClientA @office ---",
