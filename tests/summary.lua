@@ -14,6 +14,20 @@ return function(t)
     return analysis.log_blocks[index]
   end
 
+  t.test("an over-committed cell's inert round nudge renders on no section", function()
+    -- The single 60m granule is over-committed (!S[]120 forces 120), so the round+1 changes nothing and
+    -- must not leak a `round+1` marker onto the tag/location/workday rows (the main row already omits it).
+    local s = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 work #proj @office round+1 !S[]120",
+      "09:00 done",
+    }))
+    t.eq(s.summary_items[1].nudge, nil)
+    t.eq(s.tag_totals[1].nudge, nil)
+    t.eq(s.location_totals[1].nudge, nil)
+    t.eq(s.total_rows[1].nudge, nil)
+  end)
+
   local function total_duration(items)
     local total = 0
 

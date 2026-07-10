@@ -181,6 +181,10 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- Collect only OVER-committed cells; their surplus must inflate and propagate. Index order is
   -- preserved from `granules`, so member lists index straight into constrained_quantize's copy.
   local commitments = {}
+  -- Granules whose value an over-commitment dictates: their own round±N balance is inert (the inflation
+  -- overrides it), so its marker must render nowhere -- matching the committed main row, which already
+  -- suppresses it. Without this the tag/location/workday sections leak a stray `round±N`.
+  local overcommitted = {}
   for _, level in ipairs({ "s", "t", "l", "w" }) do
     local key_fn = level == "s"
         and function(row)
@@ -206,6 +210,9 @@ local function quantize_granules(granules, intervals, bucket_minutes)
       end
       if committed[key] > current then
         commitments[#commitments + 1] = { members = member_indices, target = committed[key] }
+        for _, index in ipairs(member_indices) do
+          overcommitted[index] = true
+        end
       end
     end
   end
@@ -237,6 +244,14 @@ local function quantize_granules(granules, intervals, bucket_minutes)
         return honest, false
       end
     end
+  end
+  -- The inflation held (no fallback): a nudge on an over-committed granule is inert (the commitment
+  -- dictates the value), so drop the nudge and its below-zero flag -- the marker must render nowhere and
+  -- the "rounds below zero" warning is likewise moot. Durations are already set; only the display reads
+  -- these fields.
+  for index in pairs(overcommitted) do
+    result[index].nudge = nil
+    result[index].nudge_below_zero = nil
   end
   return result, true
 end
