@@ -125,8 +125,30 @@ M.SUMMARY_SECTION_WORDS = {
 -- `week` is legacy).
 local REPORT_PREFIXES = { day = true, week = true, range = true }
 
--- Whether a line is a generated summary-section header; a section word in second position counts
--- only after a known report prefix, so prose like `--- meeting summary ---` never fragments a log.
+-- Whether a first-position section word's trailing text has a generated-header shape. The `summary`
+-- banner historically carried a single-word type (`--- summary exact ---`, a v0.1.0 file still
+-- reclaimed) and now carries q=/d= option tokens; every other section word only ever stands alone.
+-- So trailing prose -- more than one bare word, or any non-option token after another word -- is a
+-- note (`--- tags to follow up ---`, `--- summary of my week ---`), never a structural boundary.
+local function first_word_header_shape(content, first)
+  local rest = content:sub(#first + 1):match("^%s*(.-)%s*$")
+  if rest == "" then
+    return true
+  end
+  if first == M.SECTION.SUMMARY and rest:match("^%S+$") then
+    return true
+  end
+  for token in rest:gmatch("%S+") do
+    if not token:match("^%w+=%S+$") then
+      return false
+    end
+  end
+  return true
+end
+
+-- Whether a line is a generated summary-section header. A first-position section word counts only in
+-- a generated-header shape (see first_word_header_shape); a second-position section word counts only
+-- after a known report prefix, so `--- meeting summary ---` never fragments a log either.
 function M.is_summary_section_header(raw)
   local content = raw:match("^%-%-%- (.+) %-%-%-$")
   if not content then
@@ -135,7 +157,7 @@ function M.is_summary_section_header(raw)
 
   local first, second = content:match("^(%S+)%s*(%S*)")
   if M.SUMMARY_SECTION_WORDS[first] == true then
-    return true
+    return first_word_header_shape(content, first)
   end
   return REPORT_PREFIXES[first] == true and M.SUMMARY_SECTION_WORDS[second] == true
 end
