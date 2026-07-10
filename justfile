@@ -52,6 +52,14 @@ coverage:
       "+lua local c=dofile('tests/coverage.lua'); c.start(); pcall(function() dofile('tests/run.lua') end); c.report()" \
       "+qa!"
 
+# Integration tests for the optional Telescope UI (lua/daylog/telescope.lua), driving REAL pickers via
+# plenary busted -- the way Telescope tests itself. Needs telescope.nvim + plenary.nvim installed (lazy
+# or site/pack; minimal_init discovers them). Standalone: the always-on `test`/`check` run under -u NONE
+# with no Telescope, so this is not part of the gate; run it where Telescope is available.
+test-telescope:
+    nvim --headless --noplugin -u tests/integration/minimal_init.lua \
+      -c "PlenaryBustedDirectory tests/integration/ { minimal_init = 'tests/integration/minimal_init.lua' }"
+
 health:
     nvim --headless -u NONE \
       "+set rtp+=." \
