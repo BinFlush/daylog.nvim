@@ -83,6 +83,49 @@ return function(t)
     end
   end)
 
+  t.test(
+    "append_copy keeps a two-blank seam when the buffer already ends with extra blanks",
+    function()
+      local refresh_summaries = require("daylog.usecases.refresh_summaries")
+      local base = { "--- log q=15 ---", "08:00 a", "09:00 done" }
+      local buf = support.apply_edits(base, refresh_summaries.run(base).edits)
+      buf[#buf + 1] = "" -- two trailing blanks already present: the copy must not add a third
+      buf[#buf + 1] = ""
+
+      local copied = append_copy.run(buf, 1)
+      local after = support.apply_edits(buf, copied.edits)
+
+      t.eq(after[copied.cursor[1]], "--- log q=15 ---") -- header lands right after exactly two blanks
+      t.eq(after[copied.cursor[1] - 1], "")
+      t.eq(after[copied.cursor[1] - 2], "")
+      t.ok(after[copied.cursor[1] - 3] ~= "", "no third blank in the seam")
+      t.eq(#refresh_summaries.run(after).edits, 0) -- and the refresh does not churn the seam
+    end
+  )
+
+  t.test("insert dispatch prefers a named source over the unified (bang) picker", function()
+    local insert = require("daylog.insert")
+    local calls = {}
+    local orig = { insert.insert_from_source, insert.insert_unified, insert.insert_now }
+    insert.insert_from_source = function(name)
+      calls[#calls + 1] = "source:" .. name
+    end
+    insert.insert_unified = function()
+      calls[#calls + 1] = "unified"
+    end
+    insert.insert_now = function()
+      calls[#calls + 1] = "now"
+    end
+
+    insert.insert({ pick = true, source = "ado" }) -- bang + source: the source wins (not dropped)
+    insert.insert({ pick = true }) -- bang only: unified picker
+    insert.insert({ source = "ado" }) -- source only
+    insert.insert({}) -- neither: bare current time
+
+    insert.insert_from_source, insert.insert_unified, insert.insert_now = orig[1], orig[2], orig[3]
+    t.eq(calls, { "source:ado", "unified", "source:ado", "now" })
+  end)
+
   t.test("insert_now usecase returns an edit script and cursor action", function()
     local result = insert_now.run({
       "--- log ---",

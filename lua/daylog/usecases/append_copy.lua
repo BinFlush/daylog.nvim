@@ -39,16 +39,20 @@ function M.run(lines)
     table.insert(rendered, line)
   end
 
-  -- The canonical inter-log separator is two blanks; top up from the buffer's tail (never
-  -- remove) or the next refresh rewrites the seam.
-  local extra = math.max(0, 1 - support.trailing_blank_count(lines))
-  for _ = 1, extra do
+  -- The canonical inter-log separator is two blanks. render.log_lines prepends one structural blank;
+  -- drop it and own the whole seam here so it lands at exactly two -- topping up from the buffer's tail
+  -- (append-only, never removing) rather than adding a third blank when the tail already has two.
+  if rendered[1] == "" then
+    table.remove(rendered, 1)
+  end
+  local blanks = math.max(0, 2 - support.trailing_blank_count(lines))
+  for _ = 1, blanks do
     table.insert(rendered, 1, "")
   end
 
   -- Move the cursor onto the new copy (header after the separator blanks) so the window scrolls to it.
   local result = support.append_edit(lines, rendered)
-  result.cursor = { #lines + extra + 2, 0 }
+  result.cursor = { #lines + blanks + 1, 0 }
   return result
 end
 

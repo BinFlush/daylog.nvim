@@ -451,6 +451,23 @@ return function(t)
     end)
   end)
 
+  t.test("next_day(0) steps once (0 is truthy, must not become a no-op)", function()
+    local root = vim.fn.tempname()
+    local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })
+    local later = os.time({ year = 2026, month = 5, day = 12, hour = 12, min = 0, sec = 0 })
+
+    with_daylog_setup({ daybook = { root = root, directory = "%Y" } }, function()
+      local open_path = write_daybook_file(root, "%Y", opened, { "--- log ---", "08:00 plan" })
+      local later_path = write_daybook_file(root, "%Y", later, { "--- log ---", "09:00 review" })
+      vim.cmd("edit " .. vim.fn.fnameescape(open_path))
+      vim.bo.modified = false
+
+      -- The public API with 0 must behave like a single step, not warn "no later log".
+      require("daylog").next_day(0)
+      t.eq(vim.api.nvim_buf_get_name(0), later_path)
+    end)
+  end)
+
   t.test("prev day count skips that many existing logs backward", function()
     local root = vim.fn.tempname()
     local opened = os.time({ year = 2026, month = 5, day = 10, hour = 12, min = 0, sec = 0 })

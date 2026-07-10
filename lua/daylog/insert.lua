@@ -116,15 +116,16 @@ function M.insert_now()
   current_time.apply_insert_time(os.date("%H:%M"), daybook_io.live_offset())
 end
 
--- Stamp the current time as a new entry. opts.pick opens the unified recent+sources picker;
--- opts.source picks from that one tracker; otherwise a bare current-time entry.
+-- Stamp the current time as a new entry. A named opts.source picks from that one tracker (it takes
+-- precedence over opts.pick, so `:Daylog! insert <source>` opens that source rather than dropping it);
+-- opts.pick alone opens the unified recent+sources picker; otherwise a bare current-time entry.
 function M.insert(opts)
   opts = opts or {}
-  if opts.pick then
-    return M.insert_unified()
-  end
   if opts.source and opts.source ~= "" then
     return M.insert_from_source(opts.source)
+  end
+  if opts.pick then
+    return M.insert_unified()
   end
   return M.insert_now()
 end

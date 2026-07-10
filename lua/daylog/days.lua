@@ -108,14 +108,20 @@ function M.open_relative_day(step)
   end)
 end
 
+-- The step magnitude: a positive count, else 1. `count or 1` is not enough -- 0 is truthy in Lua, so a
+-- next_day(0) via the public API would slip through as a no-direction step that matches no log.
+local function step_count(count)
+  return (type(count) == "number" and count >= 1) and count or 1
+end
+
 -- Browse to the n-th existing log after/before the current day, skipping logless days;
 -- never creates or stamps (n defaults to 1).
 function M.next_day(count)
-  M.open_relative_day(count or 1)
+  M.open_relative_day(step_count(count))
 end
 
 function M.prev_day(count)
-  M.open_relative_day(-(count or 1))
+  M.open_relative_day(-step_count(count))
 end
 
 return M
