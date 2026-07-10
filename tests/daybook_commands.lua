@@ -1120,7 +1120,9 @@ return function(t)
         { "Daylog report 2026-05-20..2026-05-18", "daylog: range start is after end" },
         { "Daylog report 2026-13-01..2026-05-20", "daylog: invalid date: 2026-13-01" },
         { "Daylog report 2026-05-18..2026-99-99", "daylog: invalid date: 2026-99-99" },
-        { "Daylog report ..2026-05-10", "daylog: no daybook logs found" },
+        -- ..TO earlier than the earliest log: an open bound crossing its resolved extreme reads as a
+        -- reversed range, not the misleading "no daybook logs found".
+        { "Daylog report ..2026-05-10", "daylog: range start is after end" },
       }
 
       for _, case in ipairs(cases) do

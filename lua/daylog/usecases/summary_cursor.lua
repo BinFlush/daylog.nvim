@@ -53,13 +53,23 @@ function M.resolve(lines, cursor_row)
   })
 
   local matches = {}
+  local on_non_data_line = false
   for _, layout_row in ipairs(layout) do
-    if SELECTABLE[layout_row.kind] and layout_row.line == cursor_line then
-      table.insert(matches, layout_row)
+    if layout_row.line == cursor_line then
+      if SELECTABLE[layout_row.kind] then
+        table.insert(matches, layout_row)
+      else
+        on_non_data_line = true -- a section header, banner, or blank of a current summary
+      end
     end
   end
 
   if #matches == 0 then
+    -- The cursor sits on a non-data line (header/banner/blank) of an up-to-date summary: it is not
+    -- stale, just not selectable, so fall through to the caller's own "cursor on neither" message.
+    if on_non_data_line then
+      return nil, nil, ctx
+    end
     return nil, M.STALE
   end
 

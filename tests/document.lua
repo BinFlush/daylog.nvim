@@ -93,6 +93,22 @@ return function(t)
     t.eq(document.parse_line("9:00am-ish start").kind, "note_line")
   end)
 
+  t.test(
+    "a single-digit near-miss with out-of-range minutes reports invalid time, not a bad suggestion",
+    function()
+      -- The two-digit-hour suggestion would be "09:75", itself an invalid time, so report that instead.
+      local node = document.parse_line("9:75 standup")
+      t.eq(node.kind, "invalid_entry")
+      t.eq(node.message, "invalid time")
+      t.eq(document.parse_line("9:60").message, "invalid time")
+      -- A valid-minute near-miss still gets the padded-hour suggestion.
+      t.eq(
+        document.parse_line("9:59 x").message,
+        "entry timestamps use two-digit hours (write 09:59)"
+      )
+    end
+  )
+
   t.test("a section word in second position is a boundary only after a report prefix", function()
     -- Report headers stay recognized...
     t.eq(document.parse_line("--- day summary 2026-05-04 q=15 ---").kind, "block_header")

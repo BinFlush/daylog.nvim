@@ -1171,7 +1171,9 @@ return function(t)
     }, 5)
 
     t.eq(result, nil)
-    t.eq(err, "daylog: summary row does not match the active log; regenerate the summary")
+    -- A cursor on the (up-to-date) banner is not a data row -- the caller's own message, not the
+    -- misleading "regenerate the summary" staleness error.
+    t.eq(err, "daylog: put the cursor on a summary, tag, location, or workday row to log it")
   end)
 
   t.test("log_current refuses a main row ambiguous with another summary line", function()

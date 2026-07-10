@@ -313,15 +313,19 @@ local function parse_line(line, row)
 
   -- A near-miss timestamp ("9:00 standup") would silently become a note; flag it instead. A single-digit
   -- H:MM followed by a (±Nm) marker is an hm-format summary row (e.g. "1:00 (+0m) foo"), not an entry.
-  if
-    (line:match("^%d:%d%d$") or line:match("^%d:%d%d%s"))
-    and not line:match("^%d:%d%d%s+" .. syntax.QUANT_MARKER)
-  then
+  -- (A single-digit clock followed by non-space -- "9:00am-ish" -- stays prose, by design.)
+  local near_mm = line:match("^%d:(%d%d)$") or line:match("^%d:(%d%d)%s")
+  if near_mm and not line:match("^%d:%d%d%s+" .. syntax.QUANT_MARKER) then
+    -- Suggest the two-digit fix only when the minutes are themselves valid; otherwise the padded
+    -- suggestion ("09:75") would still be an invalid time, so report that instead.
+    local message = tonumber(near_mm) <= 59
+        and ("entry timestamps use two-digit hours (write 0" .. line:sub(1, 4) .. ")")
+      or "invalid time"
     return {
       kind = syntax.NODE_KIND.INVALID_ENTRY,
       row = row,
       raw = line,
-      message = "entry timestamps use two-digit hours (write 0" .. line:sub(1, 4) .. ")",
+      message = message,
     }
   end
 

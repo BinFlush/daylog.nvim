@@ -187,7 +187,10 @@ local function resolve_range_dates(request)
     return nil, to_err
   end
 
-  if request.from and request.to and from_ts > to_ts then
+  -- Compare the resolved bounds unconditionally: an open bound resolved to a daybook extreme can still
+  -- cross the given one ("..2020" when all logs are later), which should read as a reversed range, not
+  -- the misleading "no daybook logs found" an empty span would otherwise produce.
+  if from_ts > to_ts then
     return nil, "daylog: range start is after end"
   end
 
