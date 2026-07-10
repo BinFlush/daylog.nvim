@@ -21,7 +21,7 @@ function M.target_paths(report, resolved)
 end
 
 -- Write a day file's new content into its open buffer when one exists (so the report reflects it at
--- once), else straight to disk.
+-- once), else straight to disk. Returns true on success, or nil and a message when the disk write fails.
 function M.write_change(path, new_lines)
   local buf = daybook_io.loaded_buffer_for_path(path)
   if buf then
@@ -29,10 +29,27 @@ function M.write_change(path, new_lines)
     if vim.bo[buf].filetype == "daylog" then
       buffer.highlight_buffer(buf)
     end
-    return
+    return true
   end
 
-  vim.fn.writefile(new_lines, path)
+  if not pcall(vim.fn.writefile, new_lines, path) then
+    return nil, "daylog: could not write " .. path
+  end
+  return true
+end
+
+-- Apply a fan-out of `changes` (each `{ path, lines }`), stopping at the first write failure and
+-- warning with a daylog: message instead of letting a raw error escape the command. Files written
+-- before the failure keep their new content. Returns true when every change was written.
+function M.apply_changes(changes)
+  for _, change in ipairs(changes) do
+    local ok, err = M.write_change(change.path, change.lines)
+    if not ok then
+      buffer.warn(err)
+      return false
+    end
+  end
+  return true
 end
 
 -- Confirm a fan-out that will rewrite `changes` (each carrying `path`). `sentence` states the action

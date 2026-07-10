@@ -288,10 +288,7 @@ rename_from_report = function(spec, new_value, source_name)
       return
     end
 
-    for _, change in ipairs(changes) do
-      report_write.write_change(change.path, change.lines)
-    end
-
+    report_write.apply_changes(changes)
     refresh_report_windows()
   end
 
