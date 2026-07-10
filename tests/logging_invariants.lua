@@ -99,7 +99,10 @@ return function(t)
           break
         end
       end
-      if row then
+      -- A value over a day (1440) can't be frozen -- the parser rejects such a marker -- and the synth's
+      -- heavy over-commitments can inflate a tag/workday total past a real day; skip those, they are not
+      -- a loggable operation.
+      if row and (row.item.duration or 0) <= 1440 then
         local target = log_current.classify_report_row(row)
         local ok, logged_res = pcall(log_current.run_by_value, base, target, {})
         if not ok then

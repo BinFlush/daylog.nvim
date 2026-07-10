@@ -395,6 +395,20 @@ return function(t)
     t.eq(document.classify_control_token("!S[]lamas"), nil)
   end)
 
+  t.test("document parse rejects a frozen value larger than a day", function()
+    -- A value beyond 1440 minutes drives a multi-second inflation loop and absurd totals; refuse it.
+    t.eq(
+      document.parse_line("08:04 plan !S1441").message,
+      "a logged !S value can't exceed 1440 minutes"
+    )
+    t.eq(document.parse_line("08:04 plan !S15000000").kind, "invalid_entry")
+    -- Exactly a day is allowed.
+    t.eq(
+      document.parse_line("08:04 plan !S1440").logged,
+      { s = { minutes = 1440, names = { "" } } }
+    )
+  end)
+
   t.test("document parse marks malformed time-like lines as invalid entries", function()
     local doc = document.parse({
       "08:00 plan #sales #meeting",

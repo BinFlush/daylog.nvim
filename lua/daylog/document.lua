@@ -151,6 +151,11 @@ local function parse_entry_metadata(text)
         if seen[dup_key] then
           return nil, "duplicate trailing !" .. pair.level:upper() .. " markers are not allowed"
         end
+        -- A frozen value can't exceed a day; a larger one is a hand-edit that would drive a
+        -- multi-second surplus-inflation loop and print absurd totals, so refuse it here.
+        if pair.minutes and pair.minutes > syntax.END_OF_DAY_MINUTES then
+          return nil, "a logged !" .. pair.level:upper() .. " value can't exceed 1440 minutes"
+        end
         seen[dup_key] = true
         result.logged = result.logged or {}
         result.logged[pair.level] = { minutes = pair.minutes, names = pair.names }
