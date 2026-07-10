@@ -1,12 +1,14 @@
 -- Keymap cheatsheet popup (shell): :Daylog keys / g? opens a float listing the active daylog
--- keymaps. The line building is pure (M.format); M.show owns the float.
+-- keymaps. M.format builds the lines (via vim.fn.strdisplaywidth for column alignment); M.show
+-- owns the float.
 
 local M = {}
 
 local TITLE = "daylog keys (.day files)"
 local FOOTER = "Open today: :Daylog    all commands: :Daylog <Tab>"
 
--- Pure: the cheatsheet lines for entries { { lhs, desc }, ... }; an empty list yields the "no keymaps" guidance.
+-- The cheatsheet lines for entries { { lhs, desc }, ... }; an empty list yields the "no keymaps"
+-- guidance. Measures display width via the Neovim API, so it runs in a Neovim runtime (not pure Lua).
 function M.format(entries)
   local lines = { " " .. TITLE, "" }
 

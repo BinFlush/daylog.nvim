@@ -48,47 +48,6 @@ return function(t)
     t.eq(result[1].error_minutes, -5)
   end)
 
-  t.test("quantize_rows holds a frozen row at its value and excludes it from the pool", function()
-    -- Given a target, a frozen row is held at its committed value and pulled out of the
-    -- pool; the leftover budget (target - frozen = 75 - 60 = 15) distributes over the
-    -- un-frozen rows. The target itself is the caller's business.
-    local rows = {
-      { unrounded_duration = 67, logged_minutes = 60 },
-      { unrounded_duration = 2 },
-    }
-
-    local result = quantize.quantize_rows(rows, 15, 75)
-    t.eq(result[1].duration, 60)
-    t.eq(result[1].error_minutes, 7)
-    t.eq(result[2].duration, 15)
-    t.eq(result[2].error_minutes, -13)
-    t.eq(result[1].duration + result[2].duration, 75)
-  end)
-
-  t.test("quantize_rows keeps a frozen value fixed when an unrelated row grows", function()
-    -- Appending more activity (the second row growing) never moves the committed row.
-    local before = quantize.quantize_rows({
-      { unrounded_duration = 67, logged_minutes = 60 },
-      { unrounded_duration = 2 },
-    }, 15, 75)
-    local after = quantize.quantize_rows({
-      { unrounded_duration = 67, logged_minutes = 60 },
-      { unrounded_duration = 40 },
-    }, 15, 105)
-    t.eq(before[1].duration, 60)
-    t.eq(after[1].duration, 60)
-  end)
-
-  t.test("quantize_rows ignores a nudge on a frozen row", function()
-    -- A frozen value wins over a manual nudge if both ever land on one row.
-    local result = quantize.quantize_rows(
-      { { unrounded_duration = 67, logged_minutes = 60, nudge = 1 } },
-      15,
-      60
-    )
-    t.eq(result[1].duration, 60)
-  end)
-
   t.test("project_rows groups by key fields and sums durations", function()
     local rows = {
       { tag = "a", duration = 10 },

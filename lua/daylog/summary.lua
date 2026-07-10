@@ -420,22 +420,24 @@ local function sort_by_duration(items)
   return items
 end
 
-local function sort_summary_items(items)
-  local groups_by_text = {}
+-- Group `items` by `key_fn`, order each group's rows then the groups by displayed duration, and
+-- flatten back in place -- so a cell's rows (a committed logged slice and its remainder) stay adjacent
+-- instead of being split by an unrelated row of intermediate duration. nil keys share one group.
+local function sort_grouped(items, key_fn)
+  local groups_by_key = {}
   local groups = {}
   local ordered = {}
 
   for _, item in ipairs(items) do
-    local group = groups_by_text[item.text]
+    local key = key_fn(item)
+    if key == nil then
+      key = "\0"
+    end
 
+    local group = groups_by_key[key]
     if not group then
-      group = {
-        text = item.text,
-        items = {},
-        duration = 0,
-        unrounded_duration = 0,
-      }
-      groups_by_text[item.text] = group
+      group = { items = {}, duration = 0, unrounded_duration = 0 }
+      groups_by_key[key] = group
       table.insert(groups, group)
     end
 
@@ -463,10 +465,18 @@ local function sort_summary_items(items)
   return items
 end
 
+-- Main rows group by activity text; tag/location totals group by their own cell so a committed cell's
+-- logged + remainder slices render adjacently (footing is unaffected -- grouping only reorders rows).
 local function finalize_summary_order(summary)
-  sort_summary_items(summary.summary_items)
-  sort_by_duration(summary.tag_totals)
-  sort_by_duration(summary.location_totals)
+  sort_grouped(summary.summary_items, function(item)
+    return item.text
+  end)
+  sort_grouped(summary.tag_totals, function(item)
+    return item.tag
+  end)
+  sort_grouped(summary.location_totals, function(item)
+    return item.location
+  end)
   return summary
 end
 

@@ -494,7 +494,8 @@ return function(t)
     function()
       -- #Beta honest 180, committed !T[]120: the logged slice shows 120 (-30m) and the unlogged
       -- remainder 60 (+30m) absorbs the shortfall, so `design review`, `@home`, and the whole
-      -- day are unchanged and every section still foots to 330.
+      -- day are unchanged and every section still foots to 330. The two #Beta slices group and
+      -- sort by the cell's 180 total (above #Acme's 150), so they render adjacently.
       local block = block_from_lines({
         "--- log q=15 ---",
         "09:00 standup #Acme @office",
@@ -512,9 +513,9 @@ return function(t)
         "0.50h (+0m) standup",
         "",
         "--- tags ---",
-        "2.50h (+0m) #Acme",
         "2.00h (-30m) #Beta !T[]",
         "1.00h (+30m) #Beta",
+        "2.50h (+0m) #Acme",
         "",
         "--- locations ---",
         "3.00h (+0m) @home",
@@ -527,6 +528,36 @@ return function(t)
       assert_activity_totals_match(t, summary.summarize_block(block))
     end
   )
+
+  t.test("a committed tag's logged and remainder slices render adjacently", function()
+    -- Regression: a flat duration sort splits #a's slices (2.50h remainder, 0.50h logged) around
+    -- #b's 1.00h row; grouping by tag keeps them adjacent, the group ordered by the cell's 180 total.
+    local block = block_from_lines({
+      "--- log q=15 ---",
+      "09:00 alpha #a @home !T[]30",
+      "12:00 beta #b @home",
+      "13:00 done",
+    })
+
+    t.eq(render_block(block), {
+      "--- summary q=15 d=dec ---",
+      "3.00h (+0m) alpha",
+      "1.00h (+0m) beta",
+      "",
+      "--- tags ---",
+      "2.50h (-150m) #a",
+      "0.50h (+150m) #a !T[]",
+      "1.00h (+0m) #b",
+      "",
+      "--- locations ---",
+      "4.00h (+0m) @home",
+      "",
+      "--- totals ---",
+      "4.00h (+0m) workday",
+    })
+
+    assert_activity_totals_match(t, summary.summarize_block(block))
+  end)
 
   t.test("a numeric commitment above a cell's honest total inflates and propagates", function()
     -- #Beta honest 90, committed !T[]120: there is no unlogged slack to absorb into, so the

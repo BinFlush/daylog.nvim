@@ -130,6 +130,36 @@ return function(t)
     t.eq(#analysis.log_blocks[1].entries, 3)
   end)
 
+  t.test(
+    "a section word in first position is a boundary only in a generated-header shape",
+    function()
+      -- Generated first-word headers stay recognized: standing alone, or the summary banner's options.
+      t.eq(document.parse_line("--- tags ---").kind, "block_header")
+      t.eq(document.parse_line("--- locations ---").kind, "block_header")
+      t.eq(document.parse_line("--- totals ---").kind, "block_header")
+      t.eq(document.parse_line("--- summary q=15 d=dec ---").kind, "block_header")
+      -- A v0.1.0 single-word summary type (`--- summary exact ---`) still reclaims (compat).
+      t.eq(document.parse_line("--- summary exact ---").kind, "block_header")
+      -- ...but a section word followed by prose is a note, never a structural boundary.
+      t.eq(document.parse_line("--- tags to follow up ---").kind, "note_line")
+      t.eq(document.parse_line("--- summary of my week ---").kind, "note_line")
+      t.eq(document.parse_line("--- totals so far ---").kind, "note_line")
+      t.eq(document.parse_line("--- tags foo ---").kind, "note_line")
+
+      -- The load-bearing consequence: first-word section prose inside a log cannot fragment it.
+      local analyze = require("daylog.analyze")
+      local analysis = analyze.analyze(document.parse({
+        "--- log ---",
+        "08:00 work",
+        "--- tags to follow up ---",
+        "09:00 more",
+        "10:00 done",
+      }))
+      t.eq(#analysis.diagnostics, 0)
+      t.eq(#analysis.log_blocks[1].entries, 3)
+    end
+  )
+
   t.test("document parse_line parses a single line directly", function()
     t.eq(document.parse_line("08:21 negotiate with goose #sales @client"), {
       kind = "entry",
@@ -429,13 +459,28 @@ return function(t)
     })
   end)
 
-  t.test("document parses a summary-shaped timestamp row as a note, not an entry", function()
-    -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp
-    -- plus a (+Nm) marker; the marker makes it a note so it can never be miscounted as
-    -- an entry if it leaks into a log body.
+  t.test("document parses a summary-shaped timestamp row as a silent note, not an entry", function()
+    -- A d=hm summary row ("16:00 (+0m) workday") is byte-for-byte an entry timestamp plus
+    -- a (+Nm) marker; the marker makes it a NOTE so it can never be miscounted as an entry
+    -- if it leaks into a log body. It must stay a *silent* note (not an invalid_entry): when
+    -- a banner is corrupted its d=hm rows leak into the log body, and a diagnostic there
+    -- would mark the log invalid and block banner reclaim (regressed the regen fuzz).
     local doc = document.parse({ "16:00 (+0m) workday", "16:00 standup" })
     t.eq(doc.nodes[1].kind, "note_line")
     t.eq(doc.nodes[2].kind, "entry")
+    -- The same guard swallows a real activity opening with a (+Nm)-shaped token; that is the
+    -- accepted cost of keeping reclaim silent (an activity starting "(+5m)" is vanishingly rare).
+    t.eq(document.parse_line("16:00 (+5m) revised estimate").kind, "note_line")
+  end)
+
+  t.test("summary_duration_length measures a summary row's leading duration, else nil", function()
+    -- The highlighter paints a leading duration only for a rendered summary row (a duration token
+    -- then a (+Nm) marker), never for a plain entry timestamp -- a two-digit HH:MM alone is not a row.
+    t.eq(document.summary_duration_length("16:00 standup"), nil)
+    t.eq(document.summary_duration_length("09:00 standup"), nil)
+    t.eq(document.summary_duration_length("16:00 (+0m) workday"), 5)
+    t.eq(document.summary_duration_length("0:30 (+0m) foo"), 4)
+    t.eq(document.summary_duration_length("2.00h (+0m) workday"), 5)
   end)
 
   t.test("syntax parses utc offsets to signed minutes and round-trips them", function()

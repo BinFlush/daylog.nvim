@@ -135,7 +135,9 @@ local function analyze_entry_items(block, diagnostics)
     if node.kind == syntax.NODE_KIND.ENTRY then
       local entry = semantic_entry_from_node(node, current_tag, current_location, current_offset)
 
-      -- A blank entry may carry no reporting metadata (a utc offset is allowed); flag any that slipped in.
+      -- A blank entry may carry no reporting metadata (a utc offset is allowed); flag any that slipped
+      -- in. An alias is unrepresentable on a blank (the parser only sets alias when text precedes `=>`,
+      -- so text is never "" when alias is set), so it needs no check here.
       if
         node.text == ""
         and (
@@ -144,7 +146,6 @@ local function analyze_entry_items(block, diagnostics)
           or node.explicit_location ~= nil
           or node.explicit_location_clear
           or node.logged ~= nil
-          or node.alias ~= nil
           or (node.nudge ~= nil and node.nudge ~= 0)
         )
       then

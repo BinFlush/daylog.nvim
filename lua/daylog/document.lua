@@ -241,7 +241,9 @@ local function parse_entry(line, row)
   end
 
   -- A summary row ("16:00 (+0m) workday") is an entry timestamp plus a (+Nm) marker; treat it as a
-  -- note so a leaked summary row is never miscounted as an entry (the highlighter shares the rule).
+  -- silent note so a leaked summary row is never miscounted as an entry (the highlighter shares the
+  -- rule). This MUST stay a note, not an invalid entry: when a banner is corrupted its d=hm rows leak
+  -- into the log body, and a diagnostic there would mark the log invalid and block banner reclaim.
   if rest:match("^%s+" .. syntax.QUANT_MARKER) then
     return nil
   end

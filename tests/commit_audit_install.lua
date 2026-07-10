@@ -85,6 +85,17 @@ return function(t)
     t.eq(vim.fn.filereadable(hook), 1)
   end)
 
+  t.test("is_absolute_hooks_path detects POSIX and Windows absolute paths", function()
+    -- The install-honors-absolute test above covers the POSIX branch end-to-end; the Windows drive
+    -- case can't be installed on a POSIX CI (mkdir "C:/..." would create junk), so unit-test it here.
+    local install = require("daylog.commit_audit_install")
+    t.ok(install.is_absolute_hooks_path("/abs/hooks"))
+    t.ok(install.is_absolute_hooks_path("C:/Users/me/hooks"))
+    t.ok(install.is_absolute_hooks_path("C:\\Users\\me\\hooks"))
+    t.ok(not install.is_absolute_hooks_path(".husky"))
+    t.ok(not install.is_absolute_hooks_path("hooks/here"))
+  end)
+
   t.test("install warns when the target is not a git repository", function()
     local dir = vim.fn.tempname()
     vim.fn.mkdir(dir, "p") -- created, but never `git init`ed

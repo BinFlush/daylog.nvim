@@ -518,6 +518,32 @@ return function(t)
     end)
   end)
 
+  t.test(":Daylog bar refuses to toggle from a non-daylog buffer", function()
+    local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
+    helpers.with_daylog_setup({}, function()
+      t.reset({ "just some prose" })
+      vim.bo.filetype = "text"
+      local dwin = vim.api.nvim_get_current_win()
+      local function other_win()
+        for _, w in ipairs(vim.api.nvim_list_wins()) do
+          if w ~= dwin then
+            return w
+          end
+        end
+        return nil
+      end
+
+      helpers.with_captured_notify(function(messages)
+        require("daylog").bar()
+        t.ok(
+          #messages == 1 and messages[1].message:find("time bar is shown in daylog files"),
+          "it warns that the bar is a daylog-only surface"
+        )
+      end)
+      t.ok(other_win() == nil, "no strip window is opened from a non-daylog buffer")
+    end)
+  end)
+
   t.test(":q on the log window tears down the strip in one press", function()
     local helpers = dofile(vim.fn.getcwd() .. "/tests/helpers.lua")
     helpers.with_daylog_setup({}, function()

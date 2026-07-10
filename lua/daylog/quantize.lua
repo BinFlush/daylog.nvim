@@ -33,35 +33,28 @@ function M.apply_error_minutes(items)
 end
 
 -- Round each row down to the bucket, then distribute the leftover buckets (to reach `target_total`) to
--- the largest remainders, ties by first-seen order. A `logged_minutes` row is a frozen commitment held
--- at its value and pulled OUT of the pool, so leftovers distribute only over un-frozen rows.
+-- the largest remainders, ties by first-seen order. Cell-level commitments are handled by
+-- constrained_quantize (surplus inflation), not here, so every row rounds live.
 function M.quantize_rows(rows, bucket_minutes, target_total)
   local result = copy_rows(rows)
   local quantized_total = 0
-  local frozen_total = 0
   local ranked = {}
 
   for i, row in ipairs(result) do
     local unrounded_duration = row.unrounded_duration or row.duration
     row.unrounded_duration = unrounded_duration
 
-    if row.logged_minutes ~= nil then
-      row.duration = row.logged_minutes
-      row.error_minutes = unrounded_duration - row.logged_minutes
-      frozen_total = frozen_total + row.logged_minutes
-    else
-      local base = math.floor(unrounded_duration / bucket_minutes) * bucket_minutes
-      local remainder = unrounded_duration - base
+    local base = math.floor(unrounded_duration / bucket_minutes) * bucket_minutes
+    local remainder = unrounded_duration - base
 
-      row.error_minutes = remainder
-      row.duration = base
-      quantized_total = quantized_total + base
+    row.error_minutes = remainder
+    row.duration = base
+    quantized_total = quantized_total + base
 
-      table.insert(ranked, {
-        index = i,
-        remainder = remainder,
-      })
-    end
+    table.insert(ranked, {
+      index = i,
+      remainder = remainder,
+    })
   end
 
   table.sort(ranked, function(a, b)
@@ -72,7 +65,7 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
     return a.remainder > b.remainder
   end)
 
-  local blocks = math.floor((target_total - frozen_total - quantized_total) / bucket_minutes)
+  local blocks = math.floor((target_total - quantized_total) / bucket_minutes)
 
   for i = 1, blocks do
     local ranked_row = ranked[i]
@@ -87,7 +80,7 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
   -- clamps at zero; a nudge carrying it below zero sets `nudge_below_zero` so refresh can warn the marker
   -- no longer reconciles.
   for _, row in ipairs(result) do
-    if row.nudge and row.nudge ~= 0 and row.logged_minutes == nil then
+    if row.nudge and row.nudge ~= 0 then
       local base = math.floor(row.unrounded_duration / bucket_minutes) * bucket_minutes
       local current_blocks = (row.duration - base) / bucket_minutes
       local nudged = base + (current_blocks + row.nudge) * bucket_minutes

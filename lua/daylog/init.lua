@@ -191,11 +191,13 @@ function M.balance(arg)
   local delta = 1
 
   if arg ~= nil and arg ~= "" then
-    delta = tonumber(arg)
-    if delta == nil or delta ~= math.floor(delta) then
+    -- Match a signed decimal integer before tonumber, so hex/exponent literals (0x2, 1e1) warn
+    -- rather than silently balancing -- mirroring commands.parse_positive_integer's `^%d+$` guard.
+    if not tostring(arg):match("^[%+%-]?%d+$") then
       buffer.warn("daylog: balance expects an integer step count, e.g. +1, -2, or 0 to clear")
       return
     end
+    delta = tonumber(arg)
   end
 
   buffer.run_buffer_usecase(balance_summary.run, buffer.cursor_row(), delta)

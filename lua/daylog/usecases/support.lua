@@ -81,49 +81,88 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
   local insert_index = body.insert_index(block, minutes)
   local pred = body.state_before(block, minutes)
 
-  local follower
+  -- Two followers can inherit the changed sticky state. Tag/location compensation targets the first
+  -- NON-blank follower: a blank holds neither and passes sticky state straight through, so the
+  -- downstream real entry is what silently inherits the change (a #-/@- on a blank would break the
+  -- blank-carries-no-metadata invariant and trip its own diagnostic). Offset compensation targets the
+  -- IMMEDIATE follower even when it is a blank -- an offset IS allowed on a blank, and its clock bounds
+  -- the interval the insert opens before it.
+  local immediate, real_follower
   for _, item in ipairs(block.entry_items) do
     if item.minutes > minutes then
-      follower = item
-      break
+      immediate = immediate or item
+      if item.text ~= "" then
+        real_follower = item
+        break
+      end
     end
   end
 
+  local blank_immediate = immediate ~= nil and immediate.text == ""
+  local edits = {}
+
+  -- (1) Tag/location on the first non-blank follower -- only a separate edit when a blank comes first
+  -- (otherwise the immediate follower IS that entry and its in-place rewrite in (2) covers all three).
+  -- Its own offset is unchanged (any offset shift rides the blank between), so pass it to emit no token.
+  if blank_immediate and real_follower then
+    local needs_tag = not real_follower.explicit_tag
+      and not real_follower.explicit_tag_clear
+      and ins_tag ~= pred.tag
+    local needs_location = not real_follower.explicit_location
+      and not real_follower.explicit_location_clear
+      and ins_loc ~= pred.location
+    if needs_tag or needs_location then
+      edits[#edits + 1] = {
+        start_index = real_follower.start_row - 1,
+        end_index = real_follower.start_row,
+        lines = {
+          entry.format(analyze.copy_fields(real_follower), ins_tag, ins_loc, real_follower.offset),
+        },
+      }
+    end
+  end
+
+  -- (2) The insert, rewriting the immediate follower in place when it silently inherits a change. A
+  -- blank immediate takes only an offset (its own tag/location as `current` suppress those tokens); a
+  -- non-blank immediate takes all three at once, keeping every marker it carried (round±N, !L).
   local lines = { inserted_line }
   local end_index = insert_index
-
-  if follower then
-    local needs_tag = not follower.explicit_tag
-      and not follower.explicit_tag_clear
-      and ins_tag ~= pred.tag
-    local needs_location = not follower.explicit_location
-      and not follower.explicit_location_clear
-      and ins_loc ~= pred.location
-    -- The offset has no clear token, so a follower with no explicit offset is the
-    -- only one that can silently inherit a changed offset.
-    local needs_offset = follower.explicit_offset == nil and ins_offset ~= pred.offset
-
-    if needs_tag or needs_location or needs_offset then
-      -- Re-emit the follower from the canonical field set so it keeps every marker it carried (a
-      -- round±N balance, an !L), gaining only the compensating sticky token for its new predecessor;
-      -- an ad-hoc subset would drop markers like round±N.
-      lines = {
-        inserted_line,
-        entry.format(analyze.copy_fields(follower), ins_tag, ins_loc, ins_offset),
-      }
-      end_index = insert_index + 1
+  if immediate then
+    local needs_offset = immediate.explicit_offset == nil and ins_offset ~= pred.offset
+    if blank_immediate then
+      if needs_offset then
+        lines = {
+          inserted_line,
+          entry.format(
+            analyze.copy_fields(immediate),
+            immediate.tag,
+            immediate.location,
+            ins_offset
+          ),
+        }
+        end_index = insert_index + 1
+      end
+    else
+      local needs_tag = not immediate.explicit_tag
+        and not immediate.explicit_tag_clear
+        and ins_tag ~= pred.tag
+      local needs_location = not immediate.explicit_location
+        and not immediate.explicit_location_clear
+        and ins_loc ~= pred.location
+      if needs_tag or needs_location or needs_offset then
+        lines = {
+          inserted_line,
+          entry.format(analyze.copy_fields(immediate), ins_tag, ins_loc, ins_offset),
+        }
+        end_index = insert_index + 1
+      end
     end
   end
+  -- The follower edit (higher index, 1-for-1) precedes the insert edit so applying them in order does
+  -- not shift the follower's coordinates; the insert then lands correctly beneath it.
+  edits[#edits + 1] = { start_index = insert_index, end_index = end_index, lines = lines }
 
-  return {
-    edits = {
-      {
-        start_index = insert_index,
-        end_index = end_index,
-        lines = lines,
-      },
-    },
-  }
+  return { edits = edits }
 end
 
 -- Repeating from a SUMMARY row brings in only what the summary shows -- the resolved label (its alias

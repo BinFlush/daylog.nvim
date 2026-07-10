@@ -122,8 +122,10 @@ function M.new(_name, cfg, deps)
       ids = capped
     end
 
+    -- errorPolicy=Omit so one deleted/inaccessible id (between the WIQL and this hydrate) drops from
+    -- the batch instead of 404-ing the whole sync; the readable remainder still comes back.
     local url = string.format(
-      "%s/workitems?ids=%s&fields=%s&api-version=%s",
+      "%s/workitems?ids=%s&fields=%s&errorPolicy=Omit&api-version=%s",
       base,
       table.concat(ids, ","),
       WORKITEM_FIELDS,

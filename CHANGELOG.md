@@ -58,6 +58,26 @@ happen, but they are called out clearly in this changelog.
 - Public `require("daylog").next_day(0)` / `prev_day(0)` now step once instead of no-op-warning; the time
   bar counts emoji width correctly (no dropped legend labels); the commit-audit hook installer is
   worktree-safe and warns on Neovim < 0.9.
+- **Prose starting with a summary section word no longer fragments a log.** A note like
+  `--- tags to follow up ---` or `--- summary of my week ---` inside a log was parsed as a structural
+  header, splitting the entries after it into a separate rollup. A first-position section word is now a
+  boundary only when it stands alone or carries its generated options; multi-word prose is a plain note.
+  A single-word legacy `--- summary <type> ---` (e.g. `--- summary exact ---`) still reclaims.
+- **A committed tag/location renders its logged and remainder slices adjacently.** The tag and location
+  sections were sorted by each slice's own duration, so an unrelated cell of intermediate size could
+  appear between the two halves of one `#tag`/`@location`; each section now groups by cell (ordered by the
+  cell's total), like the activity rows. Derived output only — footing is unchanged.
+- **`:Daylog repeat` / cross-midnight carryover no longer taint a break.** Repeating a tagged entry
+  immediately before a blank break re-emitted the break as `HH:MM #-`, tripping the plugin's own
+  `blank_entry_metadata` diagnostic on the break line; the compensating tag/location clear now lands on
+  the first real entry after the break (a utc offset may still ride the blank), so a break stays metadata-free.
+- **`:Daylog balance`** rejects a non-decimal step argument (`0x2`, `1e1`) instead of silently balancing by
+  the coerced number, matching the integer-step contract the help advertises.
+- **Azure DevOps sync survives a deleted work item.** The hydrate request sets `errorPolicy=Omit`, so a
+  work item deleted or made inaccessible between the query and the fetch drops from the batch instead of
+  failing the whole sync with an HTTP 404.
+- **An absolute Windows `core.hooksPath`** (e.g. `C:/hooks`) is detected as absolute when installing the
+  commit-audit hook, instead of being joined onto the repository root.
 
 ## 0.18.0 - 2026-07-09
 

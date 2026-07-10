@@ -390,6 +390,31 @@ return function(t)
     t.eq(err, nil)
   end)
 
+  t.test("run_unlog_by_value removes one name of several across a report fan-out", function()
+    -- log.lua drives this when an aggregate report row carries >=2 names and the user unpicks some:
+    -- run_unlog_by_value with a non-nil subset must remove only those names and keep the slice logged
+    -- (difference_names + dispatch), distinct from the nil clear-all path tested above.
+    local src = { "--- log #obs q=15 d=dec ---", "08:00 hello !S[boss,jira]60", "09:00 done" }
+    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
+    -- names_key is the slice's canonical NUL-joined name-set, as classify_report_row passes it.
+    local target = { level = "s", value = "hello", tag = "obs", names_key = "boss\0jira" }
+
+    local partial = log_current.run_unlog_by_value(rendered, target, { "boss" })
+    t.ok(
+      has(support.apply_edits(rendered, partial.edits), "08:00 hello !S[jira]60"),
+      "removing 'boss' keeps the marker with 'jira' and preserves the frozen value"
+    )
+
+    -- An absent value skips that day (nil, nil), so the multi-day fan-out never aborts.
+    local none, err = log_current.run_unlog_by_value(
+      rendered,
+      { level = "s", value = "nope", tag = "obs" },
+      { "boss" }
+    )
+    t.eq(none, nil)
+    t.eq(err, nil)
+  end)
+
   t.test(
     "logging an un-frozen row absorbing frozen slack commits its displayed value, no strand",
     function()
