@@ -237,13 +237,14 @@ function M.choose(rows, opts)
   picker:find()
 end
 
--- Multi-select names picker (shared by `:Daylog log`'s mark). `rows` = { { display, name } }; a nil
--- `name` is the synthetic "(unnamed)". <Tab> toggles a row and advances; <CR> confirms the toggled
--- set, else the highlighted row, else -- when the filter matched no row -- the typed prompt as new,
--- comma-separated name(s); <C-e> creates from the typed prompt, unioned with the toggled set.
--- Typing only filters -- it never creates implicitly while a row is available. "(unnamed)"
--- contributes no name, so it alone yields the empty set. An invalid typed name warns and keeps the
--- picker open. Names arrive at on_select deduped+sorted; closing calls on_cancel.
+-- Multi-select names picker (shared by `:Daylog log`'s mark). `rows` = { { display, name } }; the
+-- synthetic "(unnamed)" row carries `name = ""` (the unnamed name, never nil), so selecting it alone
+-- yields the set `{""}` -- "logged to no one", distinct from selecting nothing. <Tab> toggles a row and
+-- advances; <CR> confirms the toggled set, else the highlighted row, else -- when the filter matched no
+-- row -- the typed prompt as new, comma-separated name(s); <C-e> creates from the typed prompt, unioned
+-- with the toggled set. Typing only filters -- it never creates implicitly while a row is available. An
+-- invalid typed name warns and keeps the picker open. Names arrive at on_select deduped+sorted; closing
+-- calls on_cancel. (The `name ~= nil` guards below are defensive; internal callers always set a string.)
 --
 -- opts: { on_select = fn(names), on_cancel = fn()|nil, prompt = string|nil, theme = table|nil }
 function M.multi_select(rows, opts)

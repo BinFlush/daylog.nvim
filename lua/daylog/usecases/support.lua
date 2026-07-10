@@ -269,30 +269,6 @@ function M.entry_rows_in_range(block, r1, r2)
   return rows
 end
 
--- The shared blank/logged guard of the identity-editing commands (map, rename): scan `rows` and
--- return "blank" for a blank entry (never a target), "logged" for a summary-logged (!S) entry that
--- `changes(item)` would actually change (its committed value is tied to its current identity; an
--- already-matching entry is a no-op), or nil. Each command maps the verdict to its own message.
-function M.refusal_for(block, rows, changes)
-  local target = {}
-  for _, row in ipairs(rows) do
-    target[row] = true
-  end
-
-  for _, item in ipairs(block.entry_items) do
-    if target[item.start_row] then
-      if summary.is_blank_entry(item) then
-        return "blank"
-      end
-      if item.logged and item.logged.s and changes(item) then
-        return "logged"
-      end
-    end
-  end
-
-  return nil
-end
-
 -- The render options for a log's in-file summary: no leading blank (the region starts at its header)
 -- plus the block's quantize bucket. Named once so every in-place render stays in step.
 function M.summary_render_options(block)
