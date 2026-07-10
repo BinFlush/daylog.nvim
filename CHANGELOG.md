@@ -33,6 +33,31 @@ happen, but they are called out clearly in this changelog.
   (the reported slice + the unlogged remainder). Numeric columns skip the CSV formula guard, so a negative
   `error_minutes` stays a number. Each level is a full partition of the counted day — filter by `level`,
   don't sum across them.
+- **Export `hours` now foots to the workday.** The column was rounded per row (three 20-minute activities
+  summed to 0.99h against a 1.00h workday); it is now footed with the same largest-remainder distribution
+  the report uses, so each level's hours sum to the day.
+
+### Fixed
+
+- **`:Daylog split` no longer silently drops non-`!S` logging.** Splitting an activity whose entries
+  carried a committed `!T`/`!L`/`!W` marker (but not `!S`) erased the commitment; it is now refused, like an
+  `!S`-logged activity.
+- **A stray `round±N` marker no longer leaks onto tag/location/workday rows** of an over-committed cell,
+  where the nudge is inert (it disagreed with the main row and could raise a spurious below-zero warning).
+- **Fan-out writes are guarded.** A `:Daylog rename` / `log` across day files that hit an unwritable file
+  now warns instead of throwing and half-applying the change.
+- **Clearer messages:** an open-ended report range that crosses its resolved extreme (`..2020`) says
+  "range start is after end", not "no daybook logs found"; a cursor on a summary header/blank no longer
+  reports the summary as stale; a `9:75`-style near-miss reports "invalid time" rather than suggesting the
+  invalid `09:75`.
+- **`setup({ defaults = { quantize_minutes = N } })`** is capped at 1440 so `:Daylog new` can't scaffold a
+  header the analyzer rejects.
+- **`:Daylog sync`** warns when a source query was truncated (more than 200 items) instead of silently
+  caching a subset.
+- **`:Daylog! insert <source>`** opens that source instead of silently dropping it for the unified picker.
+- Public `require("daylog").next_day(0)` / `prev_day(0)` now step once instead of no-op-warning; the time
+  bar counts emoji width correctly (no dropped legend labels); the commit-audit hook installer is
+  worktree-safe and warns on Neovim < 0.9.
 
 ## 0.18.0 - 2026-07-09
 
