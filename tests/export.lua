@@ -82,6 +82,30 @@ return function(t)
     end
   )
 
+  t.test(
+    "the hours column is footed per level (sums to the workday, not per-row rounded)",
+    function()
+      -- Three 20m activities: per-row rounding would give 0.33*3 = 0.99h against a 1.00h workday.
+      local rows = vim.json.decode(export.json(report({
+        "--- log q=1 ---",
+        "08:00 a",
+        "08:20 b",
+        "08:40 c",
+        "09:00 done",
+      })))
+      local activity, workday = 0, 0
+      for _, r in ipairs(rows) do
+        if r.level == "activity" then
+          activity = activity + r.hours
+        elseif r.level == "workday" then
+          workday = workday + r.hours
+        end
+      end
+      t.eq(workday, 1.0)
+      t.eq(activity, 1.0) -- largest-remainder bumps one row 0.33 -> 0.34 so the column foots
+    end
+  )
+
   t.test("residual columns carry real elapsed minutes and a signed rounding error", function()
     local resid =
       { "--- log #ClientA @office q=30 ---", "09:00 plan", "09:20 review", "09:55 done" }

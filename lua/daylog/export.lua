@@ -4,6 +4,8 @@
 -- is logged, and the recipient names it was reported to. Takes a report from week.build_dates_report
 -- (each day carries `activity_rows`, the location-split projection, plus `summary` totals sections).
 
+local render = require("daylog.render")
+
 local M = {}
 
 local FIELDS = {
@@ -38,17 +40,14 @@ local function recipients(names)
   return out
 end
 
--- Decimal hours from whole minutes, locale-independently (`%f`'s decimal point could be a comma and corrupt CSV/JSON).
-local function decimal_hours(minutes)
-  return string.format(
-    "%d.%02d",
-    math.floor(minutes / 60),
-    math.floor((minutes % 60) / 60 * 100 + 0.5)
-  )
+-- Centihours (2-decimal hours) as a locale-independent "N.NN" string (`%f`'s decimal point could be a
+-- comma and corrupt CSV/JSON).
+local function centi_string(centi)
+  return string.format("%d.%02d", math.floor(centi / 100), centi % 100)
 end
 
 -- One export row for a summary-block `item` at `level`; `keys` fills the activity/tag/location columns
--- the level applies to (the rest stay empty).
+-- the level applies to (the rest stay empty). `hours` is filled later, footed per (date, level).
 local function row_of(date, level, keys, item)
   return {
     date = date,
@@ -57,12 +56,36 @@ local function row_of(date, level, keys, item)
     tag = keys.tag or "",
     location = keys.location or "",
     minutes = item.duration,
-    hours = decimal_hours(item.duration),
     unrounded_minutes = item.unrounded_duration or item.duration,
     error_minutes = item.error_minutes or 0,
     logged = item.logged == true,
     logged_to = recipients(item.names),
   }
+end
+
+-- Fill each row's `hours` by footing the centihours of every row in its (date, level) partition with
+-- largest-remainder (render.foot_decimal_centihours), so the hours column sums to the day like the
+-- report does -- not per-row independent rounding that can drift (three 20m rows -> 0.99 vs 1.00).
+-- `sorted` is already ordered by (date, level), so each partition is one contiguous run.
+local function foot_hours(sorted)
+  local i = 1
+  while i <= #sorted do
+    local j, total, mins = i, 0, {}
+    while
+      j <= #sorted
+      and sorted[j].date == sorted[i].date
+      and sorted[j].level == sorted[i].level
+    do
+      mins[#mins + 1] = sorted[j].minutes
+      total = total + sorted[j].minutes
+      j = j + 1
+    end
+    local centi = render.foot_decimal_centihours(mins, total)
+    for k = i, j - 1 do
+      sorted[k].hours = centi_string(centi[k - i + 1])
+    end
+    i = j
+  end
 end
 
 -- Flatten a report into export rows: for each day, the four summary-block sections in turn -- activity
@@ -115,6 +138,7 @@ local function rows(report)
     end
     return table.concat(a.logged_to, ",") < table.concat(b.logged_to, ",")
   end)
+  foot_hours(out)
   return out
 end
 

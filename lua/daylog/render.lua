@@ -50,6 +50,9 @@ local function foot_decimal_centihours(durations, total_minutes)
   return centi
 end
 
+-- Exposed so the export foots its `hours` column the same way the displayed report does.
+M.foot_decimal_centihours = foot_decimal_centihours
+
 -- The displayed duration string per item. `hm` minutes are exact; `dec` rows are footed to sum to
 -- the displayed section total. Item minutes sum to `total_minutes` by the quantization invariant.
 local function section_duration_strings(items, total_minutes, format)
