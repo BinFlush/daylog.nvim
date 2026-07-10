@@ -86,6 +86,15 @@ return function(t)
     t.ok(not ok)
     t.ok(tostring(err):match("defaults.quantize_minutes must be a positive integer") ~= nil)
 
+    -- Capped at 1440 to match the log-header validator, so `:Daylog new` never scaffolds a rejected q=.
+    ok, err = pcall(config.setup, {
+      defaults = {
+        quantize_minutes = 5000,
+      },
+    })
+    t.ok(not ok)
+    t.ok(tostring(err):match("at most 1440") ~= nil)
+
     ok, err = pcall(config.setup, {
       defaults = {
         duration_format = "clock",

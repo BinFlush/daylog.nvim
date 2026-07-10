@@ -9,6 +9,8 @@ local current = {
   auto_timezone = true,
   keymaps = false,
   autosave = false,
+  time_bar = false,
+  time_bar_hover = false,
 }
 
 local AUTO_SUMMARY_MODES = {
@@ -86,8 +88,12 @@ local function normalize_defaults(defaults)
   end
 
   if defaults.quantize_minutes ~= nil then
-    if not positive_integer(defaults.quantize_minutes) then
-      error("daylog: defaults.quantize_minutes must be a positive integer")
+    -- Cap at 1440 to match the log-header validator (analyze.interpret_log_header); otherwise a larger
+    -- value scaffolds every new log with a `q=` header the analyzer immediately rejects.
+    if not positive_integer(defaults.quantize_minutes) or defaults.quantize_minutes > 1440 then
+      error(
+        "daylog: defaults.quantize_minutes must be a positive integer of minutes (at most 1440)"
+      )
     end
 
     result.quantize_minutes = defaults.quantize_minutes
