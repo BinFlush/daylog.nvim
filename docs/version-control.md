@@ -99,7 +99,10 @@ find. Each commit is one of:
 
 The classification is recorded as a **git note** (ref `daylog`) on every commit, and each
 `other-day` commit is tagged `daylog-other-day/<date>-<hash>`. Only the active `--- log ---`
-block is compared, so notes, the summary, and older logs never count as a time change.
+block is compared for the classification, so notes, the summary, and older logs never count as a
+time change. Separately, a commit that leaves any `.day` file carrying a daylog warning — a broken log
+in any block (unordered, invalid, or a footing/logging conflict) — is tagged `daylog-corrupt/<date>-<hash>`,
+an independent alarm, so a commit can carry both tags.
 
 Install it from inside Neovim — daylog knows its own path and your `daybook.root`, so it
 writes the hook with everything filled in (nothing to edit):
@@ -121,7 +124,8 @@ Review the results:
 ```sh
 git log --notes=daylog                            # classification inline in the log
 git config notes.displayRef refs/notes/daylog     # ...or show notes by default
-git tag -l 'daylog-other-day/*'                   # just the commits flagged for review
+git tag -l 'daylog-other-day/*'                   # commits that edited another day
+git tag -l 'daylog-corrupt/*'                      # commits left with a daylog warning
 ```
 
 Backfill existing history in one pass (the script self-locates the plugin, so it just needs

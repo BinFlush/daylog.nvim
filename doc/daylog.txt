@@ -1199,9 +1199,11 @@ repository.
 An optional `post-commit` hook classifies each daybook commit by parsing its `.day` diff:
 `notes` (only notes/summary changed), `today` (the active log's entries changed for the
 commit's own day), or `other-day` (they changed for another day -- the case worth review).
-It writes a git note per commit (`git log --notes=daylog`) and tags the other-day commits
-`daylog-other-day/<date>-<hash>` (`git tag -l 'daylog-other-day/*'`). Notes/tags are refs
-only, so gitwatch never re-fires.
+It writes a git note per commit (`git log --notes=daylog`) and raises a tag per alarm: an other-day
+change gets `daylog-other-day/<date>-<hash>`, and any commit that left a `.day` file carrying a daylog
+warning -- a broken log in ANY block (unordered/invalid, or a footing/logging conflict) -- gets
+`daylog-corrupt/<date>-<hash>` (`git tag -l 'daylog-other-day/*' 'daylog-corrupt/*'`). Notes/tags are
+refs only, so gitwatch never re-fires.
 
 Install the hook from Neovim (nothing to edit -- the plugin path and your daybook.root are
 filled in): >

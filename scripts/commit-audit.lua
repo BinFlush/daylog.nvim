@@ -1,9 +1,10 @@
 -- Headless git glue for the daylog commit audit (shell/tooling; runs under `nvim -l`).
 --
 -- Classifies a daybook commit's `.day` changes with lua/daylog/commit_audit.lua, then records the verdict
--- as a git note (ref `daylog`) and, for the other-day / needs-review cases, a lightweight
--- `daylog-other-day/<date>-<hash>` tag. Notes and tags are refs only -- the working tree is untouched, so
--- gitwatch does not re-fire. Run from inside the daybook repo (the plugin root is inferred from the
+-- as a git note (ref `daylog`) plus a tag per alarm: `daylog-other-day/<date>-<hash>` when the change
+-- touched another day's log, `daylog-corrupt/<date>-<hash>` when a file was committed carrying a warning.
+-- Notes and tags are refs only -- the working tree is untouched, so gitwatch does not re-fire. Run from
+-- inside the daybook repo (the plugin root is inferred from the
 -- script path, so no --root is needed; pass --root <dir> only to override it):
 --
 --   nvim --clean -l /path/to/daylog.nvim/scripts/commit-audit.lua commit HEAD
@@ -112,8 +113,11 @@ local function process_commit(audit, ref, quiet)
   vim.list_extend(message, result.reasons)
   git({ "notes", "--ref=" .. NOTES_REF, "add", "-f", "-m", table.concat(message, "\n"), full })
 
-  if result.classification == "other-day" or result.needs_review then
+  if result.classification == "other-day" then
     git({ "tag", "-f", "daylog-other-day/" .. commit_day .. "-" .. short, full })
+  end
+  if result.needs_review then
+    git({ "tag", "-f", "daylog-corrupt/" .. commit_day .. "-" .. short, full })
   end
 
   if not quiet then

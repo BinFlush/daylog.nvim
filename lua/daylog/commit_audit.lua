@@ -1,7 +1,7 @@
 local analyze = require("daylog.analyze")
 local daybook = require("daylog.daybook")
-local diagnostics = require("daylog.diagnostics")
 local document = require("daylog.document")
+local refresh_summaries = require("daylog.usecases.refresh_summaries")
 local text = require("daylog.text")
 
 local M = {}
@@ -69,14 +69,19 @@ function M.active_log_fingerprint(lines)
   return table.concat(parts, "\n")
 end
 
--- True when a non-empty file carries any daylog problem (unordered timestamps, invalid entry, a missing
--- log header with entries, ...) -- the same set the buffer surfaces. Used to flag a committed log
--- change that was left broken.
-local function has_problem(lines)
+-- The buffer-visible warnings for a committed file, as { row, message }: the SAME set refresh_summaries
+-- publishes as diagnostics -- structural problems, footing/logging conflicts, and nudge clamps, across
+-- EVERY log block (active or not). A file that crashes the summarizer is itself the worst corruption, so
+-- a throw counts as a warning too. Used to flag a committed log left broken.
+local function file_warnings(lines)
   if text.is_empty(lines) then
-    return false
+    return {}
   end
-  return #diagnostics.collect(analyze.analyze(document.parse(lines))) > 0
+  local ok, result = pcall(refresh_summaries.run, lines)
+  if not ok then
+    return { { row = 1, message = "daylog: summarizer failed: " .. tostring(result) } }
+  end
+  return result.warnings
 end
 
 local function basename(path)
@@ -105,7 +110,7 @@ end
 --   { classification = "notes" | "today" | "other-day",
 --     log_days       = { day, ... },   -- days whose active log changed (sorted)
 --     other_days     = { day, ... },   -- the subset that is not `commit_date`
---     needs_review   = boolean,        -- a changed file was left with a daylog problem
+--     needs_review   = boolean,        -- a committed file carries a warning (any log block)
 --     reasons        = { "<path>: <reason>", ... } }
 function M.classify(files, commit_date)
   local log_days, log_seen = {}, {}
@@ -126,11 +131,13 @@ function M.classify(files, commit_date)
         end
       end
 
-      -- Flag a committed file left with any daylog problem regardless of the active-log fingerprint --
-      -- a broken earlier (non-active) log, or a diagnostic-introducing note, still deserves review.
-      if has_problem(new_lines) then
+      -- Flag a committed file left with any warning regardless of the active-log fingerprint -- a broken
+      -- earlier (non-active) log, a footing/logging conflict, or a diagnostic-introducing note still
+      -- deserves review. Reads the buffer's warning source, so it spans every log block in the file.
+      local warnings = file_warnings(new_lines)
+      if #warnings > 0 then
         needs_review = true
-        reasons[#reasons + 1] = file.path .. ": committed with a daylog problem"
+        reasons[#reasons + 1] = file.path .. ": committed with a warning -- " .. warnings[1].message
       end
     end
   end

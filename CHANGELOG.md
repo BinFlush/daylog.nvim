@@ -22,6 +22,14 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Added
+
+- **The commit-audit hook flags corrupted commits with their own `daylog-corrupt/<date>-<hash>` tag.** A
+  daybook commit that leaves any `.day` file carrying a daylog warning — a broken log in any block, now
+  including the footing/logging conflicts the previous check missed, not just structural problems — is
+  tagged separately from the `daylog-other-day/` alarm (a commit can carry both). Detection uses the same
+  warning source the buffer surfaces, spanning every log block in the file.
+
 ### Changed
 
 - **Logged markers now require their brackets: `!S[]` is the only unnamed form.** The name-set brackets
