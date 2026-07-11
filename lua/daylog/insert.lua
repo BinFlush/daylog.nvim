@@ -10,6 +10,19 @@ local support = require("daylog.usecases.support")
 
 local M = {}
 
+-- Shared preamble for the picker inserts: fail fast if the cursor is outside a log, then snapshot the
+-- moment and target buffer up front, so an async picker's late selection stamps the issue time and never
+-- edits a buffer we moved away from. Returns time, auto_offset, target_buf; nil after warning.
+local function prepare_insert()
+  local cursor_ctx, cursor_err =
+    support.get_validated_at_row(buffer.buffer_lines(), buffer.cursor_row())
+  if not cursor_ctx then
+    buffer.warn(cursor_err)
+    return nil
+  end
+  return os.date("%H:%M"), daybook_io.live_offset(), vim.api.nvim_get_current_buf()
+end
+
 -- Bring a source work item into the current log at the current time; offline-first
 -- (reads the cache, opens the picker), cancelling leaves a bare timestamp.
 function M.insert_from_source(name)
@@ -23,20 +36,10 @@ function M.insert_from_source(name)
     return
   end
 
-  -- Fail fast: refuse a cursor outside a log before opening the async picker
-  -- (insert_entry re-validates at apply time since the buffer can change under it).
-  local cursor_ctx, cursor_err =
-    support.get_validated_at_row(buffer.buffer_lines(), buffer.cursor_row())
-  if not cursor_ctx then
-    buffer.warn(cursor_err)
+  local time, auto_offset, target_buf = prepare_insert()
+  if not time then
     return
   end
-
-  -- Capture the moment and target buffer up front: the async picker's late selection
-  -- stamps the issue time and never edits a buffer we moved away from.
-  local time = os.date("%H:%M")
-  local auto_offset = daybook_io.live_offset()
-  local target_buf = vim.api.nvim_get_current_buf()
 
   -- Apply a chosen item into the originating buffer, guarding against a buffer change under the picker.
   local function insert_choice(item)
@@ -66,17 +69,10 @@ function M.insert_unified()
     return
   end
 
-  -- Fail fast: refuse a cursor outside a log before the async picker (insert_entry re-validates at apply time).
-  local cursor_ctx, cursor_err =
-    support.get_validated_at_row(buffer.buffer_lines(), buffer.cursor_row())
-  if not cursor_ctx then
-    buffer.warn(cursor_err)
+  local time, auto_offset, target_buf = prepare_insert()
+  if not time then
     return
   end
-
-  local time = os.date("%H:%M")
-  local auto_offset = daybook_io.live_offset()
-  local target_buf = vim.api.nvim_get_current_buf()
 
   -- Insert the chosen/typed activity, or a bare timestamp when empty, guarded against a buffer change under the picker.
   local function insert(text)

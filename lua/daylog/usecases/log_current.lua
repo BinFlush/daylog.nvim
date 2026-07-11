@@ -399,28 +399,19 @@ end
 -- Locate a by-value target in `lines`' active log: { ctx, item, level }; nil, nil when the log has no
 -- summary yet or lacks the value (skip that day); nil + err on an invalid log.
 local function resolve_by_value(lines, target)
-  local ctx, err = support.get_validated_active(lines)
-  if not ctx then
+  local resolved, err = support.resolve_active_summary_item(lines, function(recomputed)
+    return find_target_item(recomputed, target)
+  end)
+  if not resolved then
     return nil, err
   end
-
-  local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
-  if not region then
-    return nil, nil
-  end
-
-  local item = find_target_item(recomputed, target)
-  if not item then
-    return nil, nil
-  end
-
-  return { ctx = ctx, item = item, level = target.level }
+  return { ctx = resolved.ctx, item = resolved.item, level = target.level }
 end
 
 -- Fresh-marking a drift/remainder row errors in the single-file path; from a report we skip that day
 -- instead of aborting the batch. Compared via the same generator, so it never drifts from the message.
 local function is_remainder_error(err)
-  for _, level in ipairs({ "s", "t", "l", "w" }) do
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
     if err == remainder_row_error(level) then
       return true
     end
