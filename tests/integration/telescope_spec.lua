@@ -222,4 +222,28 @@ describe("daylog.telescope live_pick", function()
     end
     assert.is_true(has_server, "the pool was refreshed with the server result")
   end)
+
+  it("falls back to on_cancel when confirming an empty results list", function()
+    -- <CR> on empty results must leave a bare timestamp (on_cancel), not silently drop the insert by
+    -- firing neither callback.
+    local picked, cancelled = false, false
+    local bufnr = open(function()
+      telescope.live_pick(source(function() end), {
+        initial_items = { { id = "1", title = "one" } },
+        on_pick = function()
+          picked = true
+        end,
+        on_cancel = function()
+          cancelled = true
+        end,
+      })
+    end)
+    set_prompt(bufnr, "zzzznomatch") -- filters every item out
+    vim.wait(200)
+    assert.are.equal(0, action_state.get_current_picker(bufnr).manager:num_results())
+    actions.select_default(bufnr)
+    vim.wait(200)
+    assert.is_false(picked)
+    assert.is_true(cancelled)
+  end)
 end)
