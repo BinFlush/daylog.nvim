@@ -1,3 +1,4 @@
+local document = require("daylog.document")
 local render = require("daylog.render")
 local summary_block = require("daylog.summary_block")
 local syntax = require("daylog.syntax")
@@ -18,21 +19,20 @@ local function read_header_params(raw)
   local fields = {}
   local header_ish = false
   for token in raw:gmatch("%S+") do
+    -- q=/d= are header-only; #tag/@location/utc reuse the parser's grammar so the charset can't drift.
     local q = token:match("^q=(%d+)$")
     local d = token:match("^d=(%a+)$")
-    local tag = token:match("^#([%w_%-]+)$")
-    local location = token:match("^@([%w_%-]+)$")
-    local offset = syntax.parse_utc_offset(token)
+    local kind, value = document.classify_header_metadata_token(token)
     if q then
       fields.quantize, header_ish = tonumber(q), true
     elseif d and syntax.DURATION_FORMATS[d] then
       fields.duration, header_ish = d, true
-    elseif tag then
-      fields.tag, header_ish = tag, true
-    elseif location then
-      fields.location, header_ish = location, true
-    elseif offset then
-      fields.offset, header_ish = offset, true
+    elseif kind == syntax.TOKEN_KIND.TAG then
+      fields.tag, header_ish = value, true
+    elseif kind == syntax.TOKEN_KIND.LOCATION then
+      fields.location, header_ish = value, true
+    elseif kind == syntax.TOKEN_KIND.OFFSET then
+      fields.offset, header_ish = value, true
     else
       local dist = summary_block.edit_distance(token, "entries")
       if dist and dist <= 2 then

@@ -8,6 +8,30 @@ local M = {}
 -- Every source line becomes an explicit node so higher layers can derive
 -- log meaning without losing original layout, raw text, or source rows.
 
+-- The header-legal sticky metadata a token names -- #tag, @location, or a utc±H offset -- as
+-- (kind, value), or nil. No clear form (`#-`/`@-`): those are entry-only, layered on by
+-- parse_metadata_token. Shared so log-header recovery reads tags/locations with the parser's grammar.
+local function parse_header_metadata_token(token)
+  local tag = token:match("^#([%w_%-]+)$")
+  if tag then
+    return syntax.TOKEN_KIND.TAG, tag
+  end
+
+  local location = token:match("^@([%w_%-]+)$")
+  if location then
+    return syntax.TOKEN_KIND.LOCATION, location
+  end
+
+  -- A `utc±H[:MM]` offset is sticky metadata (signed minutes, no clear form) recognized by both
+  -- the entry trailing-run scan and the header tokenizer with one grammar.
+  local offset = syntax.parse_utc_offset(token)
+  if offset ~= nil then
+    return syntax.TOKEN_KIND.OFFSET, offset
+  end
+
+  return nil
+end
+
 local function parse_metadata_token(token)
   if token == syntax.TAG_CLEAR_TOKEN then
     return syntax.TOKEN_KIND.TAG, nil, true
@@ -17,24 +41,8 @@ local function parse_metadata_token(token)
     return syntax.TOKEN_KIND.LOCATION, nil, true
   end
 
-  local tag = token:match("^#([%w_%-]+)$")
-  if tag then
-    return syntax.TOKEN_KIND.TAG, tag, false
-  end
-
-  local location = token:match("^@([%w_%-]+)$")
-  if location then
-    return syntax.TOKEN_KIND.LOCATION, location, false
-  end
-
-  -- A `utc±H[:MM]` offset is sticky metadata (signed minutes, no clear form) recognized by both
-  -- the entry trailing-run scan and the header tokenizer with one grammar.
-  local offset = syntax.parse_utc_offset(token)
-  if offset ~= nil then
-    return syntax.TOKEN_KIND.OFFSET, offset, false
-  end
-
-  return nil, nil, false
+  local kind, value = parse_header_metadata_token(token)
+  return kind, value, false
 end
 
 local function parse_entry_control_token(token)
@@ -355,6 +363,7 @@ end
 -- Classify a whitespace-delimited token as log metadata, returning (kind, value, clear) or nil.
 -- Exposed so the highlighter uses the parser's grammar rather than a second copy.
 M.classify_control_token = parse_entry_control_token
+M.classify_header_metadata_token = parse_header_metadata_token
 
 -- The remaining functions expose this parser's token grammar with byte positions, so the
 -- highlighter is a pure projection of the parse and owns no patterns of its own.
