@@ -8,6 +8,10 @@ local M = {}
 
 local in_flight = {}
 
+-- A fetch that never calls back would pin in_flight forever; a watchdog clears it after this. The curl
+-- transport self-caps at --max-time 30s, so this only bites a misbehaving custom source.
+local SYNC_TIMEOUT_MS = 60000
+
 local function notify(message, level)
   vim.notify(message, level or vim.log.levels.INFO)
 end
@@ -86,14 +90,24 @@ function M.sync(name, opts, cb)
 
   in_flight[name] = true
 
-  -- The pcall also catches a synchronous throw from inside the fetch callback; `finished`
-  -- records the callback ran so the error branch never calls cb twice.
-  local finished = false
+  -- Settle exactly once, from whichever of the fetch callback, a synchronous throw, or the watchdog
+  -- fires first: it clears in_flight and gates cb, so a source that calls back twice, throws after
+  -- launching its job, or never calls back at all can neither double-fire cb nor wedge future syncs.
+  local settled = false
+  local function settle()
+    if settled then
+      return false
+    end
+    settled = true
+    in_flight[name] = false
+    return true
+  end
 
   local ok, err = pcall(function()
     source.fetch(function(items, fetch_err, total)
-      finished = true
-      in_flight[name] = false
+      if not settle() then
+        return
+      end
 
       if not items then
         warn(fetch_err or ("daylog: sync failed: " .. name))
@@ -126,12 +140,20 @@ function M.sync(name, opts, cb)
   end)
 
   if not ok then
-    in_flight[name] = false
     warn("daylog: sync failed: " .. tostring(err))
-    if not finished then
+    if settle() then
       cb(false)
     end
   end
+
+  -- A fetch that launches async work but never calls back would pin in_flight forever, wedging every
+  -- future sync for this source; clear it after the timeout.
+  vim.defer_fn(function()
+    if settle() then
+      warn("daylog: sync for " .. name .. " timed out")
+      cb(false)
+    end
+  end, SYNC_TIMEOUT_MS)
 end
 
 -- Hand cached items to on_ready immediately (offline), refreshing in the background when

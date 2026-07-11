@@ -53,6 +53,40 @@ return function(t)
     registry.clear()
   end)
 
+  t.test("a fetch that never calls back is cleared by the watchdog", function()
+    -- A misbehaving custom source that launches work but never invokes its callback would otherwise
+    -- pin in_flight true forever, blocking every future sync until a Neovim restart.
+    register_source("SYNC_HANG", function()
+      -- deliberately never calls its callback
+    end)
+
+    -- Capture the watchdog timer and fire it by hand instead of waiting the real timeout.
+    local deferred
+    local old_defer = vim.defer_fn
+    vim.defer_fn = function(fn)
+      deferred = fn
+    end
+
+    local cb_arg = "unset"
+    with_captured_notify(function(messages)
+      sync.sync("SYNC_HANG", { silent = true }, function(ok)
+        cb_arg = ok
+      end)
+
+      t.eq(sync.is_in_flight("SYNC_HANG"), true) -- pinned while pending
+      t.eq(cb_arg, "unset") -- cb not called yet
+
+      deferred() -- fire the watchdog
+
+      t.eq(sync.is_in_flight("SYNC_HANG"), false) -- cleared, so a future sync isn't blocked
+      t.eq(cb_arg, false) -- the watchdog reported failure
+      t.ok(messages[1].message:find("timed out", 1, true) ~= nil, "warns about the timeout")
+    end)
+
+    vim.defer_fn = old_defer
+    registry.clear()
+  end)
+
   t.test("a sync while one is already in flight warns instead of failing silently", function()
     local pending
     register_source("SYNC_SLOW", function(cb)
