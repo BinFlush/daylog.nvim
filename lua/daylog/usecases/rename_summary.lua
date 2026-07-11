@@ -414,22 +414,13 @@ end
 -- `target` ({ kind, current, tag? }). Returns the edit script; nil, nil when the value is
 -- absent (so a multi-day rename skips the day); or nil + err when the log is invalid.
 function M.run_by_value(lines, target, new_value)
-  local ctx, err = support.get_validated_active(lines)
-  if not ctx then
+  local resolved, err = support.resolve_active_summary_item(lines, function(recomputed)
+    return find_target_item(recomputed, target)
+  end)
+  if not resolved then
     return nil, err
   end
-
-  local region, recomputed = support.locate_summary(ctx.analysis, ctx.block)
-  if not region then
-    return nil, nil
-  end
-
-  local item = find_target_item(recomputed, target)
-  if not item then
-    return nil, nil
-  end
-
-  return build_rename(ctx.analysis, ctx.block, item, target, new_value)
+  return build_rename(resolved.ctx.analysis, resolved.ctx.block, resolved.item, target, new_value)
 end
 
 -- M.resolve over a [r1, r2] line range: the prompt target for renaming every selected entry

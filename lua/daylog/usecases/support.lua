@@ -324,6 +324,25 @@ function M.locate_summary(analysis, block)
   return region, computed
 end
 
+-- Resolve a by-value target in `lines`' active log: run `find(recomputed)` over the freshly recomputed
+-- summary and return { ctx = ctx, item = item }. nil, nil when the active log has no summary yet or
+-- `find` returns nothing (a multi-day fan-out skips that day); nil + err on an invalid log.
+function M.resolve_active_summary_item(lines, find)
+  local ctx, err = M.get_validated_active(lines)
+  if not ctx then
+    return nil, err
+  end
+  local region, recomputed = M.locate_summary(ctx.analysis, ctx.block)
+  if not region then
+    return nil, nil
+  end
+  local item = find(recomputed)
+  if not item then
+    return nil, nil
+  end
+  return { ctx = ctx, item = item }
+end
+
 -- Assemble an entry-changing command's edit list: the rebuilt-summary edit ahead of the source-entry
 -- Sort edits highest-start-first, so applying them in order never shifts the lower rows as earlier edits
 -- change line counts. The one place this load-bearing ordering invariant is named.
