@@ -68,8 +68,11 @@ function M.request(opts, cb)
   if opts.auth then
     config_file = vim.fn.tempname()
     local escaped = (opts.auth:gsub("\\", "\\\\"):gsub('"', '\\"'))
-    vim.fn.writefile({ 'user = "' .. escaped .. '"' }, config_file)
+    -- Lock the file to 0600 BEFORE the token touches disk (create empty, chmod, then write), so the PAT
+    -- is never in a group/other-readable file even for an instant; writefile preserves an existing mode.
+    vim.fn.writefile({}, config_file)
     vim.fn.setfperm(config_file, "rw-------")
+    vim.fn.writefile({ 'user = "' .. escaped .. '"' }, config_file)
     table.insert(args, "--config")
     table.insert(args, config_file)
   end
