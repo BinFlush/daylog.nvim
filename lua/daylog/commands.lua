@@ -349,7 +349,12 @@ function M.register()
       return
     end
 
-    handler.run(api, verb_context(args))
+    -- Fail soft: a command that raises (an out-of-range edit/cursor, an unexpected buffer state) warns
+    -- instead of dumping a raw traceback at the user, matching how apply_refresh isolates its own edit.
+    local ok, err = pcall(handler.run, api, verb_context(args))
+    if not ok then
+      warn("daylog: command failed: " .. tostring(err))
+    end
   end, {
     nargs = "*",
     bang = true,
