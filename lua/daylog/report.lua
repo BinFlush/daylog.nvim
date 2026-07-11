@@ -113,9 +113,15 @@ local function write_export(text, path, row_count)
     vim.fn.mkdir(dir, "p")
   end
 
-  local ok =
-    pcall(vim.fn.writefile, vim.split((text:gsub("\n$", "")), "\n", { plain = true }), full)
+  local lines = vim.split((text:gsub("\n$", "")), "\n", { plain = true })
+  local tmp = full .. ".tmp"
+  -- Write a temp then atomically rename, so an interrupted export can't truncate an existing file.
+  local ok = pcall(function()
+    vim.fn.writefile(lines, tmp)
+    assert(vim.loop.fs_rename(tmp, full))
+  end)
   if not ok then
+    os.remove(tmp)
     warn("daylog: could not write the export to " .. full)
     return nil
   end

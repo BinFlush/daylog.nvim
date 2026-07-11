@@ -20,33 +20,50 @@ function M.target_paths(report, resolved)
   return paths
 end
 
--- Write a day file's new content into its open buffer when one exists (so the report reflects it at
--- once), else straight to disk. Returns true on success, or nil and a message when the disk write fails.
-function M.write_change(path, new_lines)
-  local buf = daybook_io.loaded_buffer_for_path(path)
-  if buf then
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, new_lines)
-    if vim.bo[buf].filetype == "daylog" then
-      buffer.highlight_buffer(buf)
-    end
-    return true
-  end
-
-  if not pcall(vim.fn.writefile, new_lines, path) then
-    return nil, "daylog: could not write " .. path
-  end
-  return true
-end
-
--- Apply a fan-out of `changes` (each `{ path, lines }`), stopping at the first write failure and
--- warning with a daylog: message instead of letting a raw error escape the command. Files written
--- before the failure keep their new content. Returns true when every change was written.
+-- Apply a fan-out of `changes` (each `{ path, lines }`) atomically per file and as all-or-nothing as a
+-- buffer+disk mix allows. An OPEN day file takes the in-memory set_lines branch (so the report reflects
+-- it at once); a CLOSED one is written via a temp file + atomic rename (like sources/sync.lua) so an
+-- interrupted write can never truncate it. Every disk write is STAGED to its temp first, so a failure
+-- (disk full, bad path) aborts before anything is committed and leaves every file untouched -- no partial
+-- fan-out, no corruption. Warns with a daylog: message instead of letting a raw error escape. Returns
+-- true when every change was applied.
 function M.apply_changes(changes)
+  local staged = {} -- closed day files: { tmp, path }, written but not yet renamed
+  local live = {} -- open buffers: { buf, lines }, not yet set
+
   for _, change in ipairs(changes) do
-    local ok, err = M.write_change(change.path, change.lines)
-    if not ok then
-      buffer.warn(err)
+    local buf = daybook_io.loaded_buffer_for_path(change.path)
+    if buf then
+      live[#live + 1] = { buf = buf, lines = change.lines }
+    else
+      local tmp = change.path .. ".tmp"
+      if not pcall(vim.fn.writefile, change.lines, tmp) then
+        os.remove(tmp)
+        for _, s in ipairs(staged) do
+          os.remove(s.tmp) -- nothing committed yet; drop every staged temp
+        end
+        buffer.warn("daylog: could not write " .. change.path)
+        return false
+      end
+      staged[#staged + 1] = { tmp = tmp, path = change.path }
+    end
+  end
+
+  -- Commit: rename each staged temp (atomic, same filesystem, so this ~never fails after a good stage),
+  -- then set the open buffers (in-memory, cannot fail).
+  for _, s in ipairs(staged) do
+    if not pcall(function()
+      assert(vim.loop.fs_rename(s.tmp, s.path))
+    end) then
+      os.remove(s.tmp)
+      buffer.warn("daylog: could not write " .. s.path)
       return false
+    end
+  end
+  for _, l in ipairs(live) do
+    vim.api.nvim_buf_set_lines(l.buf, 0, -1, false, l.lines)
+    if vim.bo[l.buf].filetype == "daylog" then
+      buffer.highlight_buffer(l.buf)
     end
   end
   return true
