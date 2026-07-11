@@ -186,6 +186,14 @@ local function quantize_granules(granules, intervals, bucket_minutes)
     quantize.round_to_nearest_bucket(unrounded_total, bucket_minutes)
   )
 
+  -- committed_by_cell reads only `intervals`, so compute each level's table once for both passes below.
+  local committed_by_level = {}
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
+    committed_by_level[level] = committed_by_cell(intervals, level, function(row)
+      return commit_key(row, level)
+    end)
+  end
+
   -- Collect only OVER-committed cells; their surplus must inflate and propagate. Index order is
   -- preserved from `granules`, so member lists index straight into constrained_quantize's copy.
   local commitments = {}
@@ -193,15 +201,12 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- overrides it), so its marker must render nowhere -- matching the committed main row, which already
   -- suppresses it. Without this the tag/location/workday sections leak a stray `round±N`.
   local overcommitted = {}
-  for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local key_fn = function(row)
-      return commit_key(row, level)
-    end
-    local committed = committed_by_cell(intervals, level, key_fn)
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
+    local committed = committed_by_level[level]
 
     local members = {}
     for index, g in ipairs(honest) do
-      local key = key_fn(g)
+      local key = commit_key(g, level)
       if committed[key] ~= nil then
         members[key] = members[key] or {}
         table.insert(members[key], index)
@@ -237,14 +242,11 @@ local function quantize_granules(granules, intervals, bucket_minutes)
   -- aggregates locations; check it at that finer scope too, so one location's !S pulled below its
   -- committed value -- masked at the aggregate by another location's surplus -- still forces the honest
   -- fallback (and its contradiction warning) rather than silently drifting fine_grained's per-slice value.
-  for _, level in ipairs({ "s", "t", "l", "w" }) do
-    local key_fn = function(row)
-      return commit_key(row, level)
-    end
-    local committed = committed_by_cell(intervals, level, key_fn)
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
+    local committed = committed_by_level[level]
     local totals = {}
     for _, g in ipairs(result) do
-      local key = key_fn(g)
+      local key = commit_key(g, level)
       totals[key] = (totals[key] or 0) + g.duration
     end
     for key, target in pairs(committed) do
@@ -262,6 +264,17 @@ local function quantize_granules(granules, intervals, bucket_minutes)
     result[index].nudge_below_zero = nil
   end
   return result, true
+end
+
+-- The shared quantization prologue every reporting entry point runs: bucket, intervals, and the one
+-- largest-remainder + surplus-inflation pass. Returning all four keeps "fine_grained and the display
+-- share ONE quantization" structural rather than a coincidence of call sites passing identical args.
+local function quantize_block(entries, quantize_minutes)
+  local bucket_minutes = bucket_of(quantize_minutes)
+  local intervals = build_intervals(entries)
+  local quantized, feasible =
+    quantize_granules(build_granules(intervals), intervals, bucket_minutes)
+  return quantized, feasible, intervals, bucket_minutes
 end
 
 local function key_of(row, key_fields)
@@ -488,13 +501,21 @@ local function finalize_summary_order(summary)
   return summary
 end
 
+-- Display grouping fields per section (build_section_rows keys on these). Level s aggregates locations;
+-- fine_grained_quantized instead keys s per (activity, location) via S_COMMIT_FIELDS -- the same
+-- display-vs-commitment split commit_key draws.
+local DISPLAY_KEY = {
+  s = { "text", "tag", "s_names_key" },
+  t = { "tag", "t_names_key" },
+  l = { "location", "l_names_key" },
+  w = { "w_names_key" },
+}
+local S_COMMIT_FIELDS = { "text", "tag", "location", "s_names_key" }
+
 -- Build the full quantized summary from one shared quantization: every section re-sums the same
 -- granules, so all foot to the one activity total.
 function M.summarize_entries(entries, quantize_minutes)
-  local bucket_minutes = bucket_of(quantize_minutes)
-  local intervals = build_intervals(entries)
-  local quantized, feasible =
-    quantize_granules(build_granules(intervals), intervals, bucket_minutes)
+  local quantized, feasible, intervals = quantize_block(entries, quantize_minutes)
 
   local activity_total, activity_real = 0, 0
   for _, g in ipairs(quantized) do
@@ -503,23 +524,11 @@ function M.summarize_entries(entries, quantize_minutes)
   end
 
   return finalize_summary_order({
-    summary_items = build_section_rows(
-      quantized,
-      intervals,
-      { "text", "tag", "s_names_key" },
-      "s",
-      feasible
-    ),
-    tag_totals = build_section_rows(quantized, intervals, { "tag", "t_names_key" }, "t", feasible),
-    location_totals = build_section_rows(
-      quantized,
-      intervals,
-      { "location", "l_names_key" },
-      "l",
-      feasible
-    ),
+    summary_items = build_section_rows(quantized, intervals, DISPLAY_KEY.s, "s", feasible),
+    tag_totals = build_section_rows(quantized, intervals, DISPLAY_KEY.t, "t", feasible),
+    location_totals = build_section_rows(quantized, intervals, DISPLAY_KEY.l, "l", feasible),
     -- Blank entries never reach a granule, so the totals are one `workday` cell per name-set (!W).
-    total_rows = build_section_rows(quantized, intervals, { "w_names_key" }, "w", feasible),
+    total_rows = build_section_rows(quantized, intervals, DISPLAY_KEY.w, "w", feasible),
     activity_total = activity_total,
     activity_error_minutes = activity_real - activity_total,
   })
@@ -535,26 +544,14 @@ end
 -- display renders (location kept in the key so an `!S` value is committed per activity+location), so the
 -- value logging freezes always equals the value the summary shows -- they cannot drift apart.
 function M.fine_grained_quantized(entries, quantize_minutes)
-  local bucket_minutes = bucket_of(quantize_minutes)
-  local intervals = build_intervals(entries)
-  local quantized, feasible =
-    quantize_granules(build_granules(intervals), intervals, bucket_minutes)
-  return build_section_rows(
-    quantized,
-    intervals,
-    { "text", "tag", "location", "s_names_key" },
-    "s",
-    feasible
-  ),
-    bucket_minutes
+  local quantized, feasible, intervals, bucket_minutes = quantize_block(entries, quantize_minutes)
+  return build_section_rows(quantized, intervals, S_COMMIT_FIELDS, "s", feasible), bucket_minutes
 end
 
 -- The quantized granules exactly as the displayed summary re-sums them, for callers judging
 -- display-level facts (an out-of-range nudge) on the same base the render shows. PURE.
 function M.quantized_granules(entries, quantize_minutes)
-  local bucket_minutes = bucket_of(quantize_minutes)
-  local intervals = build_intervals(entries)
-  return (quantize_granules(build_granules(intervals), intervals, bucket_minutes))
+  return (quantize_block(entries, quantize_minutes))
 end
 
 -- The activity-identity key (resolved text, tag, location) EXCLUDING logged state, so an about-to-be-
