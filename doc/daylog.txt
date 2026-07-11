@@ -747,20 +747,6 @@ for any valid log that has none.
 - Is a no-op for summaries that are already up to date. Can be run automatically via
   `auto_summary` (see below).
 
-                                                        *:Daylog-migrate*
-:Daylog migrate
-
-One-time migration for logs written before multi-level logging: rewrite the old
-summary-logged marker `!L` to `!S`, then refresh the summaries.
-- Logging is multi-level -- an entry can be logged at the summary (`!S`), tag
-  (`!T`), location (`!L`), or workday (`!W`) level. The single logged marker of
-  earlier versions, `!L`, is now `!S`; `!L` is the location level.
-- The two cannot be told apart automatically (an old and a new `!L` are the same
-  token), so run this once, right after upgrading, before typing any new `!L`.
-- Parse-based: only genuine trailing markers move; activity text is untouched. Any
-  `!T`/`!W` an entry also carries is left in place.
-- See the breaking note in `CHANGELOG.md`.
-
                                                         *:Daylog-sync*
 :Daylog sync [source]
 

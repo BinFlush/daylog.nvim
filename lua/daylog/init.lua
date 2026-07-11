@@ -15,7 +15,6 @@ local insert = require("daylog.insert")
 local keymaps = require("daylog.keymaps")
 local log_current = require("daylog.usecases.log_current")
 local map = require("daylog.map")
-local migrate_logging = require("daylog.usecases.migrate_logging")
 local order_logs = require("daylog.usecases.order_logs")
 local pick = require("daylog.pick")
 local rename = require("daylog.rename")
@@ -228,14 +227,6 @@ end
 -- Rebuild every existing summary in the current buffer to match its entries.
 function M.refresh()
   buffer.apply_refresh(false)
-end
-
--- One-time migration from the v0.1.x summary-logged `!L` to `!S` (`!L` is the location marker);
--- rewrites the entry markers, then refreshes.
-function M.migrate_logging()
-  if buffer.run_buffer_usecase(migrate_logging.run) then
-    buffer.apply_refresh(false)
-  end
 end
 
 -- Map the cursor entry/summary row to a label. opts.clear removes it; opts.value sets it

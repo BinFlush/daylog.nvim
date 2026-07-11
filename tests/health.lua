@@ -119,7 +119,7 @@ return function(t)
     local sorted = vim.deepcopy(verbs)
     table.sort(sorted)
     t.eq(verbs, sorted)
-    for _, verb in ipairs({ "bar", "export", "keys", "migrate", "sync", "today", "insert" }) do
+    for _, verb in ipairs({ "bar", "export", "keys", "sync", "today", "insert" }) do
       t.ok(vim.tbl_contains(verbs, verb), verb .. " should be a dispatchable verb")
     end
 

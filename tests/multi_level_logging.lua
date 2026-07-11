@@ -1,6 +1,6 @@
 -- Multi-tier logging: the four level markers (!S[] summary, !T[] tag, !L[] location, !W[] workday) parse --
 -- compact (!S[]60T[]120L[]90W[]480) or separated (!S[]60 !T[]120 ...) -- round-trip to the compact form, and each
--- acts on its own report section. Plus the one-time v0.1.x !L[]->!S[] migration.
+-- acts on its own report section.
 return function(t)
   local document = require("daylog.document")
   local analyze = require("daylog.analyze")
@@ -8,7 +8,6 @@ return function(t)
   local syntax = require("daylog.syntax")
   local summary = require("daylog.summary")
   local render = require("daylog.render")
-  local migrate = require("daylog.usecases.migrate_logging")
   local refresh_summaries = require("daylog.usecases.refresh_summaries")
   local support = require("daylog.usecases.support")
   local log_current = require("daylog.usecases.log_current")
@@ -105,20 +104,6 @@ return function(t)
     t.eq(diagnostics({ "--- log ---", "08:00 t !S[] !T[] !L[] !W[]", "09:00 done" }), 0)
   end)
 
-  t.test(":Daylog migrate rewrites the old summary !L[] to !S[], leaving other markers", function()
-    local old = {
-      "--- log ---",
-      "08:00 a @office !L[]60",
-      "09:00 b !L[]",
-      "10:00 c !L[]45 !T[]30",
-      "10:30 done",
-    }
-    local out = support.apply_edits(old, migrate.run(old).edits)
-    t.eq(out[2], "08:00 a @office !S[]60") -- frozen value preserved
-    t.eq(out[3], "09:00 b !S[]") -- valueless marker preserved
-    t.eq(out[4], "10:00 c !S[]45T[]30") -- only !L[] moves; a co-located !T[] is left alone (emitted compact)
-  end)
-
   t.test("a frozen-zero marker (`!S[]0`) round-trips and stays frozen", function()
     local e = first_entry({ "--- log ---", "08:00 x !S[]0 !T[]0", "09:00 done" })
     t.eq(e.logged, { s = { minutes = 0, names = { "" } }, t = { minutes = 0, names = { "" } } })
@@ -204,43 +189,6 @@ return function(t)
     t.eq(e.logged, { t = { names = { "" } } })
     t.eq(e.logged.s, nil)
     t.eq(entry.format(e, nil, nil, nil), "08:00 task !T[]")
-  end)
-
-  t.test(":Daylog migrate is idempotent -- a second run finds nothing to change", function()
-    local old = { "--- log ---", "08:00 a !L[]60", "09:00 done" }
-    local once = support.apply_edits(old, migrate.run(old).edits)
-    t.eq(once[2], "08:00 a !S[]60")
-    t.eq(#migrate.run(once).edits, 0) -- already !S[]: no location marker remains to migrate
-  end)
-
-  t.test(":Daylog migrate rewrites every log block in the buffer", function()
-    local old = {
-      "--- log ---",
-      "08:00 a !L[]30",
-      "09:00 done",
-      "",
-      "--- log ---",
-      "10:00 b !L[]",
-      "11:00 done",
-    }
-    local out = support.apply_edits(old, migrate.run(old).edits)
-    t.eq(out[2], "08:00 a !S[]30")
-    t.eq(out[6], "10:00 b !S[]")
-  end)
-
-  t.test(":Daylog migrate never clobbers a genuine !S[] value", function()
-    -- A hand-mixed / re-run file with both markers: the summary value wins, the location is dropped
-    -- only if it were migrated -- but the guard skips the entry entirely, leaving it untouched.
-    local mixed = { "--- log ---", "08:00 a !S[]60 !L[]30", "09:00 done" }
-    t.eq(#migrate.run(mixed).edits, 0)
-  end)
-
-  t.test("migrate then refresh rebuilds the summary with the recovered !S[] logging", function()
-    local old = { "--- log q=15 d=dec ---", "08:00 a !L[]120", "10:00 done" }
-    local migrated = support.apply_edits(old, migrate.run(old).edits)
-    local refreshed = support.apply_edits(migrated, refresh_summaries.run(migrated).edits)
-    t.ok(has(refreshed, "08:00 a !S[]120"), "the entry is migrated to a frozen !S[]")
-    t.ok(has(refreshed, "2.00h (+0m) a !S[]"), "the rebuilt summary marks the row logged")
   end)
 
   t.test("a fully multi-level log renders each section split by its own level", function()

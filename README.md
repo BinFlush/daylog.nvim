@@ -100,7 +100,6 @@ or lunch drops out of every total. The rest of the grammar (`#-` / `@-` to clear
 | `:Daylog new` | Scaffold a fresh `--- log ---` block in the current buffer (the new block becomes active) |
 | `:Daylog order` | Rewrite every log in the buffer in chronological order |
 | `:Daylog refresh` | Rebuild every summary to match its entries |
-| `:Daylog migrate` | One-time: rewrite v0.1.x `!L` logged markers to `!S` (see the CHANGELOG breaking note) |
 | `:Daylog sync [source]` | Refresh a source's cached work items |
 | `:Daylog keys` | Show the daylog keymaps + commands in a popup (also `g?` in `.day` files) |
 | `:Daylog bar` | Toggle a color-coded time bar — a panel at the window's bottom showing the day's activities, sized by time spent |

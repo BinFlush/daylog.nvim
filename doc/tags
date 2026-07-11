@@ -8,7 +8,6 @@
 :Daylog-keys	daylog.txt	/*:Daylog-keys*
 :Daylog-log	daylog.txt	/*:Daylog-log*
 :Daylog-map	daylog.txt	/*:Daylog-map*
-:Daylog-migrate	daylog.txt	/*:Daylog-migrate*
 :Daylog-new	daylog.txt	/*:Daylog-new*
 :Daylog-next	daylog.txt	/*:Daylog-next*
 :Daylog-order	daylog.txt	/*:Daylog-order*

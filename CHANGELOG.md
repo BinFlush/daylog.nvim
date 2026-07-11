@@ -45,6 +45,13 @@ happen, but they are called out clearly in this changelog.
   summed to 0.99h against a 1.00h workday); it is now footed with the same largest-remainder distribution
   the report uses, so each level's hours sum to the day.
 
+### Removed
+
+- **Removed `:Daylog migrate` and `scripts/migrate-to-daylog.sh`.** The one-time v0.1.x `!L`→`!S`
+  logged-marker migration and the standalone legacy-format import script (`*.wkl`/`*.blot` → `*.day`) were
+  dead weight; the migration in particular could no longer see a bare `!L` once brackets became mandatory.
+  Convert any pre-multi-level or legacy-format logs before upgrading.
+
 ### Fixed
 
 - **Report and export refuse an absurd day count instead of freezing.** `:Daylog report 20200101` (a

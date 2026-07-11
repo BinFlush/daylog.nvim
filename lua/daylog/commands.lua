@@ -268,12 +268,6 @@ local VERBS = {
       api.refresh()
     end,
   },
-  migrate = {
-    edit_only = true,
-    run = function(api)
-      api.migrate_logging()
-    end,
-  },
   sync = {
     complete = source_complete,
     run = function(api, ctx)
