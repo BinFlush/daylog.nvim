@@ -102,12 +102,8 @@ end
 
 -- The current alias of the first target entry, for a prompt default.
 local function first_alias(ctx, rows)
-  for _, item in ipairs(ctx.block.entry_items) do
-    if item.start_row == rows[1] then
-      return item.alias
-    end
-  end
-  return nil
+  local item = support.entry_item_at_row(ctx.block, rows[1])
+  return item and item.alias
 end
 
 -- Set `alias` (empty clears) on every entry in `rows`, refusing the edit if any changing entry is

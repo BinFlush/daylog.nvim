@@ -411,7 +411,7 @@ end
 -- Fresh-marking a drift/remainder row errors in the single-file path; from a report we skip that day
 -- instead of aborting the batch. Compared via the same generator, so it never drifts from the message.
 local function is_remainder_error(err)
-  for _, level in ipairs({ "s", "t", "l", "w" }) do
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
     if err == remainder_row_error(level) then
       return true
     end

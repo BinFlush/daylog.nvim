@@ -35,16 +35,15 @@ function M.run(lines, row, time, auto_offset)
     result.offset_change = { from = state.offset, to = stamp }
     result.startinsert = "cursor"
   else
-    result = {
-      edits = {
-        {
-          start_index = insert_index,
-          end_index = insert_index,
-          lines = { time .. " " },
-        },
-      },
-      startinsert = true,
-    }
+    result = support.insert_entry_edit(
+      ctx.block,
+      minutes,
+      time .. " ",
+      state.tag,
+      state.location,
+      state.offset
+    )
+    result.startinsert = true
   end
 
   result.cursor = { insert_index + 1, #time + 1 }

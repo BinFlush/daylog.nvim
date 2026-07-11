@@ -40,16 +40,9 @@ function M.run(lines, defaults)
   end
   table.insert(appended_lines, header)
 
-  return {
-    edits = {
-      {
-        start_index = #lines,
-        end_index = #lines,
-        lines = appended_lines,
-      },
-    },
-    cursor = { #lines + #appended_lines, 0 },
-  }
+  local result = support.append_edit(lines, appended_lines)
+  result.cursor = { #lines + #appended_lines, 0 }
+  return result
 end
 
 return M
