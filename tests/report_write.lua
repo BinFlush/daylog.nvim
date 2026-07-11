@@ -28,11 +28,11 @@ return function(t)
     t.eq(vim.fn.readfile(b), { "--- log ---", "09:00 review" })
   end)
 
-  t.test("apply_changes stops and warns on the first write failure", function()
+  t.test("apply_changes aborts the whole fan-out and warns on a write failure", function()
     local dir = vim.fn.tempname()
     vim.fn.mkdir(dir, "p")
     local good = dir .. "/good.day"
-    local bad = dir .. "/no-such-subdir/bad.day" -- parent does not exist -> writefile fails
+    local bad = dir .. "/no-such-subdir/bad.day" -- parent does not exist -> staging fails
     with_captured_notify(function(messages)
       local ok = report_write.apply_changes({
         { path = good, lines = { "written" } },
@@ -45,8 +45,29 @@ return function(t)
         "warns with a daylog: message"
       )
     end)
-    -- The file before the failure kept its content; the command did not throw.
-    t.eq(vim.fn.readfile(good), { "written" })
+    -- All-or-nothing: the good change was staged then rolled back, so NEITHER file exists, no temp is
+    -- left behind, and the command did not throw.
+    t.eq(vim.fn.filereadable(good), 0)
     t.eq(vim.fn.filereadable(bad), 0)
+    t.eq(vim.fn.filereadable(good .. ".tmp"), 0)
   end)
+
+  t.test(
+    "a fan-out failure leaves an existing day file untouched (atomic, no truncation)",
+    function()
+      local dir = vim.fn.tempname()
+      vim.fn.mkdir(dir, "p")
+      local existing = dir .. "/existing.day"
+      vim.fn.writefile({ "--- log ---", "08:00 original" }, existing)
+      local bad = dir .. "/no-such-subdir/bad.day"
+      with_captured_notify(function()
+        report_write.apply_changes({
+          { path = existing, lines = { "--- log ---", "09:00 replacement" } },
+          { path = bad, lines = { "never" } },
+        })
+      end)
+      -- Staged then rolled back: the original content survives intact, never truncated.
+      t.eq(vim.fn.readfile(existing), { "--- log ---", "08:00 original" })
+    end
+  )
 end

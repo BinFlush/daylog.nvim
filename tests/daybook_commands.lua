@@ -1277,6 +1277,27 @@ return function(t)
     end)
   end)
 
+  t.test("report refuses an absurd day count instead of freezing the editor", function()
+    -- 20200101 is a plausible typo for the date 2020-01-01; without the cap the resolver would
+    -- materialize a ~20-million-day list synchronously and hang Neovim. Refuse it with a warning.
+    local root = vim.fn.tempname()
+    with_daylog_setup({ daybook = { root = root, directory = "%Y" } }, function()
+      t.reset({ "scratch" })
+
+      with_captured_notify(function(messages)
+        vim.cmd("Daylog report 20200101")
+        t.eq(messages, {
+          {
+            message = "daylog: report range is too large (max 36600 days); narrow it",
+            level = vim.log.levels.WARN,
+          },
+        })
+      end)
+
+      t.eq(t.get_lines(), { "scratch" }) -- no report buffer opened
+    end)
+  end)
+
   t.test("export warns and writes no file when the range holds no logs", function()
     local root = vim.fn.tempname()
     local now = os.time({ year = 2026, month = 5, day = 22, hour = 12, min = 0, sec = 0 })

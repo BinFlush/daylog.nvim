@@ -39,6 +39,21 @@ happen, but they are called out clearly in this changelog.
 
 ### Fixed
 
+- **Report and export refuse an absurd day count instead of freezing.** `:Daylog report 20200101` (a
+  plausible typo for `2020-01-01`) parsed as a 20-million-day count and materialized the list
+  synchronously, hard-freezing Neovim. The resolved span is now capped (~100 years) with a clear warning.
+- **A report fan-out or export can no longer truncate a `.day` file.** `:Daylog log`/`rename` across a
+  multi-day report, and `:Daylog export`, wrote files with a plain `writefile` (`O_TRUNC`) — an
+  interrupted write (disk full, crash) truncated the file, and a mid-fan-out failure left some files new
+  and some old. Writes are now atomic (temp + rename) and the fan-out is all-or-nothing: on any failure
+  every file is left untouched.
+- **A `:Daylog` command that hits an unexpected error now warns instead of dumping a raw traceback** (the
+  command dispatch and the auto-summary report refresh fail soft, matching the summary refresh).
+- **Source robustness.** A structurally-corrupt source cache self-heals (drops malformed items and
+  re-syncs) instead of crashing the picker; a custom source whose `fetch` never returns no longer wedges
+  its sync forever (a watchdog clears it); confirming an empty live-search list leaves a bare timestamp
+  instead of dropping the insert; and the Azure DevOps token is written to a `0600` file before it ever
+  touches disk.
 - **`:Daylog split` no longer deletes an entry logged at the same minute as the next.** Two entries
   sharing a timestamp make the first interval zero-duration; splitting the activity dropped that entry's
   line and the sticky `#tag`/`@location`/`utc` the next entry inherited, desyncing the summary. The entry

@@ -26,4 +26,20 @@ return function(t)
     t.eq(cache.is_stale({ fetched_at = 100 }, 130, 60), false)
     t.eq(cache.is_stale({ fetched_at = 100 }, 160, 60), true)
   end)
+
+  t.test("cache decode drops structurally-corrupt items instead of crashing later", function()
+    -- Valid JSON + envelope, but the items aren't all tables with an id (hand-edited / on-disk
+    -- corruption). The bad elements are dropped so the picker can't crash at to_entry_text.
+    local envelope = vim.json.encode({
+      version = cache.VERSION,
+      fetched_at = 1000,
+      items = { { id = "1", title = "A" }, 42, { title = "no id" }, { id = "2", title = "B" } },
+    })
+    local decoded = cache.decode(envelope, vim.json.decode)
+    t.eq(decoded.items, { { id = "1", title = "A" }, { id = "2", title = "B" } })
+  end)
+
+  t.test("cache is_stale treats a future fetched_at as stale, not forever-fresh", function()
+    t.eq(cache.is_stale({ fetched_at = 500 }, 100, 60), true)
+  end)
 end

@@ -22,7 +22,7 @@ function M.setup(mode)
   local function refresh(opts)
     on_daylog_buffer(opts, function()
       buffer.apply_refresh(true)
-      report_buffers.refresh_report_windows()
+      pcall(report_buffers.refresh_report_windows)
     end)
   end
 
@@ -52,7 +52,7 @@ function M.setup(mode)
             end
             on_daylog_buffer({ buf = buf }, function()
               buffer.apply_refresh(true)
-              report_buffers.refresh_report_windows()
+              pcall(report_buffers.refresh_report_windows)
             end)
           end, 200)
         end)

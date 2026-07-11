@@ -159,10 +159,12 @@ function M.live_pick(source, opts)
       })
 
       actions.select_default:replace(function()
-        picked = true
+        -- On an empty results list get_selected_entry is nil; leave `picked` false so closing falls
+        -- through to on_cancel (a bare timestamp) instead of silently dropping the insert.
         local entry = action_state.get_selected_entry()
+        picked = entry ~= nil and entry.value ~= nil
         actions.close(prompt_bufnr)
-        if entry and entry.value and opts.on_pick then
+        if picked and opts.on_pick then
           opts.on_pick(entry.value)
         end
       end)

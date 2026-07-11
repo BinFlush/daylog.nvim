@@ -31,10 +31,19 @@ function M.decode(json, decode_fn)
     return nil, "daylog: source cache is corrupt"
   end
 
+  -- Keep only well-formed items (a table carrying an id). A structurally-corrupt element -- valid JSON
+  -- but e.g. a bare number -- would otherwise crash the picker at to_entry_text; drop it, don't throw.
+  local items = {}
+  for _, item in ipairs(decoded.items) do
+    if type(item) == "table" and item.id ~= nil then
+      items[#items + 1] = item
+    end
+  end
+
   return {
     version = decoded.version,
     fetched_at = type(decoded.fetched_at) == "number" and decoded.fetched_at or 0,
-    items = decoded.items,
+    items = items,
   }
 end
 
@@ -44,7 +53,10 @@ function M.is_stale(cache, now, ttl)
     return true
   end
 
-  return (now - (cache.fetched_at or 0)) >= ttl
+  -- A future fetched_at (clock skew, or a corrupt-but-numeric timestamp) is treated as stale rather
+  -- than forever-fresh.
+  local age = now - (cache.fetched_at or 0)
+  return age < 0 or age >= ttl
 end
 
 return M
