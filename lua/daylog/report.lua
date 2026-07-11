@@ -172,6 +172,14 @@ local function resolve_range_bound(token, now, fallback)
   return ts
 end
 
+-- A report/export never legitimately spans this many days; capping keeps a date typo
+-- (`:Daylog report 20200101`, read as a 20-million-day count) from materializing a huge date list and
+-- freezing the editor. ~100 years, so no real daybook is ever refused.
+local MAX_REPORT_DAYS = 36600
+local TOO_LARGE_ERR = "daylog: report range is too large (max "
+  .. MAX_REPORT_DAYS
+  .. " days); narrow it"
+
 -- Resolve a `:Daylog report` range request into a pinned date list. An omitted start resolves to
 -- the earliest logged day, an omitted end to the latest; a reversed range is rejected.
 local function resolve_range_dates(request)
@@ -194,6 +202,10 @@ local function resolve_range_dates(request)
     return nil, "daylog: range start is after end"
   end
 
+  if math.floor((to_ts - from_ts) / 86400) + 1 > MAX_REPORT_DAYS then
+    return nil, TOO_LARGE_ERR
+  end
+
   return daybook.range_dates(from_ts, to_ts)
 end
 
@@ -202,6 +214,9 @@ end
 -- Returns the dates, or nil and an error message.
 local function resolve_report_dates(request)
   if request.count then
+    if request.count > MAX_REPORT_DAYS then
+      return nil, TOO_LARGE_ERR
+    end
     return daybook.trailing_dates(os.time(), request.count)
   end
 
