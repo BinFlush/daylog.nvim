@@ -49,21 +49,13 @@ function M.run(lines)
   end
 
   -- Recover corrupted/missing headers on a working copy, then re-analyze so the recovered logs are
-  -- summarized in the same pass. Summary edits are computed in the WORKING copy's coordinates and
-  -- emitted after all recovery edits (the shell applies the list in order).
+  -- summarized in the same pass; the summary edits (in the recovered copy's coordinates) are emitted
+  -- after the recovery edits.
   local recover_edits = recover_headers.edits(analysis)
-  table.sort(recover_edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
-  local work_analysis = analysis
-  if #recover_edits > 0 then
-    local work = support.apply_edits(lines, recover_edits)
-    work_analysis = analyze.analyze(document.parse(work))
-  end
+  local work_analysis = support.reanalyze_after(lines, analysis, recover_edits)
 
   local warnings = diagnostics.collect(work_analysis)
   local summary_edits = {}
-
   for _, block in ipairs(work_analysis.log_blocks) do
     -- The summary is entirely generated, so a valid log's whole zone is discarded and rewritten (or
     -- created when missing) while the body above the boundary is left untouched.
@@ -71,11 +63,9 @@ function M.run(lines)
       for _, warning in ipairs(summary.logging_diagnostics(block)) do
         warnings[#warnings + 1] = warning
       end
-
       for _, warning in ipairs(nudge_range_warnings(block)) do
         warnings[#warnings + 1] = warning
       end
-
       -- Rebuild through the one canonical zone writer; an already-canonical zone yields no edit.
       local edit = support.summary_zone_edit(work_analysis, block, block.entries, true)
       if edit then
@@ -84,21 +74,7 @@ function M.run(lines)
     end
   end
 
-  table.sort(summary_edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
-
-  -- Recovery edits (in `lines`) must run before summary edits (in `work` coordinates); the shell applies
-  -- the list in order, keeping both coordinate systems valid.
-  local edits = {}
-  for _, edit in ipairs(recover_edits) do
-    edits[#edits + 1] = edit
-  end
-  for _, edit in ipairs(summary_edits) do
-    edits[#edits + 1] = edit
-  end
-
-  return { edits = edits, warnings = warnings }
+  return { edits = support.ordered_rebuild_edits(recover_edits, summary_edits), warnings = warnings }
 end
 
 return M

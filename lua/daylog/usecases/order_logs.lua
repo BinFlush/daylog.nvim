@@ -50,11 +50,9 @@ function M.run(lines)
     end
   end
 
-  -- Body edits change line counts, so rebuild summaries in post-reorder coordinates: apply body
-  -- edits to a copy, re-analyze, blast each summary zone. The shell applies body edits before
-  -- summary edits, keeping both coordinate systems valid.
-  local work = support.apply_edits(lines, body_edits)
-  local work_analysis = analyze.analyze(document.parse(work))
+  -- Body edits change line counts, so rebuild summaries in the post-reorder coordinates and emit them
+  -- after the body edits.
+  local work_analysis = support.reanalyze_after(lines, analysis, body_edits)
 
   local summary_edits = {}
   for _, block in ipairs(work_analysis.log_blocks) do
@@ -63,19 +61,8 @@ function M.run(lines)
       summary_edits[#summary_edits + 1] = edit
     end
   end
-  table.sort(summary_edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
 
-  local edits = {}
-  for _, edit in ipairs(body_edits) do
-    edits[#edits + 1] = edit
-  end
-  for _, edit in ipairs(summary_edits) do
-    edits[#edits + 1] = edit
-  end
-
-  local result = { edits = edits }
+  local result = { edits = support.ordered_rebuild_edits(body_edits, summary_edits) }
   if #warnings > 0 then
     result.warnings = warnings
   end

@@ -2,6 +2,7 @@ local analyze = require("daylog.analyze")
 local body = require("daylog.body")
 local context = require("daylog.context")
 local diagnostics = require("daylog.diagnostics")
+local document = require("daylog.document")
 local entry = require("daylog.entry")
 local render = require("daylog.render")
 local summary = require("daylog.summary")
@@ -324,6 +325,41 @@ function M.locate_summary(analysis, block)
 end
 
 -- Assemble an entry-changing command's edit list: the rebuilt-summary edit ahead of the source-entry
+-- Sort edits highest-start-first, so applying them in order never shifts the lower rows as earlier edits
+-- change line counts. The one place this load-bearing ordering invariant is named.
+function M.sort_edits_descending(edits)
+  table.sort(edits, function(a, b)
+    return a.start_index > b.start_index
+  end)
+  return edits
+end
+
+-- Re-analyze in the coordinate system left by `primary_edits`, so summaries rebuild against the changed
+-- line counts. Reuses `analysis` (no reparse) when no primary edit applies -- refresh's common case.
+-- Sorts `primary_edits` highest-first, since apply_edits needs that to keep indices valid.
+function M.reanalyze_after(lines, analysis, primary_edits)
+  if #primary_edits == 0 then
+    return analysis
+  end
+  M.sort_edits_descending(primary_edits)
+  return analyze.analyze(document.parse(M.apply_edits(lines, primary_edits)))
+end
+
+-- The two-coordinate rebuild order refresh and order_logs share: primary edits (in `lines` coords) run
+-- before summary edits (in the post-primary coords from reanalyze_after), each highest-first, so the
+-- shell applies the list in one valid pass. Summary edits are sorted here; primary already is.
+function M.ordered_rebuild_edits(primary_edits, summary_edits)
+  M.sort_edits_descending(summary_edits)
+  local edits = {}
+  for _, edit in ipairs(primary_edits) do
+    edits[#edits + 1] = edit
+  end
+  for _, edit in ipairs(summary_edits) do
+    edits[#edits + 1] = edit
+  end
+  return edits
+end
+
 -- edits, sorted highest-start-first so applying the rebuild never shifts the lower rows as it changes
 -- size. `source_edits` is every non-summary edit the command makes.
 function M.entry_change_edits(summary_edit, source_edits)
@@ -334,10 +370,7 @@ function M.entry_change_edits(summary_edit, source_edits)
   for _, edit in ipairs(source_edits) do
     edits[#edits + 1] = edit
   end
-  table.sort(edits, function(a, b)
-    return a.start_index > b.start_index
-  end)
-  return edits
+  return M.sort_edits_descending(edits)
 end
 
 -- The summary zone's separator: exactly two blank lines between body and content. The blanks belong
