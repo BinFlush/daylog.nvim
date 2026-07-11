@@ -189,9 +189,9 @@ return function(t)
   end)
 
   t.test(
-    "summary flags a bare !S[] row as logged without splitting, footing all sections",
+    "summary flags a valueless !S[] row as logged without splitting, footing all sections",
     function()
-      -- A bare marker (`!S[]` with no number) only flags its cell as logged; it renders one
+      -- A valueless marker (`!S[]` with no number) only flags its cell as logged; it renders one
       -- honest row per activity, and every section foots to the shared activity total. The
       -- trailing blank marks uncounted time and lands in no section.
       local block = block_from_lines({
@@ -375,7 +375,7 @@ return function(t)
   end)
 
   t.test(
-    "quantized summary flags a bare !S[] row logged, footing tag and location totals",
+    "quantized summary flags a valueless !S[] row logged, footing tag and location totals",
     function()
       local block = block_from_lines({
         "--- log #ClientA @office q=30 ---",
@@ -430,7 +430,7 @@ return function(t)
     end
   )
 
-  t.test("quantized summary renders a bare !S[] row as one honest logged row", function()
+  t.test("quantized summary renders a valueless !S[] row as one honest logged row", function()
     do
       local block = block_from_lines({
         "--- log #ClientA q=30 ---",
@@ -2098,39 +2098,39 @@ return function(t)
       -- contradictory, so the block must fall back to honest quantization and every section must foot.
       local block = block_from_lines({
         "--- log q=45 d=hm ---",
-        "00:11 spike1 #planninga @planningd !SLW",
-        "01:14 refactor2 #- @debugc !S90",
-        "02:17 spike1 #planninga @- round-2 !S135 !T !L180 !W",
-        "03:20 refactor2 #- @reviewa round-2 !S[n2,n1]90L[n1]180W",
-        "04:31 spike1 #planninga @planningd !ST[n1,n3]225W225",
-        "05:43 testing3 #planninga @reviewa !W",
-        "05:57 testing3 #ooo @researchb !S270 !T135 !W135",
-        "06:21 refactor2 #planninga @planningd !S !L[n2]180",
-        "06:31 review4 #planninga !W135",
-        "08:53 testing3 #planninga !S90T45L225W45",
-        "09:36 oncall5 #- !SL[n1,n2]W[n1,n2]0",
+        "00:11 spike1 #planninga @planningd !S[]L[]W[]",
+        "01:14 refactor2 #- @debugc !S[]90",
+        "02:17 spike1 #planninga @- round-2 !S[]135 !T[] !L[]180 !W[]",
+        "03:20 refactor2 #- @reviewa round-2 !S[n2,n1]90L[n1]180W[]",
+        "04:31 spike1 #planninga @planningd !S[]T[n1,n3]225W[]225",
+        "05:43 testing3 #planninga @reviewa !W[]",
+        "05:57 testing3 #ooo @researchb !S[]270 !T[]135 !W[]135",
+        "06:21 refactor2 #planninga @planningd !S[] !L[n2]180",
+        "06:31 review4 #planninga !W[]135",
+        "08:53 testing3 #planninga !S[]90T[]45L[]225W[]45",
+        "09:36 oncall5 #- !S[]L[n1,n2]W[n1,n2]0",
         "09:43 oncall5 #planninga @reviewa round-2 !T[n2]45",
         "10:23 lunch6",
-        "10:41 triage7 #planninga @researchb !S225W[n2,n3]",
-        "10:52 spike1 #planninga @debugc !T90 !W[n1,n3]135",
-        "11:05 lunch6 !S180T45",
-        "11:09 refactor2 #ooo @reviewa !ST225L225",
-        "12:02 pairing8 #planninga !T180L[n1]180W",
-        "12:57 pairing8 #planninga @- !W135",
-        "13:35 review4 #planninga !S45 !L45",
-        "14:51 lunch6 #ooo !L270",
+        "10:41 triage7 #planninga @researchb !S[]225W[n2,n3]",
+        "10:52 spike1 #planninga @debugc !T[]90 !W[n1,n3]135",
+        "11:05 lunch6 !S[]180T[]45",
+        "11:09 refactor2 #ooo @reviewa !S[]T[]225L[]225",
+        "12:02 pairing8 #planninga !T[]180L[n1]180W[]",
+        "12:57 pairing8 #planninga @- !W[]135",
+        "13:35 review4 #planninga !S[]45 !L[]45",
+        "14:51 lunch6 #ooo !L[]270",
         "14:56 docs9 #planninga @planningd",
-        "15:28 lunch10 #planninga @researchb !SL90W",
-        "15:36 testing11 #ooo !W0",
-        "17:49 testing11 #planninga @researchb !S0 !L225",
-        "18:52 spike1 #planninga !S",
-        "19:34 lunch10 #planninga @planningd !S135T",
+        "15:28 lunch10 #planninga @researchb !S[]L[]90W[]",
+        "15:36 testing11 #ooo !W[]0",
+        "17:49 testing11 #planninga @researchb !S[]0 !L[]225",
+        "18:52 spike1 #planninga !S[]",
+        "19:34 lunch10 #planninga @planningd !S[]135T[]",
         "20:09 testing3 #planninga round-1",
-        "20:26 retro12 #- round-2 !T135 !L",
-        "20:36 oncall5 #planninga !S[n2,n3]90 !T[n2,n3] !L45",
-        "21:16 grooming13 #planninga @reviewa !T270 !L135",
-        "21:50 lunch14 #planninga !S[n3]90W180",
-        "22:29 retro12 round-2 !L135",
+        "20:26 retro12 #- round-2 !T[]135 !L[]",
+        "20:36 oncall5 #planninga !S[n2,n3]90 !T[n2,n3] !L[]45",
+        "21:16 grooming13 #planninga @reviewa !T[]270 !L[]135",
+        "21:50 lunch14 #planninga !S[n3]90W[]180",
+        "22:29 retro12 round-2 !L[]135",
         "23:50 deploy15 #planninga",
       })
       local s = summary.summarize_block(block)
@@ -2173,13 +2173,13 @@ return function(t)
   t.test(
     "a per-location !S unmet by a cross-cutting commitment falls back honest and warns",
     function()
-      -- foo@a !S30 + foo@b !S30 = 60 of #x, but #x !T45 caps the tag at 45, so the commitments contradict.
+      -- foo@a !S[]30 + foo@b !S[]30 = 60 of #x, but #x !T[]45 caps the tag at 45, so the commitments contradict.
       -- The per-location feasibility check (not the location-aggregated one) catches it, so the summary
       -- shows the real 30 minutes instead of a masked inflated 60, warns, and fine_grained never drifts.
       local block = block_from_lines({
         "--- log q=15 ---",
-        "08:00 foo #x @a !S30",
-        "08:15 foo #x @b !S30 !T45 !L45",
+        "08:00 foo #x @a !S[]30",
+        "08:15 foo #x @b !S[]30 !T[]45 !L[]45",
         "08:30 done",
       })
       t.eq(

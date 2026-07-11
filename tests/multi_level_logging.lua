@@ -40,7 +40,7 @@ return function(t)
   end)
 
   t.test(
-    "a bare marker stores true; the writer emits one compact token in S/T/L/W order",
+    "a valueless marker stores its names; the writer emits one compact token in S/T/L/W order",
     function()
       local e = first_entry({ "--- log ---", "08:00 task !W[] !L[] !T[]", "09:00 done" })
       t.eq(e.logged, { t = { names = { "" } }, l = { names = { "" } }, w = { names = { "" } } })
@@ -56,7 +56,7 @@ return function(t)
 
   t.test("parse_logged_token returns level+value pairs, or nil for a non-marker", function()
     t.eq(syntax.parse_logged_token("!T[]30"), { { level = "t", minutes = 30, names = { "" } } })
-    t.eq(syntax.parse_logged_token("!L[]"), { { level = "l", names = { "" } } }) -- bare: the unnamed name
+    t.eq(syntax.parse_logged_token("!L[]"), { { level = "l", names = { "" } } }) -- the explicit unnamed name
     t.eq(syntax.parse_logged_token("!S[]225T[]525W[]525"), {
       { level = "s", minutes = 225, names = { "" } },
       { level = "t", minutes = 525, names = { "" } },
@@ -71,6 +71,18 @@ return function(t)
     t.eq(syntax.parse_logged_token("!S[]lamas"), nil) -- lowercase after the level is not a marker
     t.eq(syntax.parse_logged_token("!5"), nil) -- a value with no preceding level is not a marker
     t.eq(syntax.parse_logged_token("!S[]1234567890"), nil) -- an overlong value (would overflow) is not a marker
+    -- Brackets are mandatory: a bare level (no `[`) is not a marker, at any level, valued or not, and
+    -- a fully-bare compact chain is text as well.
+    t.eq(syntax.parse_logged_token("!S"), nil)
+    t.eq(syntax.parse_logged_token("!S60"), nil)
+    t.eq(syntax.parse_logged_token("!W"), nil)
+    t.eq(syntax.parse_logged_token("!S60T120"), nil)
+  end)
+
+  t.test("a bare marker is demoted to activity text, not parsed as logged", function()
+    local e = first_entry({ "--- log ---", "08:00 fix login !S", "09:00 done" })
+    t.eq(e.logged, nil)
+    t.eq(entry.format(e, nil, nil, nil), "08:00 fix login !S")
   end)
 
   t.test("the compact and separated forms parse identically, and write back compact", function()
@@ -103,7 +115,7 @@ return function(t)
     }
     local out = support.apply_edits(old, migrate.run(old).edits)
     t.eq(out[2], "08:00 a @office !S[]60") -- frozen value preserved
-    t.eq(out[3], "09:00 b !S[]") -- bare marker preserved
+    t.eq(out[3], "09:00 b !S[]") -- valueless marker preserved
     t.eq(out[4], "10:00 c !S[]45T[]30") -- only !L[] moves; a co-located !T[] is left alone (emitted compact)
   end)
 

@@ -24,9 +24,17 @@ happen, but they are called out clearly in this changelog.
 
 ### Changed
 
+- **Logged markers now require their brackets: `!S[]` is the only unnamed form.** The name-set brackets
+  were previously optional — a bare `!S` and an explicit `!S[]` both meant "logged, unnamed." They are now
+  mandatory: `!S[]` (optionally `!S[]60` when frozen, or `!S[names]`) is the sole logged form at every
+  level, and a plain `!S` with no brackets is ordinary activity text, not a marker. The writer has always
+  emitted the bracketed form, so files daylog has rewritten are unaffected; only a hand-written or
+  pre-0.16.0 bare marker changes meaning, dropping out of the summary as plain text. This revokes the
+  0.16.0 note that bare markers still parse identically. (Syntax change.)
+
 - **Export is now a full projection of the summary block.** The CSV/JSON export used to emit only the
-  per-activity (`!S`) rows; it now dumps every summary section, tagged by a new `level` column
-  (`activity` / `tag` / `location` / `workday`), so tag, location, and workday logging (`!T`/`!L`/`!W`) is
+  per-activity (`!S[]`) rows; it now dumps every summary section, tagged by a new `level` column
+  (`activity` / `tag` / `location` / `workday`), so tag, location, and workday logging (`!T[]`/`!L[]`/`!W[]`) is
   exported too. Each row carries its recipients (`logged_to` — the marker's names; CSV comma-joins, JSON is
   an array) and the residual alongside the billed `minutes`: `unrounded_minutes` (real elapsed) and
   `error_minutes` (the `(±Nm)` rounding delta, can be negative). A partially logged row exports as two rows

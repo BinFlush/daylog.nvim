@@ -54,8 +54,8 @@ Vocabulary (used throughout this help and the source):
             (`#-`).
   location  `@location`, a sticky work location, cleared with `@-`.
   q= / d=   Per-log options: the quantize bucket and the duration format.
-  !S        Marks an interval as already logged to an external system;
-            `!S<minutes>` also freezes its committed value.
+  !S[]      Marks an interval as already logged to an external system;
+            `!S[]<minutes>` also freezes its committed value.
   => alias  Maps an entry to a label it resolves to in the summary, keeping the
             entry's own description (|daylog-mapping|, |:Daylog-map|).
 
@@ -105,7 +105,7 @@ The header may set initial sticky metadata and options:
 An entry has this shape:
 
 >
-  HH:MM text [=> alias] [#tag|#-] [@location|@-] [utc±H] [round±N] [!S[minutes]]
+  HH:MM text [=> alias] [#tag|#-] [@location|@-] [utc±H] [round±N] [!S[names]N]
 <
 
 Example:
@@ -136,15 +136,15 @@ Rules:
   follows it (attaching to the entry as usual). Normally written by |:Daylog-map|.
   See |daylog-mapping|.
 - A logged marker records that the interval has been reported to an external system, at one
-  of four independent levels: `!S` (its summary row), `!T` (its tag), `!L` (its location), or
-  `!W` (the workday). An optional minute count -- `!S<minutes>`, written by |:Daylog-log| --
-  freezes that level's row at its committed value, so appending later entries can never restate
-  it (see below). A bare marker is logged but unfrozen, and carries the unnamed name: `!S[]` is
-  the set `{unnamed}` (written explicitly with empty brackets, `!S[]<minutes>` when frozen), so
-  "logged, no name" is visible and distinct from an unlogged row. An entry may carry several
-  levels in one compact token, in `S T L W` order: `!S[]225T[]525W[]525` (mixing frozen and
-  bare, e.g. `!S[]60T[]`). The separated form `!S[]225 !T[]525 !W[]525` parses too -- as does a
-  legacy bare `!S60`, which normalizes to `!S[]60` on the next rewrite; the writer always emits
+  of four independent levels: `!S[]` (its summary row), `!T[]` (its tag), `!L[]` (its location),
+  or `!W[]` (the workday). The brackets are MANDATORY -- an unnamed marker is the explicit `!S[]`,
+  carrying the unnamed name: `!S[]` is the set `{unnamed}`, so "logged, no name" is visible and
+  distinct from an unlogged row. A plain `!S` with no brackets is not a marker; it reads as
+  ordinary activity text. An optional minute count -- `!S[]<minutes>`, written by |:Daylog-log| --
+  freezes that level's row at its committed value, so appending later entries can never restate it
+  (see below); without it the marker is logged but unfrozen. An entry may carry several levels in
+  one compact token, in `S T L W` order: `!S[]225T[]525W[]525` (mixing frozen and valueless, e.g.
+  `!S[]60T[]`). The separated form `!S[]225 !T[]525 !W[]525` parses too; the writer always emits
   the compact, bracketed token.
 - A logged marker may carry a bracketed name-set -- `!T[jira,boss]` -- recording who or what the
   slice was reported to, at any level (`!S[a]`, `!T[a,b]`, `!L[a]`, `!W[a]`; names precede the
@@ -168,15 +168,15 @@ Rules:
   `1.50h`.
 
 Logged markers are preserved by source rewrites such as copy and order. Each summary section
-splits a committed cell by its own level: the summary rows by `!S`, the tag totals by `!T`, the
-location totals by `!L` -- a reported slice (shown at its committed value) and a remaining slice.
+splits a committed cell by its own level: the summary rows by `!S[]`, the tag totals by `!T[]`, the
+location totals by `!L[]` -- a reported slice (shown at its committed value) and a remaining slice.
 A logged row renders with its level's marker (a logged tag row `... #ClientA !T[]`, or `... #ClientA
 !T[jira]` for a named slice; the marker carries the name-set but never the frozen minutes, which
 live only on the entry line). A named slice is its own row: `#ClientA !T[jira]` and `#ClientA
 !T[boss]` split the cell into two reported rows beside its remaining slice. Because the levels are
 independent, logging an
 activity's summary does not change what its tag or location reports; you log those separately. A
-bare marker (`!T` with no number) just flags the row logged; only a committed value splits it.
+valueless marker (`!T[]` with no number) just flags the row logged; only a committed value splits it.
 All four sections are one shared quantization, so they always foot to the same total: a
 commitment that reports more or less than the honest rounding is taken up by the remaining slice,
 and an over-commitment beyond the cell's tracked time inflates it and propagates to every
@@ -184,7 +184,7 @@ section.
 
 Quantization normally distributes each log's rounding by largest remainder
 across every row at once, so adding an entry can shift the rounded duration of
-an unrelated earlier row. A frozen `!S<minutes>` row is instead held at exactly
+an unrelated earlier row. A frozen `!S[]<minutes>` row is instead held at exactly
 that value and pulled out of that pool: the remaining rounding is shared only
 among the un-frozen rows, the displayed total stays the honest rounded total,
 and a committed value never moves. If a frozen value later stops reconciling
@@ -193,7 +193,7 @@ activity was deleted -- |:Daylog-refresh| warns so you can re-run |:Daylog-log| 
 recommit.
 
 When one activity has several logged intervals, they share a single committed
-value -- |:Daylog-log| writes the same `!S<minutes>` onto every contributing entry.
+value -- |:Daylog-log| writes the same `!S[]<minutes>` onto every contributing entry.
 If a hand edit leaves them disagreeing, only the first would otherwise count, so
 |:Daylog-refresh| warns instead; re-run |:Daylog-log| on that row to make them agree.
 
@@ -283,7 +283,7 @@ Here `11:00-13:00` is uncounted; only the three real activities count. The final
 `16:00` closes the last interval as usual.
 
 A blank entry carries no reporting metadata: a `#tag`, `@location`, logging
-marker (`!S` / `!T` / `!L` / `!W`), `=> alias`, or `round±N` nudge on a blank
+marker (`!S[]` / `!T[]` / `!L[]` / `!W[]`), `=> alias`, or `round±N` nudge on a blank
 raises a diagnostic ("a blank entry cannot carry a tag, location, marker, alias,
 or round nudge"). A `utc±H[:MM]` offset is allowed -- it records a clock change
 during the gap. Notes may still follow a blank.
@@ -497,7 +497,7 @@ summary row, tagged by which section (`level`) it came from. Columns:
 - `unrounded_minutes` -- the real elapsed minutes before quantization.
 - `error_minutes` -- the rounding residual the report shows as `(±Nm)` (= real - billed;
   can be negative).
-- `logged` -- whether the row is reported to an external system (marked `!S`/`!T`/`!L`/`!W`
+- `logged` -- whether the row is reported to an external system (marked `!S[]`/`!T[]`/`!L[]`/`!W[]`
   at its level).
 - `logged_to` -- the recipient names (who it was reported to, e.g. `jira`); empty when
   unlogged OR logged to no one -- `logged` disambiguates the two. CSV joins the names with
@@ -596,15 +596,15 @@ Rewrite all log blocks in chronological order.
 :Daylog log
 
 Log the summary row under the cursor, at the level that row reports: a main (activity) row logs at
-the summary level (`!S`), a `--- tags ---` row at the tag level (`!T`), a `--- locations ---` row
-at the location level (`!L`), and the `workday` row of `--- totals ---` at the workday level
-(`!W`). The four levels are independent, so one activity can be logged at several at once -- run
+the summary level (`!S[]`), a `--- tags ---` row at the tag level (`!T[]`), a `--- locations ---` row
+at the location level (`!L[]`), and the `workday` row of `--- totals ---` at the workday level
+(`!W[]`). The four levels are independent, so one activity can be logged at several at once -- run
 `:Daylog log` on each section's row.
 - The cursor must be on a main, tag, location, or workday total row inside the summary block of
   the active log. The summary is recomputed from source; the rendered row acts only as a
   selector. Entry lines are not eligible.
-- Marking freezes the row's contributing entries at that level's marker -- `!S<minutes>` /
-  `!T<minutes>` / `!L<minutes>` / `!W<minutes>` -- at the row's currently displayed duration.
+- Marking freezes the row's contributing entries at that level's marker -- `!S[]<minutes>` /
+  `!T[]<minutes>` / `!L[]<minutes>` / `!W[]<minutes>` -- at the row's currently displayed duration.
   Marking a tag, location, or the workday freezes the whole group at one committed value; the
   summary block is regenerated after.
 - Marking opens a picker of the logging names you have used before at that level, ranked by the same
@@ -685,12 +685,12 @@ copying-and-cleaning a log for reporting.
   totals) are ignored, the selection is scoped to the active log, and if any selected
   entry is logged the whole map is refused.
 - `:Daylog map {label}` sets the alias to that (possibly multi-word) label; trailing
-  metadata (`#tag`, `!S`, ...) stays on the entry and follows the alias.
+  metadata (`#tag`, `!S[]`, ...) stays on the entry and follows the alias.
 - With no argument the same unified pool as `:Daylog! insert` / `:Daylog rename` opens;
   the chosen value becomes the alias (a work item maps onto `{id} {title}`). Naming a
   source scopes the picker to that one tracker, like `:Daylog insert {source}`.
 - `:Daylog! map` (bang) clears the mapping on the cursor's target (or the range).
-- A logged entry (`!S`) is refused: unlog it, map it, then log again.
+- A logged entry (`!S[]`) is refused: unlog it, map it, then log again.
 - `:Daylog rename` and `:Daylog map` are complementary: rename fixes the journal text
   of a single entry (or a `#tag`/`@location`), map sets how an activity is reported. An
   activity summary row is relabeled only with map. Splitting an aliased row drops the
@@ -717,7 +717,7 @@ clean total. This nudges the rounding to land it on the main (summary-level) axi
   to undo, or `0` to clear the cursor target's nudge.
 - A multi-day report (|:Daylog-report|) sums its days without re-rounding, so balancing
   one day reconciles the period total automatically.
-- Frozen logged rows (`!S<minutes>`) are fixed and never selected. If the only
+- Frozen logged rows (`!S[]<minutes>`) are fixed and never selected. If the only
   candidates left are logged, the command refuses rather than touch a committed value.
 - The cursor must be on the active log's summary or one of its entries.
 
@@ -1326,7 +1326,7 @@ derived from that same rounded base. Every row shows its rounding error in
 Tag and location sections are omitted when they only contain placeholder buckets.
 The `--- totals ---` section is a single `workday` row -- the whole counted day, which foots to
 the activity total (uncounted time is a blank entry, which reaches no report). It is loggable
-with `!W` (|:Daylog-log|), splitting into a reported and a remaining row like `!S`.
+with `!W[]` (|:Daylog-log|), splitting into a reported and a remaining row like `!S[]`.
 
 ==============================================================================
 DEVELOPMENT                                              *daylog-development*

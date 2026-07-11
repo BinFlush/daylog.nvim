@@ -338,7 +338,7 @@ local function generate(rng, mode_name)
         parts[#parts + 1] = syntax.round_nudge_token(rng:choice({ -2, -1, 1, 2 }))
       end
 
-      -- A logged commitment, exercising every level (!S[]/!T[]/!L[]/!W[]), bare AND numeric, compact AND
+      -- A logged commitment, exercising every level (!S[]/!T[]/!L[]/!W[]), valueless AND numeric, compact AND
       -- separated. A numeric value is an on-grid multiple of q perturbed around the interval, so it
       -- lands both above and below each cell's honest total -- absorb, surplus-propagate, and
       -- cross-cutting infeasible sets all get hit. Footing must hold for every one of these (the
@@ -352,7 +352,7 @@ local function generate(rng, mode_name)
             -- 0-3 real names, sometimes seeded with the unnamed element (empty first slot -> !S[,n1]),
             -- and sometimes empty (the explicit unnamed form !S[]). The parser dedupes/sorts and treats
             -- "" as the first-class unnamed name, so any order/dup is valid.
-            local name_suffix = ""
+            local name_suffix = "[]"
             if rng:chance(0.3) then
               local picked = {}
               if rng:chance(0.25) then

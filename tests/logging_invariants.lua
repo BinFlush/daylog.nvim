@@ -310,15 +310,15 @@ return function(t)
       local skey = text .. "|" .. tag .. "|" .. loc
       if not slice_done[skey] and rng:chance(0.6) then
         slice_done[skey] = true
-        markers = markers .. " !S" .. (rng:int(0, 4) * q)
+        markers = markers .. " !S[]" .. (rng:int(0, 4) * q)
       end
       if not tag_done[tag] and rng:chance(0.5) then
         tag_done[tag] = true
-        markers = markers .. " !T" .. (rng:int(1, 6) * q)
+        markers = markers .. " !T[]" .. (rng:int(1, 6) * q)
       end
       if not loc_done[loc] and rng:chance(0.5) then
         loc_done[loc] = true
-        markers = markers .. " !L" .. (rng:int(1, 6) * q)
+        markers = markers .. " !L[]" .. (rng:int(1, 6) * q)
       end
       lines[#lines + 1] = mstr(cur) .. " " .. text .. " #" .. tag .. " @" .. loc .. markers
       cur = cur + dur

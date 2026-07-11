@@ -213,9 +213,9 @@ function M.check(sub, mode)
 
   -- Commit consistency: the rows :Daylog log / balance freeze (summary.fine_grained_quantized) must carry
   -- the DISPLAY's durations, so logging a row freezes exactly the value it shows and strands nothing.
-  -- Those rows split per (activity, location) so an `!S` commits per location; aggregating them back per
+  -- Those rows split per (activity, location) so an `!S[]` commits per location; aggregating them back per
   -- activity+names must match the summary items. (Compared by total, not the logged/unlogged split, which
-  -- differs harmlessly for a BARE `!S` marker coexisting with a committed value across locations.) This is
+  -- differs harmlessly for a valueless `!S[]` marker coexisting with a committed value across locations.) This is
   -- the exact drift behind the reported bug: frozen siblings under-committed, so a lone un-frozen row
   -- absorbed the leftover buckets on screen but fine_grained rounded it to its own total.
   local function activity_cell_totals(rows)

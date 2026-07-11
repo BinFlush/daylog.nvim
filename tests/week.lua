@@ -156,7 +156,7 @@ return function(t)
   end)
 
   t.test("multi-day report preserves the logged flag through daily recomputation", function()
-    -- A bare `!S[]` flags the row as logged without splitting; aggregating across days keeps the
+    -- A valueless `!S[]` flags the row as logged without splitting; aggregating across days keeps the
     -- flag and foots to one honest row.
     local report = week.build_report({
       {

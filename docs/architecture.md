@@ -94,11 +94,13 @@ edits one entry's text, `:Daylog map` relabels the report.)
 ## Logging
 
 An entry can be marked **logged** — reported to an external system — at any of four independent levels:
-`!S` (its summary row / activity), `!T` (its tag), `!L` (its location), `!W` (the workday). A frozen
-marker `!X<minutes>` commits that cell to a value; a bare `!X` only flags it. Markers write as one
-compact token in `S T L W` order (`!S225T525W525`); the separated form (`!S225 !T525`) parses too.
+`!S[]` (its summary row / activity), `!T[]` (its tag), `!L[]` (its location), `!W[]` (the workday). A
+frozen marker `!X[]<minutes>` commits that cell to a value; a valueless `!X[]` only flags it. The
+brackets are mandatory — a plain `!X` with no brackets is activity text, not a marker. Markers write as
+one compact token in `S T L W` order (`!S[]225T[]525W[]525`); the separated form (`!S[]225 !T[]525`)
+parses too.
 `:Daylog log` on a rendered row writes the marker on that cell's
-entries (a summary `!S` per (activity, location) slice, so a location-spanning activity's slices SUM);
+entries (a summary `!S[]` per (activity, location) slice, so a location-spanning activity's slices SUM);
 the markers live on the entries, so the summary stays a pure projection.
 
 Logging is **rounding that reports**. Every report section is a re-sum of ONE shared granule
@@ -123,10 +125,10 @@ that disagree.
 A marker may carry a **name-set** — `!T[jira,boss]` — recording who or what the slice was reported to.
 Names use the tag charset and are a canonical, sorted set (parsed by `syntax.parse_name_list`). The
 **unnamed name is the empty string `""`**, a first-class member that sorts first: `!S[]` is `{""}` and
-`!S[,hey]` is `{"", "hey"}`, so a bare `!S` (or `!S[]`) is "logged to no one" — distinct from an unlogged
+`!S[,hey]` is `{"", "hey"}`, so `!S[]` is "logged to no one" — distinct from an unlogged
 row, and addable alongside real names (a marker always carries at least `{""}`). The name-set at a level
 is **part of that level's group identity**: a cell's granule carries all four level signatures (the
-`!S`/`!T`/`!L`/`!W` name-sets it belongs to), so two differently-named slices of one cell report as separate
+`!S[]`/`!T[]`/`!L[]`/`!W[]` name-sets it belongs to), so two differently-named slices of one cell report as separate
 rows and split independently, while a same-named slice merges. Marking **adds** the chosen names (including
 `""`) to the row's slice: `:Daylog log` unions them onto a currently-logged slice, or sweeps an unlogged
 remainder *plus* the same-name logged slice and rewrites every swept entry at their combined displayed
@@ -346,7 +348,7 @@ For each granule `r`, start at `base(r) = floor(exact(r) / q) * q` with
 give one extra bucket to the `k` rows with the largest remainders, breaking ties
 by first-seen order. The per-row rounding error is `exact(r) - quantized(r)`.
 
-Logged commitments (`!S`/`!T`/`!L`/`!W<n>`) are handled per the **Logging** section above: the granule
+Logged commitments (`!S[]`/`!T[]`/`!L[]`/`!W[]<n>`) are handled per the **Logging** section above: the granule
 quantization stays honest, and a committed cell splits its honest total into a reported slice (`V`) and a
 remaining slice (`cell_total − V`) for display, so every section still foots. An over-commit beyond the
 cell's tracked time inflates its granules and propagates; a cross-cutting contradiction falls back to the

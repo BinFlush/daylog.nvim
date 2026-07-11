@@ -151,9 +151,9 @@ local function parse_entry_metadata(text)
     local kind, value, clear = parse_entry_control_token(tokens[i])
 
     if kind == syntax.TOKEN_KIND.LOGGED then
-      -- Logging is per-level and one token may carry several (`!S225T525W525`); a repeated level is
-      -- the duplicate error. `logged` is keyed by level, each a `{ minutes, names }` table (both
-      -- optional; a bare marker is `{}`).
+      -- Logging is per-level and one token may carry several (`!S[]225T[]525W[]525`); a repeated level
+      -- is the duplicate error. `logged` is keyed by level, each a `{ minutes, names }` table (minutes
+      -- optional; `names` always present, `{""}` for the unnamed `!S[]`).
       for _, pair in ipairs(value) do
         local dup_key = "logged:" .. pair.level
         if seen[dup_key] then

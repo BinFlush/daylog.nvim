@@ -191,7 +191,7 @@ return function(t)
     t.eq(entry.sanitize_text("another round of edits"), "another round of edits")
   end)
 
-  t.test("entry parse reads a frozen !S[] value; a bare !S[] has none", function()
+  t.test("entry parse reads a frozen !S[] value; a valueless !S[] has none", function()
     local parsed = entry.parse("08:00 plan !S[]60", "ClientA", "office")
     t.eq(parsed.logged, { s = { minutes = 60, names = { "" } } })
 

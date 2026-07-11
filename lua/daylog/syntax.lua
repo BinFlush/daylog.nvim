@@ -278,10 +278,10 @@ function M.round_nudge_token(n)
   return "round" .. (n < 0 and "" or "+") .. n
 end
 
--- A logged marker optionally carries a frozen committed value in minutes (`!S60`): the row is held
+-- A logged marker optionally carries a frozen committed value in minutes (`!S[]60`): the row is held
 -- at that exact duration and excluded from the largest-remainder pool, so an external commitment
--- never moves as later entries are appended. A bare marker (`!S`) is logged-but-unfrozen; only
--- :Daylog log writes the number.
+-- never moves as later entries are appended. Without the value (`!S[]`) it is logged-but-unfrozen;
+-- only :Daylog log writes the number.
 
 -- Parse a bracket body (`a,b`) into a canonical (deduped, sorted) name list, or nil when an element
 -- holds an illegal character. An EMPTY element is the unnamed name (`""`): `[]` is `{""}` and `[,hey]`
@@ -310,11 +310,11 @@ local function parse_name_list(inner)
   return names
 end
 
--- Parse a compact logged marker (`!` then level pairs, e.g. `!S[a]225T[a,b]525W525`; the separated
--- `!S225 !T525` also parses). Each pair is a level letter, an optional bracketed name list, then an
--- optional frozen value. Returns an ORDERED list of { level, minutes, names } (minutes/names nil when
--- absent), keeping repeats so the caller can reject a duplicated level, or nil when the token is not
--- a logged marker.
+-- Parse a compact logged marker (`!` then level pairs, e.g. `!S[a]225T[a,b]525W[]525`; the separated
+-- `!S[]225 !T[]525` also parses). Each pair is a level letter, a MANDATORY bracketed name list (`[]`
+-- when unnamed), then an optional frozen value. Returns an ORDERED list of { level, minutes, names }
+-- (minutes nil when absent), keeping repeats so the caller can reject a duplicated level, or nil when
+-- the token is not a logged marker.
 function M.parse_logged_token(token)
   if token:sub(1, 1) ~= "!" then
     return nil
@@ -333,18 +333,20 @@ function M.parse_logged_token(token)
     end
     pos = pos + 1
 
-    local names
-    if body:sub(pos, pos) == "[" then
-      local close = body:find("]", pos + 1, true)
-      if not close then
-        return nil
-      end
-      names = parse_name_list(body:sub(pos + 1, close - 1))
-      if not names then
-        return nil
-      end
-      pos = close + 1
+    -- Brackets are mandatory: the unnamed marker is the explicit `!S[]`, never a bare `!S` (which just
+    -- reads as activity text).
+    if body:sub(pos, pos) ~= "[" then
+      return nil
     end
+    local close = body:find("]", pos + 1, true)
+    if not close then
+      return nil
+    end
+    local names = parse_name_list(body:sub(pos + 1, close - 1))
+    if not names then
+      return nil
+    end
+    pos = close + 1
 
     local digits = body:match("^%d*", pos)
     -- A pathological digit run would overflow to `inf` and poison quantization; cap the length and
@@ -357,8 +359,8 @@ function M.parse_logged_token(token)
     pairs_out[#pairs_out + 1] = {
       level = level,
       minutes = digits ~= "" and tonumber(digits) or nil,
-      -- A logged marker always carries a name-set; a bare `!S` (or `!S[]`) is the unnamed name `""`.
-      names = names or { "" },
+      -- The bracket parse always yields a name-set; `!S[]` is the unnamed name `""`.
+      names = names,
     }
   end
 

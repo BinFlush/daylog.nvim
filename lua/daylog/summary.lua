@@ -566,7 +566,7 @@ function M.activity_identity_key(row)
 end
 
 -- Same-level intervals whose committed values disagree, each { row } at the earliest entry: the fold
--- would silently collapse them to one, so catch it first. A bare marker is its own value (`!T` vs `!T60`
+-- would silently collapse them to one, so catch it first. A marker is its own value (`!T[]` vs `!T[]60`
 -- conflicts).
 local function conflicts_at_level(intervals, level)
   local groups, order = {}, {}

@@ -377,7 +377,7 @@ return function(t)
         invalid_tokens = { "!S[]" },
       })
 
-      -- A bare and a frozen !S[] are still two markers; the duplicate guard rejects them.
+      -- A valueless and a frozen !S[] are still two markers; the duplicate guard rejects them.
       t.eq(
         document.parse_line("08:04 plan !S[] !S[]60").message,
         "duplicate trailing !S markers are not allowed"
@@ -398,13 +398,13 @@ return function(t)
   t.test("document parse rejects a frozen value larger than a day", function()
     -- A value beyond 1440 minutes drives a multi-second inflation loop and absurd totals; refuse it.
     t.eq(
-      document.parse_line("08:04 plan !S1441").message,
+      document.parse_line("08:04 plan !S[]1441").message,
       "a logged !S value can't exceed 1440 minutes"
     )
-    t.eq(document.parse_line("08:04 plan !S15000000").kind, "invalid_entry")
+    t.eq(document.parse_line("08:04 plan !S[]15000000").kind, "invalid_entry")
     -- Exactly a day is allowed.
     t.eq(
-      document.parse_line("08:04 plan !S1440").logged,
+      document.parse_line("08:04 plan !S[]1440").logged,
       { s = { minutes = 1440, names = { "" } } }
     )
   end)

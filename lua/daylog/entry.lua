@@ -53,8 +53,8 @@ function M.format(entry, current_tag, current_location, current_offset)
     table.insert(parts, syntax.round_nudge_token(entry.nudge))
   end
 
-  -- Logged markers ride in one compact token in `S T L W` order (`!S60T120L90W480`; bare `!S`);
-  -- parsing still accepts the separated `!S60 !T120` form.
+  -- Logged markers ride in one compact token in `S T L W` order (`!S[]60T[]120L[]90W[]480`);
+  -- parsing also accepts the separated `!S[]60 !T[]120` form.
   local logged = syntax.format_logged(entry.logged)
   if logged then
     table.insert(parts, logged)
