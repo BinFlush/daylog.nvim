@@ -29,8 +29,15 @@ return function(t)
       t.ok(body:find("scripts/commit-audit.lua", 1, true) ~= nil, "script path is baked in")
       t.ok(body:find('nvim --clean -l "$SCRIPT" commit HEAD', 1, true) ~= nil, "invokes the script")
 
-      t.eq(#messages, 1)
       t.eq(messages[1].level, vim.log.levels.INFO)
+      if vim.fn.has("nvim-0.9") == 1 then
+        t.eq(#messages, 1)
+      else
+        -- The hook runs `nvim -l` (0.9+), so on an older nvim install also warns it will no-op.
+        t.eq(#messages, 2)
+        t.eq(messages[2].level, vim.log.levels.WARN)
+        t.ok(messages[2].message:find("0.9", 1, true) ~= nil, "warns the hook needs 0.9+")
+      end
     end)
   end)
 
