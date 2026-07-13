@@ -20,6 +20,25 @@ happen, but they are called out clearly in this changelog.
 - Compatibility applies to log blocks and their semantics. Generated
   summary text is derived output, not canonical source data.
 
+## Unreleased
+
+### Fixed
+
+- **A time bar label's colour swatch is never shown half onto a neighbour's colour.** The swatch was
+  bounded by its *centre*, so a label pushed against the edge of its own segment — by a crowding
+  neighbour, or by the end of the bar — hung one of its two cells over the adjacent activity, pointing at
+  the wrong colour. It is now bounded by its *edges*: the swatch always sits wholly on one of its own
+  activity's segments.
+
+### Changed
+
+- **A swatch narrows to keep a label the bar would otherwise drop.** The swatch width (1–2 cells) is now
+  a placement variable alongside the label's text length: where a legend item has no room left, its
+  swatch gives up a cell rather than the whole label being dropped, and an activity holding a single bar
+  cell (a few minutes of a long day) gets a one-cell swatch that fits it exactly instead of spilling onto
+  its neighbour. Bars with room to spare are unchanged — a swatch is grown back to full width before any
+  text is, so a narrowed swatch appears only where a label would otherwise have been lost.
+
 ## 0.19.0 - 2026-07-12
 
 ### Added

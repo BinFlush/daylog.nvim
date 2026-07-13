@@ -769,11 +769,14 @@ today and reach the full command set. `g?` runs it too when the default set is e
 Toggle the colour-coded time bar at the bottom of the window: a horizontal bar whose
 segments are the active log's intervals -- each width proportional to its real duration,
 each colour its activity (resolved label) -- with a row of labels above it. Each distinct
-activity is labelled once, placed over its widest segment (so a repeated activity is named
-where it has the most bar); overlaps are resolved optimally and, when the labels cannot all
-fit, the least-present are abbreviated then dropped. It lives in a small split reserved at the
-bottom of the daylog window, so it is always visible (it does not scroll with the log) and
-never overlays the summary; the log window is shortened to make room. It updates live as you edit.
+activity is labelled once, its colour swatch sitting wholly on one of that activity's
+segments (preferring the widest, so a repeated activity is named where it has the most bar):
+a swatch is never shown half onto a neighbour's colour, and on a segment too thin to hold it
+the swatch narrows to fit. When labels crowd each other, one is narrowed or abbreviated
+rather than dropped; only when even that will not fit are the least-present dropped. It lives
+in a small split reserved at the bottom of the daylog window, so it is always visible (it does
+not scroll with the log) and never overlays the summary; the log window is shortened to make
+room. It updates live as you edit.
 
 When the active log has mapped entries (`=> alias`), the bar shows two aligned rows: the raw
 descriptions on top and the mapped report labels below, for a before/after view of the mapping.

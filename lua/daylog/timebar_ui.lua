@@ -89,20 +89,21 @@ end
 
 M.build_bar_row = build_bar_row
 
--- One label row as a chunk list ({ {text, hl}, ... }): each placement (swatch + name) drawn at its
--- `col` from timebar.label_placements. `col` is char-based, so this guards true display width -- a
--- double-width (CJK/emoji) label that would collide or overrun the bar is dropped, not overlapped.
+-- One label row as a chunk list ({ {text, hl}, ... }): each placement (its `swatch` cells of colour +
+-- name) drawn at its `col` from timebar.label_placements. `col` is char-based, so this guards true
+-- display width -- a double-width (CJK/emoji) label that would collide or overrun the bar is dropped,
+-- not overlapped.
 local function label_row(placements, width)
   local chunks, cursor = {}, 0
   for _, p in ipairs(placements) do
     local name = " " .. p.text .. "  "
-    local item_width = 2 + vim.fn.strdisplaywidth(name)
+    local item_width = p.swatch + vim.fn.strdisplaywidth(name)
     local col = p.col - 1
     if col >= cursor and col + item_width <= width then
       if col > cursor then
         chunks[#chunks + 1] = { string.rep(" ", col - cursor), "DaylogBarLabel" }
       end
-      chunks[#chunks + 1] = { "  ", activity_hl.bar_group(p.color_index) }
+      chunks[#chunks + 1] = { string.rep(" ", p.swatch), activity_hl.bar_group(p.color_index) }
       chunks[#chunks + 1] = { name, "DaylogBarLabel" }
       cursor = col + item_width
     end

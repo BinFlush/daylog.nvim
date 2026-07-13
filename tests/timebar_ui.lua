@@ -12,10 +12,10 @@ return function(t)
     -- A mapped log renders raw labels / raw bar / resolved bar / resolved labels, so the hover can
     -- report the raw item on the top bar and the mapped label on the bottom.
     local mapped = {
-      raw_labels = { { col = 1, text = "fix", color_index = 1 } },
+      raw_labels = { { col = 1, text = "fix", color_index = 1, swatch = 2 } },
       raw_segments = { { width = 20, color_index = 1, start = 0, stop = 1200 } },
       segments = { { width = 20, color_index = 2, start = 0, stop = 1200 } },
-      labels = { { col = 1, text = "Feature", color_index = 2 } },
+      labels = { { col = 1, text = "Feature", color_index = 2, swatch = 2 } },
     }
     local rows, bars = timebar_ui.bar_virt_lines(mapped, 20)
     t.eq(#rows, 4)
@@ -25,12 +25,28 @@ return function(t)
 
     local unmapped = {
       segments = { { width = 20, color_index = 1, start = 0, stop = 1200 } },
-      labels = { { col = 1, text = "work", color_index = 1 } },
+      labels = { { col = 1, text = "work", color_index = 1, swatch = 2 } },
     }
     local urows, ubars = timebar_ui.bar_virt_lines(unmapped, 20)
     t.eq(#urows, 2)
     t.eq(#ubars, 1)
     t.eq(ubars[1].row, 2)
+  end)
+
+  t.test("label_row draws each placement's swatch at its own width", function()
+    -- A label on a segment thinner than the full swatch carries `swatch = 1`; the row must render that
+    -- one cell of colour (and budget the item one cell narrower), not a hardcoded two.
+    local rows = timebar_ui.bar_virt_lines({
+      segments = { { width = 20, color_index = 1, start = 0, stop = 1200 } },
+      labels = {
+        { col = 1, text = "a", color_index = 1, swatch = 1 },
+        { col = 8, text = "b", color_index = 2, swatch = 2 },
+      },
+    }, 20)
+    t.eq(rows[1][1], { " ", "DaylogBar1" }) -- the narrowed swatch: one cell
+    t.eq(rows[1][2], { " a  ", "DaylogBarLabel" })
+    t.eq(rows[1][3], { "  ", "DaylogBarLabel" }) -- pad from col 5 (1 + 1 + 3) to col 8
+    t.eq(rows[1][4], { "  ", "DaylogBar2" }) -- the full swatch: two cells
   end)
 
   t.test("build_bar_row draws the now-marker glyph only when now_col is set", function()

@@ -304,7 +304,10 @@ local function lcp(a, b)
   return i
 end
 
-local LEGEND_OVERHEAD = 5 -- per legend item besides the label: swatch (2) + a leading + two trailing
+local SWATCH_CELLS = 2 -- a legend item's colour swatch at full width
+local MIN_SWATCH = 1 -- ...which it gives cells up to, down to this, rather than let a label be dropped
+local ITEM_OVERHEAD = 3 -- per legend item besides the swatch and the label: a leading + two trailing
+local LEGEND_OVERHEAD = SWATCH_CELLS + ITEM_OVERHEAD -- fit_legend prices a full-width swatch
 local LEGEND_FLOOR = 3 -- never shave a label below this many characters (or its length, if shorter)
 local LEGEND_MARKER = "…" -- appended to a shortened label; one display cell
 
@@ -435,14 +438,17 @@ local function label_occurrences(segments)
 end
 
 -- Place each distinct label once, its colour swatch on ONE of the activity's segments, and give it as
--- much of its text as fits. fit_legend picks which activities are shown; then, over a bounded search of
--- which occurrence each label anchors to, the layout minimises lexicographically:
---   (1) labels dropped, (2) characters hidden (prefer full text), (3) Σ rank of the anchored occurrence
---   (0 = the activity's longest segment), (4) duration dropped.
--- Each label is packed at its shortest still-distinct form for feasibility -- so a blocker is SHORTENED,
--- not its neighbour dropped -- then grown back toward full text into whatever slack remains; a label is
--- dropped only when even its floor cannot sit on any of its blocks. Its swatch is centred on the block
--- where room allows. Returns { { text, color_index, col } } sorted by col. PURE, deterministic.
+-- much of its text as fits. Swatch width (1..SWATCH_CELLS) and text length are both placement variables;
+-- the swatch sits FULLY on its block (bl <= s <= br - sw), so it is never shown off its own colour.
+-- fit_legend picks which activities are shown; then, over a bounded search of which occurrence each label
+-- anchors to, the layout minimises lexicographically:
+--   (1) labels dropped, (2) swatches shrunk, (3) characters hidden (prefer full text), (4) Σ rank of the
+--   anchored occurrence (0 = the activity's longest segment), (5) duration dropped.
+-- Each label is packed at its true minimum (a 1-cell swatch, its shortest still-distinct text) for
+-- feasibility -- so a blocker is SHORTENED or narrowed, not its neighbour dropped -- then grown back into
+-- whatever slack remains, swatch first then text; a label is dropped only when even that minimum cannot
+-- sit on any of its blocks. Its swatch is centred on the block where room allows.
+-- Returns { { text, color_index, col, swatch } } sorted by col. PURE, deterministic.
 function M.label_placements(segments, width)
   local info, order = label_occurrences(segments)
   if #order == 0 then
@@ -515,17 +521,18 @@ function M.label_placements(segments, width)
     return a.appear < b.appear
   end)
 
-  -- Footprint (cells) of showing `a` chars of `c`: overhead + prefix cells + ellipsis when shortened.
-  local function footprint(c, a)
-    return LEGEND_OVERHEAD + c.cells[a] + (a < c.full and 1 or 0)
+  -- Footprint (cells) of showing `a` chars of `c` behind an `sw`-cell swatch: swatch + overhead + prefix
+  -- cells + ellipsis when shortened.
+  local function footprint(c, a, sw)
+    return sw + ITEM_OVERHEAD + c.cells[a] + (a < c.full and 1 or 0)
   end
   -- Longest prefix length in [min_len, full] whose footprint fits `cap`, or nil if even min_len overflows.
-  local function fit_len(c, cap)
-    if footprint(c, c.min_len) > cap then
+  local function fit_len(c, cap, sw)
+    if footprint(c, c.min_len, sw) > cap then
       return nil
     end
     local a = c.min_len
-    while a < c.full and footprint(c, a + 1) <= cap do
+    while a < c.full and footprint(c, a + 1, sw) <= cap do
       a = a + 1
     end
     return a
@@ -555,13 +562,15 @@ function M.label_placements(segments, width)
     table.remove(cands[pick].occ)
   end
 
-  -- Evaluate one assignment (choice[i] = occurrence for cand i). Pass 1: pack each label at its FLOOR
-  -- footprint, leftmost, its swatch overlapping its block and clearing the previous; a label whose floor
-  -- can't fit is dropped, and its leftmost floor column is kept in `s`. Pass 2 (right-to-left): grow each
-  -- shown label's text into the room a RIGHT-ALIGNED right neighbour leaves (past the left labels'
-  -- reserved floors) -- so free space to the right flows left to whoever can still use it, rather than
-  -- stranding it behind a right label pinned near its centre. Returns drops, hidden chars, Σrank, dropped
-  -- duration, and the placed list { c, o, s, len } in block order.
+  -- Evaluate one assignment (choice[i] = occurrence for cand i). Pass 1: pack each label at its MINIMUM
+  -- footprint (a 1-cell swatch, its shortest still-distinct text), leftmost, its swatch on its block and
+  -- clearing the previous; a label whose minimum can't fit is dropped, and its leftmost column is kept in
+  -- `s`. Pass 2 (right-to-left): grow each shown label into the room a RIGHT-ALIGNED right neighbour
+  -- leaves (past the left labels' reserved minimums) -- so free space to the right flows left to whoever
+  -- can still use it, rather than stranding it behind a right label pinned near its centre. The swatch
+  -- grows before the text, so a narrowed swatch means the item had NO slack at all -- exactly where a
+  -- label would otherwise be dropped. Returns drops, swatches shrunk, hidden chars, Σrank, dropped
+  -- duration, and the placed list { c, o, s, len, sw } in block order.
   local function evaluate(choice)
     local seq = {}
     for i = 1, n do
@@ -576,9 +585,9 @@ function M.label_placements(segments, width)
     local placed, drops, sum_rank, drop_dur, prev_right = {}, 0, 0, 0, 0
     for _, e in ipairs(seq) do
       local c, o = e.c, e.o
-      local floor_w = footprint(c, c.min_len)
-      local s = math.max(prev_right, math.max(0, o.bl - 1))
-      if s <= o.br - 1 and s + floor_w <= width then
+      local floor_w = footprint(c, c.min_len, MIN_SWATCH)
+      local s = math.max(prev_right, o.bl)
+      if s <= o.br - MIN_SWATCH and s + floor_w <= width then
         placed[#placed + 1] = { c = c, o = o, s = s }
         sum_rank = sum_rank + o.rank
         prev_right = s + floor_w
@@ -587,19 +596,25 @@ function M.label_placements(segments, width)
         drop_dur = drop_dur + c.total
       end
     end
-    local hidden, bound = 0, width
+    local hidden, shrunk, bound = 0, 0, width
     for i = #placed, 1, -1 do
       local p = placed[i]
-      -- `bound - p.s` is the span from this label's reserved-floor column to the right neighbour's
-      -- right-aligned swatch: the most text it can show.
-      p.len = fit_len(p.c, bound - p.s) or p.c.min_len
+      -- `bound - p.s` is the span from this label's reserved-minimum column to the right neighbour's
+      -- right-aligned swatch: the most the item can spend.
+      local cap = bound - p.s
+      local full_swatch = p.s <= p.o.br - SWATCH_CELLS
+        and footprint(p.c, p.c.min_len, SWATCH_CELLS) <= cap
+      p.sw = full_swatch and SWATCH_CELLS or MIN_SWATCH
+      shrunk = shrunk + (SWATCH_CELLS - p.sw)
+      p.len = fit_len(p.c, cap, p.sw) or p.c.min_len
       hidden = hidden + (p.c.full - p.len)
-      bound = math.min(p.o.br - 1, bound - footprint(p.c, p.len))
+      bound = math.min(p.o.br - p.sw, bound - footprint(p.c, p.len, p.sw))
     end
-    return drops, hidden, sum_rank, drop_dur, placed
+    return drops, shrunk, hidden, sum_rank, drop_dur, placed
   end
 
-  -- Odometer over occurrence choices; keep the lexicographically best (drops, hidden, Σrank, drop-dur).
+  -- Odometer over occurrence choices; keep the lexicographically best (drops, shrunk, hidden, Σrank,
+  -- drop-dur).
   local idx = {}
   for i = 1, n do
     idx[i] = 1
@@ -610,12 +625,12 @@ function M.label_placements(segments, width)
     for i = 1, n do
       choice[i] = cands[i].occ[idx[i]]
     end
-    local drops, hidden, sum_rank, drop_dur, placed = evaluate(choice)
-    local key = { drops, hidden, sum_rank, drop_dur }
+    local drops, shrunk, hidden, sum_rank, drop_dur, placed = evaluate(choice)
+    local key = { drops, shrunk, hidden, sum_rank, drop_dur }
     if not best then
       best, best_placed = key, placed
     else
-      for k = 1, 4 do
+      for k = 1, #key do
         if key[k] ~= best[k] then
           if key[k] < best[k] then
             best, best_placed = key, placed
@@ -638,28 +653,29 @@ function M.label_placements(segments, width)
     end
   end
 
-  -- Position the winner's swatches now that lengths are fixed: the leftmost feasible packing (with the
-  -- grown text) is each swatch's floor; then right-to-left, centre each on its block, clamped so it never
-  -- shoves a left label off its block or overruns the next. A swatch slides off-centre only as far as a
-  -- neighbour genuinely needs the room. Text is truncated to its chosen length (+ ellipsis when shortened).
+  -- Position the winner's swatches now that widths and lengths are fixed: the leftmost feasible packing
+  -- (with the grown items) is each swatch's floor; then right-to-left, centre each on its block, clamped
+  -- to [bl, br - sw] so every swatch cell stays on its own colour, and so it never shoves a left label off
+  -- its block or overruns the next. A swatch slides off-centre only as far as a neighbour genuinely needs
+  -- the room. Text is truncated to its chosen length (+ ellipsis when shortened).
   local m = #best_placed
   local leftmost, prev_right = {}, 0
   for i = 1, m do
     local p = best_placed[i]
-    leftmost[i] = math.max(prev_right, math.max(0, p.o.bl - 1))
-    prev_right = leftmost[i] + footprint(p.c, p.len)
+    leftmost[i] = math.max(prev_right, p.o.bl)
+    prev_right = leftmost[i] + footprint(p.c, p.len, p.sw)
   end
   local out, next_left = {}, width
   for i = m, 1, -1 do
     local p = best_placed[i]
-    local fw = footprint(p.c, p.len)
-    local target = math.floor((p.o.bl + p.o.br) / 2) - 1
-    local s = math.max(leftmost[i], math.min(target, math.min(p.o.br - 1, next_left - fw)))
+    local fw = footprint(p.c, p.len, p.sw)
+    local target = math.floor((p.o.bl + p.o.br - p.sw) / 2)
+    local s = math.max(leftmost[i], math.min(target, math.min(p.o.br - p.sw, next_left - fw)))
     local t = table.concat(p.c.chars, "", 1, p.len)
     if p.len < p.c.full then
       t = t .. LEGEND_MARKER
     end
-    out[i] = { text = t, color_index = p.c.color_index, col = s + 1 }
+    out[i] = { text = t, color_index = p.c.color_index, col = s + 1, swatch = p.sw }
     next_left = s
   end
   return out

@@ -143,16 +143,43 @@ return function(t)
   end)
 
   -- label_placements: place each distinct label once, its colour swatch over ONE of the activity's
-  -- segments, its text length a placement variable. A bounded lexicographic search minimises drops, then
-  -- hidden characters (prefer full text), then Σ rank (0 = the longest segment), then keeps the
-  -- most-present. A blocking label is SHORTENED rather than its neighbour dropped; a label is dropped
-  -- only when even its shortest still-distinct form can't sit on any of its blocks, never shown
-  -- off-colour. Segments are hand-built; `col` is 1-based (the swatch's left column).
+  -- segments, with BOTH the swatch width (1-2 cells) and the text length placement variables. A bounded
+  -- lexicographic search minimises drops, then swatches shrunk, then hidden characters (prefer full
+  -- text), then Σ rank (0 = the longest segment), then keeps the most-present. A blocking label is
+  -- SHORTENED or its swatch narrowed rather than its neighbour dropped; a label is dropped only when even
+  -- its 1-cell-swatch minimum can't sit on any of its blocks. Segments are hand-built; `col` is 1-based
+  -- (the swatch's left column).
   local function mkseg(width, color_index, label)
     return { width = width, color_index = color_index, label = label }
   end
   local function mkgap(width)
     return { width = width, gap = true }
+  end
+  -- Place, asserting the invariant every layout must keep: each swatch cell sits on its own activity's
+  -- colour, i.e. the swatch lies FULLY on one of that activity's segments -- never half onto a
+  -- neighbour's. Every case below therefore guards it.
+  local function place(segments, width)
+    local placements = timebar.label_placements(segments, width)
+    local cell, left = {}, 0
+    for _, seg in ipairs(segments) do
+      for c = left, left + seg.width - 1 do
+        cell[c] = seg.gap and 0 or seg.color_index
+      end
+      left = left + seg.width
+    end
+    for _, p in ipairs(placements) do
+      for c = p.col - 1, p.col - 2 + p.swatch do
+        local msg = string.format(
+          "%q: swatch cell %d carries colour %s, not its own %s",
+          p.text,
+          c,
+          tostring(cell[c]),
+          tostring(p.color_index)
+        )
+        t.ok(cell[c] == p.color_index, msg)
+      end
+    end
+    return placements
   end
   local function cols(placements)
     local out = {}
@@ -163,12 +190,12 @@ return function(t)
   end
 
   t.test("label_placements centres a lone label's swatch over its segment", function()
-    t.eq(cols(timebar.label_placements({ mkseg(10, 1, "a") }, 10)), { { "a", 1, 5 } })
+    t.eq(cols(place({ mkseg(10, 1, "a") }, 10)), { { "a", 1, 5 } })
   end)
 
   t.test("label_placements sits well-separated labels each on their segment", function()
     t.eq(
-      cols(timebar.label_placements({ mkseg(10, 1, "a"), mkseg(10, 2, "b") }, 20)),
+      cols(place({ mkseg(10, 1, "a"), mkseg(10, 2, "b") }, 20)),
       { { "a", 1, 5 }, { "b", 2, 15 } }
     )
   end)
@@ -179,25 +206,20 @@ return function(t)
       -- aa and bb are on adjacent 3-cell blocks (cols 7-9, 10-12); already at their 2-char floor there
       -- is nothing to shorten, so bb is dropped rather than shown off its block.
       t.eq(
-        cols(
-          timebar.label_placements({ mkgap(6), mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 20)
-        ),
+        cols(place({ mkgap(6), mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 20)),
         { { "aa", 1, 7 } }
       )
     end
   )
 
   t.test("label_placements drops a label it cannot place on its block at the edge", function()
-    t.eq(
-      cols(timebar.label_placements({ mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 14)),
-      { { "aa", 1, 1 } }
-    )
+    t.eq(cols(place({ mkseg(3, 1, "aa"), mkseg(3, 2, "bb"), mkgap(8) }, 14)), { { "aa", 1, 1 } })
   end)
 
   t.test("label_placements sits a label over its LARGEST feasible segment", function()
     -- "a" appears as a width-2 and a width-5 segment; its label anchors over the width-5 one (rank 0).
     t.eq(
-      cols(timebar.label_placements({ mkseg(2, 1, "a"), mkseg(10, 2, "b"), mkseg(5, 1, "a") }, 40)),
+      cols(place({ mkseg(2, 1, "a"), mkseg(10, 2, "b"), mkseg(5, 1, "a") }, 40)),
       { { "b", 2, 7 }, { "a", 1, 14 } }
     )
   end)
@@ -207,7 +229,7 @@ return function(t)
     -- force shortening A's long text. Its roomier width-8 occurrence fits A whole, so A migrates there
     -- (hiding no characters beats sitting on the bigger block) and both are shown.
     t.eq(
-      cols(timebar.label_placements({
+      cols(place({
         mkseg(12, 1, "AAAAAAAAAAA"),
         mkseg(2, 2, "B"),
         mkgap(16),
@@ -221,8 +243,7 @@ return function(t)
   t.test("label_placements shortens a blocking label so its neighbour is kept", function()
     -- "activityone" (11 chars) sits at bl0 with "two" jammed onto the 2-cell block right after it. Rather
     -- than drop "two", the long label is shortened (…) to clear the swatch, so both stay on-colour.
-    local placed =
-      timebar.label_placements({ mkseg(12, 1, "activityone"), mkseg(2, 2, "two"), mkgap(6) }, 20)
+    local placed = place({ mkseg(12, 1, "activityone"), mkseg(2, 2, "two"), mkgap(6) }, 20)
     t.eq(#placed, 2) -- both kept
     t.eq(placed[1].color_index, 1)
     t.ok(placed[1].text:sub(-3) == "…", "the blocking label is shortened with an ellipsis")
@@ -231,31 +252,26 @@ return function(t)
 
   t.test("label_placements abbreviates then drops the least-present when crowded", function()
     -- alpha + beta can't both fit in 13 cells; fit_legend drops beta before placement.
-    t.eq(
-      cols(timebar.label_placements({ mkseg(8, 1, "alpha"), mkseg(5, 2, "beta") }, 13)),
-      { { "alpha", 1, 4 } }
-    )
+    t.eq(cols(place({ mkseg(8, 1, "alpha"), mkseg(5, 2, "beta") }, 13)), { { "alpha", 1, 4 } })
   end)
 
   t.test("label_placements drops a single label too long to fit even truncated", function()
     -- verylonglabel truncates to "v…" but swatch+footprint still exceeds a 6-cell bar: nothing shows.
-    t.eq(cols(timebar.label_placements({ mkseg(3, 1, "verylonglabel") }, 6)), {})
+    t.eq(cols(place({ mkseg(3, 1, "verylonglabel") }, 6)), {})
   end)
 
   t.test(
     "label_placements slides a right label to its block edge so a left label expands",
     function()
       -- "verylonglabel" at bl0-10 is followed by "short" on bl12-16 with open bar to its right. Instead of
-      -- sitting centred on its block and constricting the long label, "short" slides to its block's right
-      -- edge (col 16), donating the room so the long label grows to 9 chars rather than being cut to 7.
+      -- sitting centred on its block and constricting the long label, "short" slides right as far as its
+      -- block allows -- col 15, the last column where its 2-cell swatch is still wholly on cells 12-15 --
+      -- donating the room so the long label grows to 8 chars rather than being cut to 7.
       t.eq(
         cols(
-          timebar.label_placements(
-            { mkseg(10, 1, "verylonglabel"), mkgap(2), mkseg(4, 2, "short"), mkgap(14) },
-            30
-          )
+          place({ mkseg(10, 1, "verylonglabel"), mkgap(2), mkseg(4, 2, "short"), mkgap(14) }, 30)
         ),
-        { { "verylongl…", 1, 1 }, { "short", 2, 16 } }
+        { { "verylong…", 1, 1 }, { "short", 2, 15 } }
       )
     end
   )
@@ -263,14 +279,12 @@ return function(t)
   t.test("label_placements keeps double-width labels within their cell budget", function()
     -- Each abbreviated CJK label renders 12 cells; the two must tile the 24-cell bar without
     -- overlapping in cells and without spilling past its end (else the shell drops them).
-    local placements = timebar.label_placements(
-      { mkseg(12, 1, "あいうえおか"), mkseg(12, 2, "かきくけこさ") },
-      24
-    )
+    local placements =
+      place({ mkseg(12, 1, "あいうえおか"), mkseg(12, 2, "かきくけこさ") }, 24)
     t.eq(cols(placements), { { "あいう…", 1, 1 }, { "かきく…", 2, 13 } })
     local prev_end = 0
     for _, p in ipairs(placements) do
-      local cell_width = 5 + vim.fn.strdisplaywidth(p.text)
+      local cell_width = p.swatch + 3 + vim.fn.strdisplaywidth(p.text)
       t.ok(p.col > prev_end, "labels do not overlap in cells")
       prev_end = p.col - 1 + cell_width
     end
@@ -278,10 +292,57 @@ return function(t)
   end)
 
   t.test("label_placements ignores gap segments (no label for a dead period)", function()
-    local placements =
-      timebar.label_placements({ mkseg(10, 1, "a"), mkgap(4), mkseg(10, 1, "a") }, 24)
+    local placements = place({ mkseg(10, 1, "a"), mkgap(4), mkseg(10, 1, "a") }, 24)
     t.eq(#placements, 1) -- one distinct label; the gap gets none
     t.eq(placements[1].text, "a")
+  end)
+
+  t.test("label_placements narrows the swatch to a segment thinner than it", function()
+    -- "call" holds a single cell (18). A 2-cell swatch cannot sit on it at all, so the swatch shrinks to
+    -- the one cell it owns rather than spilling half onto "docs" -- while its roomy neighbours keep two.
+    local placements =
+      place({ mkseg(18, 1, "email"), mkseg(1, 2, "call"), mkseg(21, 3, "docs") }, 40)
+    t.eq(cols(placements), { { "email", 1, 9 }, { "call", 2, 19 }, { "docs", 3, 29 } })
+    t.eq({ placements[1].swatch, placements[2].swatch, placements[3].swatch }, { 2, 1, 2 })
+  end)
+
+  t.test("label_placements narrows a swatch to keep a label it would otherwise drop", function()
+    -- "beta"'s block is cells 6-8, and "alphabet" ahead of it reserves through cell 7 at its minimum.
+    -- With a full 2-cell swatch each, beta has nowhere on-block left and would be dropped; a 1-cell
+    -- swatch buys back the cell it needs, so both activities stay named.
+    local placements = place({ mkseg(6, 1, "alphabet"), mkseg(3, 2, "beta"), mkgap(11) }, 20)
+    t.eq(#placements, 2)
+    t.eq(placements[2].text, "beta")
+    t.eq(placements[2].swatch, 1) -- the shrink is what kept it
+  end)
+
+  t.test("label_placements keeps every swatch on its own colour (fuzz)", function()
+    -- The invariant under pressure: random bars from roomy to cramped, where labels crowd each other off
+    -- their blocks. `place` asserts each swatch cell is on its own activity; here we also guard what the
+    -- shell relies on -- items never overlap and never run past the bar (an overrun is dropped at render).
+    local Rng = dofile(vim.fn.getcwd() .. "/tests/rng.lua")
+    local rng = Rng.new(1234567)
+    local WORDS = { "email", "standup", "code review", "fix login", "refactor", "planning", "docs" }
+    for _ = 1, 300 do
+      local width = rng:int(20, 120)
+      local segments, used = {}, 0
+      while used < width do
+        local w = math.min(rng:int(1, math.max(2, math.floor(width / 4))), width - used)
+        if rng:chance(0.1) then
+          segments[#segments + 1] = { width = w, gap = true }
+        else
+          local ci = rng:int(1, #WORDS)
+          segments[#segments + 1] = { width = w, color_index = ci, label = WORDS[ci] }
+        end
+        used = used + w
+      end
+      local prev_end = 0
+      for _, p in ipairs(place(segments, width)) do
+        t.ok(p.col - 1 >= prev_end, "legend items do not overlap")
+        prev_end = p.col - 1 + p.swatch + 3 + vim.fn.strdisplaywidth(p.text)
+        t.ok(prev_end <= width, "the legend item fits the bar")
+      end
+    end
   end)
 
   t.test("layout places labels for each bar independently", function()
