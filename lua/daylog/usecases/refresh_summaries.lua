@@ -18,11 +18,9 @@ local M = {}
 -- and records `nudge_below_zero`, surfaced here so the out-of-range marker is corrected not silently
 -- honored (the summary still renders clamped).
 local function nudge_range_warnings(block)
-  -- Judge on the granule base the displayed summary re-sums, so warning and row agree on the clamp.
-  local rows = summary.quantized_granules(block.entries, block.quantize_minutes)
-
+  -- Judge on the rows the displayed summary shows, so warning and row agree on the clamp.
   local warnings = {}
-  for _, row in ipairs(rows) do
+  for _, row in ipairs(summary.summarize_block(block).summary_items) do
     if row.nudge_below_zero then
       local at = row.source_entry_rows and row.source_entry_rows[1]
       if at then
@@ -60,9 +58,6 @@ function M.run(lines)
     -- The summary is entirely generated, so a valid log's whole zone is discarded and rewritten (or
     -- created when missing) while the body above the boundary is left untouched.
     if not analyze.find_block_diagnostic(work_analysis, block) then
-      for _, warning in ipairs(summary.logging_diagnostics(block)) do
-        warnings[#warnings + 1] = warning
-      end
       for _, warning in ipairs(nudge_range_warnings(block)) do
         warnings[#warnings + 1] = warning
       end

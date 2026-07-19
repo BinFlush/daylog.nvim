@@ -152,16 +152,20 @@ local function parse_entry_metadata(text)
 
     if kind == syntax.TOKEN_KIND.LOGGED then
       -- Logging is per-level and one token may carry several (`!S[]225T[]525W[]525`); a repeated level
-      -- is the duplicate error. `logged` is keyed by level, each a `{ minutes, names }` table (minutes
-      -- optional; `names` always present, `{""}` for the unnamed `!S[]`).
+      -- is the duplicate error. `logged` is keyed by level, each a `{ minutes, names }` table (`names`
+      -- always present, `{""}` for the unnamed `!S[]60`).
       for _, pair in ipairs(value) do
         local dup_key = "logged:" .. pair.level
         if seen[dup_key] then
           return nil, "duplicate trailing !" .. pair.level:upper() .. " markers are not allowed"
         end
-        -- A frozen value can't exceed a day; a larger one is a hand-edit that would drive a
-        -- multi-second surplus-inflation loop and print absurd totals, so refuse it here.
-        if pair.minutes and pair.minutes > syntax.END_OF_DAY_MINUTES then
+        -- A marker states a fact -- how many minutes were logged -- so the minutes are mandatory.
+        if pair.minutes == nil then
+          return nil, "a logged !" .. pair.level:upper() .. " marker must carry its minutes"
+        end
+        -- A claimed value can't exceed a day; a larger one is a hand-edit that would print absurd
+        -- totals, so refuse it here.
+        if pair.minutes > syntax.END_OF_DAY_MINUTES then
           return nil, "a logged !" .. pair.level:upper() .. " value can't exceed 1440 minutes"
         end
         seen[dup_key] = true

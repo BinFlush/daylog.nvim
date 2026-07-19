@@ -33,8 +33,8 @@ function M.apply_error_minutes(items)
 end
 
 -- Round each row down to the bucket, then distribute the leftover buckets (to reach `target_total`) to
--- the largest remainders, ties by first-seen order. Cell-level commitments are handled by
--- constrained_quantize (surplus inflation), not here, so every row rounds live.
+-- the largest remainders, ties by first-seen order. Marker-blind: logged claims never reach here, they
+-- pin their entries' shares afterwards (claims.lua).
 function M.quantize_rows(rows, bucket_minutes, target_total)
   local result = copy_rows(rows)
   local quantized_total = 0
@@ -92,83 +92,6 @@ function M.quantize_rows(rows, bucket_minutes, target_total)
     end
   end
 
-  return result
-end
-
--- Quantize granules under cell-level commitments. Two passes: (1) honest largest-remainder over all
--- granules; (2) shift each committed cell's granules so the cell sums to its `target`, moving buckets to
--- the largest remainders (or off the smallest, round-down). `commitments` is a list of
--- `{ members = {granule indices}, target = minutes }`; disjoint and laminar commitments always succeed.
-function M.constrained_quantize(granules, bucket_minutes, commitments)
-  local unrounded_total = 0
-  for _, row in ipairs(granules) do
-    unrounded_total = unrounded_total + (row.unrounded_duration or row.duration)
-  end
-
-  local result = M.quantize_rows(
-    granules,
-    bucket_minutes,
-    M.round_to_nearest_bucket(unrounded_total, bucket_minutes)
-  )
-
-  local function remainder(row)
-    return (row.unrounded_duration or row.duration) - row.duration
-  end
-
-  for _, commitment in ipairs(commitments or {}) do
-    local current = 0
-    for _, index in ipairs(commitment.members) do
-      current = current + result[index].duration
-    end
-
-    local delta = commitment.target - current
-    if delta ~= 0 then
-      local up = delta > 0
-      local ordered = {}
-      for _, index in ipairs(commitment.members) do
-        ordered[#ordered + 1] = index
-      end
-      -- Buckets go to the rows that most want to round up (or off those that most want down), least
-      -- error. Two explicit branches, not `cond and X or Y`: a false X would give a non-antisymmetric
-      -- comparator Lua rejects.
-      table.sort(ordered, function(a, b)
-        local ra, rb = remainder(result[a]), remainder(result[b])
-        if ra == rb then
-          return a < b
-        end
-        if up then
-          return ra > rb
-        end
-        return ra < rb
-      end)
-
-      local remaining = math.abs(delta) / bucket_minutes
-      local cursor = 0
-      local moved_this_cycle = false
-      while remaining > 0 do
-        local index = ordered[(cursor % #ordered) + 1]
-        local row = result[index]
-        if up or row.duration >= bucket_minutes then
-          row.duration = row.duration + (up and bucket_minutes or -bucket_minutes)
-          remaining = remaining - 1
-          moved_this_cycle = true
-        end
-        cursor = cursor + 1
-        -- Round-down can run out of room; stop only after a FULL cycle moved nothing, not a raw
-        -- iteration count (which would abandon a still-feasible reduction, e.g. `{90,30}` -> 0).
-        if not up and cursor % #ordered == 0 then
-          if not moved_this_cycle then
-            break
-          end
-          moved_this_cycle = false
-        end
-      end
-    end
-  end
-
-  for _, row in ipairs(result) do
-    row.error_minutes = remainder(row)
-  end
   return result
 end
 

@@ -41,14 +41,15 @@ local function analyze_day(day)
   -- Expose the day's own quantization bucket so the multi-day report can label
   -- each day section with its `q=`.
   local block = analyze.get_active_log(analysis)
+  local day_summary = summary.summarize_block(block)
 
   return {
     date_label = day.date_label,
     path = day.path,
-    summary = summary.summarize_block(block),
-    -- The location-split, display-consistent activity projection :Daylog export flattens (the merged
-    -- `summary.summary_items` drop location); inert for the rendered report.
-    activity_rows = summary.fine_grained_quantized(block.entries, block.quantize_minutes),
+    summary = day_summary,
+    -- The activity projection :Daylog export flattens; the summary's own rows, which split per
+    -- granule (label, tag, location). Inert for the rendered report.
+    activity_rows = day_summary.summary_items,
     quantize_minutes = block.quantize_minutes,
   },
     nil

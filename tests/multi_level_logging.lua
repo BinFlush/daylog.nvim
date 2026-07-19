@@ -41,9 +41,13 @@ return function(t)
   t.test(
     "a valueless marker stores its names; the writer emits one compact token in S/T/L/W order",
     function()
-      local e = first_entry({ "--- log ---", "08:00 task !W[] !L[] !T[]", "09:00 done" })
-      t.eq(e.logged, { t = { names = { "" } }, l = { names = { "" } }, w = { names = { "" } } })
-      t.eq(entry.format(e, nil, nil, nil), "08:00 task !T[]L[]W[]")
+      local e = first_entry({ "--- log ---", "08:00 task !W[]60 !L[]60 !T[]60", "09:00 done" })
+      t.eq(e.logged, {
+        t = { minutes = 60, names = { "" } },
+        l = { minutes = 60, names = { "" } },
+        w = { minutes = 60, names = { "" } },
+      })
+      t.eq(entry.format(e, nil, nil, nil), "08:00 task !T[]60L[]60W[]60")
     end
   )
 
@@ -99,9 +103,9 @@ return function(t)
   end)
 
   t.test("two markers of the same level are the error; different levels are fine", function()
-    t.eq(diagnostics({ "--- log ---", "08:00 t !T[] !T[]", "09:00 done" }), 1)
-    t.eq(diagnostics({ "--- log ---", "08:00 t !T[]T[]", "09:00 done" }), 1) -- a compact repeat too
-    t.eq(diagnostics({ "--- log ---", "08:00 t !S[] !T[] !L[] !W[]", "09:00 done" }), 0)
+    t.eq(diagnostics({ "--- log ---", "08:00 t !T[]60 !T[]60", "09:00 done" }), 1)
+    t.eq(diagnostics({ "--- log ---", "08:00 t !T[]60T[]60", "09:00 done" }), 1) -- a compact repeat too
+    t.eq(diagnostics({ "--- log ---", "08:00 t !S[]60 !T[]60 !L[]60 !W[]60", "09:00 done" }), 0)
   end)
 
   t.test("a frozen-zero marker (`!S[]0`) round-trips and stays frozen", function()
@@ -139,15 +143,15 @@ return function(t)
   end)
 
   t.test("a name list is a set: duplicates drop and names sort", function()
-    local e = first_entry({ "--- log ---", "08:00 x !T[b,a,a]", "09:00 done" })
-    t.eq(e.logged, { t = { names = { "a", "b" } } })
-    t.eq(entry.format(e, nil, nil, nil), "08:00 x !T[a,b]")
+    local e = first_entry({ "--- log ---", "08:00 x !T[b,a,a]60", "09:00 done" })
+    t.eq(e.logged, { t = { minutes = 60, names = { "a", "b" } } })
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !T[a,b]60")
   end)
 
   t.test("names are case-sensitive, so two casings are distinct set members", function()
-    local e = first_entry({ "--- log ---", "08:00 x !T[Boss,boss]", "09:00 done" })
-    t.eq(e.logged, { t = { names = { "Boss", "boss" } } })
-    t.eq(entry.format(e, nil, nil, nil), "08:00 x !T[Boss,boss]")
+    local e = first_entry({ "--- log ---", "08:00 x !T[Boss,boss]60", "09:00 done" })
+    t.eq(e.logged, { t = { minutes = 60, names = { "Boss", "boss" } } })
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !T[Boss,boss]60")
   end)
 
   t.test(
@@ -175,9 +179,9 @@ return function(t)
   t.test("an explicit empty name-set `!T[]` is an unnamed logged marker", function()
     t.eq(syntax.parse_logged_token("!S[]"), { { level = "s", names = { "" } } }) -- the unnamed name
     t.eq(syntax.parse_logged_token("!T[]60"), { { level = "t", minutes = 60, names = { "" } } })
-    local e = first_entry({ "--- log ---", "08:00 x !S[] !T[]60", "09:00 done" })
-    t.eq(e.logged, { s = { names = { "" } }, t = { minutes = 60, names = { "" } } })
-    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S[]T[]60") -- round-trips, still explicit
+    local e = first_entry({ "--- log ---", "08:00 x !S[]60 !T[]60", "09:00 done" })
+    t.eq(e.logged, { s = { minutes = 60, names = { "" } }, t = { minutes = 60, names = { "" } } })
+    t.eq(entry.format(e, nil, nil, nil), "08:00 x !S[]60T[]60") -- round-trips, still explicit
   end)
 
   t.test("sanitize_text neutralizes a named marker like any trailing marker", function()
@@ -185,10 +189,10 @@ return function(t)
   end)
 
   t.test("an entry logged only at a non-summary level has no summary state", function()
-    local e = first_entry({ "--- log ---", "08:00 task !T[]", "09:00 done" })
-    t.eq(e.logged, { t = { names = { "" } } })
+    local e = first_entry({ "--- log ---", "08:00 task !T[]60", "09:00 done" })
+    t.eq(e.logged, { t = { minutes = 60, names = { "" } } })
     t.eq(e.logged.s, nil)
-    t.eq(entry.format(e, nil, nil, nil), "08:00 task !T[]")
+    t.eq(entry.format(e, nil, nil, nil), "08:00 task !T[]60")
   end)
 
   t.test("a fully multi-level log renders each section split by its own level", function()
@@ -291,15 +295,15 @@ return function(t)
     t.eq(section_total(nudged.tag_totals), 90)
     t.eq(section_total(nudged.location_totals), 90)
 
-    -- The !T[]30 commitment splits the #X tag row for display (a logged 30 slice plus its unlogged
-    -- remainder), but every section is a projection of the one shared quantization, so the tag total
-    -- still foots to the balanced activity total (90), as does the unfrozen location.
+    -- A claim on #Y states what b displays, so it changes no number; the nudge on a still flows into
+    -- every section, and all of them foot to the same balanced total (90).
     local frozen = summ({
       "--- log q=30 ---",
-      "08:00 a #X @office round+1 !T[]30",
-      "08:40 b #Y @office",
+      "08:00 a #X @office round+1",
+      "08:40 b #Y @office !T[]30",
       "09:00 done",
     })
+    t.eq(frozen.activity_total, 90)
     t.eq(section_total(frozen.tag_totals), 90)
     t.eq(section_total(frozen.location_totals), 90)
   end)
@@ -357,7 +361,8 @@ return function(t)
     local src = { "--- log #obs q=15 d=dec ---", "08:00 hello !S[boss,jira]60", "09:00 done" }
     local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
     -- names_key is the slice's canonical NUL-joined name-set, as classify_report_row passes it.
-    local target = { level = "s", value = "hello", tag = "obs", names_key = "boss\0jira" }
+    local target =
+      { level = "s", value = "hello", tag = "obs", logged = true, names_key = "boss\0jira" }
 
     local partial = log_current.run_unlog_by_value(rendered, target, { "boss" })
     t.ok(
@@ -529,22 +534,6 @@ return function(t)
     t.eq(#refresh_summaries.run(out).warnings, 0)
   end)
 
-  t.test("marking a grown named cell's intra-cell remainder recommits the whole slice", function()
-    -- Every entry is already !T[a] but the cell's real time outgrew the stale commitment: refresh
-    -- shows the [a] row plus a bare remainder row of the same cell. Re-marking that remainder with
-    -- {"a"} recommits the slice at the grown total, conflict-free.
-    local src = { "--- log #x q=15 d=dec ---", "08:00 a !T[a]60", "09:30 done" }
-    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
-    t.ok(has(rendered, "0.50h (-30m) #x"), "the grown cell shows an intra-cell remainder row")
-    local result = log_current.run(rendered, row_of(rendered, ") #x", "!T[]"), { "a" })
-    local out = support.apply_edits(rendered, result.edits)
-
-    t.ok(has(out, "08:00 a !T[a]90"), "the slice recommits at the grown total")
-    t.ok(has(out, "1.50h (+0m) #x !T[a]"), "one whole-cell [a] row, no remainder")
-    t.ok(not has(out, "0.50h"), "the remainder row is gone")
-    t.eq(#refresh_summaries.run(out).warnings, 0)
-  end)
-
   t.test("marking the workday remainder merges with the same-name !W[] slice", function()
     local src = { "--- log q=15 d=dec ---", "08:00 a !W[n]60", "09:00 b", "10:00 done" }
     local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
@@ -591,9 +580,11 @@ return function(t)
     t.ok(has(out, "1.00h (+0m) work !S[ado,boss]"), "the summary reports the two-name slice")
     t.eq(#refresh_summaries.run(out).warnings, 0)
 
-    -- Adding a name already present is a no-op.
-    local same = support.apply_edits(rendered, log_current.run(rendered, row, { "ado" }).edits)
-    t.ok(has(same, "08:00 work !S[ado]60"), "re-adding ado leaves the slice unchanged")
+    -- Adding a name already present changes nothing, so it is refused with the remedy: re-freezing a
+    -- claim at a new value is the deliberate unlog -> refresh -> log.
+    local same, err = log_current.run(rendered, row, { "ado" })
+    t.eq(same, nil)
+    t.ok(err:find("already logged", 1, true) ~= nil, "the hint names the remedy: " .. tostring(err))
   end)
 
   t.test("adding a name to a tag slice unions onto its marker", function()
@@ -664,23 +655,7 @@ return function(t)
     local out =
       support.apply_edits(rendered, log_current.run(rendered, row_of(rendered, ") #x"), {}).edits)
     t.ok(has(out, "08:00 a !T[]60"), "the interval-starting entry is marked")
-    t.ok(not has(out, "09:00 done !T[]"), "the closing entry is not marked")
-  end)
-
-  t.test("merging a remainder commits the whole cell, not a short frozen value", function()
-    -- Regression: the logged interval is committed BELOW its own rounded duration (`!S[]45` on a 60m
-    -- interval), so its uncommitted 15m used to be dropped from the merge, committing `!S[]105` and
-    -- leaving a phantom remainder. The merge must commit the cell's honest total.
-    local src = { "--- log q=15 d=dec ---", "08:00 task !S[]45", "09:00 task", "10:00 done" }
-    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
-    local out = support.apply_edits(
-      rendered,
-      log_current.run(rendered, row_of(rendered, ") task", "!S"), {}).edits
-    )
-    t.ok(has(out, "08:00 task !S[]120"), "the committed interval re-commits at the full 120m")
-    t.ok(has(out, "09:00 task !S[]120"), "the remainder joins at the full total")
-    t.ok(has(out, "2.00h (+0m) task !S[]"), "one whole-cell logged row, no phantom remainder")
-    t.eq(#refresh_summaries.run(out).warnings, 0)
+    t.ok(not has(out, "09:00 done !T[]60"), "the closing entry is not marked")
   end)
 
   t.test("logging the unnamed name is additive, and names join the unnamed slice", function()
@@ -706,49 +681,4 @@ return function(t)
     t.ok(has(b, "08:00 task !S[,hey]45"), "a name joins the unnamed slice at its preserved value")
     t.eq(#refresh_summaries.run(b).warnings, 0)
   end)
-
-  t.test("a section fresh-mark refuses a committed slice's drift row, not another entry", function()
-    -- Regression: pointing at the uncommitted "drift" of an already-committed named slice (`!T[a]60`
-    -- on a 90m interval) and logging a NEW name silently marked a DIFFERENT entry in the cell. It must
-    -- refuse, like the summary level, and name its own marker.
-    local src = { "--- log #x q=15 d=dec ---", "08:00 a !T[a]60", "09:30 b", "10:00 done" }
-    local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
-
-    local res, err = log_current.run(rendered, row_of(rendered, "(-30m) #x"), { "b" })
-    t.eq(res, nil)
-    t.ok(err:find("drift beyond", 1, true) ~= nil, tostring(err))
-    t.ok(err:find("!T", 1, true) ~= nil, tostring(err)) -- the section's own marker, not !S
-
-    -- the genuinely unlogged remainder in the same cell still marks fine (the guard does not overreach)
-    local out = support.apply_edits(
-      rendered,
-      log_current.run(rendered, row_of(rendered, "(+0m) #x"), { "b" }).edits
-    )
-    t.ok(has(out, "09:30 b !T[b]30"), "the unlogged remainder still marks")
-    t.ok(not has(out, "08:00 a !T[a,b]"), "the committed [a] slice is untouched")
-  end)
-
-  t.test(
-    "merging an unlogged remainder at one location commits that location's own time and foots",
-    function()
-      -- Untested seam: a location-spanning activity with a committed named slice at @home; merging the
-      -- @office unlogged remainder into the same name commits @office's own 60m (not folded with @home's
-      -- 45), and the day still foots.
-      local src = {
-        "--- log q=15 d=dec ---",
-        "08:00 task @home !S[hey]45",
-        "09:00 task @office",
-        "10:00 done",
-      }
-      local rendered = support.apply_edits(src, refresh_summaries.run(src).edits)
-      local out = support.apply_edits(
-        rendered,
-        log_current.run(rendered, row_of(rendered, "(+0m) task"), { "hey" }).edits
-      )
-      t.ok(has(out, "08:00 task @home !S[hey]45"), "the @home hey slice keeps its own commitment")
-      t.ok(has(out, "09:00 task @office !S[hey]60"), "the @office remainder commits its own 60m")
-      t.ok(has(out, "2.00h (+0m) workday"), "the day still foots")
-      t.eq(#refresh_summaries.run(out).warnings, 0)
-    end
-  )
 end

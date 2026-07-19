@@ -28,14 +28,18 @@ function M.run(lines, row, time, text, auto_offset)
   local stamp = support.offset_stamp(state.offset, auto_offset)
   local ins_offset = stamp or state.offset
 
-  local inserted_line = entry.format({
+  local fields = {
     minutes = minutes,
     text = entry.sanitize_text(text),
     tag = state.tag,
     location = state.location,
     offset = ins_offset,
-    logged = false,
-  }, state.tag, state.location, state.offset)
+  }
+  -- An insert joins a claim of the cell it lands in when that fits the claim better; a bare insert
+  -- into an unclaimed day gets nothing.
+  fields.logged = support.auto_mark(ctx.block, fields, minutes)
+
+  local inserted_line = entry.format(fields, state.tag, state.location, state.offset)
 
   local result = support.insert_entry_edit(
     ctx.block,

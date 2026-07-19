@@ -73,19 +73,4 @@ return function(t)
     t.eq(out[1].tag, "z")
     t.eq(out[2].tag, "a")
   end)
-
-  t.test("constrained_quantize shifts a cell up to its committed target", function()
-    local rows = { { unrounded_duration = 90 }, { unrounded_duration = 30 } }
-    local out = quantize.constrained_quantize(rows, 15, { { members = { 1 }, target = 120 } })
-    t.eq(out[1].duration, 120)
-    t.eq(out[2].duration, 30)
-  end)
-
-  t.test("constrained_quantize rounds a cell all the way down to its target", function()
-    -- Regression: a multi-bucket round-down must reach the target, not stop after one cycle over the
-    -- members (the loop used to break on a raw iteration count, leaving {90,30}->0 stuck at 30).
-    local rows = { { unrounded_duration = 90 }, { unrounded_duration = 30 } }
-    local out = quantize.constrained_quantize(rows, 15, { { members = { 1, 2 }, target = 0 } })
-    t.eq(out[1].duration + out[2].duration, 0)
-  end)
 end

@@ -123,7 +123,7 @@ return function(t)
 
   t.test("build_name_usage buckets each marker's names by its level, independently", function()
     local usage = rank.build_name_usage({
-      { date = NOW, lines = { "--- log ---", "08:00 hi !T[boss]L[home]", "09:00 done" } },
+      { date = NOW, lines = { "--- log ---", "08:00 hi !T[boss]60L[home]60", "09:00 done" } },
     }, NOW)
 
     t.ok(usage.t["boss"] ~= nil)
@@ -139,7 +139,7 @@ return function(t)
     local name_days, act_days = {}, {}
     for i = 1, 3 do
       name_days[i] =
-        { date = NOW - i * DAY, lines = { "--- log ---", "08:00 hi !T[boss]", "09:00 done" } }
+        { date = NOW - i * DAY, lines = { "--- log ---", "08:00 hi !T[boss]60", "09:00 done" } }
       act_days[i] = { date = NOW - i * DAY, lines = { "--- log ---", "08:00 boss", "09:00 done" } }
     end
 
@@ -156,10 +156,10 @@ return function(t)
 
   t.test("build_name_usage dates each visit by its day, bucketed per level", function()
     local usage = rank.build_name_usage({
-      { date = NOW - 20 * DAY, lines = { "--- log ---", "08:00 hi !S[proj]", "09:00 done" } },
+      { date = NOW - 20 * DAY, lines = { "--- log ---", "08:00 hi !S[proj]60", "09:00 done" } },
       {
         date = NOW,
-        lines = { "--- log ---", "08:00 hi !S[proj]", "09:00 hey !W[proj]", "10:00 done" },
+        lines = { "--- log ---", "08:00 hi !S[proj]60", "09:00 hey !W[proj]60", "10:00 done" },
       },
     }, NOW)
 

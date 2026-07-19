@@ -94,31 +94,51 @@ edits one entry's text, `:Daylog map` relabels the report.)
 ## Logging
 
 An entry can be marked **logged** — reported to an external system — at any of four independent levels:
-`!S[]` (its summary row / activity), `!T[]` (its tag), `!L[]` (its location), `!W[]` (the workday). A
-frozen marker `!X[]<minutes>` commits that cell to a value; a valueless `!X[]` only flags it. The
-brackets are mandatory — a plain `!X` with no brackets is activity text, not a marker. Markers write as
-one compact token in `S T L W` order (`!S[]225T[]525W[]525`); the separated form (`!S[]225 !T[]525`)
-parses too.
-`:Daylog log` on a rendered row writes the marker on that cell's
-entries (a summary `!S[]` per (activity, location) slice, so a location-spanning activity's slices SUM);
-the markers live on the entries, so the summary stays a pure projection.
+`!S` (its activity), `!T` (its tag), `!L` (its location), `!W` (the workday). A marker records a
+**fact**: `!S[names]60` states that 60 minutes of that slice were logged externally. The minutes are
+mandatory and are the SLICE total, repeated verbatim on every entry of the slice — never a per-entry
+amount. The brackets are mandatory too: a plain `!X` is activity text. Markers write as one compact
+token in `S T L W` order (`!S[]225T[]525W[]525`); the separated form (`!S[]225 !T[]525`) parses too.
+The markers live on the entries, so the summary stays a pure projection.
 
-Logging is **rounding that reports**. Every report section is a re-sum of ONE shared granule
-quantization, and a committed cell splits that honest total for display:
+**Every counted entry holds one displayed share** (`claims.lua`), and every report section sums those
+same shares under its own partition. That is the whole mechanism: all four sections always foot
+identically, in displayed time *and* in summed residuals, because they are four ways of adding up one
+set of numbers. A row's residual `(±Nm)` is always `measured − displayed`, so
+`displayed + delta = measured` holds row by row.
 
-```text
-reported slice  = the committed value V
-remaining slice = cell_total − V   (the honest remainder, which absorbs V's over/under-shoot)
-```
+Shares are settled in one deterministic pass:
 
-so the cell — and every partition — still foots to its honest total (**absorb**). When `V` exceeds the
-cell's tracked time there is no remainder to absorb into, so the surplus inflates the cell's granules and
-propagates to every partition that contains them (**propagate**). The one honest limit: two
-over-commitments at cross-cutting levels (a tag and a location whose granule sets overlap without
-nesting) can contradict — no integer rounding satisfies both. The quantizer detects this after applying
-them, falls back to the honest quantization (so footing always holds), and `logging_diagnostics` warns
-that the commitments contradict. Diagnostics also flag an off-grid frozen value and same-cell values
-that disagree.
+1. **Honest quantization**, marker-blind: one largest-remainder rounding over the display rows —
+   one per (granule, s-slice), the granule being (label, tag, location) — targeting the whole
+   counted day.
+2. **Per-entry split**: each row's value spreads over its entries proportionally, in whole buckets by
+   largest remainder. Coarser partitions cut across rows, so shares must exist at entry grain.
+3. **Pinning**, finest-to-coarsest in `S → T → L → W`: each claim distributes only its remainder
+   `V − Σ(already pinned)` over the entries no finer claim has taken, dealing whole buckets
+   round-robin (ties to the earliest entry) — the redistribution a balance would produce. A deficit
+   skips shares already at zero.
+
+A claim the pass cannot realize — its pinned entries already hold a different total, or hold more
+than it states — is the `logged_value_conflict` **block diagnostic**, alongside the textual case of
+one slice's entries stating different values. The pass never back-solves: it always splits by
+measured proportions, so a file some hand-picked split could satisfy may still be refused; the remedy
+is editing a value or unlogging. Because the check reads durations, it is projection-dependent — a
+time edit, a reorder, or a `q=` change can raise or clear it with no marker touched.
+
+Two consequences worth stating. A **claimed value is never rounded**: `!S[]37` under `q=15` displays
+37 minutes, since only unclaimed rows sit on the grid. And a **`round±N` on a logged entry is
+refused** (`nudge_on_logged`): a claim freezes its row's display, so a nudge there could only
+silently shift *other* rows. `:Daylog balance` therefore nudges only rows whose entries are entirely
+marker-free, and `:Daylog log` absorbs any nudge it freezes over — the nudge's effect is already
+inside the number being frozen.
+
+`:Daylog log` is **per-row WYSIWYG**: it writes the number the cursor row currently displays, so
+freezing changes nothing on screen and every value in a file was once a number the user saw. The same
+rule runs at every level. Marking a plain row whose cell already carries a claim of the chosen names
+MERGES the two — the claim restates the sum, and one row results. The closing entry starts no
+interval, so it belongs to no plain row and a fresh mark can never reach it; an already-marked closer
+does belong to its claim and restamps with it. No command writes a value above 1440.
 
 ### Named logging
 
@@ -129,13 +149,12 @@ Names use the tag charset and are a canonical, sorted set (parsed by `syntax.par
 row, and addable alongside real names (a marker always carries at least `{""}`). The name-set at a level
 is **part of that level's group identity**: a cell's granule carries all four level signatures (the
 `!S[]`/`!T[]`/`!L[]`/`!W[]` name-sets it belongs to), so two differently-named slices of one cell report as separate
-rows and split independently, while a same-named slice merges. Marking **adds** the chosen names (including
-`""`) to the row's slice: `:Daylog log` unions them onto a currently-logged slice, or sweeps an unlogged
-remainder *plus* the same-name logged slice and rewrites every swept entry at their combined displayed
-total, so re-logging a grown cell folds the new time into the existing named commitment rather than forking
-a rival row. A **fresh mark of an unlogged remainder starts from nothing** — its cell's display name-set is
-not inherited (only a currently-logged slice contributes existing names to the union). Unmarking removes
-the chosen names, clearing the marker once its last name is gone.
+rows and split independently, while a same-named slice merges. Marking **adds** the chosen names
+(including `""`) to the row's slice: `:Daylog log` unions them onto a claim row, keeping its value, or
+freezes a plain row (merging it with the same-named claim of its cell). A **fresh mark starts from
+nothing** — a plain row's displayed name-set is not inherited. Unmarking removes the chosen names and
+clears the marker with the last of them; when the names left behind match a sibling claim of the same
+cell, the two merge and **their values sum**, since the surviving ledgers received both amounts.
 
 Names are chosen through `:Daylog log`'s picker, wired in the shell (`init.lua` → `pick.pick_names`). The
 **corpus** of previously-used names is scanned from the trailing daybook files — the same buffer-aware
@@ -158,7 +177,8 @@ config.lua        -> setup option validation and merge
 daybook.lua       -> pure daybook date/path helpers
 entry.lua         -> single-entry parser/formatter
 body.lua          -> body reconstruction
-summary.lua       -> reporting domain (intervals, sections, sorting, logged totals)
+claims.lua        -> logged claims and the displayed share each entry holds (the pinning pass)
+summary.lua       -> reporting domain (sections, sorting, day merging) over those shares
 projection.lua    -> generic row grouping/projection engine
 quantize.lua      -> largest-remainder rounding arithmetic
 summary_block.lua -> locate a log's single generated summary region
@@ -348,20 +368,21 @@ For each granule `r`, start at `base(r) = floor(exact(r) / q) * q` with
 give one extra bucket to the `k` rows with the largest remainders, breaking ties
 by first-seen order. The per-row rounding error is `exact(r) - quantized(r)`.
 
-Logged commitments (`!S[]`/`!T[]`/`!L[]`/`!W[]<n>`) are handled per the **Logging** section above: the granule
-quantization stays honest, and a committed cell splits its honest total into a reported slice (`V`) and a
-remaining slice (`cell_total − V`) for display, so every section still foots. An over-commit beyond the
-cell's tracked time inflates its granules and propagates; a cross-cutting contradiction falls back to the
-honest quantization and is diagnosed (`quantize.constrained_quantize`, `summary.quantize_granules`).
+This pass never reads a marker. Claims settle afterwards, pinning entry shares per the **Logging**
+section above (`claims.lua`); a section row displays the sum of its entries' shares, whatever pinned
+them.
 
-Quantized granules project into displayed sections:
+Shares project into displayed sections, each a partition of the block's counted entries at its level:
 
 ```text
-main summary rows -> activity text + tag
-tag totals        -> tag
-location totals   -> location
-overall totals    -> workday (the whole counted day)
+main summary rows -> the granule (activity text, tag, location) + its !S slice
+tag totals        -> tag + its !T slice
+location totals   -> location + its !L slice
+overall totals    -> the workday + its !W slice
 ```
+
+A main row names its `#tag` or `@location` only when the same label appears under several of them, so
+a day where every activity stays under one tag and one place names neither.
 
 ### Manual rounding balance (`round±N`)
 
@@ -372,21 +393,20 @@ per-entry `round±N` marker (`usecases/balance_summary.lua`, `syntax.parse_round
 
 The model is a single vector and a guarantee:
 
-- The **granule** (`(text, tag, location)`) is the *only* thing quantized; every
-  report section is a re-sum of the granules. A nudge is one integer per granule that overrides its
-  bucket count (`quantize.quantize_rows` second pass: `Q = max(0, base + (blocks + nudge)*q)`); it
-  changes only that granule's value, never the set or grouping. (A separate full-grain row that also
-  carries the `logged` flag feeds `:Daylog balance` and `logging_diagnostics`, not the display.)
+- The **display row** (a granule and its `!S` slice) is the *only* thing quantized; every report
+  section sums the shares those rows hand their entries. A nudge is one integer per row that
+  overrides its bucket count (`quantize.quantize_rows` second pass:
+  `Q = max(0, base + (blocks + nudge)*q)`); it changes only that row's value, never the set or
+  grouping. A row is nudgeable only while every one of its entries is marker-free.
 - A row's nudge is shared by all of its intervals, so the command marks **all** of
   them and they fold by signed max-magnitude (`projection.project_rows` `nudge_mode
   = "max"`); sections sum row nudges (`"sum"`) for the cumulative marker shown on
   every affected line.
-- **Footing is structural.** Every displayed section is a partition of the granules, and
-  `Σ groups = Σ cells` holds for *any* granule values — so no nudge configuration, and no feasible
-  commitment, can break it (a committed cell's reported + remaining slices sum to its granule total; an
-  infeasible cross-cutting set falls back to honest). The corollaries follow: every whole-cell level
-  agrees on the activity total, the `workday` total equals it, and `displayed + residual = true`
-  everywhere. The week aggregate (`combine_summaries`) is the same partition one level up — pure sums of
+- **Footing is structural.** Every section is a partition of the block's counted entries, and each
+  row displays the sum of its entries' shares — so `Σ rows = Σ shares` holds for *any* share values.
+  No nudge configuration and no set of claims can break it: a claim moves shares between entries, it
+  never creates or destroys one. The corollaries follow: every section agrees on the displayed total,
+  the `workday` total equals it, and `displayed + residual = measured` everywhere. The week aggregate (`combine_summaries`) is the same partition one level up — pure sums of
   days, no re-quantization — so a per-day nudge flows in unchanged.
 - The calculator distributes a requested group shift to the least-error rows
   (largest-remainder-optimal). A nudge necessarily moves one group on *every* axis

@@ -27,11 +27,11 @@ return function(t)
     t.eq(parsed.explicit_location_clear, true)
   end)
 
-  t.test("entry parse keeps trailing !S[] without making it sticky", function()
-    local parsed = entry.parse("08:04 bake strudel !S[] #sales @client", "ProjectOrion", "office")
+  t.test("entry parse keeps a trailing claim without making it sticky", function()
+    local parsed = entry.parse("08:04 bake strudel !S[]60 #sales @client", "ProjectOrion", "office")
     t.eq(parsed.tag, "sales")
     t.eq(parsed.location, "client")
-    t.eq(parsed.logged, { s = { names = { "" } } })
+    t.eq(parsed.logged, { s = { minutes = 60, names = { "" } } })
 
     parsed = entry.parse("08:04 bake strudel", "ProjectOrion", "office")
     t.eq(parsed.logged, nil)
@@ -98,9 +98,9 @@ return function(t)
         text = "third",
         tag = "sales",
         location = "client",
-        logged = { s = {} },
+        logged = { s = { minutes = 60 } },
       }, "ProjectOrion", "office"),
-      "08:00 third #sales @client !S[]"
+      "08:00 third #sales @client !S[]60"
     )
     t.eq(
       entry.format({
@@ -108,9 +108,9 @@ return function(t)
         text = "reset",
         tag = nil,
         location = nil,
-        logged = { s = {} },
+        logged = { s = { minutes = 60 } },
       }, "ProjectOrion", "office"),
-      "08:00 reset #- @- !S[]"
+      "08:00 reset #- @- !S[]60"
     )
   end)
 
@@ -145,9 +145,9 @@ return function(t)
         tag = "sales",
         location = "client",
         offset = 120,
-        logged = { s = {} },
+        logged = { s = { minutes = 60 } },
       }, "ProjectOrion", "office", nil),
-      "08:00 x #sales @client utc+2 !S[]"
+      "08:00 x #sales @client utc+2 !S[]60"
     )
   end)
 
@@ -179,9 +179,9 @@ return function(t)
         location = "client",
         offset = 120,
         nudge = 1,
-        logged = { s = {} },
+        logged = { s = { minutes = 60 } },
       }, "ProjectOrion", "office", nil),
-      "08:00 x #sales @client utc+2 round+1 !S[]"
+      "08:00 x #sales @client utc+2 round+1 !S[]60"
     )
   end)
 
@@ -191,15 +191,15 @@ return function(t)
     t.eq(entry.sanitize_text("another round of edits"), "another round of edits")
   end)
 
-  t.test("entry parse reads a frozen !S[] value; a valueless !S[] has none", function()
+  t.test("entry parse reads a claim's minutes; a valueless marker is not one", function()
     local parsed = entry.parse("08:00 plan !S[]60", "ClientA", "office")
     t.eq(parsed.logged, { s = { minutes = 60, names = { "" } } })
 
-    parsed = entry.parse("08:00 plan !S[]", "ClientA", "office")
-    t.eq(parsed.logged, { s = { names = { "" } } })
+    -- The minutes are mandatory, so the token is not a marker at all: the parse fails outright.
+    t.eq(entry.parse("08:00 plan !S[]", "ClientA", "office"), false)
   end)
 
-  t.test("entry format emits a frozen !S[] value, bare when absent", function()
+  t.test("entry format emits a claim's minutes", function()
     t.eq(
       entry.format(
         { minutes = 480, text = "plan", logged = { s = { minutes = 60 } } },
@@ -210,8 +210,13 @@ return function(t)
       "08:00 plan !S[]60"
     )
     t.eq(
-      entry.format({ minutes = 480, text = "plan", logged = { s = {} } }, nil, nil, nil),
-      "08:00 plan !S[]"
+      entry.format(
+        { minutes = 480, text = "plan", logged = { s = { minutes = 0, names = { "a" } } } },
+        nil,
+        nil,
+        nil
+      ),
+      "08:00 plan !S[a]0"
     )
     -- A logged table with no levels (what an unmark leaves) emits no marker.
     t.eq(entry.format({ minutes = 480, text = "plan", logged = {} }, nil, nil, nil), "08:00 plan")

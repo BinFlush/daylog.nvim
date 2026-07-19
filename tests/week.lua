@@ -23,10 +23,21 @@ return function(t)
       },
     })
 
-    -- Each day also carries `activity_rows` (the location-split projection :Daylog export flattens);
-    -- it is inert for the report and has its own coverage in tests/export.lua, so drop it here.
+    -- Each day also carries `activity_rows` (the summary's own granule rows, which :Daylog export
+    -- flattens) plus derived plumbing -- the echoed bucket and the coarser sections' provenance.
+    -- All are inert for the report and covered elsewhere, so drop them here.
     for _, day in ipairs(report.days) do
       day.activity_rows = nil
+      day.summary.bucket_minutes = nil
+      for _, group in ipairs({
+        day.summary.tag_totals,
+        day.summary.location_totals,
+        day.summary.total_rows,
+      }) do
+        for _, row in ipairs(group) do
+          row.source_entry_rows = nil
+        end
+      end
     end
 
     t.eq(report, {
@@ -156,17 +167,16 @@ return function(t)
   end)
 
   t.test("multi-day report preserves the logged flag through daily recomputation", function()
-    -- A valueless `!S[]` flags the row as logged without splitting; aggregating across days keeps the
-    -- flag and foots to one honest row.
+    -- Each day logs its half hour at the value it displays; aggregating across days keeps the claim
+    -- flag and foots to one row.
     local report = week.build_report({
       {
         date_label = "2026-05-18",
         path = "/tmp/2026-05-18.day",
         lines = {
           "--- log #ClientA q=30 ---",
-          "08:00 plan !S[]",
-          "08:20 plan",
-          "08:40 done",
+          "08:00 plan !S[]30",
+          "08:30 done",
         },
       },
       {
@@ -174,8 +184,8 @@ return function(t)
         path = "/tmp/2026-05-19.day",
         lines = {
           "--- log #ClientA q=30 ---",
-          "08:00 plan !S[]",
-          "08:20 done",
+          "08:00 plan !S[]30",
+          "08:30 done",
         },
       },
     })

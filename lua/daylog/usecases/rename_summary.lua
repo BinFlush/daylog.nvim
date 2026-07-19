@@ -38,6 +38,23 @@ M.NO_ENTRIES_IN_RANGE = "daylog: no entries in the selection to rename"
 M.REFUSE_LOGGED = "daylog: refusing to rename a logged entry; unlog it first"
 M.REFUSE_BLANK = "daylog: a blank entry is uncounted and cannot be renamed"
 
+-- A claim names the identity it was logged under, so relabelling one would rewrite a ledger entry
+-- after the fact: refuse when an affected entry is marked at a level this rename rewrites the cell of
+-- (an activity rename touches `s`; a tag rename `s` and `t`; a location rename `s` and `l`). Markers
+-- at the other levels record neither, and ride through untouched.
+local function refuse_logged(block, affected, levels)
+  for _, entry_item in ipairs(block.entry_items) do
+    if entry_item.logged and affected(entry_item) then
+      for _, level in ipairs(levels) do
+        if entry_item.logged[level] then
+          return M.REFUSE_LOGGED
+        end
+      end
+    end
+  end
+  return nil
+end
+
 -- Classify a summary layout row into a rename target { kind, current } -- a #tag or
 -- @location total; an activity row (SUMMARY_ITEM) is refused (ambiguous grouping, see
 -- header). Single chokepoint for the cursor and report paths; the entry-line branch
@@ -272,19 +289,20 @@ local function build_rename(analysis, block, item, target, new_value)
       rows[row] = true
     end
 
-    -- Renaming a summary-logged (`!S`) entry's text carries its committed value onto a new
-    -- identity where same-name markers fold by max, not sum -- silent under-reporting. Unlog,
-    -- rename, relog. Tag/location renames keep `!T`/`!L` coherent, so only the item path is guarded.
     for _, entry_item in ipairs(block.entry_items) do
       if rows[entry_item.start_row] then
         -- A blank entry is uncounted and has no report identity; it is not renamable.
         if summary.is_blank_entry(entry_item) then
           return nil, M.REFUSE_BLANK
         end
-        if entry_item.logged and entry_item.logged.s then
-          return nil, M.REFUSE_LOGGED
-        end
       end
+    end
+
+    local logged_err = refuse_logged(block, function(entry_item)
+      return rows[entry_item.start_row] == true
+    end, { "s" })
+    if logged_err then
+      return nil, logged_err
     end
 
     ops.affected = function(it)
@@ -314,6 +332,10 @@ local function build_rename(analysis, block, item, target, new_value)
     ops.affected = function(it)
       return it.tag == old
     end
+    local logged_err = refuse_logged(block, ops.affected, { "s", "t" })
+    if logged_err then
+      return nil, logged_err
+    end
     if block.header_tag == old then
       header_field = "tag"
     end
@@ -334,6 +356,10 @@ local function build_rename(analysis, block, item, target, new_value)
     end
     ops.affected = function(it)
       return it.location == old
+    end
+    local logged_err = refuse_logged(block, ops.affected, { "s", "l" })
+    if logged_err then
+      return nil, logged_err
     end
     if block.header_location == old then
       header_field = "location"

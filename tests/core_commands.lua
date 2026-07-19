@@ -1283,44 +1283,6 @@ return function(t)
     t.ok(has("2.00h (+0m) build"), "the row is fully unlogged at 2.00h")
   end)
 
-  t.test("log log freezes a row that survives a later appended entry", function()
-    t.reset({
-      "--- log ---",
-      "00:00 logged item",
-      "01:07 other task",
-      "",
-      "--- summary q=15 d=dec ---",
-      "1.00h (+7m) logged item",
-    })
-    t.set_cursor(6, 0)
-
-    log_cmd()
-    -- The source entry is frozen at its committed 60 minutes (1.00h).
-    t.eq(t.get_lines()[2], "00:00 logged item !S[]60")
-
-    -- Append a third entry and refresh: the frozen logged slice holds at 1.00h, the block's
-    -- remaining honest time surfaces as an unlogged "logged item" slice, and the 2-minute
-    -- "other task" rounds to its own honest 0. The total is the honest sum of the parts.
-    local lines = t.get_lines()
-    table.insert(lines, 4, "01:09 new task")
-    t.set_lines(lines)
-    vim.cmd("Daylog refresh")
-
-    local out = t.get_lines()
-    local function has(needle)
-      for _, l in ipairs(out) do
-        if l == needle then
-          return true
-        end
-      end
-      return false
-    end
-    t.ok(has("1.00h (+7m) logged item !S[]"), "logged row should still read 1.00h")
-    t.ok(has("0.25h (-15m) logged item"), "the unlogged remainder surfaces as its own row")
-    t.ok(has("0.00h (+2m) other task"), "other task rounds to its own honest value")
-    t.ok(has("1.25h (-6m) workday"), "the total is the honest sum of the displayed parts")
-  end)
-
   t.test("logging two rounded rows commits identical values in either order", function()
     -- Reported order-dependence: `thing two round-1` then `thing one` used to commit
     -- thing one at !S[]75 (stale whole-day target), while the reverse order gave !S[]60. The
@@ -1351,25 +1313,8 @@ return function(t)
     local two_then_one = log_both("thing two", "thing one")
     t.eq(two_then_one, log_both("thing one", "thing two"))
     t.eq(two_then_one[2], "08:00 thing one !S[]60")
-    t.eq(two_then_one[3], "09:00 thing two round-1 !S[]60")
-  end)
-
-  t.test("Daylog refresh warns when a frozen !S[] value no longer fits the bucket", function()
-    t.reset({
-      "--- log ---",
-      "08:00 plan !S[]7",
-      "09:00 done",
-    })
-
-    vim.cmd("Daylog refresh")
-
-    local found = false
-    for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
-      if diagnostic.message:match("frozen !S value no longer fits") then
-        found = true
-      end
-    end
-    t.ok(found, "expected a frozen-drift diagnostic for a non-bucket !S value")
+    -- Freezing absorbs the nudge: its effect is already in the 60 being frozen.
+    t.eq(two_then_one[3], "09:00 thing two !S[]60")
   end)
 
   t.test("Daylog refresh warns when same-row logged entries disagree on their !S value", function()

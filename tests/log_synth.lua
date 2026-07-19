@@ -263,11 +263,14 @@ local function generate(rng, mode_name)
   local names = name_pool(rng)
 
   local header = { "--- log" }
+  local header_tag, header_loc
   if params.init_tag then
-    header[#header + 1] = "#" .. rng:choice(tags)
+    header_tag = rng:choice(tags)
+    header[#header + 1] = "#" .. header_tag
   end
   if params.init_loc then
-    header[#header + 1] = "@" .. rng:choice(locs)
+    header_loc = rng:choice(locs)
+    header[#header + 1] = "@" .. header_loc
   end
 
   -- The sticky offset state: when offsets are in use, start somewhere in the pool
@@ -288,6 +291,16 @@ local function generate(rng, mode_name)
 
   local times = gen_times(rng, cfg, params.n)
 
+  -- Resolved sticky state and the value each claim slice states, so every entry of one slice repeats
+  -- the same number (a slice whose entries disagreed would just be a block diagnostic).
+  local cur_tag, cur_loc = header_tag, header_loc
+  local claim_values = {}
+
+  -- One level per log. Within a level, slices are disjoint, so their claims never contend for an
+  -- entry's share and every generated log resolves; cross-level nesting has its own coverage in
+  -- tests/logged_facts.lua, where the contradictions it can raise are the point.
+  local log_level = rng:choice({ "S", "T", "L", "W" })
+
   for i = 1, #times do
     if i == #times and times[i] == 1440 then
       lines[#lines + 1] = "24:00"
@@ -304,18 +317,23 @@ local function generate(rng, mode_name)
       if rng:chance(params.p_tag) then
         if rng:chance(cfg.p_clear) then
           parts[#parts + 1] = "#-"
+          cur_tag = nil
         elseif rng:chance(cfg.p_ooo) then
           parts[#parts + 1] = "#ooo"
+          cur_tag = "ooo"
         else
-          parts[#parts + 1] = "#" .. rng:choice(tags)
+          cur_tag = rng:choice(tags)
+          parts[#parts + 1] = "#" .. cur_tag
         end
       end
 
       if rng:chance(params.p_loc) then
         if rng:chance(cfg.p_clear) then
           parts[#parts + 1] = "@-"
+          cur_loc = nil
         else
-          parts[#parts + 1] = "@" .. rng:choice(locs)
+          cur_loc = rng:choice(locs)
+          parts[#parts + 1] = "@" .. cur_loc
         end
       end
 
@@ -332,21 +350,20 @@ local function generate(rng, mode_name)
         end
       end
 
-      -- An occasional manual rounding nudge (round±N): a small up/down q-step shift
-      -- the balance use case would write. Footing must still hold with these in play.
-      if rng:chance(cfg.p_nudge) then
-        parts[#parts + 1] = syntax.round_nudge_token(rng:choice({ -2, -1, 1, 2 }))
-      end
-
-      -- A logged commitment, exercising every level (!S[]/!T[]/!L[]/!W[]), valueless AND numeric, compact AND
-      -- separated. A numeric value is an on-grid multiple of q perturbed around the interval, so it
-      -- lands both above and below each cell's honest total -- absorb, surplus-propagate, and
-      -- cross-cutting infeasible sets all get hit. Footing must hold for every one of these (the
-      -- infeasible set falls back to the honest quantization), so this is the net that proves the whole
-      -- commitment math -- constrained_quantize, the display split, and the feasibility fallback.
+      -- A logged claim, exercising every level (!S/!T/!L/!W), compact AND separated. Its value is the
+      -- SLICE total, so it is decided once per (level, cell, name-set) and repeated verbatim on every
+      -- entry of that slice -- the shape every valid log has. Values land both above and below each
+      -- cell's honest total, so pinning, surplus, and deficit all get hit.
+      local marker_tokens = {}
       if rng:chance(params.p_log) then
+        local cell = {
+          S = table.concat({ name, cur_tag or "", cur_loc or "" }, "\0"),
+          T = cur_tag or "",
+          L = cur_loc or "",
+          W = "",
+        }
         local markers = {}
-        for _, level in ipairs({ "S", "T", "L", "W" }) do
+        for _, level in ipairs({ log_level }) do
           if rng:chance(0.45) then
             -- Some markers carry a bracketed name-set so the fuzz exercises name-split reporting:
             -- 0-3 real names, sometimes seeded with the unnamed element (empty first slot -> !S[,n1]),
@@ -361,24 +378,48 @@ local function generate(rng, mode_name)
               for _ = 1, rng:int(0, 3) do
                 picked[#picked + 1] = rng:choice({ "n1", "n2", "n3", "n4" })
               end
-              name_suffix = "[" .. table.concat(picked, ",") .. "]"
+              -- The parser dedupes and sorts, so two spellings of one set are one slice: canonicalize
+              -- before keying the value, or the same slice would be handed two numbers.
+              local seen, canonical = {}, {}
+              for _, picked_name in ipairs(picked) do
+                if not seen[picked_name] then
+                  seen[picked_name] = true
+                  canonical[#canonical + 1] = picked_name
+                end
+              end
+              table.sort(canonical)
+              name_suffix = "[" .. table.concat(canonical, ",") .. "]"
             end
-            local value = ""
-            if rng:chance(0.7) then
-              value = tostring(rng:int(0, 6) * params.q)
+
+            local key = table.concat({ level, cell[level], name_suffix }, "\1")
+            local value = claim_values[key]
+            if value == nil then
+              value = rng:int(0, 6) * params.q
+              claim_values[key] = value
             end
             markers[#markers + 1] = level .. name_suffix .. value
           end
         end
         if #markers > 0 then
           if rng:chance(0.5) then
-            parts[#parts + 1] = "!" .. table.concat(markers) -- compact
+            marker_tokens[1] = "!" .. table.concat(markers) -- compact
           else
             for _, marker in ipairs(markers) do
-              parts[#parts + 1] = "!" .. marker -- separated
+              marker_tokens[#marker_tokens + 1] = "!" .. marker -- separated
             end
           end
         end
+      end
+
+      -- An occasional manual rounding nudge (round±N): a small up/down q-step shift the balance use
+      -- case would write. Never on a marked entry -- a claim freezes its row, so a nudge there is
+      -- refused outright. Footing must still hold with these in play.
+      if #marker_tokens == 0 and rng:chance(cfg.p_nudge) then
+        parts[#parts + 1] = syntax.round_nudge_token(rng:choice({ -2, -1, 1, 2 }))
+      end
+
+      for _, token in ipairs(marker_tokens) do
+        parts[#parts + 1] = token
       end
 
       lines[#lines + 1] = table.concat(parts, " ")

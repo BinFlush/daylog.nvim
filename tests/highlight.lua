@@ -44,7 +44,7 @@ return function(t)
       "08:00 planning #ClientA @office",
       "10:00 meeting #ooo",
       "12:00 resume #- @-",
-      "14:00 done !S[]",
+      "14:00 done !S[]60",
       "--- summary q=15 d=dec ---",
       "1.75h (+2m) planning",
       "",
@@ -132,8 +132,8 @@ return function(t)
     load({
       "08:00 task #a #b",
       "09:00 task @a @b",
-      "10:00 task #a !S[] #b",
-      "11:00 task !S[] @b #a",
+      "10:00 task #a !S[]60 #b",
+      "11:00 task !S[]60 @b #a",
     })
 
     -- Two tags: the parser rejects the entry, so neither tag highlights.
@@ -392,7 +392,7 @@ return function(t)
   t.test("a round nudge highlights distinctly and keeps the trailing run intact", function()
     load({
       "--- log #ClientA q=15 ---",
-      "08:00 plan #ClientA round+1 !S[]",
+      "08:00 plan #ClientA round+1",
       "",
       "--- summary q=15 d=dec ---",
       "1.00h (-10m) plan round+1",
@@ -401,11 +401,10 @@ return function(t)
       "1.00h (-10m) workday round+1",
     })
 
-    -- The marker is its own group on an entry, and -- crucially -- it does not break
-    -- the highlighting of the #tag and !S[] on either side of it in the trailing run.
+    -- The marker is its own group on an entry, and -- crucially -- it does not break the
+    -- highlighting of the #tag beside it in the trailing run.
     t.eq(group_at(2, col_of(2, "round+1")), "DaylogNudge")
     t.eq(group_at(2, col_of(2, "#ClientA")), "DaylogTag")
-    t.eq(group_at(2, col_of(2, "!S[]")), "DaylogLogged")
 
     -- It also highlights where it is propagated onto summary rows and the total.
     t.eq(group_at(5, col_of(5, "round+1")), "DaylogNudge")
@@ -438,10 +437,10 @@ return function(t)
   t.test("a logging error reddens the offending line and its whole summary", function()
     load({
       "--- log ---", -- 1
-      "08:00 lunch #ClientA !S[]7", -- 2  the offending line (!S[]7 is off the q=15 grid)
+      "08:00 lunch #ClientA !S[]60", -- 2  the offending line: this claim states 60...
       "09:00 work #-", -- 3
-      "11:00 done", -- 4
-      "", -- 5
+      "11:00 lunch #ClientA !S[]30", -- 4  ...and the same slice states 30 here
+      "12:00 done", -- 5
       "", -- 6
       "--- summary q=15 d=dec ---", -- 7
       "2.00h (+0m) work", -- 8

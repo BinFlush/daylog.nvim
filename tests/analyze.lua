@@ -190,9 +190,9 @@ return function(t)
   t.test("analyze carries logged state without making it sticky", function()
     local analysis = analyze.analyze(document.parse({
       "--- log #ProjectOrion @office ---",
-      "08:00 plan !S[]",
+      "08:00 plan !S[]60",
       "09:00 call @home",
-      "10:00 done !S[]",
+      "10:00 done !S[]60",
     }))
 
     t.eq(analysis.log_blocks[1].entries, {
@@ -204,7 +204,7 @@ return function(t)
         explicit_location = nil,
         tag = "ProjectOrion",
         location = "office",
-        logged = { s = { names = { "" } } },
+        logged = { s = { minutes = 60, names = { "" } } },
       },
       {
         row = 3,
@@ -223,7 +223,7 @@ return function(t)
         explicit_location = nil,
         tag = "ProjectOrion",
         location = "home",
-        logged = { s = { names = { "" } } },
+        logged = { s = { minutes = 60, names = { "" } } },
       },
     })
   end)
@@ -979,7 +979,7 @@ return function(t)
       "11:00 @o",
       "11:00 #-",
       "11:00 @-",
-      "11:00 !S[]",
+      "11:00 !S[]60",
       "11:00 round+1",
     }) do
       local bad = analyze.analyze(document.parse({ "--- log ---", "08:00 a", line, "12:00 done" }))

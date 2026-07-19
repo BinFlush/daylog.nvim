@@ -1,11 +1,16 @@
+local claims = require("daylog.claims")
 local projection = require("daylog.projection")
 local quantize = require("daylog.quantize")
 local syntax = require("daylog.syntax")
 
 local M = {}
 
--- Semantic reporting for log blocks: interval derivation, report sections, sorting, logged totals. PURE.
--- (Grouping engine lives in projection.lua, rounding arithmetic in quantize.lua.)
+-- Semantic reporting for log blocks: report sections, sorting, day merging. PURE.
+-- (Shares and claims live in claims.lua, grouping in projection.lua, rounding in quantize.lua.)
+--
+-- Every section is the block's counted entries partitioned at its own level, and every row displays
+-- the sum of its entries' shares against the clock they measured -- so all four sections foot
+-- identically, in displayed time and in residuals alike.
 
 -- The rounding bucket for a block, defaulting a nil OR non-positive quantize. Guarding <= 0 (not just
 -- nil) keeps a direct call with q=0 from dividing by zero -- 0 is truthy in Lua, so `q or DEFAULT`
@@ -15,77 +20,24 @@ local function bucket_of(quantize_minutes)
     or syntax.DEFAULT_QUANTIZE_MINUTES
 end
 
--- The text an entry contributes to the summary: its alias when set, else its description.
--- Every grouping/display and the frecency ranker key on this, so a bare and a mapped entry
--- reporting as the same label rank as one activity.
-function M.entry_summary_text(e)
-  return (e.alias ~= nil and e.alias ~= "") and e.alias or e.text
-end
+M.entry_summary_text = claims.label
+M.is_blank_entry = claims.is_blank
 
--- A blank entry (bare timestamp, no activity text) marks uncounted time: excluded from every report,
--- never a map/rename target, carrying no metadata. PURE.
-function M.is_blank_entry(entry)
-  return entry.text == nil or entry.text == ""
-end
-
-local function build_intervals(entries)
+-- The real intervals of a block, for the time bar and highlighter: every counted span that actually
+-- runs, so a marked closing entry (which displays a row but occupies no clock) is left out.
+function M.build_intervals(entries)
   local intervals = {}
-
-  for i = 1, #entries - 1 do
-    local current = entries[i]
-
-    -- A blank entry starts uncounted time; skip its interval so it lands in no report.
-    if not M.is_blank_entry(current) then
-      local next_entry = entries[i + 1]
-
-      -- Durations are effective UTC (`local - offset`), so an interval spanning a clock move (timezone
-      -- crossing or DST flip) is its true length; `start`/`stop` stay raw local clock (display only).
-      local current_effective = current.minutes - (current.offset or 0)
-      local next_effective = next_entry.minutes - (next_entry.offset or 0)
-
-      -- Scalar logged state is the summary (`s`) level: present=logged, a number is the frozen value,
-      -- `true` is a bare (unfrozen) marker.
-      local logged_s = current.logged and current.logged.s
-
-      table.insert(intervals, {
-        start = current.minutes,
-        stop = next_entry.minutes,
-        duration = next_effective - current_effective,
-        text = M.entry_summary_text(current),
-        tag = current.tag,
-        location = current.location,
-        logged = logged_s ~= nil and true or nil,
-        nudge = current.nudge,
-        -- Every interval of one fine-grained row carries the same frozen value, so the fold copies it
-        -- through, never sums it; a bare marker freezes nothing (stays nil, rounds live).
-        logged_minutes = syntax.committed_minutes(logged_s),
-        -- Whole per-level logged table, so tag/location sections split by their own level; `logged` /
-        -- `logged_minutes` above are the summary (`s`) slice.
-        logged_by_level = current.logged,
-        -- Name-set keys (flat strings, "" when unnamed) split each level's cell at its own level; the
-        -- parallel display lists (nil when unnamed) ride along for rendering the marker.
-        s_names_key = syntax.names_key(current.logged and current.logged.s),
-        t_names_key = syntax.names_key(current.logged and current.logged.t),
-        l_names_key = syntax.names_key(current.logged and current.logged.l),
-        w_names_key = syntax.names_key(current.logged and current.logged.w),
-        s_names = current.logged and current.logged.s and current.logged.s.names or nil,
-        t_names = current.logged and current.logged.t and current.logged.t.names or nil,
-        l_names = current.logged and current.logged.l and current.logged.l.names or nil,
-        w_names = current.logged and current.logged.w and current.logged.w.names or nil,
-        source_entry_row = current.row,
-      })
+  for _, span in ipairs(claims.spans(entries)) do
+    if span.stop ~= nil then
+      intervals[#intervals + 1] = span
     end
   end
-
   return intervals
 end
 
--- Exported for the time bar, which lays out the raw (real-duration) intervals directly.
-M.build_intervals = build_intervals
-
 -- The closing entry starts no interval, so its row is in no `source_entry_rows`; return it when it
--- WOULD group into `item` (same resolved text/tag/logged), so identity edits (:Daylog map / rename)
--- can reach a same-activity entry that currently closes the log. Returns nil when it does not match.
+-- WOULD group into `item` (same resolved text/tag/location/logged), so identity edits (:Daylog map /
+-- rename) can reach a same-activity entry that currently closes the log. Returns nil when it does not.
 function M.closing_entry_row_for(entries, item)
   local last = entries[#entries]
   if not last then
@@ -93,8 +45,9 @@ function M.closing_entry_row_for(entries, item)
   end
 
   if
-    M.entry_summary_text(last) == item.text
+    claims.label(last) == item.text
     and last.tag == item.tag
+    and last.location == item.location
     and (last.logged and last.logged.s ~= nil and true or nil) == item.logged
   then
     return last.row
@@ -103,307 +56,62 @@ function M.closing_entry_row_for(entries, item)
   return nil
 end
 
--- The commitment scope an interval's !S/!T/!L/!W value must agree within (and the cell its committed
--- value inflates). !S is frozen per (activity, LOCATION) [+ names], so its key carries location -- the
--- display cell (build_section_rows' key_fields) aggregates locations, and keeping these two scopes
--- distinct is load-bearing: their drift caused the per-location feasibility bug. t/l/w key on one cell.
-local function commit_key(row, level)
-  if level == "s" then
-    return M.activity_identity_key(row) .. "\0" .. (row.s_names_key or "")
-  elseif level == "t" then
-    return (row.tag or "\0notag") .. "\0" .. (row.t_names_key or "")
-  elseif level == "l" then
-    return (row.location or "\0noloc") .. "\0" .. (row.l_names_key or "")
-  end
-  return "workday" .. "\0" .. (row.w_names_key or "")
-end
+-- The descriptive fields each section's rows carry beyond their slice: level `s` names the granule,
+-- `t`/`l` their own cell, `w` the whole block.
+local CELL_FIELDS = {
+  s = { "text", "tag", "location" },
+  t = { "tag" },
+  l = { "location" },
+  w = {},
+}
 
--- Group intervals into granules, the finest cell every partition coarsens: (text, tag, location).
--- Each carries real duration, its shared nudge (folded by "max"), the per-level committed table, and
--- source provenance.
-local function build_granules(intervals)
-  return projection.project_rows(
-    intervals,
-    { "text", "tag", "location", "s_names_key", "t_names_key", "l_names_key", "w_names_key" },
-    {
-      "text",
-      "tag",
-      "location",
-      "logged_by_level",
-      "s_names_key",
-      "t_names_key",
-      "l_names_key",
-      "w_names_key",
-      "s_names",
-      "t_names",
-      "l_names",
-      "w_names",
-    },
-    true,
-    "max"
-  )
-end
+-- Build one report section: the spans partitioned at `level` into (cell, slice) rows, each displaying
+-- the sum of its entries' shares. A claim's row carries the level's marker token and name-set; the
+-- unmarked remainder of the cell is its plain row. The display row's `round±N` rides the section row
+-- holding its first entry, so a manual adjustment stays visible without being counted twice.
+local function build_section(state, level)
+  local names_key_field = level .. "_names_key"
+  local cell_of = claims.CELL[level]
 
--- The committed value of each cell at `level`, summed across the cell's distinct commitment sub-scopes.
--- An `!S` commitment is frozen per (activity, location), so a location-spanning activity carries
--- several `!S` values that must be SUMMED, never last-wins; `!T`/`!L`/`!W` are one value per cell.
-local function committed_by_cell(intervals, level, cell_key_fn)
-  local scopes = {}
-  for _, interval in ipairs(intervals) do
-    local marker = interval.logged_by_level and interval.logged_by_level[level]
-    local value = syntax.committed_minutes(marker)
-    if value ~= nil then
-      local cell = cell_key_fn(interval)
-      local scope = commit_key(interval, level)
-      scopes[cell] = scopes[cell] or {}
-      scopes[cell][scope] = value
-    end
-  end
-
-  local totals = {}
-  for cell, by_scope in pairs(scopes) do
-    local sum = 0
-    for _, value in pairs(by_scope) do
-      sum = sum + value
-    end
-    totals[cell] = sum
-  end
-  return totals
-end
-
--- Honest largest-remainder quantization of the granules, then SURPLUS inflation: a committed cell whose
--- commitment exceeds its honest rounded total raises its granules to the committed value; a commitment
--- at or below stays honest (the split is a display concern), so every partition still foots. Inflation
--- scope: `!S` per (activity, location) granule, `!T`/`!L`/`!W` one value over a cell's granules.
-local function quantize_granules(granules, intervals, bucket_minutes)
-  local unrounded_total = 0
-  for _, g in ipairs(granules) do
-    unrounded_total = unrounded_total + (g.unrounded_duration or g.duration)
-  end
-  local honest = quantize.quantize_rows(
-    granules,
-    bucket_minutes,
-    quantize.round_to_nearest_bucket(unrounded_total, bucket_minutes)
-  )
-
-  -- committed_by_cell reads only `intervals`, so compute each level's table once for both passes below.
-  local committed_by_level = {}
-  for _, level in ipairs(syntax.LOGGED_LEVELS) do
-    committed_by_level[level] = committed_by_cell(intervals, level, function(row)
-      return commit_key(row, level)
-    end)
-  end
-
-  -- Collect only OVER-committed cells; their surplus must inflate and propagate. Index order is
-  -- preserved from `granules`, so member lists index straight into constrained_quantize's copy.
-  local commitments = {}
-  -- Granules whose value an over-commitment dictates: their own round±N balance is inert (the inflation
-  -- overrides it), so its marker must render nowhere -- matching the committed main row, which already
-  -- suppresses it. Without this the tag/location/workday sections leak a stray `round±N`.
-  local overcommitted = {}
-  for _, level in ipairs(syntax.LOGGED_LEVELS) do
-    local committed = committed_by_level[level]
-
-    local members = {}
-    for index, g in ipairs(honest) do
-      local key = commit_key(g, level)
-      if committed[key] ~= nil then
-        members[key] = members[key] or {}
-        table.insert(members[key], index)
-      end
-    end
-    for key, member_indices in pairs(members) do
-      local current = 0
-      for _, index in ipairs(member_indices) do
-        current = current + honest[index].duration
-      end
-      if committed[key] > current then
-        commitments[#commitments + 1] = { members = member_indices, target = committed[key] }
-        for _, index in ipairs(member_indices) do
-          overcommitted[index] = true
-        end
-      end
-    end
-  end
-
-  if #commitments == 0 then
-    return honest, true
-  end
-
-  local result = quantize.constrained_quantize(granules, bucket_minutes, commitments)
-  -- Feasibility guards the display's footing invariant. build_section_rows renders each committed cell
-  -- as (logged = committed) + (remainder = cell_total - committed, dropped when <= 0), so a section
-  -- foots iff every committed cell's final total is >= its committed value. The shift only inflates
-  -- OVER-committed cells, but processing commitments in sequence can pull an exactly-met or
-  -- under-committed cell -- whose own commitment was never collected -- BELOW its committed value; when
-  -- any committed cell ends short, fall back to honest quantization (which foots) and signal it (false).
-  -- Tag/location/workday are checked at the section scope build_section_rows displays. Level s, though,
-  -- is enforced (and read back by fine_grained_quantized) per (text, tag, location) while the display
-  -- aggregates locations; check it at that finer scope too, so one location's !S pulled below its
-  -- committed value -- masked at the aggregate by another location's surplus -- still forces the honest
-  -- fallback (and its contradiction warning) rather than silently drifting fine_grained's per-slice value.
-  for _, level in ipairs(syntax.LOGGED_LEVELS) do
-    local committed = committed_by_level[level]
-    local totals = {}
-    for _, g in ipairs(result) do
-      local key = commit_key(g, level)
-      totals[key] = (totals[key] or 0) + g.duration
-    end
-    for key, target in pairs(committed) do
-      if (totals[key] or 0) < target then
-        return honest, false
-      end
-    end
-  end
-  -- The inflation held (no fallback): a nudge on an over-committed granule is inert (the commitment
-  -- dictates the value), so drop the nudge and its below-zero flag -- the marker must render nowhere and
-  -- the "rounds below zero" warning is likewise moot. Durations are already set; only the display reads
-  -- these fields.
-  for index in pairs(overcommitted) do
-    result[index].nudge = nil
-    result[index].nudge_below_zero = nil
-  end
-  return result, true
-end
-
--- The shared quantization prologue every reporting entry point runs: bucket, intervals, and the one
--- largest-remainder + surplus-inflation pass. Returning all four keeps "fine_grained and the display
--- share ONE quantization" structural rather than a coincidence of call sites passing identical args.
-local function quantize_block(entries, quantize_minutes)
-  local bucket_minutes = bucket_of(quantize_minutes)
-  local intervals = build_intervals(entries)
-  local quantized, feasible =
-    quantize_granules(build_granules(intervals), intervals, bucket_minutes)
-  return quantized, feasible, intervals, bucket_minutes
-end
-
-local function key_of(row, key_fields)
-  local parts = {}
-  for _, field in ipairs(key_fields) do
-    parts[#parts + 1] = tostring(row[field])
-  end
-  return table.concat(parts, "\0")
-end
-
--- Build one report section (activities / tags / locations) from the shared quantized granules. The cell
--- TOTAL and nudge come from the granules (so every section re-sums the one quantization and foots),
--- while the logged/unlogged SPLIT comes from the intervals:
---   * a committed cell renders a logged row at `V` plus an unlogged row at `total - V`, the latter
---     omitted when 0 (an over-commitment already inflated the cell, so `total == V`);
---   * a cell with only bare markers, or none, renders one honest row.
--- The nudge marker rides the unlogged/plain (live) row; a frozen logged slice never carries one.
-local function build_section_rows(quantized, intervals, key_fields, level, feasible)
-  local total, nudge = {}, {}
-  for _, g in ipairs(quantized) do
-    local key = key_of(g, key_fields)
-    total[key] = (total[key] or 0) + g.duration
-    if g.nudge and g.nudge ~= 0 then
-      nudge[key] = (nudge[key] or 0) + g.nudge
-    end
-  end
-
-  -- Committed value per cell; when infeasible, every cell renders honestly (no split) so it still foots.
-  local committed = feasible
-      and committed_by_cell(intervals, level, function(interval)
-        return key_of(interval, key_fields)
-      end)
-    or {}
-
-  local cells, order = {}, {}
-  for _, interval in ipairs(intervals) do
-    local key = key_of(interval, key_fields)
-    local cell = cells[key]
-    if not cell then
-      cell = {
-        key = key,
-        fields = {},
-        logged_real = 0,
-        unlogged_real = 0,
-        logged_rows = {},
-        unlogged_rows = {},
-      }
-      for _, field in ipairs(key_fields) do
-        cell.fields[field] = interval[field]
-      end
-      -- The level's display name list (nil when unnamed) rides on every emitted row; the flat combine
-      -- key is carried only for a named cell, so an unnamed row stays byte-identical to today.
-      local names = interval[level .. "_names"]
-      cell.fields.names = names
-      cell.fields[level .. "_names_key"] = names and interval[level .. "_names_key"] or nil
-      cells[key] = cell
-      order[#order + 1] = cell
-    end
-    local marker = interval.logged_by_level and interval.logged_by_level[level]
-    if marker ~= nil then
-      cell.logged_real = cell.logged_real + interval.duration
-      cell.logged_rows[#cell.logged_rows + 1] = interval.source_entry_row
-      -- Marks the cell logged even when it renders as one honest row (bare marker, or infeasible).
-      cell.logged = true
-    else
-      cell.unlogged_real = cell.unlogged_real + interval.duration
-      cell.unlogged_rows[#cell.unlogged_rows + 1] = interval.source_entry_row
-    end
-  end
-
-  local function with_fields(cell)
-    local row = {}
-    for field, value in pairs(cell.fields) do
-      row[field] = value
-    end
-    return row
-  end
-
-  -- Only main summary rows carry source-entry provenance (:Daylog log / map / split / rename / balance
-  -- read it); tag/location logging finds a cell's entries by its own field instead.
-  local main = level == "s"
+  local section_of_span = {}
+  local groups = claims.group(state.spans, function(span)
+    local marker = span.logged_by_level and span.logged_by_level[level]
+    return cell_of(span) .. "\1" .. (marker and "1" or "0") .. "\1" .. span[names_key_field]
+  end)
 
   local rows = {}
-  for _, cell in ipairs(order) do
-    local cell_total = total[cell.key] or 0
-    local committed_value = committed[cell.key]
-    if committed_value ~= nil then
-      -- Backstop: never bill a logged row above the cell's real total. The feasibility guard already
-      -- ensures committed_value <= cell_total; this keeps a section footing structurally regardless.
-      committed_value = math.min(committed_value, cell_total)
-      local remainder = cell_total - committed_value
-      local logged = with_fields(cell)
-      logged.logged = true
-      -- The frozen commitment, so the fine-grained consumers (log/balance) can tell a committed slice
-      -- (held at this value) from a bare `!S` marker (plain branch, no `logged_minutes`). Inert for the
-      -- display, which reads only `duration`.
-      logged.logged_minutes = committed_value
-      logged.duration = committed_value
-      -- Keep the section's rows a partition of the cell's real: the logged row absorbs the unmarked real
-      -- only when the remainder row is dropped (remainder 0), so residuals match every other section.
-      logged.unrounded_duration = cell.logged_real + (remainder > 0 and 0 or cell.unlogged_real)
-      logged.source_entry_rows = main and cell.logged_rows or nil
-      rows[#rows + 1] = logged
+  for _, found in ipairs(groups) do
+    local first = found.first
+    local marked = first.logged_by_level ~= nil and first.logged_by_level[level] ~= nil
+    local row = {
+      duration = 0,
+      unrounded_duration = found.measured,
+      logged = marked or nil,
+      names = marked and first[level .. "_names"] or nil,
+      [names_key_field] = marked and first[names_key_field] or nil,
+      source_entry_rows = {},
+    }
 
-      if remainder > 0 then
-        local unlogged = with_fields(cell)
-        unlogged.duration = remainder
-        unlogged.unrounded_duration = cell.unlogged_real
-        unlogged.source_entry_rows = main and cell.unlogged_rows or nil
-        unlogged.nudge = nudge[cell.key]
-        rows[#rows + 1] = unlogged
-      end
-    else
-      local row = with_fields(cell)
-      row.logged = cell.logged or nil
-      row.duration = cell_total
-      row.unrounded_duration = cell.logged_real + cell.unlogged_real
-      row.nudge = nudge[cell.key]
-      if main then
-        row.source_entry_rows = {}
-        for _, source_row in ipairs(cell.logged_rows) do
-          row.source_entry_rows[#row.source_entry_rows + 1] = source_row
-        end
-        for _, source_row in ipairs(cell.unlogged_rows) do
-          row.source_entry_rows[#row.source_entry_rows + 1] = source_row
-        end
-      end
-      rows[#rows + 1] = row
+    for _, field in ipairs(CELL_FIELDS[level]) do
+      row[field] = first[field]
     end
+
+    for _, index in ipairs(found.members) do
+      row.duration = row.duration + state.shares[index]
+      row.source_entry_rows[#row.source_entry_rows + 1] = state.spans[index].source_entry_row
+      row.marked = row.marked or state.spans[index].marked
+      section_of_span[index] = row
+    end
+
+    rows[#rows + 1] = row
+  end
+
+  for _, display_row in ipairs(state.rows) do
+    local anchor = section_of_span[display_row.members[1]]
+    if display_row.nudge and display_row.nudge ~= 0 then
+      anchor.nudge = (anchor.nudge or 0) + display_row.nudge
+    end
+    anchor.nudge_below_zero = anchor.nudge_below_zero or display_row.nudge_below_zero
   end
 
   return quantize.apply_error_minutes(rows)
@@ -442,7 +150,7 @@ local function sort_by_duration(items)
 end
 
 -- Group `items` by `key_fn`, order each group's rows then the groups by displayed duration, and
--- flatten back in place -- so a cell's rows (a committed logged slice and its remainder) stay adjacent
+-- flatten back in place -- so a cell's rows (its claim slices and their plain remainder) stay adjacent
 -- instead of being split by an unrelated row of intermediate duration. nil keys share one group.
 local function sort_grouped(items, key_fn)
   local groups_by_key = {}
@@ -486,8 +194,8 @@ local function sort_grouped(items, key_fn)
   return items
 end
 
--- Main rows group by activity text; tag/location totals group by their own cell so a committed cell's
--- logged + remainder slices render adjacently (footing is unaffected -- grouping only reorders rows).
+-- Main rows group by activity text (a granule's location-split rows stay adjacent); tag/location
+-- totals group by their own cell so its slices render together. Grouping only reorders rows.
 local function finalize_summary_order(summary)
   sort_grouped(summary.summary_items, function(item)
     return item.text
@@ -501,36 +209,27 @@ local function finalize_summary_order(summary)
   return summary
 end
 
--- Display grouping fields per section (build_section_rows keys on these). Level s aggregates locations;
--- fine_grained_quantized instead keys s per (activity, location) via S_COMMIT_FIELDS -- the same
--- display-vs-commitment split commit_key draws.
-local DISPLAY_KEY = {
-  s = { "text", "tag", "s_names_key" },
-  t = { "tag", "t_names_key" },
-  l = { "location", "l_names_key" },
-  w = { "w_names_key" },
-}
-local S_COMMIT_FIELDS = { "text", "tag", "location", "s_names_key" }
-
--- Build the full quantized summary from one shared quantization: every section re-sums the same
--- granules, so all foot to the one activity total.
+-- Build the full summary from one share resolution: every section sums the same per-entry shares
+-- under its own partition, so all four foot alike.
 function M.summarize_entries(entries, quantize_minutes)
-  local quantized, feasible, intervals = quantize_block(entries, quantize_minutes)
+  local bucket_minutes = bucket_of(quantize_minutes)
+  local state = claims.resolve(entries, bucket_minutes)
 
   local activity_total, activity_real = 0, 0
-  for _, g in ipairs(quantized) do
-    activity_total = activity_total + g.duration
-    activity_real = activity_real + (g.unrounded_duration or g.duration)
+  for index, span in ipairs(state.spans) do
+    activity_total = activity_total + state.shares[index]
+    activity_real = activity_real + span.duration
   end
 
   return finalize_summary_order({
-    summary_items = build_section_rows(quantized, intervals, DISPLAY_KEY.s, "s", feasible),
-    tag_totals = build_section_rows(quantized, intervals, DISPLAY_KEY.t, "t", feasible),
-    location_totals = build_section_rows(quantized, intervals, DISPLAY_KEY.l, "l", feasible),
-    -- Blank entries never reach a granule, so the totals are one `workday` cell per name-set (!W).
-    total_rows = build_section_rows(quantized, intervals, DISPLAY_KEY.w, "w", feasible),
+    summary_items = build_section(state, "s"),
+    tag_totals = build_section(state, "t"),
+    location_totals = build_section(state, "l"),
+    -- Blank entries are counted nowhere, so the totals are the day's claims plus its plain remainder.
+    total_rows = build_section(state, "w"),
     activity_total = activity_total,
     activity_error_minutes = activity_real - activity_total,
+    bucket_minutes = bucket_minutes,
   })
 end
 
@@ -538,143 +237,14 @@ function M.summarize_block(block)
   return M.summarize_entries(block.entries, block.quantize_minutes)
 end
 
--- The activity rows the logging and balance use cases reason over, split per
--- (text, tag, location, s_names_key) with `source_entry_rows`, `nudge`, `unrounded_duration`, quantized
--- `duration`, and `logged_minutes` on a committed slice. Built from the SAME granule quantization the
--- display renders (location kept in the key so an `!S` value is committed per activity+location), so the
--- value logging freezes always equals the value the summary shows -- they cannot drift apart.
-function M.fine_grained_quantized(entries, quantize_minutes)
-  local quantized, feasible, intervals, bucket_minutes = quantize_block(entries, quantize_minutes)
-  return build_section_rows(quantized, intervals, S_COMMIT_FIELDS, "s", feasible), bucket_minutes
-end
-
--- The quantized granules exactly as the displayed summary re-sums them, for callers judging
--- display-level facts (an out-of-range nudge) on the same base the render shows. PURE.
-function M.quantized_granules(entries, quantize_minutes)
-  return (quantize_block(entries, quantize_minutes))
-end
-
--- The activity-identity key (resolved text, tag, location) EXCLUDING logged state, so an about-to-be-
--- logged row finds the already-logged row it merges with and conflict scans group across the divide.
--- One definition keeps merge key and conflict key from drifting. PURE.
+-- The activity-identity key (resolved text, tag, location) EXCLUDING logged state, so an
+-- about-to-be-logged row finds the claim slice it merges with. PURE.
 function M.activity_identity_key(row)
   return table.concat({
     row.text or "",
     row.tag or "",
     row.location or "",
   }, "\0")
-end
-
--- Same-level intervals whose committed values disagree, each { row } at the earliest entry: the fold
--- would silently collapse them to one, so catch it first. A marker is its own value (`!T[]` vs `!T[]60`
--- conflicts).
-local function conflicts_at_level(intervals, level)
-  local groups, order = {}, {}
-
-  for _, interval in ipairs(intervals) do
-    local committed = interval.logged_by_level and interval.logged_by_level[level]
-    if committed ~= nil then
-      local key = commit_key(interval, level)
-      local group = groups[key]
-      if not group then
-        group = { row = interval.source_entry_row, values = {}, distinct = 0 }
-        groups[key] = group
-        order[#order + 1] = group
-      end
-
-      local minutes = syntax.committed_minutes(committed)
-      local token = minutes ~= nil and tostring(minutes) or "nil"
-      if not group.values[token] then
-        group.values[token] = true
-        group.distinct = group.distinct + 1
-      end
-      if interval.source_entry_row < group.row then
-        group.row = interval.source_entry_row
-      end
-    end
-  end
-
-  local conflicts = {}
-  for _, group in ipairs(order) do
-    if group.distinct > 1 then
-      conflicts[#conflicts + 1] = { row = group.row }
-    end
-  end
-  return conflicts
-end
-
--- Public summary-level conflicts (the main rows :Daylog map / rename reason over). PURE.
-function M.logged_value_conflicts(entries)
-  return conflicts_at_level(build_intervals(entries), "s")
-end
-
--- The noun each level's committed value belongs to, for diagnostic wording.
-local LEVEL_NOUN = { s = "activity", t = "tag", l = "location", w = "workday" }
-
--- Semantic logging problems that make a block's summary untrustworthy, each { row, message }: a frozen
--- `!X<n>` off the bucket grid, or a level-group disagreeing on its committed value. Shared by refresh
--- (diagnostics) and the highlighter (reddening) so the two can never drift apart. PURE.
-function M.logging_diagnostics(block)
-  local out = {}
-  local bucket = bucket_of(block.quantize_minutes)
-  local intervals = build_intervals(block.entries)
-
-  -- A frozen value off the bucket grid, reported once per level-group (anchored at its first entry).
-  local seen_off_grid = {}
-  for _, item in ipairs(block.entry_items) do
-    for _, level in ipairs(syntax.LOGGED_LEVELS) do
-      local committed = syntax.committed_minutes(item.logged and item.logged[level])
-      if committed ~= nil and (committed < 0 or committed % bucket ~= 0) then
-        local key = level .. "\0" .. commit_key(item, level)
-        if not seen_off_grid[key] then
-          seen_off_grid[key] = true
-          out[#out + 1] = {
-            row = item.start_row,
-            message = string.format(
-              "daylog: a frozen !%s value no longer fits q=%d; re-run :Daylog log to recommit",
-              level:upper(),
-              bucket
-            ),
-          }
-        end
-      end
-    end
-  end
-
-  -- Same-group entries disagreeing on a committed value.
-  for _, level in ipairs(syntax.LOGGED_LEVELS) do
-    for _, conflict in ipairs(conflicts_at_level(intervals, level)) do
-      out[#out + 1] = {
-        row = conflict.row,
-        message = string.format(
-          "daylog: logged entries for this %s disagree on their !%s value; "
-            .. "re-run :Daylog log to recommit",
-          LEVEL_NOUN[level],
-          level:upper()
-        ),
-      }
-    end
-  end
-
-  -- Cross-cutting commitments that cannot be jointly satisfied: quantize_granules fell back to honest
-  -- quantization, so surface it rather than hide a committed value not being honored.
-  local _, feasible = quantize_granules(build_granules(intervals), intervals, bucket)
-  if not feasible then
-    local anchor
-    for _, item in ipairs(block.entry_items) do
-      for _, level in ipairs(syntax.LOGGED_LEVELS) do
-        if item.logged and syntax.committed_minutes(item.logged[level]) ~= nil then
-          anchor = anchor or item.start_row
-        end
-      end
-    end
-    out[#out + 1] = {
-      row = anchor or (block.entry_items[1] and block.entry_items[1].start_row) or 0,
-      message = "daylog: these logged commitments contradict each other and can't all be honored; adjust one",
-    }
-  end
-
-  return out
 end
 
 function M.combine_summaries(summaries)
@@ -707,15 +277,15 @@ function M.combine_summaries(summaries)
   end
 
   local summary = {
+    -- `logged` and the level's name-set key are in every key so a section's claim and plain rows, and
+    -- differently-named claims, stay separate across days (same-name rows merge).
     summary_items = quantize.apply_error_minutes(
       projection.project_rows(
         summary_items,
-        { "text", "tag", "logged", "s_names_key" },
-        { "text", "tag", "logged", "s_names_key", "names" }
+        { "text", "tag", "location", "logged", "s_names_key" },
+        { "text", "tag", "location", "logged", "s_names_key", "names" }
       )
     ),
-    -- `logged` and the level's name-set key are in the key so a section's logged/unlogged and
-    -- differently-named rows stay separate across days (same-name rows merge).
     tag_totals = quantize.apply_error_minutes(
       projection.project_rows(
         tag_totals,
