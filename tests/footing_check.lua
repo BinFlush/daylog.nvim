@@ -10,6 +10,7 @@
 local cwd = vim.fn.getcwd()
 local Rng = dofile(cwd .. "/tests/rng.lua")
 local synth = dofile(cwd .. "/tests/log_synth.lua")
+local syntax = require("daylog.syntax")
 local document = require("daylog.document")
 local analyze = require("daylog.analyze")
 local summary = require("daylog.summary")
@@ -104,12 +105,24 @@ local function report(sub, mode, wl, fmt, rendered, msg)
   )
 end
 
--- Synthesize one log and check that every displayed section sums to its
--- total. Returns nil on success, or a detailed report string on failure.
+-- Synthesize one log and check that every displayed section sums to its total. Returns nil on
+-- success, a detailed report string on failure, or `nil, true` when the log's claims contradict each
+-- other -- an outcome the engine refuses to summarize, so there is nothing to foot.
 function M.check(sub, mode)
   local wl = synth.generate(Rng.new(sub), mode)
 
   local analysis = analyze.analyze(document.parse(wl.lines))
+
+  -- Claims the pinning pass cannot realize are a legitimate outcome: such a block is never
+  -- summarized, so the footing invariant does not apply to it. Skip it rather than fail, and tell
+  -- the caller so a generator that only ever contradicts itself cannot pass for coverage. EVERY
+  -- other diagnostic still fails -- those would be generator bugs.
+  for _, diagnostic in ipairs(analysis.diagnostics) do
+    if diagnostic.code == syntax.DIAGNOSTIC.LOGGED_VALUE_CONFLICT then
+      return nil, true
+    end
+  end
+
   if #analysis.diagnostics > 0 then
     local msg = "synth produced an invalid daylog: " .. diagnostics.message(analysis.diagnostics[1])
     return report(sub, mode, wl, "-", {}, msg)

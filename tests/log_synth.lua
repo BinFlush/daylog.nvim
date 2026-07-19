@@ -291,18 +291,14 @@ local function generate(rng, mode_name)
 
   local times = gen_times(rng, cfg, params.n)
 
-  -- Resolved sticky state and the value each claim slice states, so every entry of one slice repeats
-  -- the same number (a slice whose entries disagreed would just be a block diagnostic).
+  -- Resolved sticky state, and the per-entry facts the claim pass below needs: an entry's cell at
+  -- each level, its effective-UTC clock, and whether it already carries a nudge.
   local cur_tag, cur_loc = header_tag, header_loc
-  local claim_values = {}
-
-  -- One level per log. Within a level, slices are disjoint, so their claims never contend for an
-  -- entry's share and every generated log resolves; cross-level nesting has its own coverage in
-  -- tests/logged_facts.lua, where the contradictions it can raise are the point.
-  local log_level = rng:choice({ "S", "T", "L", "W" })
+  local slot, effective = {}, {}
 
   for i = 1, #times do
     if i == #times and times[i] == 1440 then
+      effective[i] = times[i] - (current_offset or 0)
       lines[#lines + 1] = "24:00"
     else
       local name
@@ -350,79 +346,19 @@ local function generate(rng, mode_name)
         end
       end
 
-      -- A logged claim, exercising every level (!S/!T/!L/!W), compact AND separated. Its value is the
-      -- SLICE total, so it is decided once per (level, cell, name-set) and repeated verbatim on every
-      -- entry of that slice -- the shape every valid log has. Values land both above and below each
-      -- cell's honest total, so pinning, surplus, and deficit all get hit.
-      local marker_tokens = {}
-      if rng:chance(params.p_log) then
-        local cell = {
-          S = table.concat({ name, cur_tag or "", cur_loc or "" }, "\0"),
-          T = cur_tag or "",
-          L = cur_loc or "",
-          W = "",
-        }
-        local markers = {}
-        for _, level in ipairs({ log_level }) do
-          if rng:chance(0.45) then
-            -- Some markers carry a bracketed name-set so the fuzz exercises name-split reporting:
-            -- 0-3 real names, sometimes seeded with the unnamed element (empty first slot -> !S[,n1]),
-            -- and sometimes empty (the explicit unnamed form !S[]). The parser dedupes/sorts and treats
-            -- "" as the first-class unnamed name, so any order/dup is valid.
-            local name_suffix = "[]"
-            if rng:chance(0.3) then
-              local picked = {}
-              if rng:chance(0.25) then
-                picked[#picked + 1] = ""
-              end
-              for _ = 1, rng:int(0, 3) do
-                picked[#picked + 1] = rng:choice({ "n1", "n2", "n3", "n4" })
-              end
-              -- The parser dedupes and sorts, so two spellings of one set are one slice: canonicalize
-              -- before keying the value, or the same slice would be handed two numbers.
-              local seen, canonical = {}, {}
-              for _, picked_name in ipairs(picked) do
-                if not seen[picked_name] then
-                  seen[picked_name] = true
-                  canonical[#canonical + 1] = picked_name
-                end
-              end
-              table.sort(canonical)
-              name_suffix = "[" .. table.concat(canonical, ",") .. "]"
-            end
-
-            local key = table.concat({ level, cell[level], name_suffix }, "\1")
-            local value = claim_values[key]
-            if value == nil then
-              value = rng:int(0, 6) * params.q
-              claim_values[key] = value
-            end
-            markers[#markers + 1] = level .. name_suffix .. value
-          end
-        end
-        if #markers > 0 then
-          if rng:chance(0.5) then
-            marker_tokens[1] = "!" .. table.concat(markers) -- compact
-          else
-            for _, marker in ipairs(markers) do
-              marker_tokens[#marker_tokens + 1] = "!" .. marker -- separated
-            end
-          end
-        end
-      end
+      effective[i] = times[i] - (current_offset or 0)
+      slot[i] = { name = name, tag = cur_tag, loc = cur_loc }
 
       -- An occasional manual rounding nudge (round±N): a small up/down q-step shift the balance use
-      -- case would write. Never on a marked entry -- a claim freezes its row, so a nudge there is
-      -- refused outright. Footing must still hold with these in play.
-      if #marker_tokens == 0 and rng:chance(cfg.p_nudge) then
+      -- case would write. A nudged entry is never claimed below -- a claim freezes its row, so a
+      -- nudge there is refused outright. Footing must still hold with these in play.
+      if rng:chance(cfg.p_nudge) then
         parts[#parts + 1] = syntax.round_nudge_token(rng:choice({ -2, -1, 1, 2 }))
-      end
-
-      for _, token in ipairs(marker_tokens) do
-        parts[#parts + 1] = token
+        slot[i].nudged = true
       end
 
       lines[#lines + 1] = table.concat(parts, " ")
+      slot[i].row = #lines
 
       if rng:chance(params.p_note) then
         for _ = 1, rng:int(1, 3) do
@@ -432,6 +368,111 @@ local function generate(rng, mode_name)
             words[w] = rng:choice(NOTE_WORDS)
           end
           lines[#lines + 1] = table.concat(words, " ")
+        end
+      end
+    end
+  end
+
+  -- Claims, derived from the time each slice actually measured. Unrelated random values across four
+  -- levels contradict each other almost always -- an outcome the engine correctly refuses, which
+  -- leaves the pinning pass itself unexercised -- so each claim starts from its slice's measured
+  -- total and is perturbed a bucket or two: it lands above and below the honest value while most
+  -- logs still resolve. The value is the SLICE total, repeated verbatim on every member (the shape
+  -- every valid log has), and a nudged entry is never a member.
+  local CELL = {
+    S = function(at)
+      return table.concat({ at.name, at.tag or "", at.loc or "" }, "\1")
+    end,
+    T = function(at)
+      return at.tag or ""
+    end,
+    L = function(at)
+      return at.loc or ""
+    end,
+    W = function()
+      return ""
+    end,
+  }
+
+  local function duration_at(i)
+    return effective[i + 1] and (effective[i + 1] - effective[i]) or 0
+  end
+
+  -- A bracketed name-set: 0-3 real names, sometimes seeded with the unnamed element (an empty first
+  -- slot -> `!S[,n1]`), and sometimes empty (the explicit unnamed `!S[]`). The parser dedupes and
+  -- sorts, so canonicalize here too, or one slice would be handed two spellings and two values.
+  local function pick_names()
+    if not rng:chance(0.3) then
+      return "[]"
+    end
+    local picked = {}
+    if rng:chance(0.25) then
+      picked[#picked + 1] = ""
+    end
+    for _ = 1, rng:int(0, 3) do
+      picked[#picked + 1] = rng:choice({ "n1", "n2", "n3", "n4" })
+    end
+    local seen, canonical = {}, {}
+    for _, name in ipairs(picked) do
+      if not seen[name] then
+        seen[name] = true
+        canonical[#canonical + 1] = name
+      end
+    end
+    table.sort(canonical)
+    return "[" .. table.concat(canonical, ",") .. "]"
+  end
+
+  local markers_at = {}
+  for _, level in ipairs({ "S", "T", "L", "W" }) do
+    local cells, order = {}, {}
+    for i = 1, #times do
+      local at = slot[i]
+      if at and not at.nudged then
+        local key = CELL[level](at)
+        if not cells[key] then
+          cells[key] = {}
+          order[#order + 1] = key
+        end
+        table.insert(cells[key], i)
+      end
+    end
+
+    for _, key in ipairs(order) do
+      if rng:chance(params.p_log) then
+        local members, measured = {}, 0
+        for _, i in ipairs(cells[key]) do
+          -- A partial slice leaves the cell a plain remainder row beside its claim.
+          if rng:chance(0.75) then
+            table.insert(members, i)
+            measured = measured + duration_at(i)
+          end
+        end
+        if #members > 0 then
+          local q = params.q
+          local value = math.floor((measured + q / 2) / q) * q + rng:int(-2, 2) * q
+          value = math.max(0, math.min(syntax.END_OF_DAY_MINUTES, value))
+          local suffix = pick_names()
+          for _, i in ipairs(members) do
+            markers_at[i] = markers_at[i] or {}
+            table.insert(markers_at[i], level .. suffix .. value)
+          end
+        end
+      end
+    end
+  end
+
+  -- Emit each entry's markers, compact (`!S[]60T[]90`) or separated (`!S[]60 !T[]90`); the per-level
+  -- loop above already built them in canonical S T L W order.
+  for i = 1, #times do
+    local markers = markers_at[i]
+    if markers then
+      local row = slot[i].row
+      if rng:chance(0.5) then
+        lines[row] = lines[row] .. " !" .. table.concat(markers)
+      else
+        for _, marker in ipairs(markers) do
+          lines[row] = lines[row] .. " !" .. marker
         end
       end
     end

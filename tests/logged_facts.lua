@@ -298,6 +298,87 @@ return function(t)
     assert_sections_agree(lines)
   end)
 
+  t.test("PJ: logging freezes exactly the numbers shown, and changes none of them", function()
+    -- The keystone property at its most demanding: one activity in two places is two rows, each
+    -- rounding to its own number, and each `log` freezes the number its own row displays. The two
+    -- sides of this test differ ONLY by the marker tokens.
+    local before =
+      refreshed({ "--- log q=15 ---", "08:00 foo @home", "09:10 foo @office", "10:00" })
+    t.eq(report(before), {
+      "--- summary q=15 d=dec ---",
+      "1.25h (-5m) foo @home",
+      "0.75h (+5m) foo @office",
+      "--- locations ---",
+      "1.25h (-5m) @home",
+      "0.75h (+5m) @office",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    })
+
+    local home = applied(before, log_current.run(before, row_of(before, "foo @home"), { "jira" }))
+    local both = applied(home, log_current.run(home, row_of(home, "foo @office"), { "jira" }))
+    t.eq(both[2], "08:00 foo @home !S[jira]75", "each row freezes its own displayed number")
+    t.eq(both[3], "09:10 foo @office !S[jira]45")
+    t.eq(report(both), {
+      "--- summary q=15 d=dec ---",
+      "1.25h (-5m) foo @home !S[jira]",
+      "0.75h (+5m) foo @office !S[jira]",
+      "--- locations ---",
+      "1.25h (-5m) @home",
+      "0.75h (+5m) @office",
+      "--- totals ---",
+      "2.00h (+0m) workday",
+    })
+    assert_sections_agree(both)
+  end)
+
+  t.test("PJ: the sections still agree when a claim drifts from the clock", function()
+    -- The same block with the home claim hand-edited down to 60: agreement does not depend on the
+    -- claims being accurate, only on every row reconciling to what it measured.
+    local lines =
+      { "--- log q=15 ---", "08:00 foo @home !S[jira]60", "09:10 foo @office !S[jira]45", "10:00" }
+    t.eq(report(lines), {
+      "--- summary q=15 d=dec ---",
+      "1.00h (+10m) foo @home !S[jira]",
+      "0.75h (+5m) foo @office !S[jira]",
+      "--- locations ---",
+      "1.00h (+10m) @home",
+      "0.75h (+5m) @office",
+      "--- totals ---",
+      "1.75h (+15m) workday",
+    })
+    assert_sections_agree(lines)
+  end)
+
+  t.test("PJ: a claim's value reaches the other sections, but its token stays home", function()
+    local lines = { "--- log q=15 ---", "08:00 foo #ClientA !S[]90", "09:00" }
+    t.eq(report(lines), {
+      "--- summary q=15 d=dec ---",
+      "1.50h (-30m) foo !S[]",
+      "--- tags ---",
+      "1.50h (-30m) #ClientA",
+      "--- totals ---",
+      "1.50h (-30m) workday",
+    })
+    assert_sections_agree(lines)
+  end)
+
+  t.test("PJ: an !L claim splits the locations section the same way", function()
+    local lines =
+      { "--- log q=15 ---", "08:00 foo @office", "09:00 bar @office !L[fac]120", "10:30" }
+    t.eq(report(lines), {
+      "--- summary q=15 d=dec ---",
+      "2.00h (-30m) bar",
+      "1.00h (+0m) foo",
+      "--- locations ---",
+      "2.00h (-30m) @office !L[fac]",
+      "1.00h (+0m) @office",
+      "--- totals ---",
+      "3.00h (-30m) workday",
+    })
+    assert_sections_agree(lines)
+  end)
+
   t.test("PJ: a claimed value shows exactly as written, even off the rounding grid", function()
     local lines = { "--- log q=15 ---", "08:00 foo !S[]37", "09:00 bar", "10:00" }
     t.eq(blocked(lines), nil, "an off-grid claim is a fact, not a problem")
@@ -607,6 +688,41 @@ return function(t)
     local out = applied(lines, insert_entry.run(lines, 2, "09:30", "meet"))
     t.eq(out[5], "09:30 meet !S[]240")
     t.eq(blocked(out), nil)
+  end)
+
+  t.test("CM: freezing absorbs a nudge, so no command writes a nudge onto a claim", function()
+    -- `round±N` and a claim cannot share an entry, and the nudge's effect is already inside the
+    -- number being frozen -- so logging a balanced row keeps its display and drops the marker.
+    local lines = refreshed({ "--- log q=30 ---", "08:00 foo round+1", "08:20 bar", "09:00" })
+    local shown = report(lines)
+    local out = applied(lines, log_current.run(lines, row_of(lines, "foo"), {}))
+    t.eq(out[2], "08:00 foo !S[]60", "the nudge is gone; its value is what got frozen")
+    t.eq(blocked(out), nil, "so the command never writes the state nudge_on_logged refuses")
+    t.eq(report(out)[2], shown[2]:gsub(" round%+1$", "") .. " !S[]", "the display did not move")
+  end)
+
+  --- RP -- reports ----------------------------------------------------------------------------------
+
+  t.test("RP: a day carrying a block diagnostic aborts the whole report", function()
+    local week = require("daylog.week")
+    local conflicted = { "--- log q=15 ---", "08:00 foo !S[]60", "09:00 foo !S[]120", "10:00" }
+    local report_result, err = week.build_report({
+      {
+        date_label = "2026-05-18",
+        path = "/tmp/a.day",
+        lines = { "--- log q=15 ---", "08:00 foo !S[jira]60", "09:00" },
+      },
+      { date_label = "2026-05-19", path = "/tmp/b.day", lines = conflicted },
+    })
+    t.eq(
+      report_result,
+      nil,
+      "a conflicted day has no summary, so the report never renders partially"
+    )
+    t.ok(
+      err:find("/tmp/b.day", 1, true) ~= nil,
+      "the error names the offending file: " .. tostring(err)
+    )
   end)
 
   t.test("CM: a fresh mark round-trips; refresh never edits entries", function()

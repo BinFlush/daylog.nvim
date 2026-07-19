@@ -1,0 +1,7 @@
+--- log #ClientA q=15 ---
+08:00 standup !S[jira]30T[boss]450W[ts]450
+08:30 build auth @home !S[jira]330T[boss]450W[ts]450
+12:00
+12:30 review PRs @office !S[jira]90T[boss]450W[ts]450
+14:00 build auth @home !S[jira]330T[boss]450W[ts]450
+16:00
