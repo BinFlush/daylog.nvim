@@ -173,26 +173,26 @@ return function(t)
   end)
 
   t.test("document parse recognizes trailing !S[] in flexible metadata order", function()
-    t.eq(document.parse_line("08:21 negotiate with goose !S[] #sales @client"), {
+    t.eq(document.parse_line("08:21 negotiate with goose !S[]60 #sales @client"), {
       kind = "entry",
       row = 1,
-      raw = "08:21 negotiate with goose !S[] #sales @client",
+      raw = "08:21 negotiate with goose !S[]60 #sales @client",
       minutes = 501,
       text = "negotiate with goose",
       explicit_tag = "sales",
       explicit_location = "client",
-      logged = { s = { names = { "" } } },
+      logged = { s = { minutes = 60, names = { "" } } },
     })
 
-    t.eq(document.parse_line("08:21 negotiate with goose @client !S[] #sales"), {
+    t.eq(document.parse_line("08:21 negotiate with goose @client !S[]60 #sales"), {
       kind = "entry",
       row = 1,
-      raw = "08:21 negotiate with goose @client !S[] #sales",
+      raw = "08:21 negotiate with goose @client !S[]60 #sales",
       minutes = 501,
       text = "negotiate with goose",
       explicit_tag = "sales",
       explicit_location = "client",
-      logged = { s = { names = { "" } } },
+      logged = { s = { minutes = 60, names = { "" } } },
     })
   end)
 
@@ -305,12 +305,12 @@ return function(t)
   end)
 
   t.test("document parse keeps inline !S[] in text unless it is trailing metadata", function()
-    t.eq(document.parse_line("08:04 discuss !S[] marker syntax"), {
+    t.eq(document.parse_line("08:04 discuss !S[]60 marker syntax"), {
       kind = "entry",
       row = 1,
-      raw = "08:04 discuss !S[] marker syntax",
+      raw = "08:04 discuss !S[]60 marker syntax",
       minutes = 484,
-      text = "discuss !S[] marker syntax",
+      text = "discuss !S[]60 marker syntax",
       explicit_tag = nil,
       explicit_location = nil,
     })
@@ -361,10 +361,10 @@ return function(t)
   t.test(
     "document parse rejects duplicate trailing !S[] and keeps !S[] invalid in headers",
     function()
-      t.eq(document.parse_line("08:04 plan !S[] #sales !S[]"), {
+      t.eq(document.parse_line("08:04 plan !S[]60 #sales !S[]60"), {
         kind = "invalid_entry",
         row = 1,
-        raw = "08:04 plan !S[] #sales !S[]",
+        raw = "08:04 plan !S[]60 #sales !S[]60",
         message = "duplicate trailing !S markers are not allowed",
       })
 
@@ -379,7 +379,7 @@ return function(t)
 
       -- A valueless and a frozen !S[] are still two markers; the duplicate guard rejects them.
       t.eq(
-        document.parse_line("08:04 plan !S[] !S[]60").message,
+        document.parse_line("08:04 plan !S[]60 !S[]60").message,
         "duplicate trailing !S markers are not allowed"
       )
     end
@@ -550,8 +550,8 @@ return function(t)
     })
 
     -- Order within the trailing run is free, like #tag/@location/!S[].
-    t.eq(document.parse_line("08:00 standup utc+2 @office !S[]").explicit_offset, 120)
-    t.eq(document.parse_line("08:00 standup @office utc+2 !S[]").explicit_offset, 120)
+    t.eq(document.parse_line("08:00 standup utc+2 @office !S[]60").explicit_offset, 120)
+    t.eq(document.parse_line("08:00 standup @office utc+2 !S[]60").explicit_offset, 120)
   end)
 
   t.test("document leaves a malformed utc token as plain activity text (fail-safe)", function()
@@ -621,7 +621,7 @@ return function(t)
     })
 
     -- Order-free within the trailing run, alongside the other tokens.
-    t.eq(document.parse_line("08:00 plan round-2 @office !S[]").nudge, -2)
+    t.eq(document.parse_line("08:00 plan round-2 @office !S[]60").nudge, -2)
   end)
 
   t.test("document leaves a non-nudge round token as text and rejects duplicates", function()

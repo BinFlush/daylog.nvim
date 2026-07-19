@@ -86,10 +86,10 @@ return function(t)
     return table.concat(lines, "\n")
   end
 
-  for _, fixture in ipairs(fixtures) do
-    t.test("compat " .. fixture.name .. " matches v0.1.0 baseline", function()
-      local input = vim.fn.readfile(base_dir .. "/" .. fixture.name .. ".day")
-      local expected = vim.fn.readfile(base_dir .. "/" .. fixture.name .. fixture.expected_suffix)
+  local function check_fixture(dir, baseline, fixture)
+    t.test("compat " .. fixture.name .. " matches " .. baseline .. " baseline", function()
+      local input = vim.fn.readfile(dir .. "/" .. fixture.name .. ".day")
+      local expected = vim.fn.readfile(dir .. "/" .. fixture.name .. fixture.expected_suffix)
       local result, err = fixture.run(input)
 
       t.ok(result ~= nil, err)
@@ -97,5 +97,19 @@ return function(t)
       local actual = apply_result(input, result)
       t.ok(vim.deep_equal(actual, expected), mismatch_message(fixture.name, expected, actual))
     end)
+  end
+
+  for _, fixture in ipairs(fixtures) do
+    check_fixture(base_dir, "v0.1.0", fixture)
+  end
+
+  -- The v0.1.0 fixtures predate logged markers entirely, so they freeze the original format but say
+  -- nothing about the facts model. This one freezes a fully-logged multi-level day: claims at all
+  -- four levels, one activity spanning two entries, a blank gap, and a location split -- every
+  -- section footing to 7.50h with no residual.
+  for _, fixture in ipairs({
+    { name = "logged_facts", run = summarize, expected_suffix = ".summary" },
+  }) do
+    check_fixture(root .. "/tests/compat/v0.20.0", "v0.20.0", fixture)
   end
 end

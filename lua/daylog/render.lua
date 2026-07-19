@@ -78,15 +78,19 @@ local function section_duration_strings(items, total_minutes, format)
   return strings
 end
 
-local function summary_item_label(item, show_tag)
+local function summary_item_label(item, shown)
   local parts = {}
 
   if item.text ~= "" then
     table.insert(parts, item.text)
   end
 
-  if show_tag and item.tag then
+  if shown.tag and item.tag then
     table.insert(parts, "#" .. item.tag)
+  end
+
+  if shown.location and item.location then
+    table.insert(parts, "@" .. item.location)
   end
 
   if item.logged then
@@ -96,8 +100,8 @@ local function summary_item_label(item, show_tag)
   return table.concat(parts, " ")
 end
 
-local function summary_line(prefix, item, show_tag)
-  local text = summary_item_label(item, show_tag)
+local function summary_line(prefix, item, shown)
+  local text = summary_item_label(item, shown)
 
   if text == "" then
     return prefix
@@ -133,22 +137,25 @@ local function extend_lines(target, source)
   end
 end
 
-local function text_tag_conflicts(items)
-  local tags_by_text = {}
+-- The labels that need `field` spelled out to tell their rows apart: one activity reported under two
+-- tags (or two locations) would otherwise render as two identical lines. A day where every activity
+-- stays under one tag and one place names neither.
+local function label_conflicts(items, field)
+  local seen_by_text = {}
   local conflicts = {}
 
   for _, item in ipairs(items or {}) do
-    local key = item.tag == nil and "\31" or item.tag
-    local text_tags = tags_by_text[item.text]
+    local key = item[field] == nil and "\31" or item[field]
+    local seen = seen_by_text[item.text]
 
-    if not text_tags then
-      text_tags = {}
-      tags_by_text[item.text] = text_tags
-    elseif not text_tags[key] then
+    if not seen then
+      seen = {}
+      seen_by_text[item.text] = seen
+    elseif not seen[key] then
       conflicts[item.text] = true
     end
 
-    text_tags[key] = true
+    seen[key] = true
   end
 
   return conflicts
@@ -181,8 +188,8 @@ local function duration_with_error(duration_str, error_minutes)
   return string.format("%s (%+dm)", duration_str, error_minutes or 0)
 end
 
-local function summary_item_line(item, duration_str, show_tag)
-  return summary_line(duration_with_error(duration_str, item.error_minutes), item, show_tag)
+local function summary_item_line(item, duration_str, shown)
+  return summary_line(duration_with_error(duration_str, item.error_minutes), item, shown)
 end
 
 -- A metadata row (#tag / @location): duration + marker, then `label_fn(item)`, plus the row's
@@ -234,7 +241,12 @@ local function build_summary_layout(summary, duration_format, options)
   local layout = {}
   local format = duration_format or syntax.DURATION_DECIMAL
   local headers = section_headers(format, options)
-  local conflicts = text_tag_conflicts(summary.summary_items)
+  -- Rows split per granule, so a label under several tags or several places names the one that
+  -- tells its rows apart -- and only that one.
+  local shown = {
+    tag = label_conflicts(summary.summary_items, "tag"),
+    location = label_conflicts(summary.summary_items, "location"),
+  }
 
   if headers.leading_blank then
     table.insert(layout, { kind = LAYOUT_KIND.BLANK, line = "" })
@@ -249,7 +261,11 @@ local function build_summary_layout(summary, duration_format, options)
       kind = LAYOUT_KIND.SUMMARY_ITEM,
       section = "summary",
       line = with_nudge(
-        summary_item_line(item, summary_durations[i], conflicts[item.text]),
+        summary_item_line(
+          item,
+          summary_durations[i],
+          { tag = shown.tag[item.text], location = shown.location[item.text] }
+        ),
         item.nudge
       ),
       item = item,

@@ -1283,44 +1283,6 @@ return function(t)
     t.ok(has("2.00h (+0m) build"), "the row is fully unlogged at 2.00h")
   end)
 
-  t.test("log log freezes a row that survives a later appended entry", function()
-    t.reset({
-      "--- log ---",
-      "00:00 logged item",
-      "01:07 other task",
-      "",
-      "--- summary q=15 d=dec ---",
-      "1.00h (+7m) logged item",
-    })
-    t.set_cursor(6, 0)
-
-    log_cmd()
-    -- The source entry is frozen at its committed 60 minutes (1.00h).
-    t.eq(t.get_lines()[2], "00:00 logged item !S[]60")
-
-    -- Append a third entry and refresh: the frozen logged slice holds at 1.00h, the block's
-    -- remaining honest time surfaces as an unlogged "logged item" slice, and the 2-minute
-    -- "other task" rounds to its own honest 0. The total is the honest sum of the parts.
-    local lines = t.get_lines()
-    table.insert(lines, 4, "01:09 new task")
-    t.set_lines(lines)
-    vim.cmd("Daylog refresh")
-
-    local out = t.get_lines()
-    local function has(needle)
-      for _, l in ipairs(out) do
-        if l == needle then
-          return true
-        end
-      end
-      return false
-    end
-    t.ok(has("1.00h (+7m) logged item !S[]"), "logged row should still read 1.00h")
-    t.ok(has("0.25h (-15m) logged item"), "the unlogged remainder surfaces as its own row")
-    t.ok(has("0.00h (+2m) other task"), "other task rounds to its own honest value")
-    t.ok(has("1.25h (-6m) workday"), "the total is the honest sum of the displayed parts")
-  end)
-
   t.test("logging two rounded rows commits identical values in either order", function()
     -- Reported order-dependence: `thing two round-1` then `thing one` used to commit
     -- thing one at !S[]75 (stale whole-day target), while the reverse order gave !S[]60. The
@@ -1351,25 +1313,8 @@ return function(t)
     local two_then_one = log_both("thing two", "thing one")
     t.eq(two_then_one, log_both("thing one", "thing two"))
     t.eq(two_then_one[2], "08:00 thing one !S[]60")
-    t.eq(two_then_one[3], "09:00 thing two round-1 !S[]60")
-  end)
-
-  t.test("Daylog refresh warns when a frozen !S[] value no longer fits the bucket", function()
-    t.reset({
-      "--- log ---",
-      "08:00 plan !S[]7",
-      "09:00 done",
-    })
-
-    vim.cmd("Daylog refresh")
-
-    local found = false
-    for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
-      if diagnostic.message:match("frozen !S value no longer fits") then
-        found = true
-      end
-    end
-    t.ok(found, "expected a frozen-drift diagnostic for a non-bucket !S value")
+    -- Freezing absorbs the nudge: its effect is already in the 60 being frozen.
+    t.eq(two_then_one[3], "09:00 thing two !S[]60")
   end)
 
   t.test("Daylog refresh warns when same-row logged entries disagree on their !S value", function()
@@ -1516,4 +1461,79 @@ return function(t)
       })
     end
   )
+  -- An end-to-end walkthrough of the facts model through the real commands and a real buffer: log a
+  -- day at every level, read the rendered report, then take one claim back. Everything else asserts
+  -- pieces in isolation; this is the one test that exercises what a user actually does.
+  t.test("acceptance: log a day at every level, read it, and unlog one claim", function()
+    local function row_of(needle)
+      for i, line in ipairs(t.get_lines()) do
+        if line:match("^%d[%d%.]*h %b()") and line:find(needle, 1, true) then
+          return i
+        end
+      end
+      error("no summary row matching " .. needle)
+    end
+
+    t.reset({
+      "--- log #ClientA q=15 ---",
+      "08:00 standup",
+      "08:30 build auth",
+      "12:00",
+      "12:30 review PRs",
+      "16:00",
+    })
+    vim.cmd("Daylog refresh")
+
+    -- The honest day, before anything is logged.
+    t.eq(t.get_lines()[9], "--- summary q=15 d=dec ---")
+    t.eq(t.get_lines()[10], "3.50h (+0m) build auth")
+    t.eq(t.get_lines()[11], "3.50h (+0m) review PRs")
+    t.eq(t.get_lines()[12], "0.50h (+0m) standup")
+
+    -- Log each activity, then the tag, then the workday. Every freeze writes the number its row
+    -- shows, so the displayed report is unchanged at the end -- only the markers appear.
+    for _, activity in ipairs({ "build auth", "review PRs", "standup" }) do
+      t.set_cursor(row_of(activity), 0)
+      log_cmd()
+      vim.cmd("Daylog refresh")
+    end
+    t.set_cursor(row_of("#ClientA"), 0)
+    log_cmd()
+    vim.cmd("Daylog refresh")
+    t.set_cursor(row_of("workday"), 0)
+    log_cmd()
+    vim.cmd("Daylog refresh")
+
+    t.eq(t.get_lines(), {
+      "--- log #ClientA q=15 ---",
+      "08:00 standup !S[]30T[]450W[]450",
+      "08:30 build auth !S[]210T[]450W[]450",
+      "12:00",
+      "12:30 review PRs !S[]210T[]450W[]450",
+      "16:00",
+      "",
+      "",
+      "--- summary q=15 d=dec ---",
+      "3.50h (+0m) build auth !S[]",
+      "3.50h (+0m) review PRs !S[]",
+      "0.50h (+0m) standup !S[]",
+      "",
+      "--- tags ---",
+      "7.50h (+0m) #ClientA !T[]",
+      "",
+      "--- totals ---",
+      "7.50h (+0m) workday !W[]",
+    })
+
+    -- Take the workday claim back: the marker goes, every other claim and every number stays.
+    t.set_cursor(row_of("workday !W[]"), 0)
+    unlog_cmd()
+    vim.cmd("Daylog refresh")
+
+    t.eq(t.get_lines()[2], "08:00 standup !S[]30T[]450")
+    t.eq(t.get_lines()[18], "7.50h (+0m) workday")
+    t.eq(t.get_lines()[15], "7.50h (+0m) #ClientA !T[]", "the tag claim is untouched")
+    t.eq(t.get_lines()[10], "3.50h (+0m) build auth !S[]", "and so are the activity claims")
+    t.eq(#t.get_lines(), 18)
+  end)
 end

@@ -66,6 +66,8 @@ M.SECTION = {
 M.DIAGNOSTIC = {
   INVALID_ENTRY = "invalid_entry",
   BLANK_ENTRY_METADATA = "blank_entry_metadata",
+  LOGGED_VALUE_CONFLICT = "logged_value_conflict",
+  NUDGE_ON_LOGGED = "nudge_on_logged",
   UNORDERED_TIMESTAMPS = "unordered_timestamps",
   MIDNIGHT_NOT_FINAL = "midnight_not_final",
   MIXED_OFFSET = "mixed_offset",
@@ -87,6 +89,8 @@ M.DIAGNOSTIC_CATEGORY = {
 M.DIAGNOSTIC_CATEGORY_BY_CODE = {
   [M.DIAGNOSTIC.INVALID_ENTRY] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.BLANK_ENTRY_METADATA] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.LOGGED_VALUE_CONFLICT] = M.DIAGNOSTIC_CATEGORY.BLOCK,
+  [M.DIAGNOSTIC.NUDGE_ON_LOGGED] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.UNORDERED_TIMESTAMPS] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.MIDNIGHT_NOT_FINAL] = M.DIAGNOSTIC_CATEGORY.BLOCK,
   [M.DIAGNOSTIC.MIXED_OFFSET] = M.DIAGNOSTIC_CATEGORY.BLOCK,
@@ -278,10 +282,9 @@ function M.round_nudge_token(n)
   return "round" .. (n < 0 and "" or "+") .. n
 end
 
--- A logged marker optionally carries a frozen committed value in minutes (`!S[]60`): the row is held
--- at that exact duration and excluded from the largest-remainder pool, so an external commitment
--- never moves as later entries are appended. Without the value (`!S[]`) it is logged-but-unfrozen;
--- only :Daylog log writes the number.
+-- A logged marker states a fact: `!S[]60` records that 60 minutes of this slice were logged
+-- externally. The minutes are mandatory (a valueless `!S[]` is an invalid entry) and are the SLICE
+-- total, repeated verbatim on every entry of the slice -- never a per-entry amount.
 
 -- Parse a bracket body (`a,b`) into a canonical (deduped, sorted) name list, or nil when an element
 -- holds an illegal character. An EMPTY element is the unnamed name (`""`): `[]` is `{""}` and `[,hey]`

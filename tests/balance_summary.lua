@@ -360,12 +360,12 @@ return function(t)
       "09:50 done",
     })
 
-    -- The committed slice is pinned, exactly like a logged main row.
+    -- The claim slice is pinned, exactly like a logged main row.
     local _, err = run(lines, "workday !W[]", 1)
     t.eq(err, balance.ONLY_LOGGED)
 
-    -- The unlogged workday row is still the balance target.
-    local out = run(lines, "(-25m) workday", 1)
+    -- The plain workday row -- b's 45 displayed against 50 measured -- is still the balance target.
+    local out = run(lines, "(+5m) workday", 1)
     t.ok(out ~= nil, "the open workday row balances")
   end)
 end

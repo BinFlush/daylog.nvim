@@ -5,7 +5,6 @@ return function(t)
   local document = require("daylog.document")
   local analyze = require("daylog.analyze")
   local summary = require("daylog.summary")
-  local syntax = require("daylog.syntax")
   local render = require("daylog.render")
   local support = require("daylog.usecases.support")
   local refresh = require("daylog.usecases.refresh_summaries")
@@ -55,6 +54,9 @@ return function(t)
 
   -- A marker-free, refreshed base, so the round-trip's only edits are the one marker added and removed.
   -- Strip via the formatter, not a {logged=nil} override table -- that empty table deletes the line.
+  -- The base a log/unlog round-trip starts from: no claims, and no `round±N` either. Freezing
+  -- absorbs a nudge (the claim supersedes the display it adjusted), so a nudged row is the one shape
+  -- the round-trip cannot restore -- covered on its own below.
   local function marker_free_base(block, header)
     local function strip(e, tag, loc, off)
       local copy = {}
@@ -62,6 +64,7 @@ return function(t)
         copy[k] = v
       end
       copy.logged = nil
+      copy.nudge = nil
       return entry.format(copy, tag, loc, off)
     end
     local full = { header }
@@ -127,7 +130,15 @@ return function(t)
               table.concat(logged, "\n")
             )
           end
-          local ok2, back_res = pcall(log_current.run_unlog_by_value, logged, target, nil)
+          -- The row to unlog is the CLAIM the log just made, not the plain row it grew from: a cell
+          -- can hold both, and they are told apart by exactly this flag.
+          local claim_target = {}
+          for key, value in pairs(target) do
+            claim_target[key] = value
+          end
+          claim_target.logged = true
+
+          local ok2, back_res = pcall(log_current.run_unlog_by_value, logged, claim_target, nil)
           if not ok2 then
             return string.format(
               "%s lvl=%s: run_unlog_by_value raised: %s",
@@ -195,61 +206,54 @@ return function(t)
     end
   )
 
-  -- An over-committed cell's nudge is inert, so it must show on no section and raise no below-zero
-  -- warning -- footing can't see it, the nudge being already baked into the duration.
-  t.test(
-    "a below-zero nudge warns and shows; an over-committed cell's inert nudge shows nowhere",
-    function()
-      local low = { "--- log q=15 ---", "08:00 small round-3", "08:15 done" }
-      t.ok(
-        row_line(rendered(low), "0.00h (+15m) small round-3") ~= nil,
-        "the clamped item shows its nudge"
-      )
-      local low_warns = refresh.run(low).warnings
-      t.ok(
-        #low_warns >= 1 and low_warns[1].message:find("below zero", 1, true) ~= nil,
-        "refresh warns the item rounds below zero"
-      )
-
-      -- !S[]90 over-commits the 60m cell, so round-2 goes inert.
-      local over = { "--- log q=15 ---", "08:00 big #x @o round-2 !S[]90", "09:00 done" }
-      for _, l in ipairs(rendered(over)) do
-        if l:match("^%d+%.%d+h") then -- a rendered duration row
-          t.ok(l:match("round[%+%-]%d") == nil, "no inert nudge token on: " .. l)
-        end
-      end
-      t.eq(#refresh.run(over).warnings, 0)
-    end
-  )
-
-  -- Each logging diagnostic fires on its trigger, and a clean log fires none -- the warning half of
-  -- the feasibility rules, which the footing fuzz (emitting only on-grid, feasible values) can't see.
-  t.test("logging diagnostics fire on off-grid, conflicting, and contradictory values", function()
-    local function fires(lines, needle)
-      for _, d in ipairs(summary.logging_diagnostics(active(lines))) do
-        if d.message:find(needle, 1, true) then
-          return true
-        end
-      end
-      return false
-    end
+  t.test("a below-zero nudge warns and shows", function()
+    local low = { "--- log q=15 ---", "08:00 small round-3", "08:15 done" }
     t.ok(
-      fires({ "--- log q=15 ---", "08:00 x #a !S[]7", "09:00 done" }, "no longer fits"),
-      "off-grid"
+      row_line(rendered(low), "0.00h (+15m) small round-3") ~= nil,
+      "the clamped item shows its nudge"
     )
+    local low_warns = refresh.run(low).warnings
+    t.ok(
+      #low_warns >= 1 and low_warns[1].message:find("below zero", 1, true) ~= nil,
+      "refresh warns the item rounds below zero"
+    )
+  end)
+
+  -- Every way a set of claims can fail to describe one day, and a clean log failing in none of them.
+  -- These are block diagnostics, so they stop the summary being rebuilt at all -- which is why the
+  -- footing fuzz (emitting only realizable claims) never sees them.
+  t.test("a claim that cannot be realized is a block diagnostic", function()
+    local function fires(lines, needle)
+      local analysis = analyze.analyze(document.parse(lines))
+      local diagnostic = analyze.find_block_diagnostic(analysis, analyze.get_active_log(analysis))
+      return diagnostic ~= nil and diagnostic.message:find(needle, 1, true) ~= nil
+    end
+
     t.ok(
       fires(
         { "--- log q=15 ---", "08:00 x #a !S[]30", "09:00 x #a !S[]60", "10:00 done" },
         "disagree"
       ),
-      "same-activity values disagree"
+      "one slice, two stated values"
     )
     t.ok(
-      fires({ "--- log q=15 ---", "09:00 work #T @L !T[]120 !L[]90", "10:00 stop" }, "contradict"),
-      "cross-cutting infeasible"
+      fires({ "--- log q=15 ---", "09:00 work #T @L !T[]120 !L[]90", "10:00 stop" }, "contradicts"),
+      "claims over the same entry stating different totals"
     )
+    t.ok(
+      fires({ "--- log q=15 ---", "08:00 x round+1 !S[]60", "09:00 done" }, "round nudge"),
+      "a nudge on a claimed row"
+    )
+
+    -- An off-grid value is a FACT, not a problem: it displays verbatim and raises nothing.
+    local off_grid = { "--- log q=15 ---", "08:00 x #a !S[]7", "09:00 done" }
+    local analysis = analyze.analyze(document.parse(off_grid))
+    t.eq(analyze.find_block_diagnostic(analysis, analyze.get_active_log(analysis)), nil)
+    t.ok(row_line(rendered(off_grid), "0.12h (+53m) x !S[]") ~= nil, "the claim shows as written")
+
     local clean = { "--- log q=15 ---", "08:00 x #a @o !S[]60", "09:00 done" }
-    t.eq(#summary.logging_diagnostics(active(clean)), 0)
+    local clean_analysis = analyze.analyze(document.parse(clean))
+    t.eq(analyze.find_block_diagnostic(clean_analysis, analyze.get_active_log(clean_analysis)), nil)
   end)
 
   -- A forward edit and its inverse return the buffer to base, byte-for-byte. rename/map act on the
@@ -281,104 +285,5 @@ return function(t)
       ),
       "balance +N/-N"
     )
-  end)
-
-  -- Cross-cutting per-location logging. constrained_quantize enforces (and fine_grained_quantized reads)
-  -- an !S per (text, tag, location), but the feasibility guard checked the location-aggregated cell -- so
-  -- one location's !S could be pulled below its committed value, masked by another location's surplus,
-  -- with no warning, and fine_grained's per-slice value silently drifting from the on-disk marker. The
-  -- synth never puts one activity in two locations, so this targeted generator does.
-  local function mstr(m)
-    return string.format("%02d:%02d", math.floor(m / 60), m % 60)
-  end
-
-  local function gen_cross_cutting(rng)
-    local q = rng:choice({ 15, 30, 60 })
-    local cur = rng:int(0, 8) * 60
-    local lines = { "--- log q=" .. q .. " ---" }
-    local tag_done, loc_done, slice_done = {}, {}, {}
-    for _ = 1, rng:int(3, 6) do
-      local text = rng:choice({ "A", "B" })
-      local tag = rng:choice({ "x", "y" })
-      local loc = rng:choice({ "a", "b" })
-      local dur = rng:int(1, 4) * q
-      if cur + dur >= syntax.END_OF_DAY_MINUTES then
-        break
-      end
-      local markers = ""
-      -- One !S per slice: same-slice markers are last-wins, not summed, so a second would read as drift.
-      local skey = text .. "|" .. tag .. "|" .. loc
-      if not slice_done[skey] and rng:chance(0.6) then
-        slice_done[skey] = true
-        markers = markers .. " !S[]" .. (rng:int(0, 4) * q)
-      end
-      if not tag_done[tag] and rng:chance(0.5) then
-        tag_done[tag] = true
-        markers = markers .. " !T[]" .. (rng:int(1, 6) * q)
-      end
-      if not loc_done[loc] and rng:chance(0.5) then
-        loc_done[loc] = true
-        markers = markers .. " !L[]" .. (rng:int(1, 6) * q)
-      end
-      lines[#lines + 1] = mstr(cur) .. " " .. text .. " #" .. tag .. " @" .. loc .. markers
-      cur = cur + dur
-    end
-    if #lines < 3 then
-      return nil
-    end
-    lines[#lines + 1] = mstr(cur) .. " done"
-    return lines
-  end
-
-  -- On a log the code treats as clean (no logging diagnostics), every !S slice's fine_grained committed
-  -- value must equal its on-disk marker; a drift is the silent per-location feasibility bug.
-  local function feasibility_drift(lines)
-    local analysis = analyze.analyze(document.parse(lines))
-    if #analysis.diagnostics > 0 then
-      return nil
-    end
-    local block = analyze.get_active_log(analysis)
-    if not block or #summary.logging_diagnostics(block) > 0 then
-      return nil
-    end
-    local committed = {}
-    for _, r in ipairs(summary.fine_grained_quantized(block.entries, block.quantize_minutes)) do
-      if r.logged_minutes ~= nil then
-        local key = (r.text or "") .. "|" .. (r.tag or "") .. "|" .. (r.location or "")
-        committed[key] = (committed[key] or 0) + r.logged_minutes
-      end
-    end
-    for _, e in ipairs(block.entries) do
-      local v = syntax.committed_minutes(e.logged and e.logged.s)
-      if v then
-        local key = summary.entry_summary_text(e)
-          .. "|"
-          .. (e.tag or "")
-          .. "|"
-          .. (e.location or "")
-        if (committed[key] or 0) ~= v then
-          return string.format(
-            "slice %s: fine_grained committed %s but the marker is !S%d (no warning)",
-            key,
-            tostring(committed[key]),
-            v
-          )
-        end
-      end
-    end
-    return nil
-  end
-
-  t.test("a per-location !S never silently drifts from its fine_grained value (fuzz)", function()
-    local master = Rng.new(20260711)
-    for _ = 1, 2000 do
-      local lines = gen_cross_cutting(Rng.new(master:int(1, 2147483646)))
-      if lines then
-        local err = feasibility_drift(lines)
-        if err then
-          error(err .. "\n--- log ---\n" .. table.concat(lines, "\n"), 0)
-        end
-      end
-    end
   end)
 end

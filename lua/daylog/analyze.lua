@@ -1,3 +1,4 @@
+local claims = require("daylog.claims")
 local syntax = require("daylog.syntax")
 
 local M = {}
@@ -124,6 +125,7 @@ local function semantic_entry_from_node(node, current_tag, current_location, cur
 end
 
 local function analyze_entry_items(block, diagnostics)
+  local sound_before = #diagnostics
   local entry_items = {}
   local entries = {}
   local current = nil
@@ -154,6 +156,16 @@ local function analyze_entry_items(block, diagnostics)
           severity = "error",
           row = node.row,
           message = "a blank entry cannot carry a tag, location, marker, alias, or round nudge",
+        })
+      end
+
+      -- A claim freezes its row's display, so a nudge there could only silently shift OTHER rows.
+      if node.text ~= "" and node.logged ~= nil and node.nudge ~= nil and node.nudge ~= 0 then
+        push_diagnostic(diagnostics, {
+          code = syntax.DIAGNOSTIC.NUDGE_ON_LOGGED,
+          severity = "error",
+          row = node.row,
+          message = "a round nudge cannot sit on a logged entry; drop the nudge or unlog the entry",
         })
       end
 
@@ -228,6 +240,20 @@ local function analyze_entry_items(block, diagnostics)
           .. "header (or remove it) so the whole log is timezone-consistent",
       })
       break
+    end
+  end
+
+  -- Claims are judged last and only on an otherwise sound block: the pass reads durations, which a
+  -- broken order, a stray midnight, or a mixed offset makes meaningless.
+  if #diagnostics == sound_before then
+    local conflict = claims.conflict(entries, block.quantize_minutes)
+    if conflict then
+      push_diagnostic(diagnostics, {
+        code = syntax.DIAGNOSTIC.LOGGED_VALUE_CONFLICT,
+        severity = "error",
+        row = conflict.row,
+        message = conflict.message,
+      })
     end
   end
 

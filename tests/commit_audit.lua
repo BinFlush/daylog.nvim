@@ -149,48 +149,6 @@ return function(t)
     end
   )
 
-  t.test("a committed logging warning (not just a structural one) sets needs_review", function()
-    -- An over-commitment (`!S[]7` on a 60-min cell) is structurally valid, so the old structural-only
-    -- check missed it; refresh_summaries surfaces it as a "no longer fits" warning the buffer shows too,
-    -- and the reason carries that text.
-    local broken = { "--- log q=15 ---", "08:00 x #a !S[]7", "09:00 done" }
-    local result = one(TODAY, LOG, broken)
-    t.eq(result.needs_review, true)
-    local mentioned = false
-    for _, reason in ipairs(result.reasons) do
-      if reason:find("no longer fits", 1, true) then
-        mentioned = true
-      end
-    end
-    t.ok(mentioned, "the reason names the warning")
-  end)
-
-  t.test("a logging warning in an earlier (non-active) log still sets needs_review", function()
-    -- The active (latest) log is clean; the earlier log carries the over-commitment. The scan spans
-    -- every block, so it is still flagged, while classification stays notes (the active log is unchanged).
-    local old = {
-      "--- log q=15 ---",
-      "08:00 x #a",
-      "09:00 done",
-      "",
-      "--- log ---",
-      "10:00 clean",
-      "11:00 done",
-    }
-    local new = {
-      "--- log q=15 ---",
-      "08:00 x #a !S[]7",
-      "09:00 done",
-      "",
-      "--- log ---",
-      "10:00 clean",
-      "11:00 done",
-    }
-    local result = one(TODAY, old, new)
-    t.eq(result.classification, "notes")
-    t.eq(result.needs_review, true)
-  end)
-
   t.test("changes to non-day files are ignored", function()
     local result = audit.classify({
       { path = "README.md", old_lines = { "a" }, new_lines = { "b" } },

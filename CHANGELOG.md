@@ -22,6 +22,52 @@ happen, but they are called out clearly in this changelog.
 
 ## Unreleased
 
+### Changed
+
+- **BREAKING: a logged marker records a fact, not a commitment.** `!S[names]V` now states that V
+  minutes of a slice were logged externally; the summary reports that number verbatim and its
+  `(±Nm)` shows the difference to what the clock measured. A claim no longer bends the rounding of
+  anything: every counted entry holds one displayed share — its honest quantized split unless a claim
+  pins it — and every section sums those same shares under its own partition, so all four always foot
+  identically in displayed time *and* in residuals. Claims pin finest-to-coarsest (`!S` → `!T` → `!L`
+  → `!W`), each distributing only what the finer ones left. Under-reporting and over-reporting are
+  ordinary, legal facts: the delta is information, not an error. Existing `.day` files reparse
+  unchanged, but their generated summaries change — commitments no longer absorb into a remaining
+  slice, inflate a cell, or fall back when they contradict.
+- **BREAKING: a logged marker must carry its minutes.** A valueless `!S[]` is no longer a marker at
+  all; it is an invalid entry. Fix by writing the minutes or deleting the marker. (`:Daylog log` has
+  always written them, so only hand-typed markers are affected.)
+- **BREAKING: a `round±N` on a logged entry is refused.** A claim freezes its row's display, so a
+  nudge there could only shift *other* rows silently. `:Daylog balance` now nudges only rows whose
+  entries are entirely marker-free, and `:Daylog log` absorbs any nudge it freezes over — the nudge's
+  effect is already inside the number being frozen, so nothing on screen moves.
+- **Summary rows split per granule (activity, tag, location), naming the location only when one is
+  needed to tell two rows apart.** An activity worked in two places is two rows — matching what
+  `:Daylog log` freezes for each — and the existing tag-disambiguation rule now covers locations too.
+  A day where every activity stays in one place renders exactly as before.
+- **A rename refuses on entries logged at a level it would rewrite.** A claim names the identity it
+  was logged under, so a tag rename refuses on `!S`/`!T`-marked entries and a location rename on
+  `!S`/`!L`-marked ones; unlog first. Markers at other levels ride through, so a day logged only to
+  the workday renames freely.
+- **Unlogging merges colliding claims by summing them.** Removing a name that leaves a slice matching
+  a sibling claim of the same cell now merges the two and adds their values — the surviving ledgers
+  received both amounts — instead of silently losing one or leaving the file contradicting itself.
+- **Command-driven inserts join a claim they fit.** A picker insert or `:Daylog repeat` that lands in
+  a claimed cell copies that claim when doing so brings it at least as close to its stated value —
+  evaluated independently at every level, and only while the block still resolves, so an insert can
+  never write a contradiction. Splitting a claimed interval therefore keeps the claim whole.
+
+### Removed
+
+- **The commitment machinery.** Constrained quantization, the feasibility fallback, surplus
+  inflation, the committed-cell/remainder split, and the advisory logging diagnostics (off-grid
+  frozen values, drift, cross-level infeasibility) are gone. An off-grid value is now simply a fact,
+  displayed as written. Contradictory claims — one slice stating two values, or a claim contradicting
+  the finer claims inside it — are a blocking diagnostic instead of a warning: the summary is not
+  rebuilt and entry commands refuse until it is fixed.
+- **No command writes a value above 1440.** Logging or unlogging that would exceed a day's minutes is
+  refused rather than producing an invalid entry.
+
 ### Fixed
 
 - **A time bar label's colour swatch is never shown half onto a neighbour's colour.** The swatch was

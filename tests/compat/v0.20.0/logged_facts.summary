@@ -1,0 +1,24 @@
+--- log #ClientA q=15 ---
+08:00 standup !S[jira]30T[boss]450W[ts]450
+08:30 build auth @home !S[jira]330T[boss]450W[ts]450
+12:00
+12:30 review PRs @office !S[jira]90T[boss]450W[ts]450
+14:00 build auth @home !S[jira]330T[boss]450W[ts]450
+16:00
+
+
+--- summary q=15 d=dec ---
+5.50h (+0m) build auth !S[jira]
+1.50h (+0m) review PRs !S[jira]
+0.50h (+0m) standup !S[jira]
+
+--- tags ---
+7.50h (+0m) #ClientA !T[boss]
+
+--- locations ---
+5.50h (+0m) @home
+1.50h (+0m) @office
+0.50h (+0m) (no location)
+
+--- totals ---
+7.50h (+0m) workday !W[ts]

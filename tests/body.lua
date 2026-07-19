@@ -57,13 +57,13 @@ return function(t)
   t.test("body normalized lines preserve !S[] and canonicalize it after metadata", function()
     local block = block_from_lines({
       "--- log #ProjectOrion @office ---",
-      "08:00 first !S[] #sales",
-      "09:00 done !S[]",
+      "08:00 first !S[]60 #sales",
+      "09:00 done !S[]60",
     })
 
     t.eq(body.normalized_lines(block, entry.format), {
-      "08:00 first #sales !S[]",
-      "09:00 done !S[]",
+      "08:00 first #sales !S[]60",
+      "09:00 done !S[]60",
     })
   end)
 

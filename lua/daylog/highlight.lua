@@ -104,18 +104,13 @@ end
 
 -- Rows to flag red because a block is broken: the offending source line(s) and the whole summary
 -- region of any block carrying such an error, so a suspect summary reads as untrustworthy and clears
--- when the error is fixed. Reuses the analyzer's diagnostics plus the shared
--- `summary.logging_diagnostics`, so the red never disagrees with the refresh warning.
+-- when the error is fixed. Reuses the analyzer's diagnostics, so the red never disagrees with the
+-- refresh warning.
 local function error_rows(analysis)
   local red = {}
   local nodes = analysis.document.nodes
 
   for _, block in ipairs(analysis.log_blocks) do
-    local logging = summary.logging_diagnostics(block)
-    for _, diagnostic in ipairs(logging) do
-      red[diagnostic.row] = true
-    end
-
     -- A block-level structural error points at its offending line(s); red them only when they are
     -- entries -- a header problem falls back on its own highlighting and must not be painted red.
     local structural = analyze.find_block_diagnostic(analysis, block)
@@ -131,7 +126,7 @@ local function error_rows(analysis)
       end
     end
 
-    if #logging > 0 or structural then
+    if structural then
       local region = summary_block.find(analysis, block)
       if region then
         for row = region.start_row, region.end_row - 1 do

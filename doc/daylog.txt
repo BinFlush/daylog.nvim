@@ -140,15 +140,14 @@ Rules:
   or `!W[]` (the workday). The brackets are MANDATORY -- an unnamed marker is the explicit `!S[]`,
   carrying the unnamed name: `!S[]` is the set `{unnamed}`, so "logged, no name" is visible and
   distinct from an unlogged row. A plain `!S` with no brackets is not a marker; it reads as
-  ordinary activity text. An optional minute count -- `!S[]<minutes>`, written by |:Daylog-log| --
-  freezes that level's row at its committed value, so appending later entries can never restate it
-  (see below); without it the marker is logged but unfrozen. An entry may carry several levels in
-  one compact token, in `S T L W` order: `!S[]225T[]525W[]525` (mixing frozen and valueless, e.g.
-  `!S[]60T[]`). The separated form `!S[]225 !T[]525 !W[]525` parses too; the writer always emits
-  the compact, bracketed token.
+  ordinary activity text. The minute count is MANDATORY -- `!S[]<minutes>`, normally written by
+  |:Daylog-log| -- and states how many minutes of that slice were logged: it is the SLICE total,
+  repeated verbatim on every entry of the slice, never a per-entry amount. An entry may carry
+  several levels in one compact token, in `S T L W` order: `!S[]225T[]525W[]525`. The separated
+  form `!S[]225 !T[]525 !W[]525` parses too; the writer always emits the compact, bracketed token.
 - A logged marker may carry a bracketed name-set -- `!T[jira,boss]` -- recording who or what the
   slice was reported to, at any level (`!S[a]`, `!T[a,b]`, `!L[a]`, `!W[a]`; names precede the
-  optional frozen value, `!T[jira]525`). A name is letters, digits, underscores, and hyphens; the
+  value, `!T[jira]525`). A name is letters, digits, underscores, and hyphens; the
   list is a set, so duplicates drop and names render in canonical sorted order. An EMPTY element is
   the unnamed name and sorts first, so `!S[,hey]` is the set `{unnamed, hey}` -- "reported to no one"
   is a first-class member you can hold alongside real names. The name-set is part of the row's
@@ -167,35 +166,37 @@ Rules:
 - If no duration option is present, summaries default to decimal hours such as
   `1.50h`.
 
-Logged markers are preserved by source rewrites such as copy and order. Each summary section
-splits a committed cell by its own level: the summary rows by `!S[]`, the tag totals by `!T[]`, the
-location totals by `!L[]` -- a reported slice (shown at its committed value) and a remaining slice.
-A logged row renders with its level's marker (a logged tag row `... #ClientA !T[]`, or `... #ClientA
-!T[jira]` for a named slice; the marker carries the name-set but never the frozen minutes, which
-live only on the entry line). A named slice is its own row: `#ClientA !T[jira]` and `#ClientA
-!T[boss]` split the cell into two reported rows beside its remaining slice. Because the levels are
-independent, logging an
-activity's summary does not change what its tag or location reports; you log those separately. A
-valueless marker (`!T[]` with no number) just flags the row logged; only a committed value splits it.
-All four sections are one shared quantization, so they always foot to the same total: a
-commitment that reports more or less than the honest rounding is taken up by the remaining slice,
-and an over-commitment beyond the cell's tracked time inflates it and propagates to every
-section.
+Logged markers are preserved by source rewrites such as copy and order. A marker states a FACT, and
+the summary reports it verbatim against the clock: the row shows the claimed value and its `(±Nm)`
+shows the difference to what was measured. Under-reporting, over-reporting, and exact agreement are
+all legal -- the difference is information, not an error.
 
-Quantization normally distributes each log's rounding by largest remainder
-across every row at once, so adding an entry can shift the rounded duration of
-an unrelated earlier row. A frozen `!S[]<minutes>` row is instead held at exactly
-that value and pulled out of that pool: the remaining rounding is shared only
-among the un-frozen rows, the displayed total stays the honest rounded total,
-and a committed value never moves. If a frozen value later stops reconciling
-with its log -- the bucket `q=` changed, an edit altered the logged interval, or
-activity was deleted -- |:Daylog-refresh| warns so you can re-run |:Daylog-log| to
-recommit.
+Each section splits its cell by its own level: the summary rows by `!S`, the tag totals by `!T`, the
+location totals by `!L`, the workday by `!W` -- one row per claim, beside the plain row holding
+whatever the claims do not cover. A claim row renders with its level's marker (a logged tag row
+`... #ClientA !T[]`, or `... #ClientA !T[jira]` for a named slice; the marker carries the name-set
+but never the minutes, which live only on the entry line). A named slice is its own row: `#ClientA
+!T[jira]` and `#ClientA !T[boss]` are two claim rows on one tag. The levels are independent, so
+logging an activity does not change what its tag or location reports; you log those separately.
 
-When one activity has several logged intervals, they share a single committed
-value -- |:Daylog-log| writes the same `!S[]<minutes>` onto every contributing entry.
-If a hand edit leaves them disagreeing, only the first would otherwise count, so
-|:Daylog-refresh| warns instead; re-run |:Daylog-log| on that row to make them agree.
+A claimed value flows into every section, not just the one that names it -- it IS the displayed time
+of its entries. All four sections therefore always foot to the same total, and their residuals sum
+alike. A claimed value is never rounded: `!S[]37` under `q=15` displays 37 minutes, since only
+unclaimed rows sit on the `q=` grid.
+
+|:Daylog-log| freezes exactly the number the cursor row displays, so logging changes nothing on
+screen -- every value in a file was once a number you saw. Logging a plain row whose cell already
+carries a claim of the same names merges the two into one row restating the sum. The day's closing
+entry starts no interval, so it is never stamped. |:Daylog-log!| removes names and clears the marker
+with the last of them; if the names left behind match a sibling claim, the two merge and their
+values sum, so nothing logged is lost.
+
+Claims that cannot all be true stop the summary being rebuilt until you fix them, and
+|:Daylog-refresh| reports why. That happens when one slice's entries state different values, or when
+a claim contradicts the finer claims covering the same entries -- a `!W` of 240 over a day that
+already contains an `!S` of 300. A `round±N` on a logged entry is refused the same way: a claim
+freezes its row's display, so a nudge there could only shift other rows silently. |:Daylog-balance|
+never writes one, and |:Daylog-log| absorbs any nudge it freezes over.
 
 ==============================================================================
 STICKY METADATA                                      *daylog-sticky-metadata*

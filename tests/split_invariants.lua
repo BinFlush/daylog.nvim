@@ -88,8 +88,15 @@ return function(t)
 
   local function check(seed, mode)
     local wl = synth.generate(Rng.new(seed), mode)
-    local block = analyze.get_active_log(analyze.analyze(document.parse(wl.lines)))
+    local analysis = analyze.analyze(document.parse(wl.lines))
+    local block = analyze.get_active_log(analysis)
     if not block then
+      return nil
+    end
+
+    -- A log whose claims contradict each other is never summarized and every entry command refuses
+    -- it, split included -- that is the specified behaviour, not a split bug. Skip it.
+    if analyze.find_block_diagnostic(analysis, block) then
       return nil
     end
 

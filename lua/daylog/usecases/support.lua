@@ -1,5 +1,6 @@
 local analyze = require("daylog.analyze")
 local body = require("daylog.body")
+local claims = require("daylog.claims")
 local context = require("daylog.context")
 local diagnostics = require("daylog.diagnostics")
 local document = require("daylog.document")
@@ -166,6 +167,94 @@ function M.insert_entry_edit(block, minutes, inserted_line, ins_tag, ins_loc, in
   return { edits = edits }
 end
 
+-- The row a trial entry is stamped with while auto-marking: no real entry can hold it, so the span
+-- it produces is findable among the block's own.
+local TRIAL_ROW = -1
+
+local function trial_span(spans)
+  for index, span in ipairs(spans) do
+    if span.source_entry_row == TRIAL_ROW then
+      return index
+    end
+  end
+  return nil
+end
+
+-- The one claim on the trial entry's cell at `level`, or nil when the cell holds none (nothing to
+-- join) or several (which to join would be a guess).
+local function sole_claim(spans, level, index)
+  local cell = claims.CELL[level](spans[index])
+  local found
+  for _, claim in ipairs(claims.claims_at(spans, level)) do
+    if claims.CELL[level](spans[claim.members[1]]) == cell then
+      if found then
+        return nil
+      end
+      found = claim
+    end
+  end
+  return found
+end
+
+-- Whether adding the trial's minutes brings the claim at least as close to its stated value as
+-- leaving them out. A tie joins: an insert that neither helps nor hurts belongs with its slice.
+local function joins_better(spans, claim, index)
+  local measured = 0
+  for _, member in ipairs(claim.members) do
+    measured = measured + spans[member].duration
+  end
+
+  local added = spans[index].duration
+  return math.abs(measured + added - claim.value) <= math.abs(measured - claim.value)
+end
+
+-- The logged table an inserted entry inherits, or nil. A command-driven insert joins the claim its
+-- new minutes bring closer to what it states -- evaluated per level independently, so one insert may
+-- join claims at several. Verdicts apply finest-to-coarsest and each is kept only while the block
+-- still resolves: they land on ONE entry, where a finer claim's share can leave a coarser one no
+-- room, and an insert must never write a conflict. Hand-typed entries are the author's own.
+function M.auto_mark(block, fields, minutes)
+  local entries, at = {}, #block.entries + 1
+  for index, semantic in ipairs(block.entries) do
+    entries[index] = semantic
+    if at > #block.entries and semantic.minutes > minutes then
+      at = index
+    end
+  end
+
+  -- An insert landing last becomes the closing entry: it starts no interval, so it has no duration
+  -- to judge a claim's fit by.
+  if at > #block.entries then
+    return nil
+  end
+
+  local trial = {
+    minutes = minutes,
+    text = fields.text,
+    alias = fields.alias,
+    tag = fields.tag,
+    location = fields.location,
+    offset = fields.offset,
+    row = TRIAL_ROW,
+  }
+  table.insert(entries, at, trial)
+
+  for _, level in ipairs(syntax.LOGGED_LEVELS) do
+    local spans = claims.spans(entries)
+    local index = trial_span(spans)
+    local claim = index and sole_claim(spans, level, index)
+    if claim and joins_better(spans, claim, index) then
+      trial.logged = trial.logged or {}
+      trial.logged[level] = { minutes = claim.value, names = claim.names }
+      if claims.conflict(entries, block.quantize_minutes) then
+        trial.logged[level] = nil
+      end
+    end
+  end
+
+  return trial.logged and next(trial.logged) ~= nil and trial.logged or nil
+end
+
 -- Repeating from a SUMMARY row brings in only what the summary shows -- the resolved label (its alias
 -- when mapped, else its description) as a plain unmapped entry, never a surprise `lhs => rhs`. Returns a
 -- copy of the source item carrying that resolved label as its text with the alias stripped.
@@ -177,17 +266,18 @@ function M.resolved_bare_item(item)
 end
 
 -- Build the edit for a fresh entry repeating `source` at `minutes`: copy the source's metadata
--- (alias included) but take the new time, dropping any logged / round±N marker -- a repeat or
--- carryover is a new entry, not a continuation of the commitment. A drifted live offset
--- (`auto_offset`) overrides the copied source offset, attaching the `offset_change` the shell needs.
--- Shared by :Daylog repeat and the cross-day carryover seed.
+-- (alias included) but take the new time, dropping the source's own logged / round±N marker -- a
+-- repeat is a new entry, not a copy of someone else's claim. It may then JOIN a claim of the cell it
+-- lands in (auto_mark); a cross-day carryover seeds an empty block, where there is none to join. A
+-- drifted live offset (`auto_offset`) overrides the copied source offset, attaching the
+-- `offset_change` the shell needs. Shared by :Daylog repeat and the carryover seed.
 function M.fresh_entry_edit(block, source, minutes, auto_offset)
   local state = M.get_insert_state(block, minutes)
 
   local fields = analyze.copy_fields(source)
   fields.minutes = minutes
-  fields.logged = nil
   fields.nudge = nil
+  fields.logged = M.auto_mark(block, fields, minutes)
 
   local stamp = M.offset_stamp(state.offset, auto_offset)
   local ins_offset = source.offset

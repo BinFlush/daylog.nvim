@@ -289,7 +289,7 @@ return function(t)
   t.test("append_copy preserves !S[] and canonicalizes it after metadata", function()
     local result = append_copy.run({
       "--- log #ClientA @office ---",
-      "08:00 plan !S[] @client",
+      "08:00 plan !S[]60 @client",
       "09:00 done",
     })
 
@@ -302,7 +302,7 @@ return function(t)
             "",
             "",
             "--- log #ClientA @office ---",
-            "08:00 plan @client !S[]",
+            "08:00 plan @client !S[]60",
             "09:00 done",
             "",
             "",
@@ -506,10 +506,13 @@ return function(t)
     })
   end)
 
-  t.test("repeat_current usecase does not propagate !S[]", function()
+  -- A repeat splits the interval a claim already covers, so the new entry joins it: one slice, still
+  -- claiming 60 in total. The claim's own value is never copied blindly -- see the drift cases in
+  -- tests/logged_facts.lua.
+  t.test("repeat_current joins the claim it splits", function()
     local result = repeat_current.run({
       "--- log #ClientA @office ---",
-      "08:00 planning !S[]",
+      "08:00 planning !S[]60",
       "09:00 done",
     }, 2, "08:30")
 
@@ -518,7 +521,7 @@ return function(t)
         {
           start_index = 2,
           end_index = 2,
-          lines = { "08:30 planning" },
+          lines = { "08:30 planning !S[]60" },
         },
       },
     })
@@ -572,9 +575,9 @@ return function(t)
   end)
 
   t.test("repeat_current repeats the latest source entry behind a summary row", function()
-    -- "implementation" is logged at @home then later at @office; repeating the
-    -- summary row must replay the latest occurrence (@office), which matches the
-    -- sticky location at insert time and so needs no @location token.
+    -- "implementation" runs at @home then later at @office, so it reports as two rows named by
+    -- their place. Repeating the @office row replays that occurrence, which matches the sticky
+    -- location at insert time and so needs no @location token.
     local result = repeat_current.run({
       "--- log ---",
       "08:00 implementation @home",
@@ -583,7 +586,8 @@ return function(t)
       "11:00 done",
       "",
       "--- summary q=15 d=dec ---",
-      "2.00h (+0m) implementation",
+      "1.00h (+0m) implementation @home",
+      "1.00h (+0m) implementation @office",
       "1.00h (+0m) meeting",
       "",
       "--- locations ---",
@@ -592,7 +596,7 @@ return function(t)
       "",
       "--- totals ---",
       "3.00h (+0m) workday",
-    }, 8, "11:30")
+    }, 9, "11:30")
 
     t.eq(result, {
       edits = {
@@ -822,7 +826,7 @@ return function(t)
     local result = order_logs.run({
       "--- log #sales ---",
       "09:00 done",
-      "08:00 plan !S[]",
+      "08:00 plan !S[]60",
     })
 
     t.eq(result, {
@@ -831,7 +835,7 @@ return function(t)
           start_index = 1,
           end_index = 3,
           lines = {
-            "08:00 plan !S[]",
+            "08:00 plan !S[]60",
             "09:00 done",
           },
         },
@@ -1006,24 +1010,6 @@ return function(t)
       t.eq(blank_marked, false)
       t.eq(diagnostics, 0)
     end
-  end)
-
-  t.test("log on a committed cell's drift remainder names the real remedy", function()
-    -- The cell is fully marked (!S[]60) but its real time grew to 67m; the 15m remainder row
-    -- has no unlogged source entries, so logging it must explain itself -- "regenerate the
-    -- summary" (the stale message) reproduces the very same row.
-    local refresh_summaries = require("daylog.usecases.refresh_summaries")
-    local base = { "--- log ---", "00:00 logged item !S[]60", "01:07 other task", "01:09 done" }
-    local buf = support.apply_edits(base, refresh_summaries.run(base).edits)
-    local row
-    for i, line in ipairs(buf) do
-      if line:find(") logged item", 1, true) and not line:find("!S[]", 1, true) then
-        row = i
-      end
-    end
-
-    local _, err = log_current.run(buf, row)
-    t.ok(err:find("unlog the !S row", 1, true) ~= nil, err)
   end)
 
   t.test("log_current leaves notes under entries untouched", function()
@@ -1279,7 +1265,7 @@ return function(t)
   t.test("log_current unmarks an already logged summary row", function()
     local result = log_current.run_unlog({
       "--- log ---",
-      "08:00 implementation !S[]",
+      "08:00 implementation !S[]60",
       "09:00 done",
       "",
       "--- summary q=15 d=dec ---",

@@ -228,9 +228,15 @@ return function(t)
       end
     end
 
-    -- Guard the guard: the synth always yields a valid log, so every round must
-    -- have actually materialized a summary (else the assertion above is vacuous).
-    t.ok(materialized_rounds == 3 * 300, "every round materialized a summary to mutate")
+    -- Guard the guard: a log whose claims contradict each other is deliberately not summarized, so
+    -- some rounds materialize nothing. Most must, or the assertion above is vacuous.
+    t.ok(
+      materialized_rounds > (3 * 300) / 2,
+      string.format(
+        "most rounds must materialize a summary to mutate (%d of 900)",
+        materialized_rounds
+      )
+    )
   end)
 
   -- Rung 2: refresh is idempotent -- one pass reaches a fixed point, so a second pass

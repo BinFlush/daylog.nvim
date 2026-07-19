@@ -10,6 +10,7 @@
 local cwd = vim.fn.getcwd()
 local Rng = dofile(cwd .. "/tests/rng.lua")
 local synth = dofile(cwd .. "/tests/log_synth.lua")
+local syntax = require("daylog.syntax")
 local document = require("daylog.document")
 local analyze = require("daylog.analyze")
 local summary = require("daylog.summary")
@@ -104,12 +105,24 @@ local function report(sub, mode, wl, fmt, rendered, msg)
   )
 end
 
--- Synthesize one log and check that every displayed section sums to its
--- total. Returns nil on success, or a detailed report string on failure.
+-- Synthesize one log and check that every displayed section sums to its total. Returns nil on
+-- success, a detailed report string on failure, or `nil, true` when the log's claims contradict each
+-- other -- an outcome the engine refuses to summarize, so there is nothing to foot.
 function M.check(sub, mode)
   local wl = synth.generate(Rng.new(sub), mode)
 
   local analysis = analyze.analyze(document.parse(wl.lines))
+
+  -- Claims the pinning pass cannot realize are a legitimate outcome: such a block is never
+  -- summarized, so the footing invariant does not apply to it. Skip it rather than fail, and tell
+  -- the caller so a generator that only ever contradicts itself cannot pass for coverage. EVERY
+  -- other diagnostic still fails -- those would be generator bugs.
+  for _, diagnostic in ipairs(analysis.diagnostics) do
+    if diagnostic.code == syntax.DIAGNOSTIC.LOGGED_VALUE_CONFLICT then
+      return nil, true
+    end
+  end
+
   if #analysis.diagnostics > 0 then
     local msg = "synth produced an invalid daylog: " .. diagnostics.message(analysis.diagnostics[1])
     return report(sub, mode, wl, "-", {}, msg)
@@ -209,41 +222,6 @@ function M.check(sub, mode)
         sum_field(s.summary_items, "error_minutes")
       )
     )
-  end
-
-  -- Commit consistency: the rows :Daylog log / balance freeze (summary.fine_grained_quantized) must carry
-  -- the DISPLAY's durations, so logging a row freezes exactly the value it shows and strands nothing.
-  -- Those rows split per (activity, location) so an `!S[]` commits per location; aggregating them back per
-  -- activity+names must match the summary items. (Compared by total, not the logged/unlogged split, which
-  -- differs harmlessly for a valueless `!S[]` marker coexisting with a committed value across locations.) This is
-  -- the exact drift behind the reported bug: frozen siblings under-committed, so a lone un-frozen row
-  -- absorbed the leftover buckets on screen but fine_grained rounded it to its own total.
-  local function activity_cell_totals(rows)
-    local totals = {}
-    for _, row in ipairs(rows) do
-      local key = table.concat({ row.text or "", row.tag or "", row.s_names_key or "" }, "\0")
-      totals[key] = (totals[key] or 0) + row.duration
-    end
-    return totals
-  end
-  local fg_total =
-    activity_cell_totals(summary.fine_grained_quantized(block.entries, block.quantize_minutes))
-  for key, shown in pairs(activity_cell_totals(s.summary_items)) do
-    if (fg_total[key] or 0) ~= shown then
-      return report(
-        sub,
-        mode,
-        wl,
-        "min",
-        {},
-        string.format(
-          "log-commit drift: activity cell %q freezes %d but shows %d",
-          key,
-          fg_total[key] or 0,
-          shown
-        )
-      )
-    end
   end
 
   -- Refresh fixpoint: summary regeneration is idempotent on raw text, so refreshing an

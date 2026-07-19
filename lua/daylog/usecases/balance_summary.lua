@@ -26,8 +26,8 @@ M.NOTHING = "daylog: nothing to balance on this line"
 M.SECTION_NOT_BALANCEABLE =
   "daylog: balance an activity or the workday total; a tag or location row can't be the balance target"
 
--- The set of fine-grained rows a cursor line governs: a main row scopes its own
--- (text, tag) across locations; the workday total scopes every counted row.
+-- The set of summary rows a cursor line governs: a main row scopes itself (rows split per
+-- granule, so its own label at its own tag and location); the workday total scopes every row.
 local function scope_for(layout_row)
   local kind = layout_row.kind
   local item = layout_row.item
@@ -37,11 +37,12 @@ local function scope_for(layout_row)
     return function(row)
       return row.text == item.text
         and row.tag == item.tag
+        and row.location == item.location
         and (row.logged == true) == (item.logged == true)
     end
   elseif kind == K.TOTAL then
-    -- The frozen (!W) totals slice is pinned; refuse it rather than silently nudge the
-    -- unlogged slice, which is the real target and scopes every counted row.
+    -- A claimed (!W) totals slice is pinned; refuse it rather than silently nudge the
+    -- plain slice, which is the real target and scopes every counted row.
     if item and item.logged then
       return nil, M.ONLY_LOGGED
     end
@@ -63,9 +64,10 @@ local function plan_steps(rows, scope, bucket_minutes, delta)
   for i, row in ipairs(rows) do
     local base = math.floor(row.unrounded_duration / bucket_minutes) * bucket_minutes
     local in_scope = scope(row) and row.source_entry_rows ~= nil and #row.source_entry_rows > 0
-    -- A frozen logged row can never absorb a step; drop it but remember it was here, so
-    -- an exhausted balance can report *why* (logged, not empty).
-    if in_scope and row.logged_minutes ~= nil then
+    -- A row is nudgeable only while every one of its entries is marker-free: a nudge on a
+    -- logged entry is refused outright, and a claim would override the shift anyway. Remember
+    -- one was here, so an exhausted balance can report *why* (logged, not empty).
+    if in_scope and row.marked then
       has_frozen_in_scope = true
       in_scope = false
     end
@@ -161,7 +163,8 @@ local function summary_entry_changes(block, layout_row, delta)
     return nil, scope_err or M.NOTHING
   end
 
-  local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+  local totals = summary.summarize_block(block)
+  local rows, bucket_minutes = totals.summary_items, totals.bucket_minutes
 
   local current_entry_nudge = current_nudges(block)
 
@@ -191,16 +194,16 @@ end
 -- row it belongs to, setting every interval. Returns nil when the cursor entry starts no
 -- interval (e.g. the day's closing entry) and so contributes to no row.
 local function entry_direct_changes(block, cursor_row, delta)
-  local rows, bucket_minutes = summary.fine_grained_quantized(block.entries, block.quantize_minutes)
+  local totals = summary.summarize_block(block)
+  local rows, bucket_minutes = totals.summary_items, totals.bucket_minutes
 
   local current_entry_nudge = current_nudges(block)
 
   for _, row in ipairs(rows) do
     for _, source_row in ipairs(row.source_entry_rows or {}) do
       if source_row == cursor_row then
-        -- A frozen logged row's nudge is ignored by the quantizer; refuse rather than
-        -- write a marker that does nothing.
-        if delta ~= 0 and row.logged_minutes ~= nil then
+        -- A nudge on a logged entry is refused outright; never write one here either.
+        if delta ~= 0 and row.marked then
           return nil, M.ONLY_LOGGED
         end
         -- Refuse a round-down that would drive the displayed duration below 0 (as

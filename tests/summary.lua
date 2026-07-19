@@ -14,20 +14,6 @@ return function(t)
     return analysis.log_blocks[index]
   end
 
-  t.test("an over-committed cell's inert round nudge renders on no section", function()
-    -- The single 60m granule is over-committed (!S[]120 forces 120), so the round+1 changes nothing and
-    -- must not leak a `round+1` marker onto the tag/location/workday rows (the main row already omits it).
-    local s = summary.summarize_block(block_from_lines({
-      "--- log q=15 ---",
-      "08:00 work #proj @office round+1 !S[]120",
-      "09:00 done",
-    }))
-    t.eq(s.summary_items[1].nudge, nil)
-    t.eq(s.tag_totals[1].nudge, nil)
-    t.eq(s.location_totals[1].nudge, nil)
-    t.eq(s.total_rows[1].nudge, nil)
-  end)
-
   local function total_duration(items)
     local total = 0
 
@@ -44,10 +30,25 @@ return function(t)
     test.eq(total_duration(result.location_totals), result.activity_total)
   end
 
-  -- The single summary type is quantized; "exact" is just q=1 (rounding is a
-  -- no-op on whole-minute durations). These helpers assert the unrounded shape by
-  -- computing at q=1 and dropping the now-zero error fields.
+  -- The single summary type is quantized; "exact" is just q=1 (rounding is a no-op on whole-minute
+  -- durations). These helpers assert the unrounded SHAPE, so they compute at q=1 and drop the
+  -- now-zero error fields, the echoed bucket, and the coarser sections' provenance (asserted on its
+  -- own; the main rows keep theirs).
+  -- The echoed bucket and the coarser sections' provenance are derived plumbing, asserted on their
+  -- own; a shape assertion drops them so it reads as the report the user sees.
+  local function shape(result)
+    local groups = { result.tag_totals, result.location_totals, result.total_rows }
+    for _, group in ipairs(groups) do
+      for _, item in ipairs(group) do
+        item.source_entry_rows = nil
+      end
+    end
+    result.bucket_minutes = nil
+    return result
+  end
+
   local function strip_errors(result)
+    shape(result)
     local groups =
       { result.summary_items, result.tag_totals, result.location_totals, result.total_rows }
 
@@ -83,6 +84,7 @@ return function(t)
         {
           text = "plan",
           tag = "ProjectOrion",
+          location = "office",
           duration = 30,
           unrounded_duration = 30,
           source_entry_rows = { 2 },
@@ -90,6 +92,7 @@ return function(t)
         {
           text = "call",
           tag = "sales",
+          location = "client",
           duration = 30,
           unrounded_duration = 30,
           source_entry_rows = { 3 },
@@ -142,6 +145,7 @@ return function(t)
         {
           text = "break",
           tag = "ooo",
+          location = "home",
           duration = 60,
           unrounded_duration = 60,
           source_entry_rows = { 2 },
@@ -188,125 +192,6 @@ return function(t)
     })
   end)
 
-  t.test(
-    "summary flags a valueless !S[] row as logged without splitting, footing all sections",
-    function()
-      -- A valueless marker (`!S[]` with no number) only flags its cell as logged; it renders one
-      -- honest row per activity, and every section foots to the shared activity total. The
-      -- trailing blank marks uncounted time and lands in no section.
-      local block = block_from_lines({
-        "--- log #ClientA @office ---",
-        "08:00 implementation !S[]",
-        "09:00 implementation",
-        "10:00",
-        "10:30 done",
-      })
-
-      t.eq(summarize_exact(block), {
-        summary_items = {
-          {
-            text = "implementation",
-            tag = "ClientA",
-            duration = 120,
-            unrounded_duration = 120,
-            logged = true,
-            names = { "" },
-            s_names_key = "",
-            source_entry_rows = { 2, 3 },
-          },
-        },
-        tag_totals = {
-          {
-            tag = "ClientA",
-            duration = 120,
-            unrounded_duration = 120,
-          },
-        },
-        location_totals = {
-          {
-            location = "office",
-            duration = 120,
-            unrounded_duration = 120,
-          },
-        },
-        total_rows = {
-          {
-            duration = 120,
-            unrounded_duration = 120,
-          },
-        },
-        activity_total = 120,
-      })
-    end
-  )
-
-  t.test("quantized summary summarizes semantic log blocks directly", function()
-    local block = block_from_lines({
-      "--- log @office q=30 ---",
-      "08:00 plan",
-      "08:12 call #sales @client",
-      "08:30 done",
-    })
-
-    t.eq(summary.summarize_block(block), {
-      summary_items = {
-        {
-          text = "call",
-          tag = "sales",
-          duration = 30,
-          unrounded_duration = 18,
-          error_minutes = -12,
-          source_entry_rows = { 3 },
-        },
-        {
-          text = "plan",
-          tag = nil,
-          duration = 0,
-          unrounded_duration = 12,
-          error_minutes = 12,
-          source_entry_rows = { 2 },
-        },
-      },
-      tag_totals = {
-        {
-          tag = "sales",
-          duration = 30,
-          unrounded_duration = 18,
-          error_minutes = -12,
-        },
-        {
-          tag = nil,
-          duration = 0,
-          unrounded_duration = 12,
-          error_minutes = 12,
-        },
-      },
-      location_totals = {
-        {
-          location = "client",
-          duration = 30,
-          unrounded_duration = 18,
-          error_minutes = -12,
-        },
-        {
-          location = "office",
-          duration = 0,
-          unrounded_duration = 12,
-          error_minutes = 12,
-        },
-      },
-      total_rows = {
-        {
-          duration = 30,
-          unrounded_duration = 30,
-          error_minutes = 0,
-        },
-      },
-      activity_total = 30,
-      activity_error_minutes = 0,
-    })
-  end)
-
   t.test("quantized summary supports 60 minute rounding", function()
     local block = block_from_lines({
       "--- log @office q=60 ---",
@@ -315,11 +200,12 @@ return function(t)
       "09:00 done",
     })
 
-    t.eq(summary.summarize_block(block), {
+    t.eq(shape(summary.summarize_block(block)), {
       summary_items = {
         {
           text = "call",
           tag = "sales",
+          location = "client",
           duration = 60,
           unrounded_duration = 40,
           error_minutes = -20,
@@ -328,6 +214,7 @@ return function(t)
         {
           text = "plan",
           tag = nil,
+          location = "office",
           duration = 0,
           unrounded_duration = 20,
           error_minutes = 20,
@@ -374,190 +261,12 @@ return function(t)
     })
   end)
 
-  t.test(
-    "quantized summary flags a valueless !S[] row logged, footing tag and location totals",
-    function()
-      local block = block_from_lines({
-        "--- log #ClientA @office q=30 ---",
-        "08:00 implementation !S[]",
-        "08:20 implementation",
-        "08:40",
-        "09:00 done",
-      })
-
-      t.eq(summary.summarize_block(block), {
-        summary_items = {
-          {
-            text = "implementation",
-            tag = "ClientA",
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-            logged = true,
-            names = { "" },
-            s_names_key = "",
-            source_entry_rows = { 2, 3 },
-          },
-        },
-        -- Every section is a projection of the one shared quantization, so the tag rows
-        -- foot to the same activity total (30); no section rounds on an independent base.
-        tag_totals = {
-          {
-            tag = "ClientA",
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-          },
-        },
-        location_totals = {
-          {
-            location = "office",
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-          },
-        },
-        total_rows = {
-          {
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-          },
-        },
-        activity_total = 30,
-        activity_error_minutes = 10,
-      })
-    end
-  )
-
-  t.test("quantized summary renders a valueless !S[] row as one honest logged row", function()
-    do
-      local block = block_from_lines({
-        "--- log #ClientA q=30 ---",
-        "08:00 implementation !S[]",
-        "08:20 implementation",
-        "08:40 done",
-      })
-
-      t.eq(summary.summarize_block(block), {
-        summary_items = {
-          {
-            text = "implementation",
-            tag = "ClientA",
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-            logged = true,
-            names = { "" },
-            s_names_key = "",
-            source_entry_rows = { 2, 3 },
-          },
-        },
-        tag_totals = {
-          {
-            tag = "ClientA",
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-          },
-        },
-        location_totals = {
-          {
-            location = nil,
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-          },
-        },
-        total_rows = {
-          {
-            duration = 30,
-            unrounded_duration = 40,
-            error_minutes = 10,
-          },
-        },
-        activity_total = 30,
-        activity_error_minutes = 10,
-      })
-    end
-  end)
-
   local function render_block(block)
     return render.summary_lines(summary.summarize_block(block), block.duration_format, {
       leading_blank = false,
       quantize_minutes = block.quantize_minutes,
     })
   end
-
-  t.test(
-    "a numeric commitment within a cell's honest total absorbs into the unlogged slice",
-    function()
-      -- #Beta honest 180, committed !T[]120: the logged slice shows 120 (-30m) and the unlogged
-      -- remainder 60 (+30m) absorbs the shortfall, so `design review`, `@home`, and the whole
-      -- day are unchanged and every section still foots to 330. The two #Beta slices group and
-      -- sort by the cell's 180 total (above #Acme's 150), so they render adjacently.
-      local block = block_from_lines({
-        "--- log q=15 ---",
-        "09:00 standup #Acme @office",
-        "09:30 auth bugfix #Acme @office",
-        "11:30",
-        "12:00 design review #Beta @home !T[]120",
-        "13:30 design review",
-        "15:00 done",
-      })
-
-      t.eq(render_block(block), {
-        "--- summary q=15 d=dec ---",
-        "3.00h (+0m) design review",
-        "2.00h (+0m) auth bugfix",
-        "0.50h (+0m) standup",
-        "",
-        "--- tags ---",
-        "2.00h (-30m) #Beta !T[]",
-        "1.00h (+30m) #Beta",
-        "2.50h (+0m) #Acme",
-        "",
-        "--- locations ---",
-        "3.00h (+0m) @home",
-        "2.50h (+0m) @office",
-        "",
-        "--- totals ---",
-        "5.50h (+0m) workday",
-      })
-
-      assert_activity_totals_match(t, summary.summarize_block(block))
-    end
-  )
-
-  t.test("a committed tag's logged and remainder slices render adjacently", function()
-    -- Regression: a flat duration sort splits #a's slices (2.50h remainder, 0.50h logged) around
-    -- #b's 1.00h row; grouping by tag keeps them adjacent, the group ordered by the cell's 180 total.
-    local block = block_from_lines({
-      "--- log q=15 ---",
-      "09:00 alpha #a @home !T[]30",
-      "12:00 beta #b @home",
-      "13:00 done",
-    })
-
-    t.eq(render_block(block), {
-      "--- summary q=15 d=dec ---",
-      "3.00h (+0m) alpha",
-      "1.00h (+0m) beta",
-      "",
-      "--- tags ---",
-      "2.50h (-150m) #a",
-      "0.50h (+150m) #a !T[]",
-      "1.00h (+0m) #b",
-      "",
-      "--- locations ---",
-      "4.00h (+0m) @home",
-      "",
-      "--- totals ---",
-      "4.00h (+0m) workday",
-    })
-
-    assert_activity_totals_match(t, summary.summarize_block(block))
-  end)
 
   t.test("a numeric commitment above a cell's honest total inflates and propagates", function()
     -- #Beta honest 90, committed !T[]120: there is no unlogged slack to absorb into, so the
@@ -593,43 +302,6 @@ return function(t)
     assert_activity_totals_match(t, summary.summarize_block(block))
   end)
 
-  t.test("an over-commitment with unlogged entries shows one footed residual", function()
-    -- #Beta = two `design review` intervals (180 real), but only the first carries !T[]240. The
-    -- commitment (240) exceeds the honest 180, so the cell inflates and propagates (+60 everywhere)
-    -- with no unlogged remainder row. The single `#Beta !T[]` row must then account for the WHOLE
-    -- cell's real (180), not just the marked interval's (90) -- otherwise its residual would read
-    -- -150m while `design review`/`@home`/`activity` (which show the same inflated time) read -60m.
-    local block = block_from_lines({
-      "--- log q=15 ---",
-      "09:00 standup #Acme @office",
-      "09:30 auth bugfix #Acme @office",
-      "11:30",
-      "12:00 design review #Beta @home !T[]240",
-      "13:30 design review",
-      "15:00 done",
-    })
-
-    t.eq(render_block(block), {
-      "--- summary q=15 d=dec ---",
-      "4.00h (-60m) design review",
-      "2.00h (+0m) auth bugfix",
-      "0.50h (+0m) standup",
-      "",
-      "--- tags ---",
-      "4.00h (-60m) #Beta !T[]",
-      "2.50h (+0m) #Acme",
-      "",
-      "--- locations ---",
-      "4.00h (-60m) @home",
-      "2.50h (+0m) @office",
-      "",
-      "--- totals ---",
-      "6.50h (-60m) workday",
-    })
-
-    assert_activity_totals_match(t, summary.summarize_block(block))
-  end)
-
   t.test("tag and location sections order rows by descending duration", function()
     -- A tag with a small logged (!T[]10) slice and a large unlogged slice: the sections
     -- sort purely by duration, so the larger unlogged row comes first. (There is no
@@ -648,41 +320,6 @@ return function(t)
     t.ok(result.tag_totals[1].duration >= result.tag_totals[2].duration, "sorted descending")
     t.eq(result.tag_totals[1].logged, nil)
     t.eq(result.tag_totals[2].logged, true)
-  end)
-
-  t.test("a frozen !S[] row holds its committed value when a later entry is appended", function()
-    -- The reported bug: logging "logged item" at 1.00h (60m), then appending a
-    -- 2-minute task, used to restate it to 1.25h. Pinning holds the logged slice at its
-    -- committed 60; the block's remaining honest time surfaces as an unlogged "logged
-    -- item" slice, and the 2-minute "other task" rounds to its own honest 0.
-    local before = summary.summarize_block(block_from_lines({
-      "--- log ---",
-      "00:00 logged item !S[]60",
-      "01:07 other task",
-    }))
-    t.eq(before.summary_items[1].text, "logged item")
-    t.eq(before.summary_items[1].duration, 60)
-
-    local after = summary.summarize_block(block_from_lines({
-      "--- log ---",
-      "00:00 logged item !S[]60",
-      "01:07 other task",
-      "01:09 new task",
-    }))
-    -- The logged slice holds at 60; the unlogged remainder (15) of "logged item" is a
-    -- separate row, and "other task" rounds to its own honest 0. Every section foots to
-    -- the honest block total (75).
-    t.eq(after.summary_items[1].text, "logged item")
-    t.eq(after.summary_items[1].duration, 60)
-    t.eq(after.summary_items[1].error_minutes, 7)
-    t.eq(after.summary_items[1].logged, true)
-    t.eq(after.summary_items[2].text, "logged item")
-    t.eq(after.summary_items[2].duration, 15)
-    t.eq(after.summary_items[2].logged, nil)
-    t.eq(after.summary_items[3].text, "other task")
-    t.eq(after.summary_items[3].duration, 0)
-    t.eq(after.summary_items[3].error_minutes, 2)
-    t.eq(after.activity_total, 75)
   end)
 
   t.test("logging a manually-rounded row does not move an un-frozen row", function()
@@ -717,180 +354,6 @@ return function(t)
     t.eq(by_text["thing one"].logged, nil)
     t.eq(by_text["thing one"].duration, 60)
     t.eq(by_text["thing two"].duration, 60)
-  end)
-
-  t.test("fine_grained_quantized matches the display whether or not a sibling is frozen", function()
-    -- :Daylog log commits the value fine_grained_quantized reports, so it must agree with
-    -- summarize_entries. The order-dependence bug: with thing two frozen, thing one used to
-    -- quantize to the stale whole-day target (75) here while the display showed 60 -- so
-    -- logging thing one second committed !S[]75. Both now use the frozen-aware target.
-    local function thing_one(second_line)
-      local block =
-        block_from_lines({ "--- log ---", "08:00 thing one", second_line, "10:08 done" })
-      for _, row in ipairs(summary.fine_grained_quantized(block.entries, block.quantize_minutes)) do
-        if row.text == "thing one" then
-          return row.duration
-        end
-      end
-    end
-    t.eq(thing_one("09:00 thing two round-1"), 60) -- thing two un-frozen
-    t.eq(thing_one("09:00 thing two round-1 !S[]60"), 60) -- thing two frozen: still 60, not 75
-  end)
-
-  t.test(
-    "fine_grained_quantized gives an un-frozen row the value it displays, not its own round",
-    function()
-      -- The reported bug. Three activities are committed 8 min BELOW their honest rounding (225/150/75;
-      -- honest 223/154/81), so the lone un-frozen "status" (honest 52) absorbs the leftover buckets on the
-      -- display -> 60. fine_grained must report that same 60 (what :Daylog log freezes), not status's own
-      -- honest round of 45 -- committing 45 strands a spurious 0.25h remainder.
-      local block = block_from_lines({
-        "--- log q=15 d=dec ---",
-        "08:00 a !S[x]225",
-        "08:39 a !S[x]225",
-        "09:00 a !S[x]225",
-        "09:17 a !S[x]225",
-        "09:26 b !S[x]150",
-        "09:42 b !S[x]150",
-        "11:31 b !S[x]150",
-        "12:00 a !S[x]225",
-        "13:19 a !S[x]225",
-        "13:56 a !S[x]225",
-        "14:10 a !S[x]225",
-        "14:17 c !S[x]75",
-        "14:32 c !S[x]75",
-        "15:38 status",
-        "16:30",
-      })
-      -- The display shows status at 60...
-      for _, item in ipairs(summary.summarize_block(block).summary_items) do
-        if item.text == "status" then
-          t.eq(item.duration, 60)
-        end
-      end
-      -- ...and fine_grained agrees.
-      local status
-      for _, row in ipairs(summary.fine_grained_quantized(block.entries, block.quantize_minutes)) do
-        if row.text == "status" and not row.logged then
-          status = row.duration
-        end
-      end
-      t.eq(status, 60)
-    end
-  )
-
-  t.test("logged_value_conflicts flags entries under one row that disagree on !S[]", function()
-    -- Two "build" intervals fold into one row; the fold keeps only the first value, so
-    -- disagreeing committed values are a conflict the shell must surface.
-    local block = block_from_lines({
-      "--- log ---",
-      "08:00 build !S[]60",
-      "09:00 build !S[]45",
-      "10:00 done",
-    })
-    local conflicts = summary.logged_value_conflicts(block.entries)
-    t.eq(#conflicts, 1)
-    t.eq(conflicts[1].row, 2)
-  end)
-
-  t.test("logged_value_conflicts is quiet when same-row entries agree", function()
-    local agree = block_from_lines({
-      "--- log ---",
-      "08:00 build !S[]60",
-      "09:00 build !S[]60",
-      "10:00 done",
-    })
-    t.eq(#summary.logged_value_conflicts(agree.entries), 0)
-
-    -- Different locations are different rows, so per-location values never conflict.
-    local split = block_from_lines({
-      "--- log ---",
-      "08:00 build @here !S[]60",
-      "09:00 build @there !S[]30",
-      "09:30 done",
-    })
-    t.eq(#summary.logged_value_conflicts(split.entries), 0)
-  end)
-
-  t.test(
-    "a summary commitment across locations sums into one logged row (not last-wins)",
-    function()
-      -- One activity logged across two locations, each frozen at its own committed duration. The main
-      -- section merges locations, so it must render ONE `build !S[]` row summing both slices (60 + 30 = 90)
-      -- -- not one slice's value with a phantom remainder row (the C2 last-wins bug).
-      local result = summary.summarize_block(block_from_lines({
-        "--- log ---",
-        "08:00 build @here !S[]60",
-        "09:00 build @there !S[]30",
-        "09:30 done",
-      }))
-      t.eq(#result.summary_items, 1)
-      t.eq(result.summary_items[1].text, "build")
-      t.eq(result.summary_items[1].logged, true)
-      t.eq(result.summary_items[1].duration, 90)
-      t.eq(result.summary_items[1].error_minutes, 0)
-      t.eq(result.activity_total, 90)
-      -- Each location keeps its own committed slice.
-      local by_location = {}
-      for _, item in ipairs(result.location_totals) do
-        by_location[item.location] = item.duration
-      end
-      t.eq(by_location.here, 60)
-      t.eq(by_location.there, 30)
-    end
-  )
-
-  t.test("two entries under one tag with different !T[] name-sets make two tag rows", function()
-    -- Same #obs tag, two distinct !T[] name-sets: each splits into its own tag row, and the sections
-    -- still foot to the shared activity total.
-    local result = summary.summarize_block(block_from_lines({
-      "--- log q=15 ---",
-      "08:00 first #obs !T[name1,name2]60",
-      "09:00 second #obs !T[name2]90",
-      "10:30",
-    }))
-    t.eq(#result.tag_totals, 2)
-    local by_names = {}
-    for _, row in ipairs(result.tag_totals) do
-      t.eq(row.tag, "obs")
-      by_names[table.concat(row.names or {}, ",")] = row
-    end
-    t.eq(by_names["name1,name2"].duration, 60)
-    t.eq(by_names["name1,name2"].logged, true)
-    t.eq(by_names["name1,name2"].names, { "name1", "name2" })
-    t.eq(by_names["name2"].duration, 90)
-    t.eq(by_names["name2"].logged, true)
-    t.eq(result.activity_total, 150)
-    assert_activity_totals_match(t, result)
-  end)
-
-  t.test("a named and an unnamed !T[] slice coexist under one tag without conflict", function()
-    local block = block_from_lines({
-      "--- log q=15 ---",
-      "08:00 a #obs !T[name1]60",
-      "09:00 b #obs",
-      "10:00",
-    })
-    local result = summary.summarize_block(block)
-    t.eq(#result.tag_totals, 2)
-    t.eq(result.activity_total, 120)
-    assert_activity_totals_match(t, result)
-
-    local named, plain
-    for _, row in ipairs(result.tag_totals) do
-      if row.names then
-        named = row
-      else
-        plain = row
-      end
-    end
-    t.eq(named.duration, 60)
-    t.eq(named.logged, true)
-    t.eq(named.names, { "name1" })
-    t.eq(plain.duration, 60)
-    t.eq(plain.logged, nil)
-    -- Different name-sets are independent groups, so the two !T[] slices never conflict.
-    t.eq(#summary.logging_diagnostics(block), 0)
   end)
 
   t.test(
@@ -961,25 +424,10 @@ return function(t)
     t.eq(total_duration(result.total_rows), 60)
   end)
 
-  t.test("cross-cutting contradictory commitments are diagnosed", function()
-    local block = block_from_lines({
-      "--- log q=15 ---",
-      "09:00 work #T @L !T[]120 !L[]90",
-      "10:00 stop",
-    })
-    local found = false
-    for _, diagnostic in ipairs(summary.logging_diagnostics(block)) do
-      if diagnostic.message:find("contradict", 1, true) then
-        found = true
-      end
-    end
-    t.ok(found, "expected a contradiction diagnostic")
-  end)
-
-  t.test("logging the workday with !W[] splits the totals and foots", function()
-    -- Two activities make a 120 honest workday, plus a trailing blank marking uncounted time;
-    -- !W[]90 (under the honest workday) splits the single workday total into a reported 90 and a
-    -- remaining 30, and every section still foots.
+  t.test("a !W claim states the day's total and every section foots to it", function()
+    -- Both counted entries are on the timesheet at 90 minutes; the clock measured 120, and that gap
+    -- is what every section's residual reports. The claim covers the whole counted day, so no plain
+    -- workday row remains.
     local result = summary.summarize_block(block_from_lines({
       "--- log q=15 ---",
       "08:00 a #x @o !W[]90",
@@ -987,19 +435,38 @@ return function(t)
       "10:00",
       "10:30 done",
     }))
-    t.eq(result.activity_total, 120)
+    t.eq(result.activity_total, 90)
     assert_activity_totals_match(t, result)
-    t.eq(total_duration(result.total_rows), 120)
-    local workday_logged, workday_remaining
+    t.eq(#result.total_rows, 1)
+    t.eq(result.total_rows[1].logged, true)
+    t.eq(result.total_rows[1].duration, 90)
+    t.eq(result.total_rows[1].error_minutes, 30)
+  end)
+
+  t.test("a !W claim on some entries leaves the rest a plain workday row", function()
+    -- Only the morning is on the timesheet; the afternoon stays in the plain remainder row, and the
+    -- two rows partition the day.
+    local result = summary.summarize_block(block_from_lines({
+      "--- log q=15 ---",
+      "08:00 a !W[]45",
+      "09:00 b",
+      "10:00",
+    }))
+    t.eq(#result.total_rows, 2)
+    local claimed, plain
     for _, row in ipairs(result.total_rows) do
       if row.logged then
-        workday_logged = row.duration
+        claimed = row
       else
-        workday_remaining = row.duration
+        plain = row
       end
     end
-    t.eq(workday_logged, 90) -- reported slice held at the committed value
-    t.eq(workday_remaining, 30) -- the unlogged remainder of the workday
+    t.eq(claimed.duration, 45)
+    t.eq(claimed.error_minutes, 15)
+    t.eq(plain.duration, 60)
+    t.eq(plain.error_minutes, 0)
+    t.eq(result.activity_total, 105)
+    assert_activity_totals_match(t, result)
   end)
 
   t.test("a blank entry (bare timestamp) is uncounted -- excluded from every section", function()
@@ -1033,11 +500,12 @@ return function(t)
       "10:00 done",
     }, 2)
 
-    t.eq(summary.summarize_block(block), {
+    t.eq(shape(summary.summarize_block(block)), {
       summary_items = {
         {
           text = "call",
           tag = "sales",
+          location = "client",
           duration = 60,
           unrounded_duration = 40,
           error_minutes = -20,
@@ -1046,6 +514,7 @@ return function(t)
         {
           text = "plan",
           tag = nil,
+          location = "office",
           duration = 0,
           unrounded_duration = 20,
           error_minutes = 20,
@@ -1101,13 +570,14 @@ return function(t)
       "08:51 done",
     })
 
-    local quantized = summary.summarize_block(block)
+    local quantized = shape(summary.summarize_block(block))
 
     t.eq(quantized, {
       summary_items = {
         {
           text = "alpha",
           tag = "A",
+          location = "x",
           duration = 30,
           unrounded_duration = 17,
           error_minutes = -13,
@@ -1116,6 +586,7 @@ return function(t)
         {
           text = "beta",
           tag = "B",
+          location = "y",
           duration = 30,
           unrounded_duration = 17,
           error_minutes = -13,
@@ -1124,6 +595,7 @@ return function(t)
         {
           text = "gamma",
           tag = "C",
+          location = "x",
           duration = 0,
           unrounded_duration = 17,
           error_minutes = 17,
@@ -1176,59 +648,6 @@ return function(t)
     })
 
     assert_activity_totals_match(t, quantized)
-  end)
-
-  t.test("quantized summary folds same text and tag across locations", function()
-    local block = block_from_lines({
-      "--- log #ClientA q=30 ---",
-      "08:00 planning @office",
-      "08:17 planning @home",
-      "08:34 done",
-    })
-
-    t.eq(summary.summarize_block(block), {
-      summary_items = {
-        {
-          text = "planning",
-          tag = "ClientA",
-          duration = 30,
-          unrounded_duration = 34,
-          error_minutes = 4,
-          source_entry_rows = { 2, 3 },
-        },
-      },
-      tag_totals = {
-        {
-          tag = "ClientA",
-          duration = 30,
-          unrounded_duration = 34,
-          error_minutes = 4,
-        },
-      },
-      location_totals = {
-        {
-          location = "office",
-          duration = 30,
-          unrounded_duration = 17,
-          error_minutes = -13,
-        },
-        {
-          location = "home",
-          duration = 0,
-          unrounded_duration = 17,
-          error_minutes = 17,
-        },
-      },
-      total_rows = {
-        {
-          duration = 30,
-          unrounded_duration = 34,
-          error_minutes = 4,
-        },
-      },
-      activity_total = 30,
-      activity_error_minutes = 4,
-    })
   end)
 
   t.test("combined quantized summaries preserve daily rounding and sum errors", function()
@@ -1642,87 +1061,6 @@ return function(t)
     end
   )
 
-  t.test("summary ignores location for main item identity and keeps totals unchanged", function()
-    local block = block_from_lines({
-      "--- log #ClientA @office ---",
-      "08:00 planning",
-      "10:00 implementation @home",
-      "11:00 planning",
-      "13:00 internal meeting #internal",
-      "14:00 client followup #ClientA @client",
-      "17:00 done",
-    })
-
-    t.eq(summarize_exact(block), {
-      summary_items = {
-        {
-          text = "planning",
-          tag = "ClientA",
-          duration = 240,
-          unrounded_duration = 240,
-          source_entry_rows = { 2, 4 },
-        },
-        {
-          text = "client followup",
-          tag = "ClientA",
-          duration = 180,
-          unrounded_duration = 180,
-          source_entry_rows = { 6 },
-        },
-        {
-          text = "implementation",
-          tag = "ClientA",
-          duration = 60,
-          unrounded_duration = 60,
-          source_entry_rows = { 3 },
-        },
-        {
-          text = "internal meeting",
-          tag = "internal",
-          duration = 60,
-          unrounded_duration = 60,
-          source_entry_rows = { 5 },
-        },
-      },
-      tag_totals = {
-        {
-          tag = "ClientA",
-          duration = 480,
-          unrounded_duration = 480,
-        },
-        {
-          tag = "internal",
-          duration = 60,
-          unrounded_duration = 60,
-        },
-      },
-      location_totals = {
-        {
-          location = "home",
-          duration = 240,
-          unrounded_duration = 240,
-        },
-        {
-          location = "client",
-          duration = 180,
-          unrounded_duration = 180,
-        },
-        {
-          location = "office",
-          duration = 120,
-          unrounded_duration = 120,
-        },
-      },
-      total_rows = {
-        {
-          duration = 540,
-          unrounded_duration = 540,
-        },
-      },
-      activity_total = 540,
-    })
-  end)
-
   t.test(
     "summary keeps same-text different-tag rows adjacent and sorts by combined duration",
     function()
@@ -1906,6 +1244,8 @@ return function(t)
   end)
 
   t.test("quantized summary preserves source_entry_rows on visible main rows", function()
+    -- One activity in two places is two rows -- the granule is (label, tag, location) -- and each
+    -- carries the entries behind it.
     local block = block_from_lines({
       "--- log #ClientA q=30 ---",
       "08:00 planning @office",
@@ -1915,8 +1255,23 @@ return function(t)
 
     local items = summary.summarize_block(block).summary_items
 
-    t.eq(#items, 1)
+    t.eq(#items, 2)
     t.eq(items[1].text, "planning")
+    t.eq(items[1].source_entry_rows, { 2 })
+    t.eq(items[2].source_entry_rows, { 3 })
+  end)
+
+  t.test("one activity in one place stays a single row carrying both entries", function()
+    local block = block_from_lines({
+      "--- log #ClientA q=30 ---",
+      "08:00 planning @office",
+      "08:17 planning @office",
+      "08:34 done",
+    })
+
+    local items = summary.summarize_block(block).summary_items
+
+    t.eq(#items, 1)
     t.eq(items[1].source_entry_rows, { 2, 3 })
   end)
 
@@ -2073,133 +1428,4 @@ return function(t)
       },
     })
   end)
-
-  t.test("logged_value_conflicts keys on the resolved alias label", function()
-    -- Two differently-described entries aliased to one label fold into one row, so
-    -- disagreeing committed values still conflict (the diagnostic follows the alias).
-    local block = block_from_lines({
-      "--- log ---",
-      "08:00 fix login => BUG-1 !S[]60",
-      "09:00 chase timeout => BUG-1 !S[]45",
-      "10:00 done",
-    })
-    local conflicts = summary.logged_value_conflicts(block.entries)
-    t.eq(#conflicts, 1)
-    t.eq(conflicts[1].row, 2)
-  end)
-
-  t.test(
-    "heavy over-commitment: an exactly-met cell perturbed by another shift still foots",
-    function()
-      -- Regression for a latent 0.16.0 over-count. An !S value the honest pass already meets exactly was
-      -- not tracked as a commitment, so a later commitment's down-shift could steal a bucket from its
-      -- granule; the display then billed the full committed value against a now-smaller cell, over-counting
-      -- the summary section by one bucket while feasible stayed true. These commitments are genuinely
-      -- contradictory, so the block must fall back to honest quantization and every section must foot.
-      local block = block_from_lines({
-        "--- log q=45 d=hm ---",
-        "00:11 spike1 #planninga @planningd !S[]L[]W[]",
-        "01:14 refactor2 #- @debugc !S[]90",
-        "02:17 spike1 #planninga @- round-2 !S[]135 !T[] !L[]180 !W[]",
-        "03:20 refactor2 #- @reviewa round-2 !S[n2,n1]90L[n1]180W[]",
-        "04:31 spike1 #planninga @planningd !S[]T[n1,n3]225W[]225",
-        "05:43 testing3 #planninga @reviewa !W[]",
-        "05:57 testing3 #ooo @researchb !S[]270 !T[]135 !W[]135",
-        "06:21 refactor2 #planninga @planningd !S[] !L[n2]180",
-        "06:31 review4 #planninga !W[]135",
-        "08:53 testing3 #planninga !S[]90T[]45L[]225W[]45",
-        "09:36 oncall5 #- !S[]L[n1,n2]W[n1,n2]0",
-        "09:43 oncall5 #planninga @reviewa round-2 !T[n2]45",
-        "10:23 lunch6",
-        "10:41 triage7 #planninga @researchb !S[]225W[n2,n3]",
-        "10:52 spike1 #planninga @debugc !T[]90 !W[n1,n3]135",
-        "11:05 lunch6 !S[]180T[]45",
-        "11:09 refactor2 #ooo @reviewa !S[]T[]225L[]225",
-        "12:02 pairing8 #planninga !T[]180L[n1]180W[]",
-        "12:57 pairing8 #planninga @- !W[]135",
-        "13:35 review4 #planninga !S[]45 !L[]45",
-        "14:51 lunch6 #ooo !L[]270",
-        "14:56 docs9 #planninga @planningd",
-        "15:28 lunch10 #planninga @researchb !S[]L[]90W[]",
-        "15:36 testing11 #ooo !W[]0",
-        "17:49 testing11 #planninga @researchb !S[]0 !L[]225",
-        "18:52 spike1 #planninga !S[]",
-        "19:34 lunch10 #planninga @planningd !S[]135T[]",
-        "20:09 testing3 #planninga round-1",
-        "20:26 retro12 #- round-2 !T[]135 !L[]",
-        "20:36 oncall5 #planninga !S[n2,n3]90 !T[n2,n3] !L[]45",
-        "21:16 grooming13 #planninga @reviewa !T[]270 !L[]135",
-        "21:50 lunch14 #planninga !S[n3]90W[]180",
-        "22:29 retro12 round-2 !L[]135",
-        "23:50 deploy15 #planninga",
-      })
-      local s = summary.summarize_block(block)
-      local function section_sum(rows)
-        local n = 0
-        for _, r in ipairs(rows) do
-          n = n + r.duration
-        end
-        return n
-      end
-      t.eq(section_sum(s.summary_items), s.activity_total)
-      t.eq(section_sum(s.tag_totals), s.activity_total)
-      t.eq(section_sum(s.location_totals), s.activity_total)
-      t.eq(section_sum(s.total_rows), s.activity_total)
-
-      -- Genuinely-contradictory commitments are surfaced (honest fallback), not silently over-counted.
-      local contradicts = false
-      for _, d in ipairs(summary.logging_diagnostics(block)) do
-        if d.message:find("contradict", 1, true) then
-          contradicts = true
-        end
-      end
-      t.ok(contradicts, "the infeasible commitments raise the contradiction diagnostic")
-    end
-  )
-
-  t.test("a non-positive quantize falls back to the default instead of dividing by zero", function()
-    -- 0 is truthy in Lua, so `q or DEFAULT` used to pass it straight into the quantizer -> nan durations.
-    local entries = analyze.get_active_log(analyze.analyze(document.parse({
-      "--- log ---",
-      "08:00 x",
-      "09:00 done",
-    }))).entries
-    local zero = summary.quantized_granules(entries, 0)
-    local default = summary.quantized_granules(entries, nil)
-    t.eq(zero[1].duration, 60, "q=0 uses the default 15-minute bucket (60 min is exact)")
-    t.eq(zero[1].duration, default[1].duration, "q=0 matches the nil (default) bucket")
-  end)
-
-  t.test(
-    "a per-location !S unmet by a cross-cutting commitment falls back honest and warns",
-    function()
-      -- foo@a !S[]30 + foo@b !S[]30 = 60 of #x, but #x !T[]45 caps the tag at 45, so the commitments contradict.
-      -- The per-location feasibility check (not the location-aggregated one) catches it, so the summary
-      -- shows the real 30 minutes instead of a masked inflated 60, warns, and fine_grained never drifts.
-      local block = block_from_lines({
-        "--- log q=15 ---",
-        "08:00 foo #x @a !S[]30",
-        "08:15 foo #x @b !S[]30 !T[]45 !L[]45",
-        "08:30 done",
-      })
-      t.eq(
-        summary.summarize_block(block).activity_total,
-        30,
-        "foots to the real 30 min, not a masked 60"
-      )
-
-      local contradicts = false
-      for _, d in ipairs(summary.logging_diagnostics(block)) do
-        if d.message:find("contradict", 1, true) then
-          contradicts = true
-        end
-      end
-      t.ok(contradicts, "the contradiction is surfaced")
-
-      -- Under the honest fallback no slice is held at a committed value, so fine_grained can't drift.
-      for _, r in ipairs(summary.fine_grained_quantized(block.entries, 15)) do
-        t.eq(r.logged_minutes, nil, "no committed slice under the honest fallback")
-      end
-    end
-  )
 end
